@@ -1,0 +1,972 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ panorama.name }} - Plot Marker</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Syne:wght@400;500;600;700&display=swap" rel="stylesheet">
+    {% if panorama.is_360 %}
+    <script src="https://cdn.jsdelivr.net/npm/three@0.155.0/build/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/panolens@0.19.0/build/panolens.min.js"></script>
+    {% endif %}
+    <style>
+        :root {
+            --color-bg: #0a0a0b;
+            --color-text: #f5f5f0;
+            --color-accent: #c9a962;
+            --color-accent-dim: rgba(201, 169, 98, 0.3);
+            --color-muted: #6b6b6b;
+            --color-success: #4ade80;
+            --color-danger: #ef4444;
+            --font-display: 'Instrument Serif', Georgia, serif;
+            --font-body: 'Syne', sans-serif;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html, body { height: 100%; overflow: hidden; }
+        body { font-family: var(--font-body); background: var(--color-bg); color: var(--color-text); touch-action: none; }
+
+        .image-container { width: 100vw; height: 100vh; overflow: hidden; position: relative; cursor: grab; background: var(--color-bg); }
+        .image-container.dragging { cursor: grabbing; }
+        .image-container.edit-mode { cursor: crosshair; }
+
+        .image-wrapper { position: absolute; top: 50%; left: 50%; transform-origin: center center; transition: transform 0.1s ease-out; will-change: transform; }
+        .image-wrapper.no-transition { transition: none; }
+
+        .panorama-image { display: block; max-width: none; user-select: none; -webkit-user-drag: none; pointer-events: none; }
+
+        .drawing-canvas { position: absolute; top: 0; left: 0; pointer-events: none; }
+        .image-container.edit-mode .drawing-canvas { pointer-events: auto; }
+
+        .plots-overlay { position: absolute; top: 0; left: 0; pointer-events: none; }
+        .image-container:not(.edit-mode) .plots-overlay { pointer-events: auto; }
+        .image-container.edit-mode .plots-overlay { pointer-events: none; }
+
+        .overlay-gradient { position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 5;
+            background: linear-gradient(to bottom, rgba(10, 10, 11, 0.3) 0%, transparent 10%, transparent 90%, rgba(10, 10, 11, 0.4) 100%),
+                        linear-gradient(to right, rgba(10, 10, 11, 0.2) 0%, transparent 5%, transparent 95%, rgba(10, 10, 11, 0.2) 100%); }
+
+        .ui-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 10; pointer-events: none; display: flex; flex-direction: column; justify-content: space-between; padding: 1.5rem 2rem; }
+
+        .header { display: flex; justify-content: space-between; align-items: flex-start; }
+        .header-left { display: flex; align-items: center; gap: 1rem; }
+        
+        .back-btn { pointer-events: auto; background: rgba(10, 10, 11, 0.8); border: 1px solid var(--color-accent-dim); color: var(--color-text); padding: 0.5rem 0.75rem; border-radius: 6px; cursor: pointer; font-family: var(--font-body); font-size: 0.8rem; display: flex; align-items: center; gap: 0.5rem; transition: all 0.2s; text-decoration: none; backdrop-filter: blur(10px); }
+        .back-btn:hover { border-color: var(--color-accent); background: rgba(201, 169, 98, 0.1); }
+
+        .project-info { background: rgba(10, 10, 11, 0.8); padding: 0.5rem 1rem; border-radius: 6px; backdrop-filter: blur(10px); }
+        .project-name { font-family: var(--font-display); font-size: 1.1rem; font-style: italic; }
+
+        .header-controls { display: flex; gap: 0.75rem; pointer-events: auto; }
+
+        .edit-toggle { display: flex; align-items: center; gap: 0.5rem; background: rgba(10, 10, 11, 0.8); border: 1px solid var(--color-accent-dim); color: var(--color-text); padding: 0.6rem 1rem; border-radius: 6px; cursor: pointer; font-family: var(--font-body); font-size: 0.75rem; letter-spacing: 0.05em; text-transform: uppercase; transition: all 0.2s ease; backdrop-filter: blur(10px); }
+        .edit-toggle:hover { border-color: var(--color-accent); background: rgba(201, 169, 98, 0.1); }
+        .edit-toggle.active { background: rgba(201, 169, 98, 0.2); border-color: var(--color-accent); color: var(--color-accent); }
+
+        .share-btn { display: flex; align-items: center; gap: 0.5rem; background: rgba(10, 10, 11, 0.8); border: 1px solid var(--color-accent-dim); color: var(--color-text); padding: 0.6rem 1rem; border-radius: 6px; cursor: pointer; font-family: var(--font-body); font-size: 0.75rem; transition: all 0.2s ease; backdrop-filter: blur(10px); }
+        .share-btn:hover { border-color: var(--color-accent); background: rgba(201, 169, 98, 0.1); }
+
+        .footer { display: flex; justify-content: space-between; align-items: flex-end; }
+
+        .zoom-controls { display: flex; flex-direction: column; gap: 0.5rem; pointer-events: auto; background: rgba(10, 10, 11, 0.8); padding: 0.75rem; border-radius: 8px; backdrop-filter: blur(10px); }
+        .zoom-btn { width: 40px; height: 40px; background: rgba(201, 169, 98, 0.2); border: 1px solid var(--color-accent-dim); color: var(--color-accent); font-size: 1.2rem; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s ease; border-radius: 4px; }
+        .zoom-btn:hover { background: rgba(201, 169, 98, 0.3); border-color: var(--color-accent); }
+        .zoom-info { text-align: center; font-size: 0.7rem; color: var(--color-muted); margin-top: 0.5rem; }
+
+        .edit-panel { display: none; flex-direction: column; gap: 0.75rem; pointer-events: auto; background: rgba(10, 10, 11, 0.9); padding: 1.25rem; border-radius: 8px; backdrop-filter: blur(10px); border: 1px solid var(--color-accent-dim); max-width: 280px; max-height: 60vh; overflow-y: auto; }
+        .edit-panel.visible { display: flex; }
+        .edit-panel-title { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.15em; color: var(--color-accent); }
+        .edit-instruction { font-size: 0.75rem; color: var(--color-muted); line-height: 1.5; }
+        .edit-actions { display: flex; gap: 0.5rem; margin-top: 0.5rem; }
+
+        .edit-btn { flex: 1; padding: 0.5rem 0.75rem; border-radius: 4px; font-size: 0.7rem; font-family: var(--font-body); cursor: pointer; transition: all 0.2s ease; text-transform: uppercase; letter-spacing: 0.05em; border: none; }
+        .edit-btn.primary { background: var(--color-accent); border: 1px solid var(--color-accent); color: var(--color-bg); }
+        .edit-btn.primary:hover:not(:disabled) { background: #d4b06e; }
+        .edit-btn:disabled { opacity: 0.5; cursor: not-allowed !important; }
+        .edit-btn.secondary { background: transparent; border: 1px solid var(--color-muted); color: var(--color-muted); }
+        .edit-btn.secondary:hover { border-color: var(--color-text); color: var(--color-text); }
+
+        .plots-list { max-height: 200px; overflow-y: auto; margin-top: 0.5rem; }
+        .plot-item { display: flex; justify-content: space-between; align-items: center; padding: 0.5rem; background: rgba(255, 255, 255, 0.05); border-radius: 4px; margin-bottom: 0.5rem; font-size: 0.75rem; }
+        .plot-item-name { display: flex; align-items: center; gap: 0.5rem; }
+        .plot-item-color { width: 12px; height: 12px; border-radius: 2px; }
+        .plot-item-delete { background: none; border: none; color: var(--color-danger); cursor: pointer; font-size: 0.9rem; opacity: 0.6; transition: opacity 0.2s; }
+        .plot-item-delete:hover { opacity: 1; }
+
+        /* 360° Adjustment Panel */
+        .adjustment-panel { display: flex; flex-direction: column; gap: 1rem; pointer-events: auto; background: rgba(10, 10, 11, 0.9); padding: 1.25rem; border-radius: 8px; backdrop-filter: blur(10px); border: 1px solid var(--color-accent-dim); max-width: 320px; max-height: 70vh; overflow-y: auto; }
+        .adjustment-group { display: flex; flex-direction: column; gap: 0.5rem; }
+        .adjustment-label { display: flex; justify-content: space-between; align-items: center; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--color-muted); }
+        .adjustment-value { color: var(--color-accent); font-weight: 600; font-variant-numeric: tabular-nums; }
+        .adjustment-slider { width: 100%; height: 4px; background: rgba(255, 255, 255, 0.1); border-radius: 2px; outline: none; -webkit-appearance: none; appearance: none; }
+        .adjustment-slider::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 14px; height: 14px; background: var(--color-accent); border-radius: 50%; cursor: pointer; }
+        .adjustment-slider::-moz-range-thumb { width: 14px; height: 14px; background: var(--color-accent); border-radius: 50%; cursor: pointer; border: none; }
+        .preset-buttons { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem; margin-top: 0.5rem; }
+        .preset-btn { padding: 0.5rem 0.75rem; background: rgba(201, 169, 98, 0.1); border: 1px solid var(--color-accent-dim); color: var(--color-text); border-radius: 4px; font-size: 0.7rem; font-family: var(--font-body); cursor: pointer; transition: all 0.2s; text-transform: uppercase; letter-spacing: 0.05em; }
+        .preset-btn:hover { background: rgba(201, 169, 98, 0.2); border-color: var(--color-accent); }
+        .reset-btn { grid-column: 1 / -1; background: rgba(201, 169, 98, 0.2); border-color: var(--color-accent); color: var(--color-accent); }
+
+        .modal-backdrop { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.8); z-index: 100; display: none; align-items: center; justify-content: center; backdrop-filter: blur(5px); }
+        .modal-backdrop.visible { display: flex; }
+        .modal { background: #1a1a1b; border-radius: 12px; padding: 2rem; max-width: 400px; width: 90%; border: 1px solid var(--color-accent-dim); box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5); }
+        .modal-title { font-family: var(--font-display); font-size: 1.5rem; font-style: italic; margin-bottom: 1.5rem; color: var(--color-accent); }
+
+        .form-group { margin-bottom: 1.25rem; }
+        .form-label { display: block; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--color-muted); margin-bottom: 0.5rem; }
+        .form-input { width: 100%; padding: 0.75rem; background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 6px; color: var(--color-text); font-family: var(--font-body); font-size: 0.9rem; transition: border-color 0.2s; }
+        .form-input:focus { outline: none; border-color: var(--color-accent); }
+        textarea.form-input { resize: vertical; min-height: 80px; }
+
+        .color-options { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+        .color-option { width: 36px; height: 36px; border-radius: 6px; cursor: pointer; border: 2px solid transparent; transition: all 0.2s ease; }
+        .color-option:hover { transform: scale(1.1); }
+        .color-option.selected { border-color: var(--color-text); box-shadow: 0 0 10px rgba(255, 255, 255, 0.3); }
+
+        .modal-actions { display: flex; gap: 0.75rem; margin-top: 1.5rem; }
+        .modal-btn { flex: 1; padding: 0.75rem 1rem; border-radius: 6px; font-size: 0.85rem; font-family: var(--font-body); cursor: pointer; transition: all 0.2s ease; text-transform: uppercase; letter-spacing: 0.05em; border: none; }
+        .modal-btn.primary { background: var(--color-accent); color: var(--color-bg); }
+        .modal-btn.primary:hover { background: #d4b06e; }
+        .modal-btn.secondary { background: transparent; border: 1px solid var(--color-muted); color: var(--color-muted); }
+        .modal-btn.secondary:hover { border-color: var(--color-text); color: var(--color-text); }
+
+        .details-modal .modal { max-width: 450px; }
+        .details-header { display: flex; align-items: center; gap: 1rem; margin-bottom: 1.5rem; }
+        .details-color { width: 50px; height: 50px; border-radius: 8px; }
+        .details-title { font-family: var(--font-display); font-size: 1.75rem; font-style: italic; color: var(--color-text); }
+        .details-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+        .detail-item { background: rgba(255, 255, 255, 0.05); padding: 1rem; border-radius: 8px; }
+        .detail-item.full-width { grid-column: 1 / -1; }
+        .detail-label { font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--color-muted); margin-bottom: 0.35rem; }
+        .detail-value { font-size: 1.1rem; color: var(--color-text); }
+        .detail-value.price { color: var(--color-accent); font-family: var(--font-display); font-size: 1.4rem; }
+        .detail-value.description { font-size: 0.9rem; line-height: 1.5; color: var(--color-muted); }
+
+        .loading-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: var(--color-bg); z-index: 200; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1.5rem; transition: opacity 0.6s ease, visibility 0.6s ease; }
+        .loading-overlay.hidden { opacity: 0; visibility: hidden; }
+        .loading-text { font-family: var(--font-display); font-size: 1.2rem; font-style: italic; color: var(--color-accent); }
+        .loading-spinner { width: 40px; height: 40px; border: 2px solid var(--color-accent-dim); border-top-color: var(--color-accent); border-radius: 50%; animation: spin 1s linear infinite; }
+
+        .toast-container { position: fixed; bottom: 2rem; right: 2rem; z-index: 300; display: flex; flex-direction: column; gap: 0.5rem; }
+        .toast { background: #1a1a1b; border: 1px solid var(--color-accent); border-radius: 8px; padding: 0.75rem 1rem; font-size: 0.85rem; animation: slideIn 0.3s ease; }
+        .toast.error { border-color: var(--color-danger); }
+
+        @keyframes spin { to { transform: rotate(360deg); } }
+        @keyframes slideIn { from { opacity: 0; transform: translateX(100%); } to { opacity: 1; transform: translateX(0); } }
+
+        @media (max-width: 768px) {
+            .ui-overlay { padding: 1rem; }
+            .project-info { display: none; }
+            .details-grid { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+    <div class="loading-overlay" id="loading">
+        <div class="loading-spinner"></div>
+        <div class="loading-text">Loading panorama...</div>
+    </div>
+
+    {% if panorama.is_360 %}
+    <div id="psv-container" style="width: 100vw; height: 100vh;"></div>
+    {% else %}
+    <div class="image-container" id="image-container">
+        <div class="image-wrapper" id="image-wrapper">
+            <img src="/uploads/{{ panorama.filename }}" alt="{{ panorama.name }}" class="panorama-image" id="panorama-image">
+            <canvas class="drawing-canvas" id="drawing-canvas"></canvas>
+            <svg class="plots-overlay" id="plots-overlay"></svg>
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="overlay-gradient"></div>
+
+    <div class="ui-overlay">
+        <header class="header">
+            <div class="header-left">
+                <a href="/" class="back-btn">← Back</a>
+                <div class="project-info">
+                    <div class="project-name">{{ panorama.name }}</div>
+                </div>
+            </div>
+            <div class="header-controls">
+                <button class="share-btn" id="share-btn">
+                    <span>🔗</span>
+                    <span>Share</span>
+                </button>
+                <button class="edit-toggle" id="edit-toggle">
+                    <span>✏️</span>
+                    <span id="edit-toggle-text">Edit Mode</span>
+                </button>
+            </div>
+        </header>
+
+        <footer class="footer">
+            <div class="zoom-controls">
+                <button class="zoom-btn" id="zoom-in">+</button>
+                <button class="zoom-btn" id="zoom-out">−</button>
+                <button class="zoom-btn" id="zoom-reset" style="font-size: 0.9rem;">⌂</button>
+                <div class="zoom-info" id="zoom-level">100%</div>
+            </div>
+
+            {% if panorama.is_360 %}
+            <div class="adjustment-panel" id="adjustment-panel">
+                <div class="edit-panel-title">360° View Adjustment</div>
+                
+                <div class="adjustment-group">
+                    <div class="adjustment-label">
+                        <span>Pitch (Up/Down)</span>
+                        <span class="adjustment-value" id="pitch-value">-30°</span>
+                    </div>
+                    <input type="range" class="adjustment-slider" id="pitch-slider" min="-90" max="90" value="-30" step="1">
+                </div>
+                
+                <div class="adjustment-group">
+                    <div class="adjustment-label">
+                        <span>Yaw (Left/Right)</span>
+                        <span class="adjustment-value" id="yaw-value">0°</span>
+                    </div>
+                    <input type="range" class="adjustment-slider" id="yaw-slider" min="-180" max="180" value="0" step="1">
+                </div>
+                
+                <div class="adjustment-group">
+                    <div class="adjustment-label">
+                        <span>Roll (Tilt)</span>
+                        <span class="adjustment-value" id="roll-value">0°</span>
+                    </div>
+                    <input type="range" class="adjustment-slider" id="roll-slider" min="-30" max="30" value="0" step="1">
+                </div>
+                
+                <div class="adjustment-group">
+                    <div class="adjustment-label">
+                        <span>Field of View</span>
+                        <span class="adjustment-value" id="fov-value">75°</span>
+                    </div>
+                    <input type="range" class="adjustment-slider" id="fov-slider" min="30" max="150" value="75" step="1">
+                </div>
+                
+                <div class="preset-buttons">
+                    <button class="preset-btn" id="top-view">Top View</button>
+                    <button class="preset-btn" id="horizon-view">Horizon</button>
+                    <button class="preset-btn" id="ground-view">Ground</button>
+                    <button class="preset-btn reset-btn" id="reset-view">Reset View</button>
+                </div>
+            </div>
+            {% else %}
+            <div class="edit-panel" id="edit-panel">
+                <div class="edit-panel-title">Plot Drawing</div>
+                <div class="edit-instruction" id="edit-instruction">Click on the image to start drawing a plot boundary.</div>
+                <div class="edit-actions">
+                    <button class="edit-btn secondary" id="cancel-drawing">Cancel</button>
+                    <button class="edit-btn primary" id="complete-drawing" disabled>Complete</button>
+                </div>
+                
+                <div class="edit-panel-title" style="margin-top: 1rem;">Saved Plots</div>
+                <div class="plots-list" id="plots-list">
+                    <div class="edit-instruction" style="font-style: italic;">Loading...</div>
+                </div>
+            </div>
+            {% endif %}
+
+            <div style="width: 200px;"></div>
+        </footer>
+    </div>
+
+    <div class="modal-backdrop" id="plot-form-modal">
+        <div class="modal">
+            <div class="modal-title">Define Plot</div>
+            <div class="form-group">
+                <label class="form-label">Plot Name *</label>
+                <input type="text" class="form-input" id="plot-name" placeholder="e.g., Plot A-12">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Area (sq ft)</label>
+                <input type="text" class="form-input" id="plot-area" placeholder="e.g., 2,400">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Price</label>
+                <input type="text" class="form-input" id="plot-price" placeholder="e.g., $125,000">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Status</label>
+                <select class="form-input" id="plot-status">
+                    <option value="available">Available</option>
+                    <option value="reserved">Reserved</option>
+                    <option value="sold">Sold</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Description</label>
+                <textarea class="form-input" id="plot-description" placeholder="Add any additional details..."></textarea>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Color Theme</label>
+                <div class="color-options" id="color-options">
+                    <div class="color-option selected" data-color="emerald" style="background: linear-gradient(135deg, #10b981, #059669);"></div>
+                    <div class="color-option" data-color="blue" style="background: linear-gradient(135deg, #3b82f6, #1d4ed8);"></div>
+                    <div class="color-option" data-color="purple" style="background: linear-gradient(135deg, #8b5cf6, #6d28d9);"></div>
+                    <div class="color-option" data-color="amber" style="background: linear-gradient(135deg, #f59e0b, #d97706);"></div>
+                    <div class="color-option" data-color="rose" style="background: linear-gradient(135deg, #f43f5e, #be123c);"></div>
+                    <div class="color-option" data-color="cyan" style="background: linear-gradient(135deg, #06b6d4, #0891b2);"></div>
+                    <div class="color-option" data-color="lime" style="background: linear-gradient(135deg, #84cc16, #65a30d);"></div>
+                    <div class="color-option" data-color="orange" style="background: linear-gradient(135deg, #f97316, #ea580c);"></div>
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button class="modal-btn secondary" id="cancel-plot">Cancel</button>
+                <button class="modal-btn primary" id="save-plot">Save Plot</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-backdrop details-modal" id="plot-details-modal">
+        <div class="modal">
+            <div class="details-header">
+                <div class="details-color" id="details-color"></div>
+                <div class="details-title" id="details-title">Plot Name</div>
+            </div>
+            <div class="details-grid">
+                <div class="detail-item">
+                    <div class="detail-label">Area</div>
+                    <div class="detail-value" id="details-area">—</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Status</div>
+                    <div class="detail-value" id="details-status">—</div>
+                </div>
+                <div class="detail-item full-width">
+                    <div class="detail-label">Price</div>
+                    <div class="detail-value price" id="details-price">—</div>
+                </div>
+                <div class="detail-item full-width" id="details-description-container">
+                    <div class="detail-label">Description</div>
+                    <div class="detail-value description" id="details-description">—</div>
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button class="modal-btn secondary" id="close-details">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-backdrop share-modal" id="share-modal">
+        <div class="modal">
+            <div style="font-family: var(--font-display); font-size: 1.5rem; font-style: italic; margin-bottom: 1rem; color: var(--color-accent);">Share View-Only Link</div>
+            <div style="color: var(--color-muted); margin-bottom: 1rem; line-height: 1.6;">
+                Share this link with clients to give them view-only access (no edit controls).
+            </div>
+            <div style="background: rgba(255, 255, 255, 0.05); border-radius: 8px; padding: 1rem; margin: 1rem 0;">
+                <div style="font-family: monospace; font-size: 0.85rem; color: var(--color-accent); word-break: break-all;" id="share-url"></div>
+            </div>
+            <button class="modal-btn primary" id="copy-share-btn" style="width: 100%; margin-bottom: 1rem;">Copy Link</button>
+            <div class="modal-actions">
+                <button class="modal-btn secondary" id="close-share">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="toast-container" id="toast-container"></div>
+
+    <script>
+        const PANORAMA_ID = {{ panorama.id }};
+        const IS_360 = {{ 1 if panorama.is_360 else 0 }};
+        
+        const loading = document.getElementById('loading');
+        const editToggle = document.getElementById('edit-toggle');
+        const editToggleText = document.getElementById('edit-toggle-text');
+        const editPanel = document.getElementById('edit-panel');
+        const editInstruction = document.getElementById('edit-instruction');
+        const cancelDrawingBtn = document.getElementById('cancel-drawing');
+        const completeDrawingBtn = document.getElementById('complete-drawing');
+        const plotsList = document.getElementById('plots-list');
+        const plotFormModal = document.getElementById('plot-form-modal');
+        const plotDetailsModal = document.getElementById('plot-details-modal');
+        const toastContainer = document.getElementById('toast-container');
+
+        // Shared variables and functions (available in both modes)
+        let plots = [];
+        let isEditMode = false;
+        
+        const colorGradients = {
+            emerald: { start: '#10b981', end: '#059669', fill: 'rgba(16, 185, 129, 0.35)' },
+            blue: { start: '#3b82f6', end: '#1d4ed8', fill: 'rgba(59, 130, 246, 0.35)' },
+            purple: { start: '#8b5cf6', end: '#6d28d9', fill: 'rgba(139, 92, 246, 0.35)' },
+            amber: { start: '#f59e0b', end: '#d97706', fill: 'rgba(245, 158, 11, 0.35)' },
+            rose: { start: '#f43f5e', end: '#be123c', fill: 'rgba(244, 63, 94, 0.35)' },
+            cyan: { start: '#06b6d4', end: '#0891b2', fill: 'rgba(6, 182, 212, 0.35)' },
+            lime: { start: '#84cc16', end: '#65a30d', fill: 'rgba(132, 204, 22, 0.35)' },
+            orange: { start: '#f97316', end: '#ea580c', fill: 'rgba(249, 115, 22, 0.35)' }
+        };
+
+        async function loadPlots() {
+            try {
+                const response = await fetch(`/api/panoramas/${PANORAMA_ID}/plots`);
+                plots = await response.json();
+                {% if not panorama.is_360 %}
+                renderPlots();
+                {% endif %}
+                updatePlotsList();
+            } catch (error) {
+                console.error('Failed to load plots:', error);
+            }
+        }
+
+        function updatePlotsList() {
+            if (plots.length === 0) {
+                plotsList.innerHTML = '<div class="edit-instruction" style="font-style: italic;">No plots created yet</div>';
+                return;
+            }
+
+            plotsList.innerHTML = plots.map(plot => `
+                <div class="plot-item">
+                    <div class="plot-item-name">
+                        <div class="plot-item-color" style="background: linear-gradient(135deg, ${(colorGradients[plot.color] || colorGradients.emerald).start}, ${(colorGradients[plot.color] || colorGradients.emerald).end});"></div>
+                        <span>${plot.name}</span>
+                    </div>
+                    <button class="plot-item-delete" data-id="${plot.id}" title="Delete plot">×</button>
+                </div>
+            `).join('');
+
+            plotsList.querySelectorAll('.plot-item-delete').forEach(btn => {
+                btn.addEventListener('click', async () => {
+                    const id = btn.dataset.id;
+                    try {
+                        await fetch(`/api/plots/${id}`, { method: 'DELETE' });
+                        showToast('Plot deleted');
+                        loadPlots();
+                    } catch (error) {
+                        showToast('Failed to delete plot', 'error');
+                    }
+                });
+            });
+        }
+
+        function showPlotDetails(plot) {
+            const colors = colorGradients[plot.color] || colorGradients.emerald;
+            document.getElementById('details-color').style.background = `linear-gradient(135deg, ${colors.start}, ${colors.end})`;
+            document.getElementById('details-title').textContent = plot.name;
+            document.getElementById('details-area').textContent = plot.area || '—';
+            document.getElementById('details-price').textContent = plot.price || '—';
+            document.getElementById('details-status').textContent = { available: 'Available', reserved: 'Reserved', sold: 'Sold' }[plot.status] || '—';
+            const descContainer = document.getElementById('details-description-container');
+            descContainer.style.display = plot.description ? 'block' : 'none';
+            document.getElementById('details-description').textContent = plot.description || '';
+            plotDetailsModal.classList.add('visible');
+        }
+
+        function showToast(message, type = 'success') {
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            toast.textContent = message;
+            toastContainer.appendChild(toast);
+            setTimeout(() => toast.remove(), 3000);
+        }
+
+        let imageContainer, imageWrapper, panoramaImage, drawingCanvas, plotsOverlay, ctx;
+        
+        {% if panorama.is_360 %}
+        // 360-degree Panolens.js Viewer with Scroll Navigator
+        const psvContainer = document.getElementById('psv-container');
+        
+        // Initial view settings - looking down at ground with natural perspective
+        let currentPitch = -30; // Negative = looking down (ground view) - converted to radians
+        let currentYaw = 0;     // Horizontal rotation - converted to radians
+        let currentRoll = 0;    // Roll/tilt - converted to radians
+        let currentFov = 75;     // Field of view
+        
+        // Convert degrees to radians
+        const degToRad = (deg) => deg * (Math.PI / 180);
+        const radToDeg = (rad) => rad * (180 / Math.PI);
+        
+        // Create panorama
+        const panorama = new PANOLENS.ImagePanorama('/uploads/{{ panorama.filename }}');
+        
+        // Create viewer
+        const viewer = new PANOLENS.Viewer({
+            container: psvContainer,
+            controlBar: true,
+            autoHideInfospot: false,
+            cameraFov: currentFov
+        });
+        
+        // Add panorama to viewer
+        viewer.add(panorama);
+        
+        // Set initial camera rotation (Panolens uses radians)
+        const camera = viewer.getCamera();
+        camera.rotation.order = 'YXZ';
+        camera.rotation.y = degToRad(currentYaw);
+        camera.rotation.x = degToRad(-currentPitch); // Negative because Panolens uses different convention
+        camera.rotation.z = degToRad(currentRoll);
+        
+        // Scroll navigator implementation
+        // Panolens.js scroll navigator - enables scroll-based navigation
+        const scrollNavigator = new PANOLENS.ScrollNavigator();
+        scrollNavigator.enable();
+        
+        // Listen to scroll events for navigation
+        psvContainer.addEventListener('wheel', (e) => {
+            e.preventDefault();
+            
+            const scrollSpeed = 0.002;
+            
+            // Horizontal scroll for yaw (left/right rotation)
+            if (e.shiftKey || Math.abs(e.deltaX) > Math.abs(e.deltaY)) {
+                camera.rotation.y += e.deltaX * scrollSpeed;
+            } else {
+                // Vertical scroll for pitch (up/down rotation)
+                camera.rotation.x += e.deltaY * scrollSpeed;
+            }
+            
+            // Constrain pitch
+            const maxPitch = degToRad(90);
+            const minPitch = degToRad(-90);
+            camera.rotation.x = Math.max(minPitch, Math.min(maxPitch, camera.rotation.x));
+            
+            // Update current values
+            currentYaw = radToDeg(camera.rotation.y);
+            currentPitch = -radToDeg(camera.rotation.x);
+            currentRoll = radToDeg(camera.rotation.z);
+            
+            update360Controls();
+        }, { passive: false });
+        
+        // Also enable touch scroll for mobile
+        let touchStartX = 0;
+        let touchStartY = 0;
+        let touchYaw = 0;
+        let touchPitch = 0;
+        
+        psvContainer.addEventListener('touchstart', (e) => {
+            if (e.touches.length === 1) {
+                touchStartX = e.touches[0].clientX;
+                touchStartY = e.touches[0].clientY;
+                touchYaw = currentYaw;
+                touchPitch = currentPitch;
+            }
+        }, { passive: true });
+        
+        psvContainer.addEventListener('touchmove', (e) => {
+            if (e.touches.length === 1) {
+                e.preventDefault();
+                const deltaX = e.touches[0].clientX - touchStartX;
+                const deltaY = e.touches[0].clientY - touchStartY;
+                
+                currentYaw = touchYaw + deltaX * 0.5;
+                currentPitch = Math.max(-90, Math.min(90, touchPitch + deltaY * 0.5));
+                
+                camera.rotation.y = degToRad(currentYaw);
+                camera.rotation.x = degToRad(-currentPitch);
+                
+                update360Controls();
+            }
+        }, { passive: false });
+        
+        // Update controls on animation frame
+        let animationFrame = null;
+        function updateView() {
+            if (!animationFrame) {
+                animationFrame = requestAnimationFrame(() => {
+                    currentYaw = radToDeg(camera.rotation.y);
+                    currentPitch = -radToDeg(camera.rotation.x);
+                    currentRoll = radToDeg(camera.rotation.z);
+                    currentFov = camera.fov;
+                    update360Controls();
+                    animationFrame = null;
+                });
+            }
+        }
+        
+        // Update on camera changes
+        const originalUpdate = camera.updateProjectionMatrix;
+        camera.updateProjectionMatrix = function() {
+            originalUpdate.call(this);
+            updateView();
+        };
+        
+        // Panorama load event
+        panorama.addEventListener('load', () => {
+            loading.classList.add('hidden');
+            loadPlots();
+            update360Controls();
+        });
+        
+        // 360° adjustment controls
+        function update360Controls() {
+            document.getElementById('pitch-value').textContent = Math.round(currentPitch) + '°';
+            document.getElementById('yaw-value').textContent = Math.round(currentYaw) + '°';
+            document.getElementById('roll-value').textContent = Math.round(currentRoll) + '°';
+            document.getElementById('fov-value').textContent = Math.round(currentFov) + '°';
+            
+            document.getElementById('pitch-slider').value = currentPitch;
+            document.getElementById('yaw-slider').value = currentYaw;
+            document.getElementById('roll-slider').value = currentRoll;
+            document.getElementById('fov-slider').value = currentFov;
+        }
+        
+        // Slider controls
+        document.getElementById('pitch-slider').addEventListener('input', (e) => {
+            currentPitch = parseFloat(e.target.value);
+            camera.rotation.x = degToRad(-currentPitch);
+            update360Controls();
+        });
+        
+        document.getElementById('yaw-slider').addEventListener('input', (e) => {
+            currentYaw = parseFloat(e.target.value);
+            camera.rotation.y = degToRad(currentYaw);
+            update360Controls();
+        });
+        
+        document.getElementById('roll-slider').addEventListener('input', (e) => {
+            currentRoll = Math.max(-30, Math.min(30, parseFloat(e.target.value)));
+            camera.rotation.z = degToRad(currentRoll);
+            update360Controls();
+        });
+        
+        document.getElementById('fov-slider').addEventListener('input', (e) => {
+            currentFov = parseFloat(e.target.value);
+            camera.fov = currentFov;
+            camera.updateProjectionMatrix();
+            update360Controls();
+        });
+        
+        // Preset buttons
+        document.getElementById('reset-view').addEventListener('click', () => {
+            currentPitch = -30;
+            currentYaw = 0;
+            currentRoll = 0;
+            currentFov = 75;
+            camera.rotation.y = degToRad(currentYaw);
+            camera.rotation.x = degToRad(-currentPitch);
+            camera.rotation.z = degToRad(currentRoll);
+            camera.fov = currentFov;
+            camera.updateProjectionMatrix();
+            update360Controls();
+        });
+        
+        document.getElementById('top-view').addEventListener('click', () => {
+            currentPitch = -90;
+            camera.rotation.x = degToRad(-currentPitch);
+            update360Controls();
+        });
+        
+        document.getElementById('horizon-view').addEventListener('click', () => {
+            currentPitch = 0;
+            camera.rotation.x = degToRad(-currentPitch);
+            update360Controls();
+        });
+        
+        document.getElementById('ground-view').addEventListener('click', () => {
+            currentPitch = -45;
+            camera.rotation.x = degToRad(-currentPitch);
+            update360Controls();
+        });
+        
+        update360Controls();
+        
+        // Note: Plot marking for 360 images requires spherical coordinates
+        console.log('360° mode enabled with Panolens.js! Use scroll to navigate or the adjustment controls to fine-tune the view.');
+        
+        {% else %}
+        // Regular 2D panorama
+        imageContainer = document.getElementById('image-container');
+        imageWrapper = document.getElementById('image-wrapper');
+        panoramaImage = document.getElementById('panorama-image');
+        drawingCanvas = document.getElementById('drawing-canvas');
+        plotsOverlay = document.getElementById('plots-overlay');
+        ctx = drawingCanvas.getContext('2d');
+
+        let scale = 1.5, translateX = 0, translateY = 0;
+        let isDragging = false, dragStartX = 0, dragStartY = 0, dragStartTranslateX = 0, dragStartTranslateY = 0;
+        let imageWidth = 0, imageHeight = 0, containerWidth = 0, containerHeight = 0;
+        let minScale = 0.3, maxScale = 5.0;
+
+        let isDrawing = false, currentPoints = [], selectedColor = 'emerald';
+
+        panoramaImage.onload = () => {
+            imageWidth = panoramaImage.naturalWidth;
+            imageHeight = panoramaImage.naturalHeight;
+            containerWidth = imageContainer.clientWidth;
+            containerHeight = imageContainer.clientHeight;
+
+            panoramaImage.style.width = `${imageWidth}px`;
+            panoramaImage.style.height = `${imageHeight}px`;
+
+            drawingCanvas.width = imageWidth;
+            drawingCanvas.height = imageHeight;
+            drawingCanvas.style.width = `${imageWidth}px`;
+            drawingCanvas.style.height = `${imageHeight}px`;
+
+            plotsOverlay.setAttribute('width', imageWidth);
+            plotsOverlay.setAttribute('height', imageHeight);
+            plotsOverlay.style.width = `${imageWidth}px`;
+            plotsOverlay.style.height = `${imageHeight}px`;
+
+            updateTransform();
+            loadPlots();
+            loading.classList.add('hidden');
+        };
+
+        function updateTransform(noTransition = false) {
+            imageWrapper.classList.toggle('no-transition', noTransition);
+            const scaledWidth = imageWidth * scale, scaledHeight = imageHeight * scale;
+            const maxTranslateX = Math.max(0, (scaledWidth - containerWidth) / 2);
+            const maxTranslateY = Math.max(0, (scaledHeight - containerHeight) / 2);
+            translateX = Math.max(-maxTranslateX, Math.min(maxTranslateX, translateX));
+            translateY = Math.max(-maxTranslateY, Math.min(maxTranslateY, translateY));
+            imageWrapper.style.transform = `translate(-50%, -50%) translate(${translateX}px, ${translateY}px) scale(${scale})`;
+            document.getElementById('zoom-level').textContent = `${Math.round(scale * 100)}%`;
+        }
+
+        document.getElementById('zoom-in').addEventListener('click', () => { scale = Math.min(maxScale, scale * 1.2); updateTransform(); });
+        document.getElementById('zoom-out').addEventListener('click', () => { scale = Math.max(minScale, scale / 1.2); updateTransform(); });
+        document.getElementById('zoom-reset').addEventListener('click', () => { scale = 1.5; translateX = 0; translateY = 0; updateTransform(); });
+
+        imageContainer.addEventListener('wheel', (e) => { if (isDrawing) return; e.preventDefault(); scale = Math.max(minScale, Math.min(maxScale, scale + (e.deltaY > 0 ? -0.1 : 0.1))); updateTransform(); }, { passive: false });
+
+        imageContainer.addEventListener('mousedown', (e) => { if (isEditMode || e.button !== 0) return; isDragging = true; imageContainer.classList.add('dragging'); dragStartX = e.clientX; dragStartY = e.clientY; dragStartTranslateX = translateX; dragStartTranslateY = translateY; });
+        document.addEventListener('mousemove', (e) => { if (!isDragging) return; translateX = dragStartTranslateX + (e.clientX - dragStartX); translateY = dragStartTranslateY + (e.clientY - dragStartY); updateTransform(true); });
+        document.addEventListener('mouseup', () => { if (isDragging) { isDragging = false; imageContainer.classList.remove('dragging'); updateTransform(); } });
+
+        editToggle.addEventListener('click', () => {
+            isEditMode = !isEditMode;
+            imageContainer.classList.toggle('edit-mode', isEditMode);
+            editToggle.classList.toggle('active', isEditMode);
+            editPanel.classList.toggle('visible', isEditMode);
+            editToggleText.textContent = isEditMode ? 'Exit Edit' : 'Edit Mode';
+            if (!isEditMode) cancelDrawing();
+        });
+
+        function getImageCoords(e) {
+            const rect = drawingCanvas.getBoundingClientRect();
+            return { x: ((e.clientX - rect.left) / rect.width) * imageWidth, y: ((e.clientY - rect.top) / rect.height) * imageHeight };
+        }
+
+        drawingCanvas.addEventListener('click', (e) => {
+            if (!isEditMode) return;
+            e.stopPropagation();
+            const coords = getImageCoords(e);
+
+            if (currentPoints.length >= 3) {
+                const firstPoint = currentPoints[0];
+                if (Math.hypot(coords.x - firstPoint.x, coords.y - firstPoint.y) < 20) { completeDrawing(); return; }
+            }
+
+            currentPoints.push(coords);
+            isDrawing = true;
+            completeDrawingBtn.disabled = currentPoints.length < 3;
+            drawCurrentPolygon();
+            updateEditInstruction();
+        });
+
+        drawingCanvas.addEventListener('mousemove', (e) => { if (!isEditMode || currentPoints.length === 0) return; drawCurrentPolygon(getImageCoords(e)); });
+
+        function drawCurrentPolygon(mousePos = null) {
+            ctx.clearRect(0, 0, drawingCanvas.width, drawingCanvas.height);
+            if (currentPoints.length === 0) return;
+
+            ctx.beginPath();
+            ctx.moveTo(currentPoints[0].x, currentPoints[0].y);
+            for (let i = 1; i < currentPoints.length; i++) ctx.lineTo(currentPoints[i].x, currentPoints[i].y);
+            if (mousePos) ctx.lineTo(mousePos.x, mousePos.y);
+            ctx.closePath();
+
+            ctx.fillStyle = 'rgba(201, 169, 98, 0.3)';
+            ctx.fill();
+            ctx.strokeStyle = '#c9a962';
+            ctx.lineWidth = 3;
+            ctx.stroke();
+
+            currentPoints.forEach((point, index) => {
+                ctx.beginPath();
+                ctx.arc(point.x, point.y, 8, 0, Math.PI * 2);
+                ctx.fillStyle = index === 0 ? '#4ade80' : '#c9a962';
+                ctx.fill();
+                ctx.strokeStyle = '#fff';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+            });
+        }
+
+        function updateEditInstruction() {
+            if (currentPoints.length === 0) editInstruction.textContent = 'Click on the image to start drawing a plot boundary.';
+            else if (currentPoints.length < 3) editInstruction.textContent = `${currentPoints.length} point(s) added. Add at least ${3 - currentPoints.length} more to complete.`;
+            else editInstruction.textContent = `${currentPoints.length} points. Click the green starting point or press Complete to finish.`;
+        }
+
+        function cancelDrawing() {
+            currentPoints = [];
+            isDrawing = false;
+            completeDrawingBtn.disabled = true;
+            ctx.clearRect(0, 0, drawingCanvas.width, drawingCanvas.height);
+            updateEditInstruction();
+        }
+
+        function completeDrawing() {
+            if (currentPoints.length < 3) return;
+            plotFormModal.classList.add('visible');
+            setTimeout(() => document.getElementById('plot-name').focus(), 100);
+        }
+
+        cancelDrawingBtn.addEventListener('click', cancelDrawing);
+        completeDrawingBtn.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); completeDrawing(); });
+
+        document.querySelectorAll('.color-option').forEach(option => {
+            option.addEventListener('click', () => {
+                document.querySelectorAll('.color-option').forEach(o => o.classList.remove('selected'));
+                option.classList.add('selected');
+                selectedColor = option.dataset.color;
+            });
+        });
+
+        function closePlotForm() {
+            plotFormModal.classList.remove('visible');
+            document.getElementById('plot-name').value = '';
+            document.getElementById('plot-area').value = '';
+            document.getElementById('plot-price').value = '';
+            document.getElementById('plot-status').value = 'available';
+            document.getElementById('plot-description').value = '';
+            cancelDrawing();
+        }
+
+        document.getElementById('cancel-plot').addEventListener('click', closePlotForm);
+
+        document.getElementById('save-plot').addEventListener('click', async () => {
+            const name = document.getElementById('plot-name').value.trim();
+            if (!name) { document.getElementById('plot-name').focus(); return; }
+
+            const plotData = {
+                name,
+                area: document.getElementById('plot-area').value.trim(),
+                price: document.getElementById('plot-price').value.trim(),
+                status: document.getElementById('plot-status').value,
+                description: document.getElementById('plot-description').value.trim(),
+                color: selectedColor,
+                points: [...currentPoints]
+            };
+
+            try {
+                const response = await fetch(`/api/panoramas/${PANORAMA_ID}/plots`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(plotData)
+                });
+
+                if (response.ok) {
+                    showToast('Plot saved successfully!');
+                    closePlotForm();
+                    loadPlots();
+                } else {
+                    throw new Error('Failed to save');
+                }
+            } catch (error) {
+                showToast('Failed to save plot', 'error');
+            }
+        });
+
+        function renderPlots() {
+            plotsOverlay.innerHTML = '';
+
+            const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
+            Object.entries(colorGradients).forEach(([name, colors]) => {
+                const gradient = document.createElementNS('http://www.w3.org/2000/svg', 'linearGradient');
+                gradient.setAttribute('id', `gradient-${name}`);
+                gradient.setAttribute('x1', '0%'); gradient.setAttribute('y1', '0%');
+                gradient.setAttribute('x2', '100%'); gradient.setAttribute('y2', '100%');
+                const stop1 = document.createElementNS('http://www.w3.org/2000/svg', 'stop');
+                stop1.setAttribute('offset', '0%'); stop1.setAttribute('stop-color', colors.start);
+                const stop2 = document.createElementNS('http://www.w3.org/2000/svg', 'stop');
+                stop2.setAttribute('offset', '100%'); stop2.setAttribute('stop-color', colors.end);
+                gradient.appendChild(stop1); gradient.appendChild(stop2);
+                defs.appendChild(gradient);
+            });
+            plotsOverlay.appendChild(defs);
+
+            plots.forEach(plot => {
+                const colors = colorGradients[plot.color] || colorGradients.emerald;
+                const pointsStr = plot.points.map(p => `${p.x},${p.y}`).join(' ');
+
+                const polygon = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+                polygon.setAttribute('points', pointsStr);
+                polygon.setAttribute('fill', colors.fill);
+                polygon.setAttribute('stroke', `url(#gradient-${plot.color})`);
+                polygon.setAttribute('stroke-width', '3');
+                polygon.style.cursor = 'pointer';
+                polygon.style.pointerEvents = 'auto';
+
+                polygon.addEventListener('mouseenter', () => polygon.setAttribute('fill', colors.fill.replace('0.35', '0.5')));
+                polygon.addEventListener('mouseleave', () => polygon.setAttribute('fill', colors.fill));
+                polygon.addEventListener('click', (e) => { if (isEditMode) return; e.stopPropagation(); showPlotDetails(plot); });
+
+                plotsOverlay.appendChild(polygon);
+
+                const centroid = getCentroid(plot.points);
+                const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                text.setAttribute('x', centroid.x); text.setAttribute('y', centroid.y);
+                text.setAttribute('text-anchor', 'middle'); text.setAttribute('dominant-baseline', 'middle');
+                text.setAttribute('fill', '#fff'); text.setAttribute('font-size', '24');
+                text.setAttribute('font-family', 'Syne, sans-serif'); text.setAttribute('font-weight', '600');
+                text.setAttribute('pointer-events', 'none');
+                text.textContent = plot.name;
+                plotsOverlay.appendChild(text);
+            });
+        }
+
+        function getCentroid(points) {
+            let x = 0, y = 0;
+            points.forEach(p => { x += p.x; y += p.y; });
+            return { x: x / points.length, y: y / points.length };
+        }
+
+        // Shared event handlers (available in both modes)
+        document.getElementById('close-details').addEventListener('click', () => plotDetailsModal.classList.remove('visible'));
+        plotDetailsModal.addEventListener('click', (e) => { if (e.target === plotDetailsModal) plotDetailsModal.classList.remove('visible'); });
+        
+        const shareBtn = document.getElementById('share-btn');
+        const shareModal = document.getElementById('share-modal');
+        const shareUrl = document.getElementById('share-url');
+        const copyShareBtn = document.getElementById('copy-share-btn');
+        const closeShare = document.getElementById('close-share');
+
+        if (shareBtn) {
+            shareBtn.addEventListener('click', () => {
+                const viewUrl = `${window.location.origin}/view/${PANORAMA_ID}`;
+                shareUrl.textContent = viewUrl;
+                shareModal.classList.add('visible');
+            });
+
+            copyShareBtn.addEventListener('click', () => {
+                const viewUrl = `${window.location.origin}/view/${PANORAMA_ID}`;
+                navigator.clipboard.writeText(viewUrl).then(() => {
+                    copyShareBtn.textContent = 'Copied!';
+                    setTimeout(() => {
+                        copyShareBtn.textContent = 'Copy Link';
+                    }, 2000);
+                });
+            });
+
+            closeShare.addEventListener('click', () => shareModal.classList.remove('visible'));
+            shareModal.addEventListener('click', (e) => { if (e.target === shareModal) shareModal.classList.remove('visible'); });
+        }
+
+        {% if not panorama.is_360 %}
+        // Regular mode specific handlers
+        plotFormModal.addEventListener('click', (e) => { if (e.target === plotFormModal) closePlotForm(); });
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && isDrawing && currentPoints.length >= 3) completeDrawing();
+            else if (e.key === 'Escape') {
+                if (shareModal && shareModal.classList.contains('visible')) shareModal.classList.remove('visible');
+                else if (plotFormModal.classList.contains('visible')) closePlotForm();
+                else if (plotDetailsModal.classList.contains('visible')) plotDetailsModal.classList.remove('visible');
+                else if (isDrawing) cancelDrawing();
+                else if (isEditMode) editToggle.click();
+            }
+        });
+        {% endif %}
+        {% endif %}
+    </script>
+</body>
+</html>
+
