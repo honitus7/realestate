@@ -8,8 +8,14 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Syne:wght@400;500;600;700&display=swap" rel="stylesheet">
     {% if panorama.is_360 %}
-    <script src="https://cdn.jsdelivr.net/npm/three@0.155.0/build/three.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/panolens@0.19.0/build/panolens.min.js"></script>
+    <script>
+        // Polyfill for Node.js 'process' global that PANOLENS expects
+        if (typeof process === 'undefined') {
+            window.process = { env: {} };
+        }
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.122.0/build/three.min.js" onload="window.THREE_LOADED = true"></script>
+    <script src="https://cdn.jsdelivr.net/npm/panolens@0.12.1/build/panolens.min.js" onload="window.PANOLENS_LOADED = true"></script>
     {% endif %}
     <style>
         :root {
@@ -331,188 +337,84 @@
         plotDetailsModal.addEventListener('click', (e) => { if (e.target === plotDetailsModal) plotDetailsModal.classList.remove('visible'); });
         
         {% if panorama.is_360 %}
-        // 360-degree Pannellum Viewer
-        const psvContainer = document.getElementById('psv-container');
+        // 360-degree Panolens.js Viewer with Scroll Navigator
+        let panolensRetryCount = 0;
+        const MAX_PANOLENS_RETRIES = 50; // 5 seconds max wait time
         
-        // Initial view settings - looking down at ground with natural perspective
-        let currentPitch = -30; // Negative = looking down (ground view)
-        let currentYaw = 0;     // Horizontal rotation
-        let currentRoll = 0;    // Roll/tilt
-        let currentHfov = 75;   // Field of view (lower = more zoomed in, less circular)
-        
-        const viewer = pannellum.viewer(psvContainer, {
-            type: 'equirectangular',
-            panorama: '/uploads/{{ panorama.filename }}',
-            title: '{{ panorama.name }}',
-            autoLoad: true,
-            autoRotate: 0,
-            compass: true,
-            showControls: true,
-            keyboardZoom: true,
-            mouseZoom: true,
-            hfov: currentHfov,
-            minHfov: 30,
-            maxHfov: 150,
-            pitch: currentPitch,
-            yaw: currentYaw,
-            roll: 0, // Always start with 0 roll
-            minPitch: -90,
-            maxPitch: 90,
-            haov: 360,
-            vaov: 180,
-            vOffset: 0,
-            northOffset: 0,
-            sphereCorrection: { pan: 0, tilt: 0, roll: 0 },
-            draggable: true,
-            dragToLook: true,
-            pinchToZoom: true,
-            // Disable automatic roll compensation
-            autoRotateInactivityDelay: -1,
-            autoRotateStopDelay: -1
-        });
-        
-        let is360Dragging = false;
-        let lastPitch = currentPitch;
-        let lastYaw = currentYaw;
-        
-        viewer.on('load', () => {
-            loading.classList.add('hidden');
-            loadPlots();
-            // Set initial view to look down at ground
-            viewer.setPitch(currentPitch);
-            viewer.setYaw(currentYaw);
-        });
-        
-        // Constrain pitch and prevent roll during position updates
-        viewer.on('positionupdated', () => {
-            let pitch = viewer.getPitch();
-            let yaw = viewer.getYaw();
-            let roll = viewer.getRoll();
-            
-            // Constrain pitch to prevent going beyond limits
-            if (pitch < -90) {
-                pitch = -90;
-                viewer.setPitch(pitch);
-            } else if (pitch > 90) {
-                pitch = 90;
-                viewer.setPitch(pitch);
+        function initPanolens() {
+            if (typeof PANOLENS === 'undefined') {
+                panolensRetryCount++;
+                if (panolensRetryCount >= MAX_PANOLENS_RETRIES) {
+                    console.error('PANOLENS failed to load after multiple attempts. Please check your internet connection and refresh the page.');
+                    return;
+                }
+                setTimeout(initPanolens, 100);
+                return;
             }
             
-            // Track roll but Pannellum doesn't support programmatic roll setting
-            // Roll is controlled through configuration (sphereCorrection)
-            const normalizedRoll = Math.abs(roll) < 0.01 ? 0 : roll;
+            const psvContainer = document.getElementById('psv-container');
             
-            // Update values only if they changed significantly (reduce updates)
-            if (Math.abs(pitch - lastPitch) > 0.5 || Math.abs(yaw - lastYaw) > 0.5) {
-                currentPitch = pitch;
-                currentYaw = yaw;
-                currentRoll = normalizedRoll;
-                lastPitch = pitch;
-                lastYaw = yaw;
-                update360Controls();
-            }
-        });
-        
-        // Update controls less frequently during animation
-        let animationFrame = null;
-        viewer.on('animate', () => {
-            if (!animationFrame) {
-                animationFrame = requestAnimationFrame(() => {
-                    const pitch = viewer.getPitch();
-                    const yaw = viewer.getYaw();
-                    const roll = viewer.getRoll();
-                    
-                    // Constrain pitch
-                    if (pitch < -90 || pitch > 90) {
-                        viewer.setPitch(Math.max(-90, Math.min(90, pitch)));
-                    }
-                    
-                    // Track roll (Pannellum doesn't support programmatic roll setting)
-                    currentPitch = Math.max(-90, Math.min(90, pitch));
-                    currentYaw = yaw;
-                    currentRoll = Math.abs(roll) < 0.01 ? 0 : roll;
-                    currentHfov = viewer.getHfov();
-                    update360Controls();
-                    animationFrame = null;
-                });
-            }
-        });
-        
-        // 360° adjustment controls
-        function update360Controls() {
-            document.getElementById('pitch-value').textContent = Math.round(currentPitch) + '°';
-            document.getElementById('yaw-value').textContent = Math.round(currentYaw) + '°';
-            document.getElementById('roll-value').textContent = Math.round(currentRoll) + '°';
-            document.getElementById('fov-value').textContent = Math.round(currentHfov) + '°';
+            // Try to detect if it's a cubemap/3D image (6 images) or equirectangular
+            // For now, default to ImagePanorama (equirectangular)
+            // You can extend this to detect cubemap images if needed
+            let panorama;
+            const imageUrl = '/uploads/{{ panorama.filename }}';
             
-            document.getElementById('pitch-slider').value = currentPitch;
-            document.getElementById('yaw-slider').value = currentYaw;
-            document.getElementById('roll-slider').value = currentRoll;
-            document.getElementById('fov-slider').value = currentHfov;
+            // Default: Use ImagePanorama for equirectangular 360 images
+            // For cubemap, you would use: new PANOLENS.CubemapPanorama([url1, url2, url3, url4, url5, url6])
+            panorama = new PANOLENS.ImagePanorama(imageUrl);
+            
+            // Error handling
+            panorama.addEventListener('error', (error) => {
+                console.error('Failed to load panorama image:', error);
+                loading.classList.add('hidden');
+            });
+            
+            // Create viewer with default PANOLENS configuration
+            // Default options: controlBar: false, autoHideInfospot: true, cameraFov: 60
+            const viewer = new PANOLENS.Viewer({
+                container: psvContainer
+            });
+            
+            // Add panorama to viewer
+            viewer.add(panorama);
+            
+            // Panorama load event
+            panorama.addEventListener('load', () => {
+                loading.classList.add('hidden');
+                loadPlots();
+            });
+            
+            // Hide zoom controls for 360 mode (Panolens has its own controls)
+            const zoomControls = document.querySelector('.zoom-controls');
+            if (zoomControls) {
+                zoomControls.style.display = 'none';
+            }
+            
+            // Hide adjustment panel for default PANOLENS behavior
+            const adjustmentPanel = document.querySelector('.adjustment-panel');
+            if (adjustmentPanel) {
+                adjustmentPanel.style.display = 'none';
+            }
         }
         
-        // Slider controls
-        document.getElementById('pitch-slider').addEventListener('input', (e) => {
-            currentPitch = parseFloat(e.target.value);
-            viewer.setPitch(currentPitch);
-            update360Controls();
-        });
+        // Initialize PANOLENS when scripts are loaded
+        function startPanolensInit() {
+            // Wait for both scripts to load
+            if (typeof THREE === 'undefined' || typeof PANOLENS === 'undefined') {
+                if (panolensRetryCount < MAX_PANOLENS_RETRIES) {
+                    setTimeout(startPanolensInit, 100);
+                }
+                return;
+            }
+            initPanolens();
+        }
         
-        document.getElementById('yaw-slider').addEventListener('input', (e) => {
-            currentYaw = parseFloat(e.target.value);
-            viewer.setYaw(currentYaw);
-            update360Controls();
-        });
-        
-        document.getElementById('roll-slider').addEventListener('input', (e) => {
-            currentRoll = Math.max(-30, Math.min(30, parseFloat(e.target.value)));
-            // Note: Pannellum doesn't support programmatic roll setting
-            // Roll is controlled through sphereCorrection in configuration
-            // This slider is for display/reference only
-            update360Controls();
-        });
-        
-        document.getElementById('fov-slider').addEventListener('input', (e) => {
-            currentHfov = parseFloat(e.target.value);
-            viewer.setHfov(currentHfov);
-            update360Controls();
-        });
-        
-        // Preset buttons
-        document.getElementById('reset-view').addEventListener('click', () => {
-            currentPitch = -30;
-            currentYaw = 0;
-            currentRoll = 0;
-            currentHfov = 75;
-            viewer.setPitch(currentPitch);
-            viewer.setYaw(currentYaw);
-            // Note: Roll cannot be set programmatically in Pannellum
-            viewer.setHfov(currentHfov);
-            update360Controls();
-        });
-        
-        document.getElementById('top-view').addEventListener('click', () => {
-            currentPitch = -90;
-            viewer.setPitch(currentPitch);
-            update360Controls();
-        });
-        
-        document.getElementById('horizon-view').addEventListener('click', () => {
-            currentPitch = 0;
-            viewer.setPitch(currentPitch);
-            update360Controls();
-        });
-        
-        document.getElementById('ground-view').addEventListener('click', () => {
-            currentPitch = -45;
-            viewer.setPitch(currentPitch);
-            update360Controls();
-        });
-        
-        update360Controls();
-        
-        // Hide zoom controls for 360 mode (Pannellum has its own)
-        document.querySelector('.zoom-controls').style.display = 'none';
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', startPanolensInit);
+        } else {
+            startPanolensInit();
+        }
         
         {% else %}
         // Regular 2D panorama
@@ -577,6 +479,11 @@
         }
 
         function renderPlots() {
+            const plotsOverlay = document.getElementById('plots-overlay');
+            if (!plotsOverlay) {
+                // 360 mode - plots overlay doesn't exist
+                return;
+            }
             plotsOverlay.innerHTML = '';
 
             const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
