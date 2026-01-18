@@ -10,16 +10,14 @@
     <link
         href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Syne:wght@400;500;600;700&display=swap"
         rel="stylesheet">
-    <script>
-        // Polyfill for Node.js 'process' global that PANOLENS expects
-        if (typeof process === 'undefined') {
-            window.process = { env: {} };
-        }
-    </script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.122.0/build/three.min.js"
-        onload="window.THREE_LOADED = true"></script>
-    <script src="https://cdn.jsdelivr.net/npm/panolens@0.12.1/build/panolens.min.js"
-        onload="window.PANOLENS_LOADED = true"></script>
+    <link rel="stylesheet" href="https://unpkg.com/photo-sphere-viewer@4.8.1/dist/photo-sphere-viewer.css">
+    <link rel="stylesheet" href="https://unpkg.com/photo-sphere-viewer@4.8.1/dist/plugins/markers.css">
+    <script src="https://unpkg.com/uevent@2.1.1/browser.js" onload="window.UEVENT_LOADED = true"></script>
+    <script src="https://unpkg.com/three@0.147.0/build/three.min.js" onload="window.THREE_LOADED = true"></script>
+    <script src="https://unpkg.com/photo-sphere-viewer@4.8.1/dist/photo-sphere-viewer.js"
+        onload="window.PSV_LOADED = true"></script>
+    <script src="https://unpkg.com/photo-sphere-viewer@4.8.1/dist/plugins/markers.js"
+        onload="window.PSV_MARKERS_LOADED = true"></script>
     <style>
         :root {
             --color-bg: #0a0a0b;
@@ -50,6 +48,41 @@
             background: var(--color-bg);
             color: var(--color-text);
             touch-action: none;
+        }
+
+        #psv-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: var(--color-bg);
+            cursor: grab;
+        }
+
+        #psv-container.edit-mode {
+            cursor: crosshair;
+        }
+
+        #psv-draw-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: 6;
+            pointer-events: none;
+            touch-action: none;
+        }
+
+        .psv-plot-label {
+            color: #fff;
+            font-family: var(--font-body);
+            font-weight: 600;
+            font-size: 0.85rem;
+            text-shadow: 0 2px 6px rgba(0, 0, 0, 0.5);
+            pointer-events: none;
+            white-space: nowrap;
         }
 
         .image-container {
@@ -1642,7 +1675,8 @@
         <div class="loading-text">Loading panorama...</div>
     </div>
 
-    <div id="psv-container" style="width: 100vw; height: 100vh;"></div>
+    <div id="psv-container"></div>
+    <div id="psv-draw-overlay"></div>
 
     <div class="overlay-gradient"></div>
 
@@ -1677,7 +1711,10 @@
             <div class="edit-panel" id="edit-panel">
                 <button class="panel-toggle-btn" id="edit-panel-toggle" title="Collapse/Expand">◀</button>
                 <div class="edit-panel-title">Plot Management</div>
-                <div class="edit-instruction" id="edit-instruction">Note: Plot marking for 360° images requires spherical coordinates. You can view, edit, and delete existing plots.
+                <div class="edit-instruction" id="edit-instruction">Click on the panorama to start drawing a plot boundary.</div>
+                <div class="edit-actions">
+                    <button class="edit-btn secondary" id="cancel-drawing">Cancel</button>
+                    <button class="edit-btn primary" id="complete-drawing" disabled>Complete</button>
                 </div>
 
                 <div class="edit-panel-title" style="margin-top: 1rem;">Saved Plots</div>
@@ -1926,7 +1963,7 @@
             try {
                 const response = await fetch(`/api/panoramas/${PANORAMA_ID}/plots`);
                 plots = await response.json();
-                // Note: Plot rendering not available in 360° mode (requires spherical coordinates)
+                renderPlots();
                 updatePlotsList();
             } catch (error) {
                 console.error('Failed to load plots:', error);
@@ -1944,8 +1981,17 @@
                 editPanel.classList.toggle('visible', isEditMode);
                 setTimeout(updateFormModalPosition, 100);
             }
+            if (psvContainer) {
+                psvContainer.classList.toggle('edit-mode', isEditMode);
+            }
+            if (drawOverlay) {
+                drawOverlay.style.pointerEvents = isEditMode ? 'auto' : 'none';
+            }
             if (isEditMode) {
-                showToast('Note: Plot marking for 360° images requires spherical coordinates. You can view, edit, and delete existing plots.', 'info');
+                updateEditInstruction();
+                showToast('Click on the panorama to add plot points.', 'info');
+            } else {
+                cancelDrawing();
             }
         });
 
@@ -2102,223 +2148,211 @@
             setTimeout(() => toast.remove(), 3000);
         }
 
-        let imageContainer, imageWrapper, panoramaImage, drawingCanvas, plotsOverlay, ctx;
+        let viewer = null;
+        let markersPlugin = null;
+        const psvContainer = document.getElementById('psv-container');
+        const drawOverlay = document.getElementById('psv-draw-overlay');
 
-        // 360-degree Panolens.js Viewer
-        let panolensRetryCount = 0;
-        const MAX_PANOLENS_RETRIES = 50; // 5 seconds max wait time
+        let isDrawing = false;
+        let currentPoints = [];
+        let selectedColor = 'green';
+        let editingPlotId = null;
+        let editingPlotPoints = null;
+        let draftMarkerActive = false;
+        let draftMarkerType = null;
 
-        function initPanolens() {
-            if (typeof PANOLENS === 'undefined') {
-                panolensRetryCount++;
-                if (panolensRetryCount >= MAX_PANOLENS_RETRIES) {
-                    console.error('PANOLENS failed to load after multiple attempts. Please check your internet connection and refresh the page.');
-                    return;
-                }
-                setTimeout(initPanolens, 100);
-                return;
-            }
+        const draftMarkerId = 'draft-plot';
+        const CLOSE_DISTANCE = 20;
+        const MAX_PSV_RETRIES = 50;
+        let psvRetryCount = 0;
 
-            const psvContainer = document.getElementById('psv-container');
+        function initPsv() {
+            if (!psvContainer) return;
 
-            // Try to detect if it's a cubemap/3D image (6 images) or equirectangular
-            // For now, default to ImagePanorama (equirectangular)
-            // You can extend this to detect cubemap images if needed
-            let panorama;
             const imageUrl = '/uploads/{{ panorama.filename }}';
 
-            // Default: Use ImagePanorama for equirectangular 360 images
-            // For cubemap, you would use: new PANOLENS.CubemapPanorama([url1, url2, url3, url4, url5, url6])
-            panorama = new PANOLENS.ImagePanorama(imageUrl);
-
-            // Error handling
-            panorama.addEventListener('error', (error) => {
-                console.error('Failed to load panorama image:', error);
-                const loading = document.querySelector('.loading');
-                if (loading) loading.classList.add('hidden');
+            viewer = new PhotoSphereViewer.Viewer({
+                container: psvContainer,
+                panorama: imageUrl,
+                navbar: false,
+                mousewheel: true,
+                mousemove: true,
+                touchmoveTwoFingers: false,
+                loadingTxt: '',
+                plugins: [
+                    [PhotoSphereViewer.MarkersPlugin, {}]
+                ]
             });
 
-            // Create viewer with default PANOLENS configuration
-            // Default options: controlBar: false, autoHideInfospot: true, cameraFov: 60
-            const viewer = new PANOLENS.Viewer({
-                container: psvContainer
-            });
+            markersPlugin = viewer.getPlugin(PhotoSphereViewer.MarkersPlugin);
 
-            // Add panorama to viewer
-            viewer.add(panorama);
-
-            // Panorama load event
-            panorama.addEventListener('load', () => {
+            viewer.on('ready', () => {
                 loading.classList.add('hidden');
                 loadPlots();
             });
 
-            // Hide zoom controls for 360 mode (Panolens has its own controls)
+            if (markersPlugin) {
+                markersPlugin.on('select-marker', (e, marker) => {
+                    if (marker && marker.config && marker.config.data && marker.config.data.label) {
+                        return;
+                    }
+                    const plot = getPlotFromMarker(marker);
+                    if (!plot) return;
+                    if (isEditMode) {
+                        openEditPlotForm(plot);
+                    } else {
+                        showPlotDetails(plot);
+                    }
+                });
+            }
+
             const zoomControls = document.querySelector('.zoom-controls');
             if (zoomControls) {
                 zoomControls.style.display = 'none';
             }
-
-            // Note: Plot marking for 360 images requires spherical coordinates
-            console.log('360° mode enabled with Panolens.js using default configuration!');
         }
 
-        // Initialize PANOLENS when scripts are loaded
-        function startPanolensInit() {
-            // Wait for both scripts to load
-            if (typeof THREE === 'undefined' || typeof PANOLENS === 'undefined') {
-                if (panolensRetryCount < MAX_PANOLENS_RETRIES) {
-                    setTimeout(startPanolensInit, 100);
+        function startPsvInit() {
+            if (typeof THREE === 'undefined' || typeof PhotoSphereViewer === 'undefined' || !PhotoSphereViewer.MarkersPlugin) {
+                psvRetryCount += 1;
+                if (psvRetryCount < MAX_PSV_RETRIES) {
+                    setTimeout(startPsvInit, 100);
+                } else {
+                    console.error('Photo Sphere Viewer failed to load. Please refresh the page.');
                 }
                 return;
             }
-            initPanolens();
+            initPsv();
         }
 
         if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', startPanolensInit);
+            document.addEventListener('DOMContentLoaded', startPsvInit);
         } else {
-            startPanolensInit();
-        }
-        // Regular 2D panorama
-        imageContainer = document.getElementById('image-container');
-        imageWrapper = document.getElementById('image-wrapper');
-        panoramaImage = document.getElementById('panorama-image');
-        drawingCanvas = document.getElementById('drawing-canvas');
-        plotsOverlay = document.getElementById('plots-overlay');
-        ctx = drawingCanvas.getContext('2d');
-
-        let scale = 1.5, translateX = 0, translateY = 0;
-        let isDragging = false, dragStartX = 0, dragStartY = 0, dragStartTranslateX = 0, dragStartTranslateY = 0;
-        let imageWidth = 0, imageHeight = 0, containerWidth = 0, containerHeight = 0;
-        let minScale = 0.3, maxScale = 5.0;
-
-        let isDrawing = false, currentPoints = [], selectedColor = 'green';
-        let editingPlotId = null;
-        let editingPlotPoints = null;
-
-        panoramaImage.onload = () => {
-            imageWidth = panoramaImage.naturalWidth;
-            imageHeight = panoramaImage.naturalHeight;
-            containerWidth = imageContainer.clientWidth;
-            containerHeight = imageContainer.clientHeight;
-
-            panoramaImage.style.width = `${imageWidth}px`;
-            panoramaImage.style.height = `${imageHeight}px`;
-
-            drawingCanvas.width = imageWidth;
-            drawingCanvas.height = imageHeight;
-            drawingCanvas.style.width = `${imageWidth}px`;
-            drawingCanvas.style.height = `${imageHeight}px`;
-
-            plotsOverlay.setAttribute('width', imageWidth);
-            plotsOverlay.setAttribute('height', imageHeight);
-            plotsOverlay.style.width = `${imageWidth}px`;
-            plotsOverlay.style.height = `${imageHeight}px`;
-
-            updateTransform();
-            loadPlots();
-            loading.classList.add('hidden');
-        };
-
-        function updateTransform(noTransition = false) {
-            imageWrapper.classList.toggle('no-transition', noTransition);
-            const scaledWidth = imageWidth * scale, scaledHeight = imageHeight * scale;
-            const maxTranslateX = Math.max(0, (scaledWidth - containerWidth) / 2);
-            const maxTranslateY = Math.max(0, (scaledHeight - containerHeight) / 2);
-            translateX = Math.max(-maxTranslateX, Math.min(maxTranslateX, translateX));
-            translateY = Math.max(-maxTranslateY, Math.min(maxTranslateY, translateY));
-            imageWrapper.style.transform = `translate(-50%, -50%) translate(${translateX}px, ${translateY}px) scale(${scale})`;
-            document.getElementById('zoom-level').textContent = `${Math.round(scale * 100)}%`;
+            startPsvInit();
         }
 
-        document.getElementById('zoom-in').addEventListener('click', () => { scale = Math.min(maxScale, scale * 1.2); updateTransform(); });
-        document.getElementById('zoom-out').addEventListener('click', () => { scale = Math.max(minScale, scale / 1.2); updateTransform(); });
-        document.getElementById('zoom-reset').addEventListener('click', () => { scale = 1.5; translateX = 0; translateY = 0; updateTransform(); });
-
-        imageContainer.addEventListener('wheel', (e) => { if (isDrawing) return; e.preventDefault(); scale = Math.max(minScale, Math.min(maxScale, scale + (e.deltaY > 0 ? -0.1 : 0.1))); updateTransform(); }, { passive: false });
-
-        imageContainer.addEventListener('mousedown', (e) => { if (isEditMode || e.button !== 0) return; isDragging = true; imageContainer.classList.add('dragging'); dragStartX = e.clientX; dragStartY = e.clientY; dragStartTranslateX = translateX; dragStartTranslateY = translateY; });
-        document.addEventListener('mousemove', (e) => { if (!isDragging) return; translateX = dragStartTranslateX + (e.clientX - dragStartX); translateY = dragStartTranslateY + (e.clientY - dragStartY); updateTransform(true); });
-        document.addEventListener('mouseup', () => { if (isDragging) { isDragging = false; imageContainer.classList.remove('dragging'); updateTransform(); } });
-
-
-        function getImageCoords(e) {
-            const rect = drawingCanvas.getBoundingClientRect();
-            return { x: ((e.clientX - rect.left) / rect.width) * imageWidth, y: ((e.clientY - rect.top) / rect.height) * imageHeight };
-        }
-
-        drawingCanvas.addEventListener('click', (e) => {
-            if (!isEditMode) return;
-            e.stopPropagation();
-            const coords = getImageCoords(e);
-
-            if (currentPoints.length >= 3) {
-                const firstPoint = currentPoints[0];
-                if (Math.hypot(coords.x - firstPoint.x, coords.y - firstPoint.y) < 20) { completeDrawing(); return; }
-            }
-
-            currentPoints.push(coords);
-            isDrawing = true;
-            completeDrawingBtn.disabled = currentPoints.length < 3;
-            drawCurrentPolygon();
-            updateEditInstruction();
-        });
-
-        drawingCanvas.addEventListener('dblclick', (e) => {
-            if (!isEditMode || !isDrawing) return;
-            e.stopPropagation();
-            e.preventDefault();
-            if (currentPoints.length >= 3) {
-                completeDrawing();
-            }
-        });
-
-        drawingCanvas.addEventListener('mousemove', (e) => { if (!isEditMode || currentPoints.length === 0) return; drawCurrentPolygon(getImageCoords(e)); });
-
-        function drawCurrentPolygon(mousePos = null) {
-            ctx.clearRect(0, 0, drawingCanvas.width, drawingCanvas.height);
-            if (currentPoints.length === 0) return;
-
-            ctx.beginPath();
-            ctx.moveTo(currentPoints[0].x, currentPoints[0].y);
-            for (let i = 1; i < currentPoints.length; i++) ctx.lineTo(currentPoints[i].x, currentPoints[i].y);
-            if (mousePos) ctx.lineTo(mousePos.x, mousePos.y);
-            ctx.closePath();
-
-            ctx.fillStyle = 'rgba(201, 169, 98, 0.3)';
-            ctx.fill();
-            ctx.strokeStyle = '#c9a962';
-            ctx.lineWidth = 3;
-            ctx.stroke();
-
-            currentPoints.forEach((point, index) => {
-                ctx.beginPath();
-                ctx.arc(point.x, point.y, 8, 0, Math.PI * 2);
-                ctx.fillStyle = index === 0 ? '#4ade80' : '#c9a962';
-                ctx.fill();
-                ctx.strokeStyle = '#fff';
-                ctx.lineWidth = 2;
-                ctx.stroke();
-            });
+        function getPlotFromMarker(marker) {
+            const plotId = marker && marker.config && marker.config.data ? marker.config.data.plotId : null;
+            return plots.find(item => String(item.id) === String(plotId));
         }
 
         function updateEditInstruction() {
-            if (currentPoints.length === 0) editInstruction.textContent = 'Click on the image to start drawing a plot boundary.';
-            else if (currentPoints.length < 3) editInstruction.textContent = `${currentPoints.length} point(s) added. Add at least ${3 - currentPoints.length} more to complete.`;
-            else editInstruction.textContent = `${currentPoints.length} points. Click the green starting point or press Complete to finish.`;
+            if (!editInstruction) return;
+            if (!isEditMode) {
+                editInstruction.textContent = 'Click on the panorama to start drawing a plot boundary.';
+                return;
+            }
+            if (currentPoints.length === 0) {
+                editInstruction.textContent = 'Click on the panorama to start drawing a plot boundary.';
+            } else if (currentPoints.length < 3) {
+                editInstruction.textContent = `${currentPoints.length} point(s) added. Click to add more.`;
+            } else {
+                editInstruction.textContent = `${currentPoints.length} points. Click the first point or press Complete to finish.`;
+            }
+        }
+
+        function getTextureCoordsFromEvent(event) {
+            if (!viewer || !psvContainer) return null;
+            const rect = psvContainer.getBoundingClientRect();
+            const viewerPoint = { x: event.clientX - rect.left, y: event.clientY - rect.top };
+            try {
+                const vector = viewer.dataHelper.viewerCoordsToVector3(viewerPoint);
+                const spherical = viewer.dataHelper.vector3ToSphericalCoords(vector);
+                const texturePoint = viewer.dataHelper.sphericalCoordsToTextureCoords(spherical);
+                return { x: texturePoint.x, y: texturePoint.y };
+            } catch (error) {
+                return null;
+            }
+        }
+
+        function simplifyPoints(points, minDistance = 4) {
+            if (points.length <= 2) return points;
+            const simplified = [points[0]];
+            for (let i = 1; i < points.length - 1; i++) {
+                const prev = simplified[simplified.length - 1];
+                const current = points[i];
+                if (Math.hypot(current.x - prev.x, current.y - prev.y) >= minDistance) {
+                    simplified.push(current);
+                }
+            }
+            simplified.push(points[points.length - 1]);
+            return simplified;
+        }
+
+        function getDraftStyle() {
+            const colors = getPlotColors({ color: selectedColor, status: colorToStatus[selectedColor] || 'available' });
+            return {
+                fill: colors.fill,
+                stroke: colors.start,
+                strokeWidth: 3,
+                strokeLinejoin: 'round',
+                strokeLinecap: 'round'
+            };
+        }
+
+        function updateDraftMarker(previewPoint = null) {
+            if (!markersPlugin) return;
+            const renderPoints = previewPoint ? [...currentPoints, previewPoint] : [...currentPoints];
+            if (renderPoints.length === 0) {
+                clearDraftMarker();
+                return;
+            }
+            const style = getDraftStyle();
+            const nextMarkerType = renderPoints.length >= 3 ? 'polygonPx' : 'polylinePx';
+            if (nextMarkerType === 'polylinePx') {
+                style.fill = 'none';
+            }
+            const config = {
+                id: draftMarkerId,
+                svgStyle: style
+            };
+            config[nextMarkerType] = renderPoints.map(point => [point.x, point.y]);
+
+            if (draftMarkerActive && draftMarkerType !== nextMarkerType) {
+                clearDraftMarker();
+            }
+
+            if (draftMarkerActive) {
+                markersPlugin.updateMarker(config);
+            } else {
+                markersPlugin.addMarker(config);
+                draftMarkerActive = true;
+                draftMarkerType = nextMarkerType;
+            }
+            if (completeDrawingBtn) {
+                completeDrawingBtn.disabled = currentPoints.length < 3;
+            }
+        }
+
+        function clearDraftMarker() {
+            if (!markersPlugin || !draftMarkerActive) return;
+            try {
+                markersPlugin.removeMarker(draftMarkerId);
+            } catch (error) {
+                // Marker already removed
+            }
+            draftMarkerActive = false;
+            draftMarkerType = null;
         }
 
         function cancelDrawing() {
             currentPoints = [];
             isDrawing = false;
-            completeDrawingBtn.disabled = true;
-            ctx.clearRect(0, 0, drawingCanvas.width, drawingCanvas.height);
+            if (completeDrawingBtn) {
+                completeDrawingBtn.disabled = true;
+            }
+            clearDraftMarker();
             updateEditInstruction();
         }
 
         function completeDrawing() {
             if (currentPoints.length < 3) return;
+            currentPoints = simplifyPoints(currentPoints);
+            updateDraftMarker();
+            isDrawing = false;
+            if (completeDrawingBtn) {
+                completeDrawingBtn.disabled = true;
+            }
             editingPlotId = null;
             editingPlotPoints = null;
             setPlotFormMode(false);
@@ -2327,13 +2361,76 @@
             setTimeout(() => document.getElementById('plot-name').focus(), 100);
         }
 
-        cancelDrawingBtn.addEventListener('click', cancelDrawing);
-        completeDrawingBtn.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); completeDrawing(); });
+        function addPoint(event) {
+            if (!isEditMode) return;
+            if (event.button !== 0) return;
+            event.preventDefault();
+            event.stopPropagation();
+            const coords = getTextureCoordsFromEvent(event);
+            if (!coords) return;
+            if (currentPoints.length >= 3) {
+                const firstPoint = currentPoints[0];
+                if (Math.hypot(coords.x - firstPoint.x, coords.y - firstPoint.y) < CLOSE_DISTANCE) {
+                    completeDrawing();
+                    return;
+                }
+            }
+            currentPoints.push(coords);
+            isDrawing = true;
+            updateDraftMarker();
+            updateEditInstruction();
+        }
+
+        function handleHoverMove(event) {
+            if (!isEditMode || currentPoints.length === 0) return;
+            const coords = getTextureCoordsFromEvent(event);
+            if (!coords) return;
+            updateDraftMarker(coords);
+        }
+
+        function clearHoverPreview() {
+            if (!isEditMode || currentPoints.length === 0) return;
+            updateDraftMarker();
+        }
+
+        if (drawOverlay) {
+            drawOverlay.addEventListener('click', addPoint);
+            drawOverlay.addEventListener('dblclick', (event) => {
+                if (!isEditMode) return;
+                event.preventDefault();
+                event.stopPropagation();
+                if (currentPoints.length >= 3) {
+                    completeDrawing();
+                }
+            });
+            drawOverlay.addEventListener('pointermove', handleHoverMove);
+            drawOverlay.addEventListener('pointerleave', clearHoverPreview);
+        }
+
+        if (cancelDrawingBtn) {
+            cancelDrawingBtn.addEventListener('click', cancelDrawing);
+        }
+        if (completeDrawingBtn) {
+            completeDrawingBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                completeDrawing();
+            });
+        }
 
         const plotStatusSelect = document.getElementById('plot-status');
         const plotMediaPhotoInput = document.getElementById('plot-media-photo');
         const plotMediaVideoInput = document.getElementById('plot-media-video');
         const colorOptions = Array.from(document.querySelectorAll('.color-option'));
+
+        function escapeHtml(value) {
+            return String(value)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/\"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
 
         function normalizeStatus(status) {
             return status === 'reserved' ? 'on_hold' : status;
@@ -2359,6 +2456,13 @@
             }
             const statusColor = statusToColor[plot ? normalizeStatus(plot.status) : 'available'] || 'green';
             return colorGradients[statusColor] || colorGradients.green;
+        }
+
+        function getCentroid(points) {
+            if (!points || points.length === 0) return null;
+            let x = 0, y = 0;
+            points.forEach(p => { x += p.x; y += p.y; });
+            return { x: x / points.length, y: y / points.length };
         }
 
         if (plotStatusSelect) {
@@ -2431,6 +2535,7 @@
             const name = document.getElementById('plot-name').value.trim();
             if (!name) { document.getElementById('plot-name').focus(); return; }
 
+            const nextPoints = editingPlotId ? (editingPlotPoints || []) : simplifyPoints([...currentPoints]);
             const plotData = {
                 name,
                 area: document.getElementById('plot-area').value.trim(),
@@ -2440,7 +2545,7 @@
                 color: selectedColor,
                 media_photo: plotMediaPhotoInput ? plotMediaPhotoInput.value.trim() : '',
                 media_video: plotMediaVideoInput ? plotMediaVideoInput.value.trim() : '',
-                points: editingPlotId ? (editingPlotPoints || []) : [...currentPoints]
+                points: nextPoints
             };
 
             try {
@@ -2463,62 +2568,45 @@
         });
 
         function renderPlots() {
-            const plotsOverlay = document.getElementById('plots-overlay');
-            if (!plotsOverlay) {
-                // 360 mode - plots overlay doesn't exist
-                return;
+            if (!markersPlugin || !viewer) return;
+            const markers = [];
+            plots
+                .filter(plot => Array.isArray(plot.points) && plot.points.length >= 3)
+                .forEach(plot => {
+                    const colors = getPlotColors(plot);
+                    markers.push({
+                        id: `plot-${plot.id}`,
+                        polygonPx: plot.points.map(point => [point.x, point.y]),
+                        svgStyle: {
+                            fill: colors.fill,
+                            stroke: colors.start,
+                            strokeWidth: 3,
+                            strokeLinejoin: 'round'
+                        },
+                        tooltip: plot.name || '',
+                        data: { plotId: plot.id }
+                    });
+
+                    const centroid = getCentroid(plot.points);
+                    if (centroid && plot.name) {
+                        const spherical = viewer.dataHelper.textureCoordsToSphericalCoords(centroid);
+                        markers.push({
+                            id: `plot-label-${plot.id}`,
+                            longitude: spherical.longitude,
+                            latitude: spherical.latitude,
+                            html: `<div class="psv-plot-label">${escapeHtml(plot.name)}</div>`,
+                            anchor: 'center center',
+                            style: { pointerEvents: 'none' },
+                            data: { plotId: plot.id, label: true }
+                        });
+                    }
+                });
+            draftMarkerActive = false;
+            draftMarkerType = null;
+            markersPlugin.setMarkers(markers);
+            if (currentPoints.length) {
+                updateDraftMarker();
             }
-            plotsOverlay.innerHTML = '';
-
-            const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
-            Object.entries(colorGradients).forEach(([name, colors]) => {
-                const gradient = document.createElementNS('http://www.w3.org/2000/svg', 'linearGradient');
-                gradient.setAttribute('id', `gradient-${name}`);
-                gradient.setAttribute('x1', '0%'); gradient.setAttribute('y1', '0%');
-                gradient.setAttribute('x2', '100%'); gradient.setAttribute('y2', '100%');
-                const stop1 = document.createElementNS('http://www.w3.org/2000/svg', 'stop');
-                stop1.setAttribute('offset', '0%'); stop1.setAttribute('stop-color', colors.start);
-                const stop2 = document.createElementNS('http://www.w3.org/2000/svg', 'stop');
-                stop2.setAttribute('offset', '100%'); stop2.setAttribute('stop-color', colors.end);
-                gradient.appendChild(stop1); gradient.appendChild(stop2);
-                defs.appendChild(gradient);
-            });
-            plotsOverlay.appendChild(defs);
-
-            plots.forEach(plot => {
-                const colors = getPlotColors(plot);
-                const pointsStr = plot.points.map(p => `${p.x},${p.y}`).join(' ');
-
-                const polygon = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
-                polygon.setAttribute('points', pointsStr);
-                polygon.setAttribute('fill', colors.fill);
-                polygon.setAttribute('stroke', `url(#gradient-${plot.color && colorGradients[plot.color] ? plot.color : statusToColor[normalizeStatus(plot.status)] || 'green'})`);
-                polygon.setAttribute('stroke-width', '3');
-                polygon.style.cursor = 'pointer';
-                polygon.style.pointerEvents = 'auto';
-
-                polygon.addEventListener('mouseenter', () => polygon.setAttribute('fill', colors.fill.replace('0.35', '0.5')));
-                polygon.addEventListener('mouseleave', () => polygon.setAttribute('fill', colors.fill));
-                polygon.addEventListener('click', (e) => { if (isEditMode) return; e.stopPropagation(); showPlotDetails(plot); });
-
-                plotsOverlay.appendChild(polygon);
-
-                const centroid = getCentroid(plot.points);
-                const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-                text.setAttribute('x', centroid.x); text.setAttribute('y', centroid.y);
-                text.setAttribute('text-anchor', 'middle'); text.setAttribute('dominant-baseline', 'middle');
-                text.setAttribute('fill', '#fff'); text.setAttribute('font-size', '24');
-                text.setAttribute('font-family', 'Syne, sans-serif'); text.setAttribute('font-weight', '600');
-                text.setAttribute('pointer-events', 'none');
-                text.textContent = plot.name;
-                plotsOverlay.appendChild(text);
-            });
-        }
-
-        function getCentroid(points) {
-            let x = 0, y = 0;
-            points.forEach(p => { x += p.x; y += p.y; });
-            return { x: x / points.length, y: y / points.length };
         }
 
         // Shared event handlers (available in both modes)
