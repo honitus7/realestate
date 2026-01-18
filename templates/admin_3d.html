@@ -2160,9 +2160,12 @@
         let editingPlotPoints = null;
         let draftMarkerActive = false;
         let draftMarkerType = null;
+        let clickTimer = null;
+        let ignoreClick = false;
 
         const draftMarkerId = 'draft-plot';
         const CLOSE_DISTANCE = 20;
+        const CLICK_DELAY_MS = 220;
         const MAX_PSV_RETRIES = 50;
         let psvRetryCount = 0;
 
@@ -2361,12 +2364,8 @@
             setTimeout(() => document.getElementById('plot-name').focus(), 100);
         }
 
-        function addPoint(event) {
+        function addPointAt(coords) {
             if (!isEditMode) return;
-            if (event.button !== 0) return;
-            event.preventDefault();
-            event.stopPropagation();
-            const coords = getTextureCoordsFromEvent(event);
             if (!coords) return;
             if (currentPoints.length >= 3) {
                 const firstPoint = currentPoints[0];
@@ -2379,6 +2378,22 @@
             isDrawing = true;
             updateDraftMarker();
             updateEditInstruction();
+        }
+
+        function handleClick(event) {
+            if (!isEditMode || ignoreClick) return;
+            if (event.button !== 0) return;
+            event.preventDefault();
+            event.stopPropagation();
+            const coords = getTextureCoordsFromEvent(event);
+            if (!coords) return;
+            if (clickTimer) {
+                clearTimeout(clickTimer);
+            }
+            clickTimer = setTimeout(() => {
+                addPointAt(coords);
+                clickTimer = null;
+            }, CLICK_DELAY_MS);
         }
 
         function handleHoverMove(event) {
@@ -2394,11 +2409,19 @@
         }
 
         if (drawOverlay) {
-            drawOverlay.addEventListener('click', addPoint);
+            drawOverlay.addEventListener('click', handleClick);
             drawOverlay.addEventListener('dblclick', (event) => {
                 if (!isEditMode) return;
                 event.preventDefault();
                 event.stopPropagation();
+                if (clickTimer) {
+                    clearTimeout(clickTimer);
+                    clickTimer = null;
+                }
+                ignoreClick = true;
+                setTimeout(() => {
+                    ignoreClick = false;
+                }, CLICK_DELAY_MS + 30);
                 if (currentPoints.length >= 3) {
                     completeDrawing();
                 }
