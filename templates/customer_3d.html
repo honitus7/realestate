@@ -4,12 +4,22 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ panorama.name }} - Interactive View</title>
+    <title>{{ panorama.name }} - 360° View</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link
         href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Syne:wght@400;500;600;700&display=swap"
         rel="stylesheet">
+    <script>
+        // Polyfill for Node.js 'process' global that PANOLENS expects
+        if (typeof process === 'undefined') {
+            window.process = { env: {} };
+        }
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.122.0/build/three.min.js"
+        onload="window.THREE_LOADED = true"></script>
+    <script src="https://cdn.jsdelivr.net/npm/panolens@0.12.1/build/panolens.min.js"
+        onload="window.PANOLENS_LOADED = true"></script>
     <style>
         :root {
             --color-bg: #0a0a0b;
@@ -792,13 +802,7 @@
         <div class="loading-text">Loading panorama...</div>
     </div>
 
-    <div class="image-container" id="image-container">
-        <div class="image-wrapper" id="image-wrapper">
-            <img src="/uploads/{{ panorama.filename }}" alt="{{ panorama.name }}" class="panorama-image"
-                id="panorama-image">
-            <svg class="plots-overlay" id="plots-overlay"></svg>
-        </div>
-    </div>
+    <div id="psv-container" style="width: 100vw; height: 100vh;"></div>
 
     <div class="overlay-gradient"></div>
 
@@ -819,15 +823,7 @@
         </header>
 
         <footer class="footer">
-            <div class="zoom-controls">
-                <button class="zoom-btn" id="zoom-in">+</button>
-                <button class="zoom-btn" id="zoom-out">−</button>
-                <button class="zoom-btn" id="zoom-reset" style="font-size: 0.9rem;">⌂</button>
-                <div class="zoom-info" id="zoom-level">100%</div>
-            </div>
-
-            <div class="info-panel">
-                <div class="info-title">How to Use</div>
+            <div style="width: 200px;"></div>
 
                 <div class="adjustment-group">
                     <div class="adjustment-label">
@@ -959,7 +955,7 @@
 
     <script>
         const PANORAMA_ID = {{ panorama.id }};
-        const IS_360 = 0; // Normal panoramas only (360° images use /customer/3d routes)
+        const IS_360 = 1; // Always 360 for 3D routes
 
         const loading = document.getElementById('loading');
         const shareBtn = document.getElementById('share-btn');
@@ -1098,152 +1094,132 @@
         document.getElementById('close-details').addEventListener('click', () => plotDetailsModal.classList.remove('visible'));
         plotDetailsModal.addEventListener('click', (e) => { if (e.target === plotDetailsModal) plotDetailsModal.classList.remove('visible'); });
 
-        // Regular 2D panorama mode only
-        // Regular 2D panorama
-        const imageContainer = document.getElementById('image-container');
-        const imageWrapper = document.getElementById('image-wrapper');
-        const panoramaImage = document.getElementById('panorama-image');
-        const plotsOverlay = document.getElementById('plots-overlay');
+        // 360-degree Panolens.js Viewer
+        let panolensRetryCount = 0;
+        const MAX_PANOLENS_RETRIES = 50; // 5 seconds max wait time
 
-        let scale = 1.5, translateX = 0, translateY = 0;
-        let isDragging = false, dragStartX = 0, dragStartY = 0, dragStartTranslateX = 0, dragStartTranslateY = 0;
-        let imageWidth = 0, imageHeight = 0, containerWidth = 0, containerHeight = 0;
-        let minScale = 0.3, maxScale = 5.0;
+        function initPanolens() {
+            if (typeof PANOLENS === 'undefined') {
+                panolensRetryCount++;
+                if (panolensRetryCount >= MAX_PANOLENS_RETRIES) {
+                    console.error('PANOLENS failed to load after multiple attempts. Please check your internet connection and refresh the page.');
+                    return;
+                }
+                setTimeout(initPanolens, 100);
+                return;
+            }
 
-        panoramaImage.onload = () => {
-            imageWidth = panoramaImage.naturalWidth;
-            imageHeight = panoramaImage.naturalHeight;
-            containerWidth = imageContainer.clientWidth;
-            containerHeight = imageContainer.clientHeight;
+            const psvContainer = document.getElementById('psv-container');
 
-            panoramaImage.style.width = `${imageWidth}px`;
-            panoramaImage.style.height = `${imageHeight}px`;
+            // Try to detect if it's a cubemap/3D image (6 images) or equirectangular
+            // For now, default to ImagePanorama (equirectangular)
+            // You can extend this to detect cubemap images if needed
+            let panorama;
+            const imageUrl = '/uploads/{{ panorama.filename }}';
 
-            plotsOverlay.setAttribute('width', imageWidth);
-            plotsOverlay.setAttribute('height', imageHeight);
-            plotsOverlay.style.width = `${imageWidth}px`;
-            plotsOverlay.style.height = `${imageHeight}px`;
+            // Default: Use ImagePanorama for equirectangular 360 images
+            // For cubemap, you would use: new PANOLENS.CubemapPanorama([url1, url2, url3, url4, url5, url6])
+            panorama = new PANOLENS.ImagePanorama(imageUrl);
 
-            updateTransform();
-            loadPlots();
-            loading.classList.add('hidden');
-        };
+            // Error handling
+            panorama.addEventListener('error', (error) => {
+                console.error('Failed to load panorama image:', error);
+                loading.classList.add('hidden');
+            });
 
-        function updateTransform(noTransition = false) {
-            imageWrapper.classList.toggle('no-transition', noTransition);
-            const scaledWidth = imageWidth * scale, scaledHeight = imageHeight * scale;
-            const maxTranslateX = Math.max(0, (scaledWidth - containerWidth) / 2);
-            const maxTranslateY = Math.max(0, (scaledHeight - containerHeight) / 2);
-            translateX = Math.max(-maxTranslateX, Math.min(maxTranslateX, translateX));
-            translateY = Math.max(-maxTranslateY, Math.min(maxTranslateY, translateY));
-            imageWrapper.style.transform = `translate(-50%, -50%) translate(${translateX}px, ${translateY}px) scale(${scale})`;
-            document.getElementById('zoom-level').textContent = `${Math.round(scale * 100)}%`;
+            // Create viewer with default PANOLENS configuration
+            // Default options: controlBar: false, autoHideInfospot: true, cameraFov: 60
+            const viewer = new PANOLENS.Viewer({
+                container: psvContainer
+            });
+
+            // Add panorama to viewer
+            viewer.add(panorama);
+
+            // Panorama load event
+            panorama.addEventListener('load', () => {
+                loading.classList.add('hidden');
+                loadPlots();
+            });
+
+            // Hide zoom controls for 360 mode (Panolens has its own controls)
+            const zoomControls = document.querySelector('.zoom-controls');
+            if (zoomControls) {
+                zoomControls.style.display = 'none';
+            }
+
+            // Hide adjustment panel for default PANOLENS behavior
+            const adjustmentPanel = document.querySelector('.adjustment-panel');
+            if (adjustmentPanel) {
+                adjustmentPanel.style.display = 'none';
+            }
         }
 
-        document.getElementById('zoom-in').addEventListener('click', () => { scale = Math.min(maxScale, scale * 1.2); updateTransform(); });
-        document.getElementById('zoom-out').addEventListener('click', () => { scale = Math.max(minScale, scale / 1.2); updateTransform(); });
-        document.getElementById('zoom-reset').addEventListener('click', () => { scale = 1.5; translateX = 0; translateY = 0; updateTransform(); });
+        // Initialize PANOLENS when scripts are loaded
+        function startPanolensInit() {
+            // Wait for both scripts to load
+            if (typeof THREE === 'undefined' || typeof PANOLENS === 'undefined') {
+                if (panolensRetryCount < MAX_PANOLENS_RETRIES) {
+                    setTimeout(startPanolensInit, 100);
+                }
+                return;
+            }
+            initPanolens();
+        }
 
-        imageContainer.addEventListener('wheel', (e) => { e.preventDefault(); scale = Math.max(minScale, Math.min(maxScale, scale + (e.deltaY > 0 ? -0.1 : 0.1))); updateTransform(); }, { passive: false });
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', startPanolensInit);
+        } else {
+            startPanolensInit();
+        }
 
-        imageContainer.addEventListener('mousedown', (e) => { if (e.button !== 0) return; isDragging = true; imageContainer.classList.add('dragging'); dragStartX = e.clientX; dragStartY = e.clientY; dragStartTranslateX = translateX; dragStartTranslateY = translateY; });
-        document.addEventListener('mousemove', (e) => { if (!isDragging) return; translateX = dragStartTranslateX + (e.clientX - dragStartX); translateY = dragStartTranslateY + (e.clientY - dragStartY); updateTransform(true); });
-        document.addEventListener('mouseup', () => { if (isDragging) { isDragging = false; imageContainer.classList.remove('dragging'); updateTransform(); } });
-
+        // Load plots for 360° mode (view-only, no rendering)
         async function loadPlots() {
             try {
                 const response = await fetch(`/api/panoramas/${PANORAMA_ID}/plots`);
                 plots = await response.json();
-                renderPlots();
+                // Note: Plot rendering not available in 360° mode (requires spherical coordinates)
             } catch (error) {
                 console.error('Failed to load plots:', error);
             }
         }
 
-        function renderPlots() {
-            const plotsOverlay = document.getElementById('plots-overlay');
-            if (!plotsOverlay) {
-                // 360 mode - plots overlay doesn't exist
-                return;
+        // Share button handlers for 360° mode
+        const shareBtn = document.getElementById('share-btn');
+        const shareModal = document.getElementById('share-modal');
+        const shareUrl = document.getElementById('share-url');
+        const copyBtn = document.getElementById('copy-share-btn');
+
+        if (shareBtn) {
+            shareBtn.addEventListener('click', () => {
+                const viewUrl = `${window.location.origin}/customer/3d/${PANORAMA_ID}`;
+                shareUrl.textContent = viewUrl;
+                shareModal.classList.add('visible');
+            });
+
+            if (copyBtn) {
+                copyBtn.addEventListener('click', () => {
+                    const viewUrl = `${window.location.origin}/customer/3d/${PANORAMA_ID}`;
+                    navigator.clipboard.writeText(viewUrl).then(() => {
+                        copyBtn.textContent = 'Copied!';
+                        setTimeout(() => {
+                            copyBtn.textContent = 'Copy Link';
+                        }, 2000);
+                    });
+                });
             }
-            plotsOverlay.innerHTML = '';
 
-            const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
-            Object.entries(statusColorMap).forEach(([name, colors]) => {
-                const gradient = document.createElementNS('http://www.w3.org/2000/svg', 'linearGradient');
-                gradient.setAttribute('id', `gradient-${name}`);
-                gradient.setAttribute('x1', '0%'); gradient.setAttribute('y1', '0%');
-                gradient.setAttribute('x2', '100%'); gradient.setAttribute('y2', '100%');
-                const stop1 = document.createElementNS('http://www.w3.org/2000/svg', 'stop');
-                stop1.setAttribute('offset', '0%'); stop1.setAttribute('stop-color', colors.start);
-                const stop2 = document.createElementNS('http://www.w3.org/2000/svg', 'stop');
-                stop2.setAttribute('offset', '100%'); stop2.setAttribute('stop-color', colors.end);
-                gradient.appendChild(stop1); gradient.appendChild(stop2);
-                defs.appendChild(gradient);
-            });
-            plotsOverlay.appendChild(defs);
-
-            plots.forEach(plot => {
-                const statusKey = getStatusKey(plot.status);
-                const colors = statusColorMap[statusKey];
-                const pointsStr = plot.points.map(p => `${p.x},${p.y}`).join(' ');
-
-                const polygon = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
-                polygon.setAttribute('points', pointsStr);
-                polygon.setAttribute('fill', colors.fill);
-                polygon.setAttribute('stroke', `url(#gradient-${statusKey})`);
-                polygon.setAttribute('stroke-width', '3');
-                polygon.style.cursor = 'pointer';
-                polygon.style.pointerEvents = 'auto';
-
-                polygon.addEventListener('mouseenter', () => polygon.setAttribute('fill', colors.fill.replace('0.35', '0.5')));
-                polygon.addEventListener('mouseleave', () => polygon.setAttribute('fill', colors.fill));
-                polygon.addEventListener('click', (e) => { e.stopPropagation(); showPlotDetails(plot); });
-
-                plotsOverlay.appendChild(polygon);
-
-                const centroid = getCentroid(plot.points);
-                const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-                text.setAttribute('x', centroid.x); text.setAttribute('y', centroid.y);
-                text.setAttribute('text-anchor', 'middle'); text.setAttribute('dominant-baseline', 'middle');
-                text.setAttribute('fill', '#fff'); text.setAttribute('font-size', '24');
-                text.setAttribute('font-family', 'Syne, sans-serif'); text.setAttribute('font-weight', '600');
-                text.setAttribute('pointer-events', 'none');
-                text.textContent = plot.name;
-                plotsOverlay.appendChild(text);
-            });
+            const closeShare = document.getElementById('close-share');
+            if (closeShare) {
+                closeShare.addEventListener('click', () => shareModal.classList.remove('visible'));
+            }
+            shareModal.addEventListener('click', (e) => { if (e.target === shareModal) shareModal.classList.remove('visible'); });
         }
-
-        function getCentroid(points) {
-            let x = 0, y = 0;
-            points.forEach(p => { x += p.x; y += p.y; });
-            return { x: x / points.length, y: y / points.length };
-        }
-
-        // Share button handlers (available in both modes)
-        shareBtn.addEventListener('click', () => {
-            const viewUrl = `${window.location.origin}/customer/${PANORAMA_ID}`;
-            shareUrl.textContent = viewUrl;
-            shareModal.classList.add('visible');
-        });
-
-        copyBtn.addEventListener('click', () => {
-            const viewUrl = `${window.location.origin}/customer/${PANORAMA_ID}`;
-            navigator.clipboard.writeText(viewUrl).then(() => {
-                copyBtn.textContent = 'Copied!';
-                setTimeout(() => {
-                    copyBtn.textContent = 'Copy Link';
-                }, 2000);
-            });
-        });
-
-        document.getElementById('close-share').addEventListener('click', () => shareModal.classList.remove('visible'));
-        shareModal.addEventListener('click', (e) => { if (e.target === shareModal) shareModal.classList.remove('visible'); });
 
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') {
-                if (plotDetailsModal.classList.contains('visible')) plotDetailsModal.classList.remove('visible');
-                if (shareModal.classList.contains('visible')) shareModal.classList.remove('visible');
+                if (plotDetailsModal && plotDetailsModal.classList.contains('visible')) plotDetailsModal.classList.remove('visible');
+                if (shareModal && shareModal.classList.contains('visible')) shareModal.classList.remove('visible');
             }
         });
     </script>

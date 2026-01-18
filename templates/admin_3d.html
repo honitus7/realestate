@@ -4,12 +4,22 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ panorama.name }} - Plot Marker</title>
+    <title>{{ panorama.name }} - 360° Admin</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link
         href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Syne:wght@400;500;600;700&display=swap"
         rel="stylesheet">
+    <script>
+        // Polyfill for Node.js 'process' global that PANOLENS expects
+        if (typeof process === 'undefined') {
+            window.process = { env: {} };
+        }
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.122.0/build/three.min.js"
+        onload="window.THREE_LOADED = true"></script>
+    <script src="https://cdn.jsdelivr.net/npm/panolens@0.12.1/build/panolens.min.js"
+        onload="window.PANOLENS_LOADED = true"></script>
     <style>
         :root {
             --color-bg: #0a0a0b;
@@ -1632,14 +1642,7 @@
         <div class="loading-text">Loading panorama...</div>
     </div>
 
-    <div class="image-container" id="image-container">
-        <div class="image-wrapper" id="image-wrapper">
-            <img src="/uploads/{{ panorama.filename }}" alt="{{ panorama.name }}" class="panorama-image"
-                id="panorama-image">
-            <canvas class="drawing-canvas" id="drawing-canvas"></canvas>
-            <svg class="plots-overlay" id="plots-overlay"></svg>
-        </div>
-    </div>
+    <div id="psv-container" style="width: 100vw; height: 100vh;"></div>
 
     <div class="overlay-gradient"></div>
 
@@ -1673,12 +1676,8 @@
 
             <div class="edit-panel" id="edit-panel">
                 <button class="panel-toggle-btn" id="edit-panel-toggle" title="Collapse/Expand">◀</button>
-                <div class="edit-panel-title">Plot Drawing</div>
-                <div class="edit-instruction" id="edit-instruction">Click on the image to start drawing a plot boundary.
-                </div>
-                <div class="edit-actions">
-                    <button class="edit-btn secondary" id="cancel-drawing">Cancel</button>
-                    <button class="edit-btn primary" id="complete-drawing" disabled>Complete</button>
+                <div class="edit-panel-title">Plot Management</div>
+                <div class="edit-instruction" id="edit-instruction">Note: Plot marking for 360° images requires spherical coordinates. You can view, edit, and delete existing plots.
                 </div>
 
                 <div class="edit-panel-title" style="margin-top: 1rem;">Saved Plots</div>
@@ -1843,7 +1842,7 @@
 
     <script>
         const PANORAMA_ID = {{ panorama.id }};
-        const IS_360 = 0; // Normal panoramas only (360° images use /admin/3d routes)
+        const IS_360 = 1; // Always 360 for 3D routes
 
         const loading = document.getElementById('loading');
         const editToggle = document.getElementById('edit-toggle');
@@ -1927,30 +1926,26 @@
             try {
                 const response = await fetch(`/api/panoramas/${PANORAMA_ID}/plots`);
                 plots = await response.json();
-                renderPlots();
+                // Note: Plot rendering not available in 360° mode (requires spherical coordinates)
                 updatePlotsList();
             } catch (error) {
                 console.error('Failed to load plots:', error);
             }
         }
 
-        // Edit toggle for regular 2D panoramas
+        // Edit toggle for 360° panoramas
         editToggle.addEventListener('click', () => {
             isEditMode = !isEditMode;
             editToggle.classList.toggle('active', isEditMode);
             editToggleText.textContent = isEditMode ? 'Exit Edit' : 'Edit Mode';
 
-            // Regular 2D panorama edit mode
-            const imageContainerEl = document.getElementById('image-container');
-            if (imageContainerEl) {
-                imageContainerEl.classList.toggle('edit-mode', isEditMode);
-            }
+            // For 360° panoramas, show edit panel but with limited functionality
             if (editPanel) {
                 editPanel.classList.toggle('visible', isEditMode);
                 setTimeout(updateFormModalPosition, 100);
             }
-            if (!isEditMode && typeof cancelDrawing === 'function') {
-                cancelDrawing();
+            if (isEditMode) {
+                showToast('Note: Plot marking for 360° images requires spherical coordinates. You can view, edit, and delete existing plots.', 'info');
             }
         });
 
@@ -2109,7 +2104,82 @@
 
         let imageContainer, imageWrapper, panoramaImage, drawingCanvas, plotsOverlay, ctx;
 
-        // Regular 2D panorama mode only
+        // 360-degree Panolens.js Viewer
+        let panolensRetryCount = 0;
+        const MAX_PANOLENS_RETRIES = 50; // 5 seconds max wait time
+
+        function initPanolens() {
+            if (typeof PANOLENS === 'undefined') {
+                panolensRetryCount++;
+                if (panolensRetryCount >= MAX_PANOLENS_RETRIES) {
+                    console.error('PANOLENS failed to load after multiple attempts. Please check your internet connection and refresh the page.');
+                    return;
+                }
+                setTimeout(initPanolens, 100);
+                return;
+            }
+
+            const psvContainer = document.getElementById('psv-container');
+
+            // Try to detect if it's a cubemap/3D image (6 images) or equirectangular
+            // For now, default to ImagePanorama (equirectangular)
+            // You can extend this to detect cubemap images if needed
+            let panorama;
+            const imageUrl = '/uploads/{{ panorama.filename }}';
+
+            // Default: Use ImagePanorama for equirectangular 360 images
+            // For cubemap, you would use: new PANOLENS.CubemapPanorama([url1, url2, url3, url4, url5, url6])
+            panorama = new PANOLENS.ImagePanorama(imageUrl);
+
+            // Error handling
+            panorama.addEventListener('error', (error) => {
+                console.error('Failed to load panorama image:', error);
+                const loading = document.querySelector('.loading');
+                if (loading) loading.classList.add('hidden');
+            });
+
+            // Create viewer with default PANOLENS configuration
+            // Default options: controlBar: false, autoHideInfospot: true, cameraFov: 60
+            const viewer = new PANOLENS.Viewer({
+                container: psvContainer
+            });
+
+            // Add panorama to viewer
+            viewer.add(panorama);
+
+            // Panorama load event
+            panorama.addEventListener('load', () => {
+                loading.classList.add('hidden');
+                loadPlots();
+            });
+
+            // Hide zoom controls for 360 mode (Panolens has its own controls)
+            const zoomControls = document.querySelector('.zoom-controls');
+            if (zoomControls) {
+                zoomControls.style.display = 'none';
+            }
+
+            // Note: Plot marking for 360 images requires spherical coordinates
+            console.log('360° mode enabled with Panolens.js using default configuration!');
+        }
+
+        // Initialize PANOLENS when scripts are loaded
+        function startPanolensInit() {
+            // Wait for both scripts to load
+            if (typeof THREE === 'undefined' || typeof PANOLENS === 'undefined') {
+                if (panolensRetryCount < MAX_PANOLENS_RETRIES) {
+                    setTimeout(startPanolensInit, 100);
+                }
+                return;
+            }
+            initPanolens();
+        }
+
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', startPanolensInit);
+        } else {
+            startPanolensInit();
+        }
         // Regular 2D panorama
         imageContainer = document.getElementById('image-container');
         imageWrapper = document.getElementById('image-wrapper');
@@ -2465,8 +2535,8 @@
 
         if (shareBtn) {
             shareBtn.addEventListener('click', () => {
-                const customerUrl = `${window.location.origin}/customer/${PANORAMA_ID}`;
-                const clientUrl = `${window.location.origin}/client/${PANORAMA_ID}`;
+                const customerUrl = `${window.location.origin}/customer/3d/${PANORAMA_ID}`;
+                const clientUrl = `${window.location.origin}/client/3d/${PANORAMA_ID}`;
                 
                 customerShareUrl.textContent = customerUrl;
                 clientShareUrl.textContent = clientUrl;
@@ -2488,12 +2558,12 @@
             }
 
             copyCustomerBtn.addEventListener('click', () => {
-                const customerUrl = `${window.location.origin}/customer/${PANORAMA_ID}`;
+                const customerUrl = `${window.location.origin}/customer/3d/${PANORAMA_ID}`;
                 copyToClipboard(customerUrl, copyCustomerBtn);
             });
 
             copyClientBtn.addEventListener('click', () => {
-                const clientUrl = `${window.location.origin}/client/${PANORAMA_ID}`;
+                const clientUrl = `${window.location.origin}/client/3d/${PANORAMA_ID}`;
                 copyToClipboard(clientUrl, copyClientBtn);
             });
 
@@ -2501,16 +2571,12 @@
             shareModal.addEventListener('click', (e) => { if (e.target === shareModal) shareModal.classList.remove('visible'); });
         }
 
-        // Regular mode specific handlers
-        plotFormModal.addEventListener('click', (e) => { if (e.target === plotFormModal) closePlotForm(); });
-
+        // Keyboard shortcuts for 360° mode
         document.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter' && isDrawing && currentPoints.length >= 3) completeDrawing();
-            else if (e.key === 'Escape') {
+            if (e.key === 'Escape') {
                 if (shareModal && shareModal.classList.contains('visible')) shareModal.classList.remove('visible');
-                else if (plotFormModal.classList.contains('visible')) closePlotForm();
-                else if (plotDetailsModal.classList.contains('visible')) plotDetailsModal.classList.remove('visible');
-                else if (isDrawing) cancelDrawing();
+                else if (plotFormModal && plotFormModal.classList.contains('visible')) closePlotForm();
+                else if (plotDetailsModal && plotDetailsModal.classList.contains('visible')) plotDetailsModal.classList.remove('visible');
                 else if (isEditMode) editToggle.click();
             }
         });

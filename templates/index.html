@@ -812,9 +812,13 @@
                         resetUploadForm();
                         loadProjects();
                         
-                        // Redirect to editor
+                        // Redirect to editor (check if 360 and route to 3D)
                         setTimeout(() => {
-                            window.location.href = `/editor/${project.id}`;
+                            if (project.is_360) {
+                                window.location.href = `/admin/3d/${project.id}`;
+                            } else {
+                                window.location.href = `/admin/${project.id}`;
+                            }
                         }, 500);
                     } else {
                         throw new Error('Upload failed');
@@ -895,7 +899,13 @@
         }
 
         function openEditor(id) {
-            window.location.href = `/editor/${id}`;
+            // Check if this is a 360-degree panorama and route accordingly
+            const project = projects.find(p => p.id === id);
+            if (project && project.is_360) {
+                window.location.href = `/admin/3d/${id}`;
+            } else {
+                window.location.href = `/admin/${id}`;
+            }
         }
 
         function showDeleteModal(id, event) {
