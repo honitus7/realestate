@@ -325,10 +325,9 @@
         }
 
         .edit-panel.collapsed .panel-toggle-btn {
-            transform: rotate(180deg);
             right: auto;
             left: 50%;
-            transform: translateX(-50%) rotate(180deg);
+            transform: translateX(-50%);
         }
 
         .edit-panel.collapsed .panel-toggle-btn:hover::after {
@@ -367,11 +366,11 @@
 
         .panel-toggle-btn {
             position: absolute;
-            top: 1rem;
-            right: 1rem;
-            width: 32px;
-            height: 32px;
-            border-radius: 6px;
+            top: 0.75rem;
+            right: 0.75rem;
+            width: 26px;
+            height: 26px;
+            border-radius: 5px;
             background: rgba(255, 255, 255, 0.1);
             border: 1px solid rgba(255, 255, 255, 0.2);
             color: var(--color-text);
@@ -379,10 +378,21 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 1rem;
+            font-size: 0.8rem;
             transition: all 0.3s ease;
             z-index: 100;
             backdrop-filter: blur(10px);
+        }
+
+        #plot-form-modal .panel-toggle-btn {
+            width: 26px;
+            height: 26px;
+            font-size: 0.8rem;
+            border-radius: 5px;
+            padding: 0;
+            line-height: 1;
+            min-width: 26px;
+            min-height: 26px;
         }
 
         .panel-toggle-btn:hover {
@@ -393,6 +403,22 @@
 
         .panel-toggle-btn:active {
             transform: scale(0.95);
+        }
+
+        .edit-panel.collapsed .panel-toggle-btn:hover {
+            transform: translateX(-50%) scale(1.1);
+        }
+
+        .edit-panel.collapsed .panel-toggle-btn:active {
+            transform: translateX(-50%) scale(0.95);
+        }
+
+        #plot-form-modal .modal.collapsed .panel-toggle-btn:hover {
+            transform: translateX(-50%) scale(1.1);
+        }
+
+        #plot-form-modal .modal.collapsed .panel-toggle-btn:active {
+            transform: translateX(-50%) scale(0.95);
         }
 
         .edit-panel-title {
@@ -790,10 +816,9 @@
         }
 
         #plot-form-modal .modal.collapsed .panel-toggle-btn {
-            transform: rotate(180deg);
             right: auto;
             left: 50%;
-            transform: translateX(-50%) rotate(180deg);
+            transform: translateX(-50%);
         }
 
         #plot-form-modal .modal.collapsed .panel-toggle-btn:hover::after {
@@ -1861,11 +1886,17 @@
         const formModalToggle = document.getElementById('form-modal-toggle');
         const formModal = plotFormModal ? plotFormModal.querySelector('.modal') : null;
 
+        function syncToggleIcon(button, isCollapsed) {
+            if (!button) return;
+            button.textContent = isCollapsed ? '▶' : '◀';
+        }
+
         // Collapse/Expand functionality for edit panel
         if (editPanelToggle && editPanel) {
             editPanelToggle.addEventListener('click', (e) => {
                 e.stopPropagation();
                 editPanel.classList.toggle('collapsed');
+                syncToggleIcon(editPanelToggle, editPanel.classList.contains('collapsed'));
                 setTimeout(updateFormModalPosition, 100);
             });
         }
@@ -1883,8 +1914,12 @@
             formModalToggle.addEventListener('click', (e) => {
                 e.stopPropagation();
                 formModal.classList.toggle('collapsed');
+                syncToggleIcon(formModalToggle, formModal.classList.contains('collapsed'));
             });
         }
+
+        syncToggleIcon(editPanelToggle, editPanel && editPanel.classList.contains('collapsed'));
+        syncToggleIcon(formModalToggle, formModal && formModal.classList.contains('collapsed'));
 
         // Function to update form modal position based on edit panel state
         function updateFormModalPosition() {
