@@ -65,12 +65,21 @@ def init_db():
             status TEXT DEFAULT 'available',
             description TEXT,
             color TEXT DEFAULT 'emerald',
+            media_photo TEXT,
+            media_video TEXT,
             points TEXT NOT NULL,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (panorama_id) REFERENCES panoramas(id) ON DELETE CASCADE
         )
     ''')
+
+    # Add media columns if they don't exist (for existing databases)
+    for column in ("media_photo", "media_video"):
+        try:
+            cursor.execute(f'ALTER TABLE plots ADD COLUMN {column} TEXT')
+        except sqlite3.OperationalError:
+            pass  # Column already exists
     
     conn.commit()
     conn.close()
@@ -92,9 +101,9 @@ def index():
     return render_template('index.html')
 
 
-@app.route('/editor/<int:panorama_id>')
-def editor(panorama_id):
-    """Plot marker editor for a specific panorama"""
+@app.route('/admin/<int:panorama_id>')
+def admin(panorama_id):
+    """Admin editor for a specific panorama - full permissions"""
     conn = get_db()
     cursor = conn.cursor()
     cursor.execute('SELECT * FROM panoramas WHERE id = ?', (panorama_id,))
@@ -104,12 +113,12 @@ def editor(panorama_id):
     if not panorama:
         return "Panorama not found", 404
     
-    return render_template('editor.html', panorama=dict(panorama))
+    return render_template('editor.html', panorama=dict(panorama), mode='admin')
 
 
-@app.route('/view/<int:panorama_id>')
-def view(panorama_id):
-    """View-only mode for clients - no edit controls"""
+@app.route('/customer/<int:panorama_id>')
+def customer(panorama_id):
+    """Customer view-only mode - no edit controls"""
     conn = get_db()
     cursor = conn.cursor()
     cursor.execute('SELECT * FROM panoramas WHERE id = ?', (panorama_id,))
@@ -120,6 +129,66 @@ def view(panorama_id):
         return "Panorama not found", 404
     
     return render_template('viewer.html', panorama=dict(panorama))
+
+
+@app.route('/client/<int:panorama_id>')
+def client(panorama_id):
+    """Client mode - can edit plot attributes but cannot add/delete plots"""
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute('SELECT * FROM panoramas WHERE id = ?', (panorama_id,))
+    panorama = cursor.fetchone()
+    conn.close()
+    
+    if not panorama:
+        return "Panorama not found", 404
+    
+    return render_template('client.html', panorama=dict(panorama), mode='client')
+
+
+@app.route('/admin/3d/<int:panorama_id>')
+def admin_3d(panorama_id):
+    """Admin editor for 360-degree panoramas"""
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute('SELECT * FROM panoramas WHERE id = ?', (panorama_id,))
+    panorama = cursor.fetchone()
+    conn.close()
+    
+    if not panorama:
+        return "Panorama not found", 404
+    
+    return render_template('admin_3d.html', panorama=dict(panorama))
+
+
+@app.route('/client/3d/<int:panorama_id>')
+def client_3d(panorama_id):
+    """Client mode for 360-degree panoramas - can edit plot attributes but cannot add/delete plots"""
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute('SELECT * FROM panoramas WHERE id = ?', (panorama_id,))
+    panorama = cursor.fetchone()
+    conn.close()
+    
+    if not panorama:
+        return "Panorama not found", 404
+    
+    return render_template('client_3d.html', panorama=dict(panorama))
+
+
+@app.route('/customer/3d/<int:panorama_id>')
+def customer_3d(panorama_id):
+    """Customer view-only mode for 360-degree panoramas"""
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute('SELECT * FROM panoramas WHERE id = ?', (panorama_id,))
+    panorama = cursor.fetchone()
+    conn.close()
+    
+    if not panorama:
+        return "Panorama not found", 404
+    
+    return render_template('customer_3d.html', panorama=dict(panorama))
 
 
 @app.route('/uploads/<filename>')
@@ -253,8 +322,8 @@ def create_plot(panorama_id):
     cursor = conn.cursor()
     
     cursor.execute('''
-        INSERT INTO plots (panorama_id, name, area, price, status, description, color, points)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO plots (panorama_id, name, area, price, status, description, color, media_photo, media_video, points)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ''', (
         panorama_id,
         data['name'],
@@ -263,6 +332,8 @@ def create_plot(panorama_id):
         data.get('status', 'available'),
         data.get('description', ''),
         data.get('color', 'emerald'),
+        data.get('media_photo', ''),
+        data.get('media_video', ''),
         json.dumps(data['points'])
     ))
     
@@ -304,6 +375,8 @@ def update_plot(plot_id):
             status = ?,
             description = ?,
             color = ?,
+            media_photo = ?,
+            media_video = ?,
             points = ?,
             updated_at = CURRENT_TIMESTAMP
         WHERE id = ?
@@ -314,6 +387,8 @@ def update_plot(plot_id):
         data.get('status', 'available'),
         data.get('description', ''),
         data.get('color', 'emerald'),
+        data.get('media_photo', ''),
+        data.get('media_video', ''),
         json.dumps(data.get('points', [])),
         plot_id
     ))
@@ -328,4 +403,3 @@ if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     debug = os.environ.get('FLASK_ENV') == 'development'
     app.run(debug=debug, host='0.0.0.0', port=port)
-
