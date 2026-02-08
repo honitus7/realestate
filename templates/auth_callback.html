@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Confirming… – Horizon Estates</title>
+    <script src="/static/js/supabase.min.js"></script>
+    <style>
+        body {
+            font-family: system-ui, sans-serif;
+            background: #0a0a0b;
+            color: #f5f5f0;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0;
+        }
+
+        .msg {
+            text-align: center;
+        }
+    </style>
+</head>
+
+<body>
+    <p class="msg" id="msg">Confirming…</p>
+    <script>
+        (function () {
+            var supabaseUrl = {{ (supabase_url or '')| tojson
+        }};
+        var supabaseAnonKey = {{ (supabase_anon_key or '')| tojson }};
+        var msg = document.getElementById('msg');
+        if (!supabaseUrl || !supabaseAnonKey) {
+            msg.textContent = 'Supabase not configured.';
+            return;
+        }
+        var supabase = window.supabase.createClient(supabaseUrl, supabaseAnonKey);
+        supabase.auth.getSession().then(function (r) {
+            msg.textContent = 'Done. Redirecting…';
+            var uid = r.data.session && r.data.session.user && r.data.session.user.id;
+            window.location.replace(uid ? '/dashboard/' + encodeURIComponent(uid) : '/dashboard');
+        }).catch(function () {
+            msg.textContent = 'Done. Redirecting…';
+            window.location.replace('/dashboard');
+        });
+        }) ();
+    </script>
+</body>
+
+</html>

@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Horizon Estates - Plot Marker</title>
+    <title>Dashboard – Horizon Estates</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link
@@ -620,11 +620,10 @@
 
 <body>
     <header class="header">
-        <a href="/" class="logo">Horizon <span>Estates</span></a>
+        <a href="/dashboard" class="logo">Horizon <span>Estates</span></a>
         <nav class="header-nav" id="header-nav">
-            <a href="/login" id="nav-login">Sign in</a>
-            <a href="/users" id="nav-users" style="display:none;">Add user</a>
-            <a href="/" id="nav-logout" style="display:none;">Sign out</a>
+            <a href="/users" id="nav-users">Add user</a>
+            <a href="/" id="nav-logout">Sign out</a>
         </nav>
     </header>
 
@@ -725,36 +724,38 @@
     <div class="toast-container" id="toast-container"></div>
 
     <script>
-        // Auth: show Login / Add user / Sign out based on Supabase session
+        // Auth guard: must be logged in to view dashboard
         (function () {
-            var url = {{ (supabase_url or '')| tojson
-        }};
-        var key = {{ (supabase_anon_key or '')| tojson }};
-        if (url && key && window.supabase) {
-            var supabase = window.supabase.createClient(url, key);
-            supabase.auth.getSession().then(function (r) {
-                var session = r.data.session;
-                var loginEl = document.getElementById('nav-login');
-                var usersEl = document.getElementById('nav-users');
-                var logoutEl = document.getElementById('nav-logout');
-                if (session) {
-                    if (loginEl) loginEl.style.display = 'none';
-                    if (usersEl) usersEl.style.display = '';
-                    if (logoutEl) {
-                        logoutEl.style.display = '';
-                        logoutEl.addEventListener('click', function (e) {
-                            e.preventDefault();
-                            supabase.auth.signOut().then(function () { window.location.href = '/'; });
-                        });
-                    }
-                } else {
-                    if (loginEl) loginEl.style.display = '';
-                    if (usersEl) usersEl.style.display = 'none';
-                    if (logoutEl) logoutEl.style.display = 'none';
-                }
+            var url = {{ (supabase_url or '')|tojson }};
+        var key = {{ (supabase_anon_key or '')|tojson }};
+        if (!url || !key || !window.supabase) return;
+        window._supabase = window.supabase.createClient(url, key);
+        var supabase = window._supabase;
+        supabase.auth.getSession().then(function (r) {
+            if (!r.data.session) {
+                window.location.replace('/');
+                return;
+            }
+            var logoutEl = document.getElementById('nav-logout');
+            if (logoutEl) {
+                logoutEl.addEventListener('click', function (e) {
+                    e.preventDefault();
+                    supabase.auth.signOut().then(function () { window.location.href = '/'; });
+                });
+            }
+        });
+        })();
+
+        function getAuthHeaders() {
+            var supabase = window._supabase;
+            if (!supabase) return Promise.resolve({});
+            return supabase.auth.getSession().then(function (r) {
+                var h = {};
+                if (r.data.session && r.data.session.access_token)
+                    h['Authorization'] = 'Bearer ' + r.data.session.access_token;
+                return h;
             });
         }
-        }) ();
 
         // State
         let projects = [];
@@ -896,8 +897,11 @@
                     resetUploadForm();
                 });
 
-                xhr.open('POST', '/api/panoramas');
-                xhr.send(formData);
+                getAuthHeaders().then(function (headers) {
+                    xhr.open('POST', '/api/panoramas');
+                    if (headers.Authorization) xhr.setRequestHeader('Authorization', headers.Authorization);
+                    xhr.send(formData);
+                });
 
             } catch (error) {
                 showToast('Upload failed. Please try again.', 'error');
@@ -916,10 +920,15 @@
             projectName.value = '';
         }
 
-        // Projects
+        // Projects (user-scoped; send auth token)
         async function loadProjects() {
             try {
-                const response = await fetch('/api/panoramas');
+                const headers = await getAuthHeaders();
+                const response = await fetch('/api/panoramas', { headers });
+                if (response.status === 401) {
+                    window.location.replace('/');
+                    return;
+                }
                 projects = await response.json();
                 renderProjects();
             } catch (error) {
@@ -938,10 +947,21 @@
                 `;
                 return;
             }
-
+            var accessType = function(p) { return p.access_type || 'owner'; };
             projectsContainer.innerHTML = `
                 <div class="projects-grid">
-                    ${projects.map(project => `
+                    ${projects.map(project => {
+                        var at = accessType(project);
+                        var isOwner = at === 'owner';
+                        var isClient = at === 'client';
+                        var isViewer = at === 'viewer';
+                        var openLabel = isOwner ? 'Open Editor' : (isClient ? 'Open as Client' : 'View');
+                        var actions = '<button class="project-btn edit" onclick="openEditor(' + project.id + ')">' + openLabel + '</button>';
+                        if (isOwner) {
+                            actions += '<button class="project-btn" onclick="window.location.href=\'/panorama/' + project.id + '/access\'">Manage access</button>';
+                            actions += '<button class="project-btn delete" onclick="showDeleteModal(' + project.id + ', event)">Delete</button>';
+                        }
+                        return `
                         <div class="project-card" data-id="${project.id}">
                             <img src="/uploads/${project.filename}" alt="${project.name}" class="project-image" loading="lazy">
                             <div class="project-content">
@@ -949,28 +969,29 @@
                                 <div class="project-meta">
                                     <span class="project-plots">
                                         <span>📍</span>
-                                        <span>${project.plot_count} plots</span>
+                                        <span>${project.plot_count || 0} plots</span>
                                     </span>
                                     <span class="project-date">${formatDate(project.updated_at)}</span>
+                                    ${isOwner ? '' : '<span style="font-size:0.7rem;color:var(--color-text-dim);">(' + at + ')</span>'}
                                 </div>
                             </div>
-                            <div class="project-actions">
-                                <button class="project-btn edit" onclick="openEditor(${project.id})">Open Editor</button>
-                                <button class="project-btn delete" onclick="showDeleteModal(${project.id}, event)">Delete</button>
-                            </div>
+                            <div class="project-actions">${actions}</div>
                         </div>
-                    `).join('')}
+                    `;
+                    }).join('')}
                 </div>
             `;
         }
 
         function openEditor(id) {
-            // Check if this is a 360-degree panorama and route accordingly
-            const project = projects.find(p => p.id === id);
-            if (project && project.is_360) {
-                window.location.href = `/admin/3d/${id}`;
+            var project = projects.find(function(p) { return p.id === id; });
+            var at = project && (project.access_type || 'owner');
+            var is360 = project && project.is_360;
+            var base = (at === 'owner') ? 'admin' : (at === 'client') ? 'client' : 'customer';
+            if (is360) {
+                window.location.href = '/' + base + '/3d/' + id;
             } else {
-                window.location.href = `/admin/${id}`;
+                window.location.href = '/' + base + '/' + id;
             }
         }
 
@@ -987,10 +1008,11 @@
 
         confirmDelete.addEventListener('click', async () => {
             if (!deleteTargetId) return;
-
             try {
+                const headers = await getAuthHeaders();
                 const response = await fetch(`/api/panoramas/${deleteTargetId}`, {
-                    method: 'DELETE'
+                    method: 'DELETE',
+                    headers
                 });
 
                 if (response.ok) {

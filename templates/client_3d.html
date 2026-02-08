@@ -1218,6 +1218,10 @@
         .details-modal .modal {
             max-width: 600px;
             width: 90%;
+            max-height: 90vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
         }
 
         .modal > * {
@@ -1275,6 +1279,13 @@
             gap: 2.5rem;
             align-items: start;
             padding: 2.5rem;
+            overflow-y: auto;
+            flex: 1;
+            min-height: 0;
+        }
+
+        .details-modal .modal-actions {
+            flex-shrink: 0;
         }
 
         .detail-item {
@@ -1681,9 +1692,19 @@
             }
         }
     </style>
+    <script src="/static/js/supabase.min.js"></script>
 </head>
 
 <body>
+    <script>
+    (function(){var url={{ (supabase_url or '')|tojson }};var key={{ (supabase_anon_key or '')|tojson }};
+    if(!url||!key||!window.supabase)return;
+    var s=window.supabase.createClient(url,key);
+    window._supabase=s;
+    window.getAuthHeaders=function(){return s.auth.getSession().then(function(r){var h={};if(r.data.session&&r.data.session.access_token)h['Authorization']='Bearer '+r.data.session.access_token;return h;});};
+    s.auth.getSession().then(function(r){if(!r.data.session)window.location.replace('/');});
+    })();
+    </script>
     <div class="loading-overlay" id="loading">
         <div class="loading-spinner"></div>
         <div class="loading-text">Loading panorama...</div>
@@ -1769,10 +1790,11 @@
                     placeholder="Add any additional details..."></textarea>
             </div>
             <div class="form-group">
-                <label class="form-label">Photo Link (Google Drive)</label>
-                <input type="text" class="form-input" id="plot-media-photo"
-                    placeholder="https://drive.google.com/file/d/...">
-                <div class="form-helper">Optional. Add a share link for a plot photo.</div>
+                <label class="form-label">Photo (upload or link)</label>
+                <input type="file" class="form-input" id="plot-image-file" accept="image/png,image/jpeg,image/jpg,image/gif,image/webp">
+                <input type="text" class="form-input" id="plot-media-photo" style="margin-top:6px"
+                    placeholder="Or paste a link (e.g. Google Drive)...">
+                <div class="form-helper">Upload an image (stored in DB) or add a share link.</div>
             </div>
             <div class="form-group">
                 <label class="form-label">Video Link (Google Drive)</label>
@@ -1839,41 +1861,22 @@
     <div class="modal-backdrop share-modal" id="share-modal">
         <div class="modal">
             <div class="share-modal-header">
-                <div class="share-modal-title">Share Links</div>
-                <div class="share-modal-subtitle">Choose the type of access to share</div>
+                <div class="share-modal-title">Share</div>
+                <div class="share-modal-subtitle">View-only link for customers. Client access is managed via Dashboard → Manage access.</div>
             </div>
-            
+
             <div class="share-link-options">
-                <!-- Customer Link (View-Only) -->
                 <div class="share-link-card">
                     <div class="share-link-header">
                         <div class="share-link-icon">👁️</div>
                         <div class="share-link-info">
                             <div class="share-link-title">Customer Link</div>
-                            <div class="share-link-desc">View-only access - no editing</div>
+                            <div class="share-link-desc">View-only – no editing</div>
                         </div>
                     </div>
                     <div class="share-link-url-container">
                         <div class="share-link-url" id="customer-share-url"></div>
                         <button class="share-link-copy-btn" id="copy-customer-btn" data-url="customer">
-                            <span class="copy-icon">📋</span>
-                            <span class="copy-text">Copy</span>
-                        </button>
-                    </div>
-                </div>
-
-                <!-- Client Link (Edit Attributes) -->
-                <div class="share-link-card">
-                    <div class="share-link-header">
-                        <div class="share-link-icon">✏️</div>
-                        <div class="share-link-info">
-                            <div class="share-link-title">Client Link</div>
-                            <div class="share-link-desc">Can edit plot attributes, cannot add/delete</div>
-                        </div>
-                    </div>
-                    <div class="share-link-url-container">
-                        <div class="share-link-url" id="client-share-url"></div>
-                        <button class="share-link-copy-btn" id="copy-client-btn" data-url="client">
                             <span class="copy-icon">📋</span>
                             <span class="copy-text">Copy</span>
                         </button>
@@ -1981,7 +1984,8 @@
 
         async function loadPlots() {
             try {
-                const response = await fetch(`/api/panoramas/${PANORAMA_ID}/plots`);
+                const headers = await (window.getAuthHeaders ? window.getAuthHeaders() : Promise.resolve({}));
+                const response = await fetch(`/api/panoramas/${PANORAMA_ID}/plots`, { headers });
                 plots = await response.json();
                 renderPlots();
                 updatePlotsList();
@@ -2071,7 +2075,7 @@
             return /\.(mp4|webm|ogg)(\?.*)?$/.test(url || '');
         }
 
-        function renderPlotMedia(plot) {
+        async function renderPlotMedia(plot) {
             const container = document.getElementById('details-media');
             const wrapper = document.getElementById('details-media-container');
             if (!container || !wrapper) return;
@@ -2081,19 +2085,30 @@
             const videoUrl = (plot.media_video || '').trim();
             const mediaElements = [];
 
-            if (photoUrl) {
-                const wrapper = document.createElement('div');
-                wrapper.className = 'media-wrapper';
-
+            if (plot.has_image && plot.id) {
+                const mediaWrapper = document.createElement('div');
+                mediaWrapper.className = 'media-wrapper';
+                const img = document.createElement('img');
+                img.alt = (plot.name || 'Plot') + ' photo';
+                img.style.maxWidth = '100%'; img.style.height = 'auto';
+                try {
+                    const headers = await (window.getAuthHeaders ? window.getAuthHeaders() : Promise.resolve({}));
+                    const r = await fetch('/api/plots/' + plot.id + '/image', { headers });
+                    if (r.ok) { const blob = await r.blob(); img.src = URL.createObjectURL(blob); }
+                } catch (e) { console.warn('Plot image load failed', e); }
+                mediaWrapper.appendChild(img);
+                mediaElements.push(mediaWrapper);
+            } else if (photoUrl) {
+                const mediaWrapper = document.createElement('div');
+                mediaWrapper.className = 'media-wrapper';
                 const iframe = document.createElement('iframe');
                 iframe.src = normalizeDriveVideoUrl(photoUrl);
                 iframe.allow = 'autoplay';
                 iframe.allowFullscreen = true;
                 iframe.loading = 'lazy';
                 iframe.title = `${plot.name || 'Plot'} photo`;
-
-                wrapper.appendChild(iframe);
-                mediaElements.push(wrapper);
+                mediaWrapper.appendChild(iframe);
+                mediaElements.push(mediaWrapper);
             }
 
             if (videoUrl) {
@@ -2138,7 +2153,7 @@
             const descContainer = document.getElementById('details-description-container');
             descContainer.style.display = plot.description ? 'block' : 'none';
             document.getElementById('details-description').textContent = plot.description || '';
-            renderPlotMedia(plot);
+            renderPlotMedia(plot).then(() => {});
             plotDetailsModal.classList.add('visible');
         }
 
@@ -2375,6 +2390,8 @@
             document.getElementById('plot-description').value = '';
             if (plotMediaPhotoInput) plotMediaPhotoInput.value = '';
             if (plotMediaVideoInput) plotMediaVideoInput.value = '';
+            var imgInput = document.getElementById('plot-image-file');
+            if (imgInput) imgInput.value = '';
             editingPlotId = null;
             editingPlotPoints = null;
             setSelectedColor('green');
@@ -2406,19 +2423,29 @@
             }
 
             try {
+                const headers = await (window.getAuthHeaders ? window.getAuthHeaders() : Promise.resolve({}));
+                headers['Content-Type'] = 'application/json';
                 const response = await fetch(`/api/plots/${editingPlotId}`, {
                     method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers,
                     body: JSON.stringify(plotData)
                 });
-
-                if (response.ok) {
-                    showToast(editingPlotId ? 'Plot updated successfully!' : 'Plot saved successfully!');
-                    closePlotForm();
-                    loadPlots();
-                } else {
-                    throw new Error('Failed to save');
+                if (!response.ok) throw new Error('Failed to save');
+                const plotImageFileInput = document.getElementById('plot-image-file');
+                if (plotImageFileInput && plotImageFileInput.files && plotImageFileInput.files[0]) {
+                    const fd = new FormData();
+                    fd.append('file', plotImageFileInput.files[0]);
+                    const upHeaders = await (window.getAuthHeaders ? window.getAuthHeaders() : Promise.resolve({}));
+                    const imgRes = await fetch('/api/plots/' + editingPlotId + '/image', { method: 'POST', headers: upHeaders, body: fd });
+                    plotImageFileInput.value = '';
+                    if (!imgRes.ok) {
+                        const err = await imgRes.json().catch(() => ({}));
+                        showToast(err.error || 'Plot image upload failed', 'error');
+                    }
                 }
+                showToast('Plot updated successfully!');
+                closePlotForm();
+                loadPlots();
             } catch (error) {
                 showToast('Failed to save plot', 'error');
             }
@@ -2427,18 +2454,13 @@
         const shareBtn = document.getElementById('share-btn');
         const shareModal = document.getElementById('share-modal');
         const customerShareUrl = document.getElementById('customer-share-url');
-        const clientShareUrl = document.getElementById('client-share-url');
         const copyCustomerBtn = document.getElementById('copy-customer-btn');
-        const copyClientBtn = document.getElementById('copy-client-btn');
         const closeShare = document.getElementById('close-share');
 
         if (shareBtn) {
             shareBtn.addEventListener('click', () => {
                 const customerUrl = `${window.location.origin}/customer/3d/${PANORAMA_ID}`;
-                const clientUrl = `${window.location.origin}/client/3d/${PANORAMA_ID}`;
-                
                 customerShareUrl.textContent = customerUrl;
-                clientShareUrl.textContent = clientUrl;
                 shareModal.classList.add('visible');
             });
 
@@ -2459,11 +2481,6 @@
             copyCustomerBtn.addEventListener('click', () => {
                 const customerUrl = `${window.location.origin}/customer/3d/${PANORAMA_ID}`;
                 copyToClipboard(customerUrl, copyCustomerBtn);
-            });
-
-            copyClientBtn.addEventListener('click', () => {
-                const clientUrl = `${window.location.origin}/client/3d/${PANORAMA_ID}`;
-                copyToClipboard(clientUrl, copyClientBtn);
             });
 
             closeShare.addEventListener('click', () => shareModal.classList.remove('visible'));

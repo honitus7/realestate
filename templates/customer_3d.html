@@ -503,6 +503,13 @@
             gap: 2.5rem;
             align-items: start;
             padding: 2.5rem;
+            overflow-y: auto;
+            flex: 1;
+            min-height: 0;
+        }
+
+        .details-modal .modal-actions {
+            flex-shrink: 0;
         }
 
         .detail-item {
@@ -751,6 +758,10 @@
         .details-modal .modal {
             max-width: 600px;
             width: 90%;
+            max-height: 90vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
         }
 
         .share-url-container {
@@ -812,9 +823,19 @@
             }
         }
     </style>
+    <script src="/static/js/supabase.min.js"></script>
 </head>
 
 <body>
+    <script>
+    (function(){var url={{ (supabase_url or '')|tojson }};var key={{ (supabase_anon_key or '')|tojson }};
+    if(!url||!key||!window.supabase)return;
+    var s=window.supabase.createClient(url,key);
+    window._supabase=s;
+    window.getAuthHeaders=function(){return s.auth.getSession().then(function(r){var h={};if(r.data.session&&r.data.session.access_token)h['Authorization']='Bearer '+r.data.session.access_token;return h;});};
+    s.auth.getSession().then(function(r){if(!r.data.session)window.location.replace('/');});
+    })();
+    </script>
     <div class="loading-overlay" id="loading">
         <div class="loading-spinner"></div>
         <div class="loading-text">Loading panorama...</div>
@@ -964,7 +985,7 @@
             return /\.(mp4|webm|ogg)(\?.*)?$/.test(url || '');
         }
 
-        function renderPlotMedia(plot) {
+        async function renderPlotMedia(plot) {
             const container = document.getElementById('details-media');
             const wrapper = document.getElementById('details-media-container');
             if (!container || !wrapper) return;
@@ -974,19 +995,30 @@
             const videoUrl = (plot.media_video || '').trim();
             const mediaElements = [];
 
-            if (photoUrl) {
-                const wrapper = document.createElement('div');
-                wrapper.className = 'media-wrapper';
-
+            if (plot.has_image && plot.id) {
+                const mediaWrapper = document.createElement('div');
+                mediaWrapper.className = 'media-wrapper';
+                const img = document.createElement('img');
+                img.alt = (plot.name || 'Plot') + ' photo';
+                img.style.maxWidth = '100%'; img.style.height = 'auto';
+                try {
+                    const headers = await (window.getAuthHeaders ? window.getAuthHeaders() : Promise.resolve({}));
+                    const r = await fetch('/api/plots/' + plot.id + '/image', { headers });
+                    if (r.ok) { const blob = await r.blob(); img.src = URL.createObjectURL(blob); }
+                } catch (e) { console.warn('Plot image load failed', e); }
+                mediaWrapper.appendChild(img);
+                mediaElements.push(mediaWrapper);
+            } else if (photoUrl) {
+                const mediaWrapper = document.createElement('div');
+                mediaWrapper.className = 'media-wrapper';
                 const iframe = document.createElement('iframe');
                 iframe.src = normalizeDriveVideoUrl(photoUrl);
                 iframe.allow = 'autoplay';
                 iframe.allowFullscreen = true;
                 iframe.loading = 'lazy';
                 iframe.title = `${plot.name || 'Plot'} photo`;
-
-                wrapper.appendChild(iframe);
-                mediaElements.push(wrapper);
+                mediaWrapper.appendChild(iframe);
+                mediaElements.push(mediaWrapper);
             }
 
             if (videoUrl) {
@@ -1023,7 +1055,8 @@
 
         async function loadPlots() {
             try {
-                const response = await fetch(`/api/panoramas/${PANORAMA_ID}/plots`);
+                const headers = await (window.getAuthHeaders ? window.getAuthHeaders() : Promise.resolve({}));
+                const response = await fetch(`/api/panoramas/${PANORAMA_ID}/plots`, { headers });
                 plots = await response.json();
                 renderPlots();
             } catch (error) {
@@ -1041,7 +1074,7 @@
             const descContainer = document.getElementById('details-description-container');
             descContainer.style.display = plot.description ? 'block' : 'none';
             document.getElementById('details-description').textContent = plot.description || '';
-            renderPlotMedia(plot);
+            renderPlotMedia(plot).then(() => {});
             plotDetailsModal.classList.add('visible');
         }
 

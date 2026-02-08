@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Add User – Horizon Estates</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Syne:wght@400;500;600;700&display=swap"
+        rel="stylesheet">
+    <script src="/static/js/supabase.min.js"></script>
+    <style>
+        :root {
+            --color-bg: #0a0a0b;
+            --color-bg-card: #1a1a1c;
+            --color-text: #f5f5f0;
+            --color-text-dim: #a0a0a0;
+            --color-accent: #c9a962;
+            --color-accent-hover: #d4b06e;
+            --color-success: #4ade80;
+            --color-danger: #ef4444;
+            --color-border: rgba(255, 255, 255, 0.08);
+            --font-display: 'Instrument Serif', Georgia, serif;
+            --font-body: 'Syne', sans-serif;
+            --radius: 12px;
+            --radius-sm: 8px;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html,
+        body {
+            min-height: 100vh;
+            font-family: var(--font-body);
+            background: var(--color-bg);
+            color: var(--color-text);
+        }
+
+        body {
+            background: radial-gradient(ellipse at 20% 0%, rgba(201, 169, 98, 0.08) 0%, transparent 50%), var(--color-bg);
+        }
+
+        .header {
+            padding: 2rem 3rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--color-border);
+        }
+
+        .logo {
+            font-family: var(--font-display);
+            font-size: 1.5rem;
+            font-style: italic;
+            color: var(--color-text);
+            text-decoration: none;
+        }
+
+        .logo span {
+            color: var(--color-accent);
+        }
+
+        .nav a {
+            color: var(--color-text-dim);
+            text-decoration: none;
+            margin-left: 1rem;
+            font-size: 0.9rem;
+        }
+
+        .nav a:hover {
+            color: var(--color-accent);
+        }
+
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 3rem 2rem;
+        }
+
+        .card {
+            background: var(--color-bg-card);
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius);
+            padding: 2rem;
+        }
+
+        .card h1 {
+            font-family: var(--font-display);
+            font-size: 1.5rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .card p {
+            color: var(--color-text-dim);
+            font-size: 0.9rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .form-group {
+            margin-bottom: 1rem;
+        }
+
+        .form-label {
+            display: block;
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--color-text-dim);
+            margin-bottom: 0.5rem;
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 0.75rem 1rem;
+            background: var(--color-bg);
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-sm);
+            color: var(--color-text);
+            font-family: var(--font-body);
+            font-size: 0.95rem;
+        }
+
+        .form-input:focus {
+            outline: none;
+            border-color: var(--color-accent);
+        }
+
+        .btn {
+            padding: 0.75rem 1.5rem;
+            border-radius: var(--radius-sm);
+            font-family: var(--font-body);
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            border: none;
+            background: var(--color-accent);
+            color: var(--color-bg);
+        }
+
+        .btn:hover {
+            background: var(--color-accent-hover);
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .error {
+            font-size: 0.85rem;
+            color: var(--color-danger);
+            margin-top: 0.5rem;
+        }
+
+        .success {
+            font-size: 0.85rem;
+            color: var(--color-success);
+            margin-top: 0.5rem;
+        }
+
+        .guest-msg {
+            background: rgba(201, 169, 98, 0.1);
+            border: 1px solid var(--color-accent);
+            border-radius: var(--radius-sm);
+            padding: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .guest-msg a {
+            color: var(--color-accent);
+        }
+    </style>
+</head>
+
+<body>
+    <header class="header">
+        <a href="/" class="logo">Horizon <span>Estates</span></a>
+        <nav class="nav">
+            <a href="/dashboard">Dashboard</a>
+            <a href="/">Sign in</a>
+        </nav>
+    </header>
+    <main class="container">
+        <div class="card">
+            <h1>Add user</h1>
+            <p>Create a new platform user (email and password). You must be signed in to add users.</p>
+            <div id="guest-msg" class="guest-msg" style="display:none;">
+                You need to <a href="/login">sign in</a> to add users.
+            </div>
+            <form id="form-add-user" style="display:none;">
+                <div class="form-group">
+                    <label class="form-label" for="new-name">Username / Name</label>
+                    <input type="text" id="new-name" class="form-input" placeholder="User's display name" autocomplete="name">
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="new-email">Email</label>
+                    <input type="email" id="new-email" class="form-input" required placeholder="newuser@example.com">
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="new-password">Password</label>
+                    <input type="password" id="new-password" class="form-input" required minlength="6"
+                        placeholder="At least 6 characters">
+                </div>
+                <div id="add-user-error" class="error" style="display:none;"></div>
+                <div id="add-user-success" class="success" style="display:none;"></div>
+                <button type="submit" class="btn" id="btn-add-user">Create user</button>
+            </form>
+        </div>
+    </main>
+    <script>
+        (function () {
+            var supabaseUrl = {{ (supabase_url or '')| tojson
+        }};
+        var supabaseAnonKey = {{ (supabase_anon_key or '')| tojson }};
+        if (!supabaseUrl || !supabaseAnonKey) {
+            document.querySelector('.card p').textContent = 'Supabase is not configured.';
+            return;
+        }
+        var supabase = window.supabase.createClient(supabaseUrl, supabaseAnonKey);
+        var form = document.getElementById('form-add-user');
+        var guestMsg = document.getElementById('guest-msg');
+
+        supabase.auth.getSession().then(function (_ref) {
+            var session = _ref.data.session;
+            if (session) {
+                form.style.display = 'block';
+            } else {
+                window.location.replace('/');
+            }
+        });
+
+        function showError(msg) {
+            var el = document.getElementById('add-user-error');
+            var ok = document.getElementById('add-user-success');
+            el.textContent = msg || '';
+            el.style.display = msg ? 'block' : 'none';
+            ok.style.display = 'none';
+        }
+        function showSuccess(msg) {
+            var el = document.getElementById('add-user-success');
+            var err = document.getElementById('add-user-error');
+            el.textContent = msg || '';
+            el.style.display = msg ? 'block' : 'none';
+            err.style.display = 'none';
+        }
+
+        form.addEventListener('submit', async function (e) {
+            e.preventDefault();
+            var btn = document.getElementById('btn-add-user');
+            showError('');
+            showSuccess('');
+            btn.disabled = true;
+            var name = document.getElementById('new-name').value.trim();
+            var email = document.getElementById('new-email').value.trim();
+            var password = document.getElementById('new-password').value;
+            var session = (await supabase.auth.getSession()).data.session;
+            if (!session) {
+                showError('Session expired. Please sign in again.');
+                btn.disabled = false;
+                return;
+            }
+            try {
+                var r = await fetch('/api/admin/users', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + session.access_token },
+                    body: JSON.stringify({ email: email, password: password, display_name: name || undefined })
+                });
+                var data = await r.json().catch(function () { return {}; });
+                if (r.ok) {
+                    showSuccess('User created: ' + (data.user && (data.user.display_name || data.user.email) || email));
+                    document.getElementById('new-name').value = '';
+                    document.getElementById('new-email').value = '';
+                    document.getElementById('new-password').value = '';
+                } else {
+                    showError(data.error || 'Failed to create user');
+                }
+            } catch (err) {
+                showError(err.message || 'Request failed');
+            } finally {
+                btn.disabled = false;
+            }
+        });
+        }) ();
+    </script>
+</body>
+
+</html>
