@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sign In – Horizon Estates</title>
+    <title>Sign In – PropMark</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link
@@ -37,7 +37,8 @@
             box-sizing: border-box;
         }
 
-        html, body {
+        html,
+        body {
             min-height: 100vh;
             font-family: var(--font-body);
             background: var(--color-bg);
@@ -74,8 +75,15 @@
         }
 
         @keyframes bgShift {
-            0% { opacity: 1; transform: scale(1) translate(0, 0); }
-            100% { opacity: 0.95; transform: scale(1.05) translate(1%, 1%); }
+            0% {
+                opacity: 1;
+                transform: scale(1) translate(0, 0);
+            }
+
+            100% {
+                opacity: 0.95;
+                transform: scale(1.05) translate(1%, 1%);
+            }
         }
 
         /* Subtle grid overlay for depth */
@@ -120,6 +128,7 @@
             position: relative;
             transition: color 0.2s;
         }
+
         .logo::after {
             content: '';
             position: absolute;
@@ -131,8 +140,14 @@
             transition: width 0.25s ease;
             transform: translateX(-50%);
         }
-        .logo:hover::after { width: 100%; }
-        .logo span { color: var(--color-accent); }
+
+        .logo:hover::after {
+            width: 100%;
+        }
+
+        .logo span {
+            color: var(--color-accent);
+        }
 
         .auth-wrap {
             width: 100%;
@@ -145,6 +160,7 @@
                 opacity: 0;
                 transform: translateY(20px) scale(0.98);
             }
+
             to {
                 opacity: 1;
                 transform: translateY(0) scale(1);
@@ -241,8 +257,15 @@
         }
 
         @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(6px); }
-            to { opacity: 1; transform: translateY(0); }
+            from {
+                opacity: 0;
+                transform: translateY(6px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
         }
 
         .form-group {
@@ -431,8 +454,8 @@
                     <form id="form-signup">
                         <div class="form-group">
                             <label class="form-label" for="signup-name">Name</label>
-                            <input type="text" id="signup-name" class="form-input" required
-                                placeholder="Your name" autocomplete="name">
+                            <input type="text" id="signup-name" class="form-input" required placeholder="Your name"
+                                autocomplete="name">
                         </div>
                         <div class="form-group">
                             <label class="form-label" for="signup-email">Email</label>
@@ -474,174 +497,175 @@
     <script src="/static/js/supabase.min.js"></script>
     <script>
         (function () {
-            var supabaseUrl = {{ (supabase_url or '')|tojson }};
-            var supabaseAnonKey = {{ (supabase_anon_key or '')|tojson }};
-            var loadingEl = document.getElementById('loading-msg');
-            var authUi = document.getElementById('auth-ui');
-            var cardTitle = document.getElementById('card-title');
-            var cardSubtitle = document.getElementById('card-subtitle');
-            var mainTabs = document.getElementById('main-tabs');
+            var supabaseUrl = {{ (supabase_url or '')| tojson
+        }};
+        var supabaseAnonKey = {{ (supabase_anon_key or '')| tojson }};
+        var loadingEl = document.getElementById('loading-msg');
+        var authUi = document.getElementById('auth-ui');
+        var cardTitle = document.getElementById('card-title');
+        var cardSubtitle = document.getElementById('card-subtitle');
+        var mainTabs = document.getElementById('main-tabs');
 
-            function showAuthUI() {
-                loadingEl.classList.add('hidden');
-                authUi.classList.remove('hidden');
-            }
+        function showAuthUI() {
+            loadingEl.classList.add('hidden');
+            authUi.classList.remove('hidden');
+        }
 
-            function showError(msg) {
-                loadingEl.textContent = msg;
-                loadingEl.classList.remove('hidden');
-                authUi.classList.add('hidden');
-            }
+        function showError(msg) {
+            loadingEl.textContent = msg;
+            loadingEl.classList.remove('hidden');
+            authUi.classList.add('hidden');
+        }
 
-            if (!supabaseUrl || !supabaseAnonKey) {
-                showError('Supabase is not configured.');
+        if (!supabaseUrl || !supabaseAnonKey) {
+            showError('Supabase is not configured.');
+            return;
+        }
+        if (typeof window.supabase === 'undefined') {
+            showError('Auth library could not load. Refresh the page.');
+            return;
+        }
+
+        var supabase = window.supabase.createClient(supabaseUrl, supabaseAnonKey);
+
+        supabase.auth.getSession().then(function (r) {
+            var session = r.data.session;
+            if (session && session.user && session.user.id) {
+                window.location.replace('/dashboard/' + encodeURIComponent(session.user.id));
                 return;
             }
-            if (typeof window.supabase === 'undefined') {
-                showError('Auth library could not load. Refresh the page.');
+            if (session) {
+                window.location.replace('/dashboard');
                 return;
             }
+            showAuthUI();
+        }).catch(function () { showAuthUI(); });
 
-            var supabase = window.supabase.createClient(supabaseUrl, supabaseAnonKey);
-
-            supabase.auth.getSession().then(function (r) {
-                var session = r.data.session;
-                if (session && session.user && session.user.id) {
-                    window.location.replace('/dashboard/' + encodeURIComponent(session.user.id));
-                    return;
-                }
-                if (session) {
-                    window.location.replace('/dashboard');
-                    return;
-                }
-                showAuthUI();
-            }).catch(function () { showAuthUI(); });
-
-            function switchPanel(panelId) {
-                document.querySelectorAll('.panel').forEach(function (p) { p.classList.remove('active'); });
-                document.querySelectorAll('.tab').forEach(function (t) { t.classList.remove('active'); });
-                var panel = document.getElementById(panelId);
-                if (panel) panel.classList.add('active');
-                if (panelId === 'panel-forgot') {
-                    mainTabs.style.display = 'none';
-                    cardTitle.textContent = 'Reset password';
-                    cardSubtitle.textContent = 'We’ll send you a link to reset your password.';
-                } else {
-                    mainTabs.style.display = 'flex';
-                    var tab = document.querySelector('.tab[data-tab="' + (panelId === 'panel-signup' ? 'signup' : 'signin') + '"]');
-                    if (tab) tab.classList.add('active');
-                    cardTitle.textContent = panelId === 'panel-signup' ? 'Create account' : 'Welcome back';
-                    cardSubtitle.textContent = panelId === 'panel-signup' ? 'Enter your details to get started.' : 'Sign in to your account to continue.';
-                }
+        function switchPanel(panelId) {
+            document.querySelectorAll('.panel').forEach(function (p) { p.classList.remove('active'); });
+            document.querySelectorAll('.tab').forEach(function (t) { t.classList.remove('active'); });
+            var panel = document.getElementById(panelId);
+            if (panel) panel.classList.add('active');
+            if (panelId === 'panel-forgot') {
+                mainTabs.style.display = 'none';
+                cardTitle.textContent = 'Reset password';
+                cardSubtitle.textContent = 'We’ll send you a link to reset your password.';
+            } else {
+                mainTabs.style.display = 'flex';
+                var tab = document.querySelector('.tab[data-tab="' + (panelId === 'panel-signup' ? 'signup' : 'signin') + '"]');
+                if (tab) tab.classList.add('active');
+                cardTitle.textContent = panelId === 'panel-signup' ? 'Create account' : 'Welcome back';
+                cardSubtitle.textContent = panelId === 'panel-signup' ? 'Enter your details to get started.' : 'Sign in to your account to continue.';
             }
+        }
 
-            document.querySelectorAll('.tab').forEach(function (t) {
-                t.addEventListener('click', function () {
-                    var tab = this.getAttribute('data-tab');
-                    switchPanel('panel-' + tab);
-                });
+        document.querySelectorAll('.tab').forEach(function (t) {
+            t.addEventListener('click', function () {
+                var tab = this.getAttribute('data-tab');
+                switchPanel('panel-' + tab);
             });
+        });
 
-            document.getElementById('forgot-password-link').addEventListener('click', function (e) {
-                e.preventDefault();
-                switchPanel('panel-forgot');
-                document.getElementById('forgot-email').value = '';
-                setError(document.getElementById('forgot-error'), '');
-                document.getElementById('forgot-success').style.display = 'none';
-            });
+        document.getElementById('forgot-password-link').addEventListener('click', function (e) {
+            e.preventDefault();
+            switchPanel('panel-forgot');
+            document.getElementById('forgot-email').value = '';
+            setError(document.getElementById('forgot-error'), '');
+            document.getElementById('forgot-success').style.display = 'none';
+        });
 
-            document.getElementById('forgot-back').addEventListener('click', function (e) {
-                e.preventDefault();
-                switchPanel('panel-signin');
-            });
+        document.getElementById('forgot-back').addEventListener('click', function (e) {
+            e.preventDefault();
+            switchPanel('panel-signin');
+        });
 
-            function setError(el, msg) {
-                if (!el) return;
-                el.textContent = msg || '';
-                el.style.display = msg ? 'block' : 'none';
-            }
+        function setError(el, msg) {
+            if (!el) return;
+            el.textContent = msg || '';
+            el.style.display = msg ? 'block' : 'none';
+        }
 
-            document.getElementById('form-signin').addEventListener('submit', function (e) {
-                e.preventDefault();
-                var btn = document.getElementById('btn-signin');
-                var errEl = document.getElementById('signin-error');
-                setError(errEl, '');
-                btn.disabled = true;
-                var email = document.getElementById('signin-email').value.trim();
-                var password = document.getElementById('signin-password').value;
-                supabase.auth.signInWithPassword({ email: email, password: password })
-                    .then(function (res) {
-                        if (res.error) throw res.error;
-                        var uid = res.data.user && res.data.user.id ? res.data.user.id : '';
-                        window.location.href = uid ? '/dashboard/' + encodeURIComponent(uid) : '/dashboard';
-                    })
-                    .catch(function (err) {
-                        setError(errEl, err.message || 'Sign in failed');
-                    })
-                    .finally(function () { btn.disabled = false; });
-            });
+        document.getElementById('form-signin').addEventListener('submit', function (e) {
+            e.preventDefault();
+            var btn = document.getElementById('btn-signin');
+            var errEl = document.getElementById('signin-error');
+            setError(errEl, '');
+            btn.disabled = true;
+            var email = document.getElementById('signin-email').value.trim();
+            var password = document.getElementById('signin-password').value;
+            supabase.auth.signInWithPassword({ email: email, password: password })
+                .then(function (res) {
+                    if (res.error) throw res.error;
+                    var uid = res.data.user && res.data.user.id ? res.data.user.id : '';
+                    window.location.href = uid ? '/dashboard/' + encodeURIComponent(uid) : '/dashboard';
+                })
+                .catch(function (err) {
+                    setError(errEl, err.message || 'Sign in failed');
+                })
+                .finally(function () { btn.disabled = false; });
+        });
 
-            document.getElementById('form-signup').addEventListener('submit', function (e) {
-                e.preventDefault();
-                var btn = document.getElementById('btn-signup');
-                var errEl = document.getElementById('signup-error');
-                setError(errEl, '');
-                btn.disabled = true;
-                var name = document.getElementById('signup-name').value.trim();
-                var email = document.getElementById('signup-email').value.trim();
-                var password = document.getElementById('signup-password').value;
-                supabase.auth.signUp({ email: email, password: password })
-                    .then(function (res) {
-                        if (res.error) throw res.error;
-                        if (res.data.user && !res.data.session) {
-                            setError(errEl, 'Check your email to confirm your account.');
-                            return;
-                        }
-                        var session = res.data.session;
-                        var token = session ? session.access_token : null;
-                        if (token && name) {
-                            return fetch('/api/profile/me', {
-                                method: 'PUT',
-                                headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
-                                body: JSON.stringify({ display_name: name, email: email })
-                            }).then(function (r) {
-                                if (!r.ok) return Promise.reject(new Error('Could not save profile'));
-                                var uid = res.data.user && res.data.user.id ? res.data.user.id : '';
-                                window.location.href = uid ? '/dashboard/' + encodeURIComponent(uid) : '/dashboard';
-                            });
-                        }
-                        var uid = res.data.user && res.data.user.id ? res.data.user.id : '';
-                        window.location.href = uid ? '/dashboard/' + encodeURIComponent(uid) : '/dashboard';
-                    })
-                    .catch(function (err) {
-                        setError(errEl, err.message || 'Sign up failed');
-                    })
-                    .finally(function () { btn.disabled = false; });
-            });
+        document.getElementById('form-signup').addEventListener('submit', function (e) {
+            e.preventDefault();
+            var btn = document.getElementById('btn-signup');
+            var errEl = document.getElementById('signup-error');
+            setError(errEl, '');
+            btn.disabled = true;
+            var name = document.getElementById('signup-name').value.trim();
+            var email = document.getElementById('signup-email').value.trim();
+            var password = document.getElementById('signup-password').value;
+            supabase.auth.signUp({ email: email, password: password })
+                .then(function (res) {
+                    if (res.error) throw res.error;
+                    if (res.data.user && !res.data.session) {
+                        setError(errEl, 'Check your email to confirm your account.');
+                        return;
+                    }
+                    var session = res.data.session;
+                    var token = session ? session.access_token : null;
+                    if (token && name) {
+                        return fetch('/api/profile/me', {
+                            method: 'PUT',
+                            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+                            body: JSON.stringify({ display_name: name, email: email })
+                        }).then(function (r) {
+                            if (!r.ok) return Promise.reject(new Error('Could not save profile'));
+                            var uid = res.data.user && res.data.user.id ? res.data.user.id : '';
+                            window.location.href = uid ? '/dashboard/' + encodeURIComponent(uid) : '/dashboard';
+                        });
+                    }
+                    var uid = res.data.user && res.data.user.id ? res.data.user.id : '';
+                    window.location.href = uid ? '/dashboard/' + encodeURIComponent(uid) : '/dashboard';
+                })
+                .catch(function (err) {
+                    setError(errEl, err.message || 'Sign up failed');
+                })
+                .finally(function () { btn.disabled = false; });
+        });
 
-            document.getElementById('form-forgot').addEventListener('submit', function (e) {
-                e.preventDefault();
-                var btn = document.getElementById('btn-forgot');
-                var errEl = document.getElementById('forgot-error');
-                var okEl = document.getElementById('forgot-success');
-                setError(errEl, '');
-                okEl.style.display = 'none';
-                btn.disabled = true;
-                var email = document.getElementById('forgot-email').value.trim();
-                var redirectTo = window.location.origin + '/auth/callback';
-                supabase.auth.resetPasswordForEmail(email, { redirectTo: redirectTo })
-                    .then(function (res) {
-                        if (res.error) throw res.error;
-                        okEl.textContent = 'Check your email for a link to reset your password.';
-                        okEl.style.display = 'block';
-                        document.getElementById('forgot-email').value = '';
-                    })
-                    .catch(function (err) {
-                        setError(errEl, err.message || 'Could not send reset email');
-                    })
-                    .finally(function () { btn.disabled = false; });
-            });
-        })();
+        document.getElementById('form-forgot').addEventListener('submit', function (e) {
+            e.preventDefault();
+            var btn = document.getElementById('btn-forgot');
+            var errEl = document.getElementById('forgot-error');
+            var okEl = document.getElementById('forgot-success');
+            setError(errEl, '');
+            okEl.style.display = 'none';
+            btn.disabled = true;
+            var email = document.getElementById('forgot-email').value.trim();
+            var redirectTo = window.location.origin + '/auth/callback';
+            supabase.auth.resetPasswordForEmail(email, { redirectTo: redirectTo })
+                .then(function (res) {
+                    if (res.error) throw res.error;
+                    okEl.textContent = 'Check your email for a link to reset your password.';
+                    okEl.style.display = 'block';
+                    document.getElementById('forgot-email').value = '';
+                })
+                .catch(function (err) {
+                    setError(errEl, err.message || 'Could not send reset email');
+                })
+                .finally(function () { btn.disabled = false; });
+        });
+        }) ();
     </script>
 </body>
 

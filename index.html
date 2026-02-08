@@ -1,12 +1,15 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Interactive Property Panorama - Plot Marker</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Syne:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Syne:wght@400;500;600;700&display=swap"
+        rel="stylesheet">
     <style>
         :root {
             --color-bg: #0a0a0b;
@@ -26,7 +29,8 @@
             box-sizing: border-box;
         }
 
-        html, body {
+        html,
+        body {
             height: 100%;
             overflow: hidden;
         }
@@ -130,7 +134,7 @@
             height: 100%;
             pointer-events: none;
             z-index: 5;
-            background: 
+            background:
                 linear-gradient(to bottom, rgba(10, 10, 11, 0.3) 0%, transparent 10%, transparent 90%, rgba(10, 10, 11, 0.4) 100%),
                 linear-gradient(to right, rgba(10, 10, 11, 0.2) 0%, transparent 5%, transparent 95%, rgba(10, 10, 11, 0.2) 100%);
         }
@@ -627,7 +631,9 @@
         }
 
         @keyframes spin {
-            to { transform: rotate(360deg); }
+            to {
+                transform: rotate(360deg);
+            }
         }
 
         /* Responsive */
@@ -646,6 +652,7 @@
         }
     </style>
 </head>
+
 <body>
     <!-- Loading Overlay -->
     <div class="loading-overlay" id="loading">
@@ -668,7 +675,7 @@
     <!-- UI Overlay -->
     <div class="ui-overlay">
         <header class="header">
-            <div class="logo">Horizon Estates</div>
+            <div class="logo">PropMark</div>
             <div class="header-controls">
                 <button class="edit-toggle" id="edit-toggle">
                     <span class="edit-toggle-icon">✏️</span>
@@ -688,13 +695,14 @@
             <div class="edit-panel" id="edit-panel">
                 <div class="edit-panel-title">Plot Drawing</div>
                 <div class="edit-instruction" id="edit-instruction">
-                    Click on the image to start drawing a plot boundary. Click points to create the shape, then click the first point or press Enter to complete.
+                    Click on the image to start drawing a plot boundary. Click points to create the shape, then click
+                    the first point or press Enter to complete.
                 </div>
                 <div class="edit-actions" id="edit-actions">
                     <button class="edit-btn secondary" id="cancel-drawing">Cancel</button>
                     <button class="edit-btn primary" id="complete-drawing" disabled>Complete</button>
                 </div>
-                
+
                 <div class="edit-panel-title" style="margin-top: 1rem;">Saved Plots</div>
                 <div class="plots-list" id="plots-list">
                     <div class="edit-instruction" style="font-style: italic;">No plots created yet</div>
@@ -709,7 +717,7 @@
     <div class="modal-backdrop" id="plot-form-modal">
         <div class="modal">
             <div class="modal-title">Define Plot</div>
-            
+
             <div class="form-group">
                 <label class="form-label">Plot Name *</label>
                 <input type="text" class="form-input" id="plot-name" placeholder="e.g., Plot A-12">
@@ -736,20 +744,29 @@
 
             <div class="form-group">
                 <label class="form-label">Description</label>
-                <textarea class="form-input" id="plot-description" placeholder="Add any additional details..."></textarea>
+                <textarea class="form-input" id="plot-description"
+                    placeholder="Add any additional details..."></textarea>
             </div>
 
             <div class="form-group">
                 <label class="form-label">Color Theme</label>
                 <div class="color-options" id="color-options">
-                    <div class="color-option selected" data-color="emerald" style="background: linear-gradient(135deg, #10b981, #059669);"></div>
-                    <div class="color-option" data-color="blue" style="background: linear-gradient(135deg, #3b82f6, #1d4ed8);"></div>
-                    <div class="color-option" data-color="purple" style="background: linear-gradient(135deg, #8b5cf6, #6d28d9);"></div>
-                    <div class="color-option" data-color="amber" style="background: linear-gradient(135deg, #f59e0b, #d97706);"></div>
-                    <div class="color-option" data-color="rose" style="background: linear-gradient(135deg, #f43f5e, #be123c);"></div>
-                    <div class="color-option" data-color="cyan" style="background: linear-gradient(135deg, #06b6d4, #0891b2);"></div>
-                    <div class="color-option" data-color="lime" style="background: linear-gradient(135deg, #84cc16, #65a30d);"></div>
-                    <div class="color-option" data-color="orange" style="background: linear-gradient(135deg, #f97316, #ea580c);"></div>
+                    <div class="color-option selected" data-color="emerald"
+                        style="background: linear-gradient(135deg, #10b981, #059669);"></div>
+                    <div class="color-option" data-color="blue"
+                        style="background: linear-gradient(135deg, #3b82f6, #1d4ed8);"></div>
+                    <div class="color-option" data-color="purple"
+                        style="background: linear-gradient(135deg, #8b5cf6, #6d28d9);"></div>
+                    <div class="color-option" data-color="amber"
+                        style="background: linear-gradient(135deg, #f59e0b, #d97706);"></div>
+                    <div class="color-option" data-color="rose"
+                        style="background: linear-gradient(135deg, #f43f5e, #be123c);"></div>
+                    <div class="color-option" data-color="cyan"
+                        style="background: linear-gradient(135deg, #06b6d4, #0891b2);"></div>
+                    <div class="color-option" data-color="lime"
+                        style="background: linear-gradient(135deg, #84cc16, #65a30d);"></div>
+                    <div class="color-option" data-color="orange"
+                        style="background: linear-gradient(135deg, #f97316, #ea580c);"></div>
                 </div>
             </div>
 
@@ -767,7 +784,7 @@
                 <div class="details-color" id="details-color"></div>
                 <div class="details-title" id="details-title">Plot Name</div>
             </div>
-            
+
             <div class="details-grid">
                 <div class="detail-item">
                     <div class="detail-label">Area</div>
@@ -977,7 +994,7 @@
 
                 const coords = getImageCoords(e);
                 console.log('Canvas clicked at:', coords, 'Current points:', currentPoints.length);
-                
+
                 // Check if clicking near first point to close polygon
                 if (currentPoints.length >= 3) {
                     const firstPoint = currentPoints[0];
@@ -998,7 +1015,7 @@
                     completeDrawingBtn.style.opacity = '1';
                     completeDrawingBtn.style.cursor = 'pointer';
                 }
-                
+
                 drawCurrentPolygon();
                 updateEditInstruction();
             });
@@ -1067,7 +1084,7 @@
                     console.log('Need at least 3 points to complete');
                     return;
                 }
-                
+
                 // Show form modal
                 plotFormModal.classList.add('visible');
                 setTimeout(() => {
@@ -1152,7 +1169,7 @@
 
                 // Add gradient definitions
                 const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
-                
+
                 Object.entries(colorGradients).forEach(([name, colors]) => {
                     const gradient = document.createElementNS('http://www.w3.org/2000/svg', 'linearGradient');
                     gradient.setAttribute('id', `gradient-${name}`);
@@ -1207,7 +1224,7 @@
                         console.log('Plot clicked:', plot.name);
                         showPlotDetails(plot);
                     });
-                    
+
                     // Also add pointer-events style to ensure clicks work
                     polygon.style.pointerEvents = 'auto';
 
@@ -1272,7 +1289,7 @@
                 document.getElementById('details-title').textContent = plot.name;
                 document.getElementById('details-area').textContent = plot.area || '—';
                 document.getElementById('details-price').textContent = plot.price || '—';
-                
+
                 const statusLabels = { available: 'Available', reserved: 'Reserved', sold: 'Sold' };
                 document.getElementById('details-status').textContent = statusLabels[plot.status] || '—';
 
@@ -1317,4 +1334,5 @@
         });
     </script>
 </body>
+
 </html>

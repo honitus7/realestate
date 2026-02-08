@@ -1,5 +1,5 @@
 -- ============================================================
--- Horizon Estates - Supabase schema (run in SQL Editor)
+-- PropMark - Supabase schema (run in SQL Editor)
 -- ============================================================
 -- Run this in Supabase Dashboard → SQL Editor → New query
 
