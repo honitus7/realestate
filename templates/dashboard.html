@@ -539,6 +539,11 @@
             line-height: 1.6;
         }
 
+        .msg.error {
+            font-size: 0.85rem;
+            color: var(--color-danger);
+        }
+
         .modal-actions {
             display: flex;
             gap: 1rem;
@@ -623,6 +628,7 @@
         <a href="/dashboard" class="logo">Horizon <span>Estates</span></a>
         <nav class="header-nav" id="header-nav">
             <a href="/users" id="nav-users">Add user</a>
+            <a href="#" id="nav-change-password">Change password</a>
             <a href="/" id="nav-logout">Sign out</a>
         </nav>
     </header>
@@ -720,14 +726,38 @@
         </div>
     </div>
 
+    <!-- Change Password Modal -->
+    <div class="modal-backdrop" id="change-password-modal">
+        <div class="modal">
+            <div class="modal-title">Change password</div>
+            <div class="modal-text" style="margin-bottom: 1rem;">Enter your new password below.</div>
+            <div class="form-group" style="margin-bottom: 1rem;">
+                <label class="form-label" for="new-password-input">New password</label>
+                <input type="password" id="new-password-input" class="form-input" minlength="6"
+                    placeholder="At least 6 characters" autocomplete="new-password">
+            </div>
+            <div class="form-group" style="margin-bottom: 1.5rem;">
+                <label class="form-label" for="confirm-password-input">Confirm new password</label>
+                <input type="password" id="confirm-password-input" class="form-input" minlength="6"
+                    placeholder="Re-enter new password" autocomplete="new-password">
+            </div>
+            <div id="change-password-error" class="msg error" style="display:none; margin-bottom: 1rem;"></div>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" id="cancel-change-password">Cancel</button>
+                <button class="btn btn-primary" id="confirm-change-password">Update password</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Toast Container -->
     <div class="toast-container" id="toast-container"></div>
 
     <script>
         // Auth guard: must be logged in to view dashboard
         (function () {
-            var url = {{ (supabase_url or '')|tojson }};
-        var key = {{ (supabase_anon_key or '')|tojson }};
+            var url = {{ (supabase_url or '')| tojson
+        }};
+        var key = {{ (supabase_anon_key or '')| tojson }};
         if (!url || !key || !window.supabase) return;
         window._supabase = window.supabase.createClient(url, key);
         var supabase = window._supabase;
@@ -743,8 +773,55 @@
                     supabase.auth.signOut().then(function () { window.location.href = '/'; });
                 });
             }
+            var changePwLink = document.getElementById('nav-change-password');
+            var changePwModal = document.getElementById('change-password-modal');
+            var cancelChangePw = document.getElementById('cancel-change-password');
+            var confirmChangePw = document.getElementById('confirm-change-password');
+            var newPwInput = document.getElementById('new-password-input');
+            var confirmPwInput = document.getElementById('confirm-password-input');
+            var changePwError = document.getElementById('change-password-error');
+            function showChangePwError(msg) {
+                changePwError.textContent = msg || '';
+                changePwError.style.display = msg ? 'block' : 'none';
+            }
+            function openChangePwModal() {
+                showChangePwError('');
+                if (newPwInput) newPwInput.value = '';
+                if (confirmPwInput) confirmPwInput.value = '';
+                changePwModal.classList.add('visible');
+                if (newPwInput) newPwInput.focus();
+            }
+            function closeChangePwModal() {
+                changePwModal.classList.remove('visible');
+                showChangePwError('');
+            }
+            if (changePwLink) changePwLink.addEventListener('click', function (e) { e.preventDefault(); openChangePwModal(); });
+            if (cancelChangePw) cancelChangePw.addEventListener('click', closeChangePwModal);
+            if (changePwModal) changePwModal.addEventListener('click', function (e) { if (e.target === changePwModal) closeChangePwModal(); });
+            if (confirmChangePw && newPwInput && confirmPwInput) {
+                confirmChangePw.addEventListener('click', function () {
+                    var newPw = newPwInput.value;
+                    var confirmPw = confirmPwInput.value;
+                    showChangePwError('');
+                    if (newPw.length < 6) { showChangePwError('Password must be at least 6 characters'); return; }
+                    if (newPw !== confirmPw) { showChangePwError('Passwords do not match'); return; }
+                    confirmChangePw.disabled = true;
+                    supabase.auth.updateUser({ password: newPw }).then(function (res) {
+                        if (res.error) { showChangePwError(res.error.message || 'Failed to update password'); return; }
+                        var toast = document.getElementById('toast-container');
+                        if (toast) {
+                            var el = document.createElement('div');
+                            el.className = 'toast success';
+                            el.textContent = 'Password updated successfully.';
+                            toast.appendChild(el);
+                            setTimeout(function () { el.remove(); }, 3000);
+                        }
+                        closeChangePwModal();
+                    }).catch(function (err) { showChangePwError(err.message || 'Failed to update password'); }).finally(function () { confirmChangePw.disabled = false; });
+                });
+            }
         });
-        })();
+        }) ();
 
         function getAuthHeaders() {
             var supabase = window._supabase;
@@ -947,21 +1024,21 @@
                 `;
                 return;
             }
-            var accessType = function(p) { return p.access_type || 'owner'; };
+            var accessType = function (p) { return p.access_type || 'owner'; };
             projectsContainer.innerHTML = `
                 <div class="projects-grid">
                     ${projects.map(project => {
-                        var at = accessType(project);
-                        var isOwner = at === 'owner';
-                        var isClient = at === 'client';
-                        var isViewer = at === 'viewer';
-                        var openLabel = isOwner ? 'Open Editor' : (isClient ? 'Open as Client' : 'View');
-                        var actions = '<button class="project-btn edit" onclick="openEditor(' + project.id + ')">' + openLabel + '</button>';
-                        if (isOwner) {
-                            actions += '<button class="project-btn" onclick="window.location.href=\'/panorama/' + project.id + '/access\'">Manage access</button>';
-                            actions += '<button class="project-btn delete" onclick="showDeleteModal(' + project.id + ', event)">Delete</button>';
-                        }
-                        return `
+                var at = accessType(project);
+                var isOwner = at === 'owner';
+                var isClient = at === 'client';
+                var isViewer = at === 'viewer';
+                var openLabel = isOwner ? 'Open Editor' : (isClient ? 'Open as Client' : 'View');
+                var actions = '<button class="project-btn edit" onclick="openEditor(' + project.id + ')">' + openLabel + '</button>';
+                if (isOwner) {
+                    actions += '<button class="project-btn" onclick="window.location.href=\'/panorama/' + project.id + '/access\'">Manage access</button>';
+                    actions += '<button class="project-btn delete" onclick="showDeleteModal(' + project.id + ', event)">Delete</button>';
+                }
+                return `
                         <div class="project-card" data-id="${project.id}">
                             <img src="/uploads/${project.filename}" alt="${project.name}" class="project-image" loading="lazy">
                             <div class="project-content">
@@ -978,13 +1055,13 @@
                             <div class="project-actions">${actions}</div>
                         </div>
                     `;
-                    }).join('')}
+            }).join('')}
                 </div>
             `;
         }
 
         function openEditor(id) {
-            var project = projects.find(function(p) { return p.id === id; });
+            var project = projects.find(function (p) { return p.id === id; });
             var at = project && (project.access_type || 'owner');
             var is360 = project && project.is_360;
             var base = (at === 'owner') ? 'admin' : (at === 'client') ? 'client' : 'customer';
