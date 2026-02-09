@@ -70,12 +70,12 @@ def allowed_file(filename):
 # ----- Public routes -----
 @app.route('/')
 def index():
-    return render_template('login.html', **auth_ctx())
+    return redirect('/login')
 
 
 @app.route('/login')
-def login_redirect():
-    return redirect('/')
+def login_page():
+    return render_template('login.html', **auth_ctx())
 
 
 @app.route('/auth/callback')
@@ -558,20 +558,28 @@ def admin_create_user(user_id, role):
 @app.route('/api/profile/me', methods=['PUT', 'PATCH'])
 @require_auth
 def update_my_profile(user_id, role):
-    """Update current user's profile display_name and/or email."""
+    """Update current user's profile display_name and/or email. Uses upsert so name is stored even if trigger hasn't created the row yet."""
     data = request.get_json() or {}
     sb = get_supabase()
     if not sb:
         return jsonify({'error': 'Database not configured'}), 503
-    upd = {'updated_at': datetime.utcnow().isoformat()}
-    if 'display_name' in data:
-        upd['display_name'] = (data.get('display_name') or '').strip() or None
-    if 'email' in data:
-        upd['email'] = (data.get('email') or '').strip() or None
     if 'display_name' not in data and 'email' not in data:
         return jsonify({'error': 'Provide display_name and/or email'}), 400
+    display_name = (data.get('display_name') or '').strip() or None if 'display_name' in data else None
+    email = (data.get('email') or '').strip() or None if 'email' in data else None
+    updated_at = datetime.utcnow().isoformat()
+    existing = get_profile(sb, user_id)
+    payload = {
+        'user_id': user_id,
+        'role': (existing.get('role') if existing else 'user'),
+        'updated_at': updated_at,
+    }
+    if 'display_name' in data:
+        payload['display_name'] = display_name
+    if 'email' in data:
+        payload['email'] = email
     try:
-        sb.table('profiles').update(upd).eq('user_id', user_id).execute()
+        sb.table('profiles').upsert(payload, on_conflict='user_id').execute()
         return jsonify({'success': True})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
