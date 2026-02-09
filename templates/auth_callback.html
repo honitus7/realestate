@@ -28,24 +28,38 @@
     <p class="msg" id="msg">Confirming…</p>
     <script>
         (function () {
-            var supabaseUrl = {{ (supabase_url or '')| tojson
-        }};
-        var supabaseAnonKey = {{ (supabase_anon_key or '')| tojson }};
-        var msg = document.getElementById('msg');
-        if (!supabaseUrl || !supabaseAnonKey) {
-            msg.textContent = 'Supabase not configured.';
-            return;
-        }
-        var supabase = window.supabase.createClient(supabaseUrl, supabaseAnonKey);
-        supabase.auth.getSession().then(function (r) {
-            msg.textContent = 'Done. Redirecting…';
-            var uid = r.data.session && r.data.session.user && r.data.session.user.id;
-            window.location.replace(uid ? '/dashboard/' + encodeURIComponent(uid) : '/dashboard');
-        }).catch(function () {
-            msg.textContent = 'Done. Redirecting…';
-            window.location.replace('/dashboard');
-        });
-        }) ();
+            var msg = document.getElementById('msg');
+            // Handle Supabase redirect errors (e.g. otp_expired, access_denied) in hash
+            var hash = window.location.hash.slice(1) || '';
+            var params = {};
+            hash.split('&').forEach(function (p) {
+                var kv = p.split('=');
+                if (kv[0]) params[decodeURIComponent(kv[0])] = kv[1] ? decodeURIComponent(kv[1].replace(/\+/g, ' ')) : '';
+            });
+            if (params.error || params.error_code) {
+                var friendly = params.error_code === 'otp_expired' || (params.error_description || '').indexOf('expired') !== -1
+                    ? 'This link has expired. Please request a new sign-in or password reset link.'
+                    : (params.error_description || params.error || 'Something went wrong.');
+                msg.textContent = friendly + ' Redirecting to sign in…';
+                setTimeout(function () { window.location.replace('/'); }, 2500);
+                return;
+            }
+            var supabaseUrl = {{ (supabase_url or '')|tojson }};
+            var supabaseAnonKey = {{ (supabase_anon_key or '')|tojson }};
+            if (!supabaseUrl || !supabaseAnonKey) {
+                msg.textContent = 'Supabase not configured.';
+                return;
+            }
+            var supabase = window.supabase.createClient(supabaseUrl, supabaseAnonKey);
+            supabase.auth.getSession().then(function (r) {
+                msg.textContent = 'Done. Redirecting…';
+                var uid = r.data.session && r.data.session.user && r.data.session.user.id;
+                window.location.replace(uid ? '/dashboard/' + encodeURIComponent(uid) : '/dashboard');
+            }).catch(function () {
+                msg.textContent = 'Done. Redirecting…';
+                window.location.replace('/dashboard');
+            });
+        })();
     </script>
 </body>
 

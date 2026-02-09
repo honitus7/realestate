@@ -570,7 +570,8 @@
             var name = document.getElementById('signup-name').value.trim();
             var email = document.getElementById('signup-email').value.trim();
             var password = document.getElementById('signup-password').value;
-            supabase.auth.signUp({ email: email, password: password })
+            var redirectTo = window.location.origin + '/auth/callback';
+            supabase.auth.signUp({ email: email, password: password }, { emailRedirectTo: redirectTo })
                 .then(function (res) {
                     if (res.error) throw res.error;
                     if (res.data.user && !res.data.session) {
