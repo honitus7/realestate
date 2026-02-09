@@ -67,6 +67,12 @@
             pointer-events: none;
             white-space: nowrap;
         }
+        .psv-point-marker { width: 40px; height: 40px; border-radius: 50%; background: rgba(201, 169, 98, 0.95); border: 2px solid rgba(255,255,255,0.9); display: flex; align-items: center; justify-content: center; font-size: 1.25rem; box-shadow: 0 4px 12px rgba(0,0,0,0.3); cursor: pointer; }
+        .marker-details-modal .modal { max-width: 480px; width: 90%; border-radius: 20px; overflow: hidden; border: 1px solid rgba(201, 169, 98, 0.25); }
+        .marker-details-modal .marker-modal-header { display: flex; align-items: center; gap: 1rem; padding: 1.5rem; border-bottom: 1px solid rgba(255,255,255,0.08); }
+        .marker-details-modal .marker-modal-icon { width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; background: rgba(201, 169, 98, 0.2); }
+        .marker-details-modal .marker-modal-title { font-family: var(--font-display); font-size: 1.5rem; font-style: italic; }
+        .marker-details-modal .marker-modal-body { padding: 1.5rem; }
 
         .image-container {
             width: 100vw;
@@ -870,6 +876,7 @@
         <div class="modal">
             <div class="details-header">
                 <div class="details-color" id="details-color"></div>
+                <div class="details-icon" id="details-icon" style="display: none; width: 56px; height: 56px; border-radius: 14px; background: rgba(201,169,98,0.3); border: 1px solid var(--color-accent-dim); align-items: center; justify-content: center; font-size: 1.75rem;"></div>
                 <div class="details-title" id="details-title">Plot Name</div>
             </div>
             <div class="details-grid">
@@ -932,9 +939,11 @@
         const shareUrl = document.getElementById('share-url');
         const copyBtn = document.getElementById('copy-btn');
         const plotDetailsModal = document.getElementById('plot-details-modal');
+        const markerTypeEmoji = { pin: '📍', flag: '🚩', star: '⭐', info: 'ℹ️', heart: '❤️', warning: '⚠️', check: '✅' };
 
         // Shared variables and functions (available in both modes)
         let plots = [];
+        let customMarkers = [];
 
         const statusLabels = { available: 'Available', reserved: 'On Hold', on_hold: 'On Hold', sold: 'Sold' };
         const statusColorMap = {
@@ -985,25 +994,25 @@
             return /\.(mp4|webm|ogg)(\?.*)?$/.test(url || '');
         }
 
-        async function renderPlotMedia(plot) {
+        async function renderEntityMedia(entity) {
             const container = document.getElementById('details-media');
             const wrapper = document.getElementById('details-media-container');
             if (!container || !wrapper) return;
-
             container.innerHTML = '';
-            const photoUrl = (plot.media_photo || '').trim();
-            const videoUrl = (plot.media_video || '').trim();
+            const photoUrl = (entity.media_photo || '').trim();
+            const videoUrl = (entity.media_video || '').trim();
             const mediaElements = [];
+            const name = entity.name || 'Item';
 
-            if (plot.has_image && plot.id) {
+            if (entity.has_image && entity.id && !entity.marker_type) {
                 const mediaWrapper = document.createElement('div');
                 mediaWrapper.className = 'media-wrapper';
                 const img = document.createElement('img');
-                img.alt = (plot.name || 'Plot') + ' photo';
+                img.alt = name + ' photo';
                 img.style.maxWidth = '100%'; img.style.height = 'auto';
                 try {
                     const headers = await (window.getAuthHeaders ? window.getAuthHeaders() : Promise.resolve({}));
-                    const r = await fetch('/api/plots/' + plot.id + '/image', { headers });
+                    const r = await fetch('/api/plots/' + entity.id + '/image', { headers });
                     if (r.ok) { const blob = await r.blob(); img.src = URL.createObjectURL(blob); }
                 } catch (e) { console.warn('Plot image load failed', e); }
                 mediaWrapper.appendChild(img);
@@ -1016,39 +1025,34 @@
                 iframe.allow = 'autoplay';
                 iframe.allowFullscreen = true;
                 iframe.loading = 'lazy';
-                iframe.title = `${plot.name || 'Plot'} photo`;
+                iframe.title = name + ' photo';
                 mediaWrapper.appendChild(iframe);
                 mediaElements.push(mediaWrapper);
             }
 
             if (videoUrl) {
                 const driveId = extractDriveId(videoUrl);
-                const wrapper = document.createElement('div');
-                wrapper.className = 'media-wrapper';
-
+                const w = document.createElement('div');
+                w.className = 'media-wrapper';
                 if (driveId || !isLikelyVideoFile(videoUrl)) {
                     const iframe = document.createElement('iframe');
                     iframe.src = normalizeDriveVideoUrl(videoUrl);
                     iframe.allow = 'autoplay; encrypted-media';
                     iframe.allowFullscreen = true;
                     iframe.loading = 'lazy';
-                    iframe.title = `${plot.name || 'Plot'} video`;
-                    wrapper.appendChild(iframe);
+                    iframe.title = name + ' video';
+                    w.appendChild(iframe);
                 } else {
                     const video = document.createElement('video');
                     video.src = normalizeDriveVideoUrl(videoUrl);
                     video.controls = true;
                     video.playsInline = true;
-                    wrapper.appendChild(video);
+                    w.appendChild(video);
                 }
-                mediaElements.push(wrapper);
+                mediaElements.push(w);
             }
 
-            if (mediaElements.length === 0) {
-                wrapper.style.display = 'none';
-                return;
-            }
-
+            if (mediaElements.length === 0) { wrapper.style.display = 'none'; return; }
             mediaElements.forEach(el => container.appendChild(el));
             wrapper.style.display = 'block';
         }
@@ -1058,24 +1062,46 @@
                 const headers = await (window.getAuthHeaders ? window.getAuthHeaders() : Promise.resolve({}));
                 const response = await fetch(`/api/panoramas/${PANORAMA_ID}/plots`, { headers });
                 plots = await response.json();
+                await loadMarkers();
                 renderPlots();
             } catch (error) {
                 console.error('Failed to load plots:', error);
             }
         }
+        async function loadMarkers() {
+            try {
+                const headers = await (window.getAuthHeaders ? window.getAuthHeaders() : Promise.resolve({}));
+                const r = await fetch(`/api/panoramas/${PANORAMA_ID}/markers`, { headers });
+                if (r.ok) customMarkers = await r.json();
+            } catch (e) {}
+        }
+
+        function showDetails(entity, type) {
+            const detailsColor = document.getElementById('details-color');
+            const detailsIcon = document.getElementById('details-icon');
+            if (type === 'plot') {
+                detailsColor.style.display = 'block';
+                detailsIcon.style.display = 'none';
+                const colors = getStatusColors(entity.status);
+                detailsColor.style.background = `linear-gradient(135deg, ${colors.start}, ${colors.end})`;
+            } else {
+                detailsColor.style.display = 'none';
+                detailsIcon.style.display = 'flex';
+                detailsIcon.textContent = markerTypeEmoji[entity.marker_type] || '📍';
+            }
+            document.getElementById('details-title').textContent = entity.name || (type === 'plot' ? 'Plot' : 'Marker');
+            document.getElementById('details-area').textContent = entity.area || '—';
+            document.getElementById('details-price').textContent = entity.price || '—';
+            document.getElementById('details-status').textContent = statusLabels[entity.status] || statusLabels[normalizeStatus(entity.status)] || '—';
+            const descContainer = document.getElementById('details-description-container');
+            descContainer.style.display = (entity.description || '').trim() ? 'block' : 'none';
+            document.getElementById('details-description').textContent = entity.description || '';
+            renderEntityMedia(entity).then(() => {});
+            plotDetailsModal.classList.add('visible');
+        }
 
         function showPlotDetails(plot) {
-            const colors = getStatusColors(plot.status);
-            document.getElementById('details-color').style.background = `linear-gradient(135deg, ${colors.start}, ${colors.end})`;
-            document.getElementById('details-title').textContent = plot.name;
-            document.getElementById('details-area').textContent = plot.area || '—';
-            document.getElementById('details-price').textContent = plot.price || '—';
-            document.getElementById('details-status').textContent = statusLabels[plot.status] || statusLabels[normalizeStatus(plot.status)] || '—';
-            const descContainer = document.getElementById('details-description-container');
-            descContainer.style.display = plot.description ? 'block' : 'none';
-            document.getElementById('details-description').textContent = plot.description || '';
-            renderPlotMedia(plot).then(() => {});
-            plotDetailsModal.classList.add('visible');
+            showDetails(plot, 'plot');
         }
 
         function getCentroid(points) {
@@ -1094,6 +1120,10 @@
         const psvContainer = document.getElementById('psv-container');
         const MAX_PSV_RETRIES = 50;
         let psvRetryCount = 0;
+
+        function showMarkerDetails(marker) {
+            showDetails(marker, 'marker');
+        }
 
         function renderPlots() {
             if (!markersPlugin || !viewer) return;
@@ -1129,6 +1159,22 @@
                         });
                     }
                 });
+            customMarkers.forEach(m => {
+                const pos = m.position && typeof m.position === 'object' ? m.position : { x: 0, y: 0 };
+                try {
+                    const spherical = viewer.dataHelper.textureCoordsToSphericalCoords(pos);
+                    const emoji = markerTypeEmoji[m.marker_type] || '📍';
+                    markers.push({
+                        id: `point-marker-${m.id}`,
+                        longitude: spherical.longitude,
+                        latitude: spherical.latitude,
+                        html: `<div class="psv-point-marker" title="${escapeHtml(m.name || 'Marker')}">${emoji}</div>`,
+                        anchor: 'center center',
+                        tooltip: m.name || 'Marker',
+                        data: { pointMarkerId: m.id }
+                    });
+                } catch (err) {}
+            });
             markersPlugin.setMarkers(markers);
         }
 
@@ -1162,9 +1208,13 @@
 
             if (markersPlugin) {
                 markersPlugin.on('select-marker', (e, marker) => {
-                    if (marker && marker.config && marker.config.data && marker.config.data.label) {
+                    const data = marker && marker.config && marker.config.data;
+                    if (data && data.pointMarkerId) {
+                        const m = customMarkers.find(item => String(item.id) === String(data.pointMarkerId));
+                        if (m) showMarkerDetails(m);
                         return;
                     }
+                    if (data && data.label) return;
                     const plot = getPlotFromMarker(marker);
                     if (!plot) return;
                     showPlotDetails(plot);
@@ -1224,7 +1274,8 @@
 
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') {
-                if (plotDetailsModal && plotDetailsModal.classList.contains('visible')) plotDetailsModal.classList.remove('visible');
+                if (markerDetailsModal && markerDetailsModal.classList.contains('visible')) markerDetailsModal.classList.remove('visible');
+                else if (plotDetailsModal && plotDetailsModal.classList.contains('visible')) plotDetailsModal.classList.remove('visible');
                 if (shareModal && shareModal.classList.contains('visible')) shareModal.classList.remove('visible');
             }
         });

@@ -106,6 +106,19 @@
             pointer-events: none;
         }
 
+        .marker-icon { cursor: pointer; pointer-events: auto; transition: transform 0.2s ease, filter 0.2s ease; }
+        .marker-icon:hover { transform: scale(1.15); filter: drop-shadow(0 4px 12px rgba(201, 169, 98, 0.5)); }
+        .add-marker-toolbar { pointer-events: auto; display: flex; align-items: center; gap: 0.5rem; background: rgba(10, 10, 11, 0.9); border: 1px solid var(--color-accent-dim); padding: 0.5rem 0.75rem; border-radius: 8px; backdrop-filter: blur(10px); }
+        .add-marker-toolbar select { background: rgba(255,255,255,0.08); border: 1px solid var(--color-accent-dim); color: var(--color-text); padding: 0.35rem 0.6rem; border-radius: 6px; font-size: 0.75rem; }
+        .add-marker-toolbar .hint { font-size: 0.7rem; color: var(--color-muted); }
+        .marker-details-modal .modal { max-width: 480px; width: 90%; border-radius: 20px; overflow: hidden; border: 1px solid rgba(201, 169, 98, 0.25); box-shadow: 0 24px 48px rgba(0,0,0,0.4); }
+        .marker-details-modal .marker-modal-header { display: flex; align-items: center; gap: 1rem; padding: 1.5rem 1.5rem 1rem; background: linear-gradient(180deg, rgba(201, 169, 98, 0.12) 0%, transparent 100%); border-bottom: 1px solid rgba(255,255,255,0.08); }
+        .marker-details-modal .marker-modal-icon { width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; background: rgba(201, 169, 98, 0.2); border: 1px solid var(--color-accent-dim); }
+        .marker-details-modal .marker-modal-title { font-family: var(--font-display); font-size: 1.5rem; font-style: italic; color: var(--color-text); }
+        .marker-details-modal .marker-modal-body { padding: 1.5rem; display: flex; flex-direction: column; gap: 1rem; }
+        .marker-details-modal .detail-item { margin-bottom: 0; }
+        .marker-details-modal .modal-actions { padding: 1rem 1.5rem; }
+
         .overlay-gradient {
             position: fixed;
             top: 0;
@@ -1701,6 +1714,23 @@
                 </div>
             </div>
             <div class="header-controls">
+                <div class="add-marker-toolbar" id="add-marker-toolbar" style="display: none;">
+                    <span class="hint">Click on map to place marker</span>
+                    <select id="marker-type-select">
+                        <option value="pin">📍 Pin</option>
+                        <option value="flag">🚩 Flag</option>
+                        <option value="star">⭐ Star</option>
+                        <option value="info">ℹ️ Info</option>
+                        <option value="heart">❤️ Heart</option>
+                        <option value="warning">⚠️ Warning</option>
+                        <option value="check">✅ Check</option>
+                    </select>
+                    <button class="modal-btn secondary" id="cancel-add-marker">Cancel</button>
+                </div>
+                <button class="edit-toggle" id="marker-mode-btn">
+                    <span>📍</span>
+                    <span id="marker-mode-text">Marker Mode</span>
+                </button>
                 <button class="share-btn" id="share-btn">
                     <span>🔗</span>
                     <span>Share</span>
@@ -1804,6 +1834,7 @@
         <div class="modal">
             <div class="details-header">
                 <div class="details-color" id="details-color"></div>
+                <div class="details-icon" id="details-icon" style="display: none; width: 56px; height: 56px; border-radius: 14px; background: rgba(201,169,98,0.3); border: 1px solid var(--color-accent-dim); align-items: center; justify-content: center; font-size: 1.75rem;"></div>
                 <div class="details-title" id="details-title">Plot Name</div>
             </div>
             <div class="details-grid">
@@ -1834,6 +1865,61 @@
             </div>
             <div class="modal-actions">
                 <button class="modal-btn secondary" id="close-details">Close</button>
+                <button class="modal-btn primary" id="details-edit-btn" style="display: none;">Edit</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-backdrop" id="marker-form-modal">
+        <div class="modal">
+            <div class="modal-title">Edit Marker</div>
+            <div class="form-group">
+                <label class="form-label">Name</label>
+                <input type="text" class="form-input" id="marker-form-name" placeholder="e.g., Entrance">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Area (sq ft)</label>
+                <input type="text" class="form-input" id="marker-form-area" placeholder="e.g., 2,400">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Price</label>
+                <input type="text" class="form-input" id="marker-form-price" placeholder="e.g., $125,000">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Status</label>
+                <select class="form-input" id="marker-form-status">
+                    <option value="available">Available</option>
+                    <option value="on_hold">On Hold</option>
+                    <option value="sold">Sold</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Description</label>
+                <textarea class="form-input" id="marker-form-description" placeholder="Details..."></textarea>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Photo link</label>
+                <input type="text" class="form-input" id="marker-form-media-photo" placeholder="e.g. Google Drive link">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Video link</label>
+                <input type="text" class="form-input" id="marker-form-media-video" placeholder="e.g. Google Drive link">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Marker type</label>
+                <select class="form-input" id="marker-form-type">
+                    <option value="pin">📍 Pin</option>
+                    <option value="flag">🚩 Flag</option>
+                    <option value="star">⭐ Star</option>
+                    <option value="info">ℹ️ Info</option>
+                    <option value="heart">❤️ Heart</option>
+                    <option value="warning">⚠️ Warning</option>
+                    <option value="check">✅ Check</option>
+                </select>
+            </div>
+            <div class="modal-actions">
+                <button class="modal-btn secondary" id="marker-form-cancel">Cancel</button>
+                <button class="modal-btn primary" id="marker-form-save">Save</button>
             </div>
         </div>
     </div>
@@ -1945,7 +2031,12 @@
 
         // Shared variables and functions (available in both modes)
         let plots = [];
+        let markers = [];
         let isEditMode = false;
+        let canAddMarkers = true;
+        let addMarkerMode = false;
+        let editingMarkerId = null;
+        const markerTypeEmoji = { pin: '📍', flag: '🚩', star: '⭐', info: 'ℹ️', heart: '❤️', warning: '⚠️', check: '✅' };
 
         const colorGradients = {
             green: { start: '#22c55e', end: '#16a34a', fill: 'rgba(34, 197, 94, 0.35)' },
@@ -1964,11 +2055,20 @@
         const statusToColor = { available: 'green', reserved: 'orange', on_hold: 'orange', sold: 'red' };
         const colorToStatus = { green: 'available', orange: 'on_hold', red: 'sold' };
 
+        async function loadMarkers() {
+            try {
+                const headers = await (window.getAuthHeaders ? window.getAuthHeaders() : Promise.resolve({}));
+                const r = await fetch(`/api/panoramas/${PANORAMA_ID}/markers`, { headers });
+                markers = await r.json();
+            } catch (e) { console.error('Failed to load markers:', e); }
+        }
+
         async function loadPlots() {
             try {
                 const headers = await (window.getAuthHeaders ? window.getAuthHeaders() : Promise.resolve({}));
                 const response = await fetch(`/api/panoramas/${PANORAMA_ID}/plots`, { headers });
                 plots = await response.json();
+                await loadMarkers();
                 renderPlots();
                 updatePlotsList();
             } catch (error) {
@@ -1976,8 +2076,9 @@
             }
         }
 
-        // Edit toggle for regular 2D panoramas
+        // Edit toggle for regular 2D panoramas (mutually exclusive with Marker Mode)
         editToggle.addEventListener('click', () => {
+            if (addMarkerMode) exitAddMarkerMode();
             isEditMode = !isEditMode;
             editToggle.classList.toggle('active', isEditMode);
             editToggleText.textContent = isEditMode ? 'Exit Edit' : 'Edit Mode';
@@ -2071,29 +2172,29 @@
             return /\.(mp4|webm|ogg)(\?.*)?$/.test(url || '');
         }
 
-        async function renderPlotMedia(plot) {
+        let currentDetailsEntity = null;
+        let currentDetailsType = null;
+
+        async function renderEntityMedia(entity) {
             const container = document.getElementById('details-media');
             const wrapper = document.getElementById('details-media-container');
             if (!container || !wrapper) return;
-
             container.innerHTML = '';
-            const photoUrl = (plot.media_photo || '').trim();
-            const videoUrl = (plot.media_video || '').trim();
+            const photoUrl = (entity.media_photo || '').trim();
+            const videoUrl = (entity.media_video || '').trim();
             const mediaElements = [];
+            const name = entity.name || 'Item';
 
-            if (plot.has_image && plot.id) {
+            if (entity.has_image && entity.id && !entity.marker_type) {
                 const mediaWrapper = document.createElement('div');
                 mediaWrapper.className = 'media-wrapper';
                 const img = document.createElement('img');
-                img.alt = (plot.name || 'Plot') + ' photo';
+                img.alt = name + ' photo';
                 img.style.maxWidth = '100%'; img.style.height = 'auto';
                 try {
                     const headers = await (window.getAuthHeaders ? window.getAuthHeaders() : Promise.resolve({}));
-                    const r = await fetch('/api/plots/' + plot.id + '/image', { headers });
-                    if (r.ok) {
-                        const blob = await r.blob();
-                        img.src = URL.createObjectURL(blob);
-                    }
+                    const r = await fetch('/api/plots/' + entity.id + '/image', { headers });
+                    if (r.ok) { const blob = await r.blob(); img.src = URL.createObjectURL(blob); }
                 } catch (e) { console.warn('Plot image load failed', e); }
                 mediaWrapper.appendChild(img);
                 mediaElements.push(mediaWrapper);
@@ -2105,55 +2206,81 @@
                 iframe.allow = 'autoplay';
                 iframe.allowFullscreen = true;
                 iframe.loading = 'lazy';
-                iframe.title = `${plot.name || 'Plot'} photo`;
+                iframe.title = name + ' photo';
                 mediaWrapper.appendChild(iframe);
                 mediaElements.push(mediaWrapper);
             }
 
             if (videoUrl) {
                 const driveId = extractDriveId(videoUrl);
-                const wrapper = document.createElement('div');
-                wrapper.className = 'media-wrapper';
-
+                const w = document.createElement('div');
+                w.className = 'media-wrapper';
                 if (driveId || !isLikelyVideoFile(videoUrl)) {
                     const iframe = document.createElement('iframe');
                     iframe.src = normalizeDriveVideoUrl(videoUrl);
                     iframe.allow = 'autoplay; encrypted-media';
                     iframe.allowFullscreen = true;
                     iframe.loading = 'lazy';
-                    iframe.title = `${plot.name || 'Plot'} video`;
-                    wrapper.appendChild(iframe);
+                    iframe.title = name + ' video';
+                    w.appendChild(iframe);
                 } else {
                     const video = document.createElement('video');
                     video.src = normalizeDriveVideoUrl(videoUrl);
                     video.controls = true;
                     video.playsInline = true;
-                    wrapper.appendChild(video);
+                    w.appendChild(video);
                 }
-                mediaElements.push(wrapper);
+                mediaElements.push(w);
             }
 
-            if (mediaElements.length === 0) {
-                wrapper.style.display = 'none';
-                return;
-            }
-
+            if (mediaElements.length === 0) { wrapper.style.display = 'none'; return; }
             mediaElements.forEach(el => container.appendChild(el));
             wrapper.style.display = 'block';
         }
 
-        function showPlotDetails(plot) {
-            const colors = getPlotColors(plot);
-            document.getElementById('details-color').style.background = `linear-gradient(135deg, ${colors.start}, ${colors.end})`;
-            document.getElementById('details-title').textContent = plot.name;
-            document.getElementById('details-area').textContent = plot.area || '—';
-            document.getElementById('details-price').textContent = plot.price || '—';
-            document.getElementById('details-status').textContent = statusLabels[plot.status] || statusLabels[normalizeStatus(plot.status)] || '—';
+        function showDetails(entity, type) {
+            currentDetailsEntity = entity;
+            currentDetailsType = type;
+            const detailsColor = document.getElementById('details-color');
+            const detailsIcon = document.getElementById('details-icon');
+            const detailsTitle = document.getElementById('details-title');
+            const detailsPrice = document.getElementById('details-price');
+            const detailsArea = document.getElementById('details-area');
+            const detailsStatus = document.getElementById('details-status');
+            const detailsDesc = document.getElementById('details-description');
             const descContainer = document.getElementById('details-description-container');
-            descContainer.style.display = plot.description ? 'block' : 'none';
-            document.getElementById('details-description').textContent = plot.description || '';
-            renderPlotMedia(plot).then(() => {});
+            const editBtn = document.getElementById('details-edit-btn');
+
+            if (type === 'plot') {
+                detailsColor.style.display = 'block';
+                detailsIcon.style.display = 'none';
+                const colors = getPlotColors(entity);
+                detailsColor.style.background = `linear-gradient(135deg, ${colors.start}, ${colors.end})`;
+            } else {
+                detailsColor.style.display = 'none';
+                detailsIcon.style.display = 'flex';
+                detailsIcon.textContent = markerTypeEmoji[entity.marker_type] || '📍';
+            }
+            detailsTitle.textContent = entity.name || (type === 'plot' ? 'Plot' : 'Marker');
+            detailsArea.textContent = entity.area || '—';
+            detailsPrice.textContent = entity.price || '—';
+            detailsStatus.textContent = statusLabels[entity.status] || statusLabels[normalizeStatus(entity.status)] || '—';
+            descContainer.style.display = (entity.description || '').trim() ? 'block' : 'none';
+            detailsDesc.textContent = entity.description || '';
+            if (editBtn) {
+                editBtn.style.display = 'inline-flex';
+                editBtn.onclick = () => {
+                    plotDetailsModal.classList.remove('visible');
+                    if (type === 'plot') openEditPlotForm(entity);
+                    else openMarkerEditForm(entity);
+                };
+            }
+            renderEntityMedia(entity).then(() => {});
             plotDetailsModal.classList.add('visible');
+        }
+
+        function showPlotDetails(plot) {
+            showDetails(plot, 'plot');
         }
 
         function showToast(message, type = 'success') {
@@ -2225,7 +2352,7 @@
 
         imageContainer.addEventListener('wheel', (e) => { if (isDrawing) return; e.preventDefault(); scale = Math.max(minScale, Math.min(maxScale, scale + (e.deltaY > 0 ? -0.1 : 0.1))); updateTransform(); }, { passive: false });
 
-        imageContainer.addEventListener('mousedown', (e) => { if (isEditMode || e.button !== 0) return; isDragging = true; imageContainer.classList.add('dragging'); dragStartX = e.clientX; dragStartY = e.clientY; dragStartTranslateX = translateX; dragStartTranslateY = translateY; });
+        imageContainer.addEventListener('mousedown', (e) => { if (addMarkerMode || isEditMode || e.button !== 0) return; isDragging = true; imageContainer.classList.add('dragging'); dragStartX = e.clientX; dragStartY = e.clientY; dragStartTranslateX = translateX; dragStartTranslateY = translateY; });
         document.addEventListener('mousemove', (e) => { if (!isDragging) return; translateX = dragStartTranslateX + (e.clientX - dragStartX); translateY = dragStartTranslateY + (e.clientY - dragStartY); updateTransform(true); });
         document.addEventListener('mouseup', () => { if (isDragging) { isDragging = false; imageContainer.classList.remove('dragging'); updateTransform(); } });
 
@@ -2234,6 +2361,55 @@
             const rect = drawingCanvas.getBoundingClientRect();
             return { x: ((e.clientX - rect.left) / rect.width) * imageWidth, y: ((e.clientY - rect.top) / rect.height) * imageHeight };
         }
+
+        function exitAddMarkerMode() {
+            addMarkerMode = false;
+            const toolbar = document.getElementById('add-marker-toolbar');
+            if (toolbar) toolbar.style.display = 'none';
+            const markerBtn = document.getElementById('marker-mode-btn');
+            const markerText = document.getElementById('marker-mode-text');
+            if (markerBtn) markerBtn.classList.remove('active');
+            if (markerText) markerText.textContent = 'Marker Mode';
+        }
+        document.getElementById('marker-mode-btn')?.addEventListener('click', () => {
+            if (isEditMode) {
+                isEditMode = false;
+                editToggle.classList.remove('active');
+                editToggleText.textContent = 'Edit Mode';
+                const imageContainerEl = document.getElementById('image-container');
+                if (imageContainerEl) imageContainerEl.classList.remove('edit-mode');
+                if (editPanel) editPanel.classList.remove('visible');
+                if (typeof cancelDrawing === 'function') cancelDrawing();
+            }
+            addMarkerMode = !addMarkerMode;
+            const markerBtn = document.getElementById('marker-mode-btn');
+            const markerText = document.getElementById('marker-mode-text');
+            const toolbar = document.getElementById('add-marker-toolbar');
+            if (markerBtn) markerBtn.classList.toggle('active', addMarkerMode);
+            if (markerText) markerText.textContent = addMarkerMode ? 'Exit Marker Mode' : 'Marker Mode';
+            if (toolbar) toolbar.style.display = addMarkerMode ? 'flex' : 'none';
+        });
+        document.getElementById('cancel-add-marker')?.addEventListener('click', exitAddMarkerMode);
+        plotsOverlay.addEventListener('click', async (e) => {
+            if (!addMarkerMode) return;
+            if (e.target.closest('.marker-icon') || e.target.closest('polygon')) return;
+            const { x, y } = getImageCoords(e);
+            const markerType = (document.getElementById('marker-type-select')?.value || 'pin');
+            try {
+                const headers = await (window.getAuthHeaders ? window.getAuthHeaders() : Promise.resolve({}));
+                const r = await fetch(`/api/panoramas/${PANORAMA_ID}/markers`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', ...headers },
+                    body: JSON.stringify({ position: { x, y }, marker_type: markerType, name: '', description: '' })
+                });
+                if (!r.ok) { const err = await r.json(); throw new Error(err.error || 'Failed to add marker'); }
+                showToast('Marker added — click again to add more');
+                await loadMarkers();
+                loadPlots();
+            } catch (err) {
+                showToast(err.message || 'Failed to add marker', 'error');
+            }
+        });
 
         drawingCanvas.addEventListener('click', (e) => {
             if (!isEditMode) return;
@@ -2518,6 +2694,34 @@
                 text.textContent = plot.name;
                 plotsOverlay.appendChild(text);
             });
+
+            const markerGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+            markerGroup.setAttribute('class', 'markers-group');
+            markers.forEach(m => {
+                const pos = m.position && typeof m.position === 'object' ? m.position : { x: 0, y: 0 };
+                const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+                g.setAttribute('class', 'marker-icon');
+                g.setAttribute('transform', `translate(${pos.x},${pos.y})`);
+                g.setAttribute('data-marker-id', m.id);
+                const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                circle.setAttribute('r', '20');
+                circle.setAttribute('fill', 'rgba(201, 169, 98, 0.9)');
+                circle.setAttribute('stroke', 'rgba(255,255,255,0.8)');
+                circle.setAttribute('stroke-width', '2');
+                const txt = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                txt.setAttribute('y', '6'); txt.setAttribute('text-anchor', 'middle');
+                txt.setAttribute('font-size', '20'); txt.setAttribute('pointer-events', 'none');
+                txt.textContent = markerTypeEmoji[m.marker_type] || '📍';
+                g.appendChild(circle);
+                g.appendChild(txt);
+                g.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    if (addMarkerMode) return;
+                    showDetails(m, 'marker');
+                });
+                markerGroup.appendChild(g);
+            });
+            plotsOverlay.appendChild(markerGroup);
         }
 
         function getCentroid(points) {
@@ -2525,6 +2729,53 @@
             points.forEach(p => { x += p.x; y += p.y; });
             return { x: x / points.length, y: y / points.length };
         }
+
+        function showMarkerDetails(marker) {
+            showDetails(marker, 'marker');
+        }
+
+        function openMarkerEditForm(marker) {
+            editingMarkerId = marker.id;
+            document.getElementById('marker-form-name').value = marker.name || '';
+            document.getElementById('marker-form-area').value = marker.area || '';
+            document.getElementById('marker-form-price').value = marker.price || '';
+            document.getElementById('marker-form-status').value = marker.status || 'available';
+            document.getElementById('marker-form-description').value = marker.description || '';
+            document.getElementById('marker-form-media-photo').value = marker.media_photo || '';
+            document.getElementById('marker-form-media-video').value = marker.media_video || '';
+            document.getElementById('marker-form-type').value = marker.marker_type || 'pin';
+            document.getElementById('marker-form-modal').classList.add('visible');
+        }
+
+        const markerFormModal = document.getElementById('marker-form-modal');
+        document.getElementById('marker-form-cancel')?.addEventListener('click', () => markerFormModal?.classList.remove('visible'));
+        markerFormModal?.addEventListener('click', (e) => { if (e.target === markerFormModal) markerFormModal.classList.remove('visible'); });
+        document.getElementById('marker-form-save')?.addEventListener('click', async () => {
+            if (!editingMarkerId) return;
+            const name = document.getElementById('marker-form-name').value.trim();
+            const area = document.getElementById('marker-form-area').value.trim();
+            const price = document.getElementById('marker-form-price').value.trim();
+            const status = document.getElementById('marker-form-status').value || 'available';
+            const description = document.getElementById('marker-form-description').value.trim();
+            const media_photo = document.getElementById('marker-form-media-photo').value.trim();
+            const media_video = document.getElementById('marker-form-media-video').value.trim();
+            const marker_type = document.getElementById('marker-form-type').value || 'pin';
+            try {
+                const headers = await (window.getAuthHeaders ? window.getAuthHeaders() : Promise.resolve({}));
+                const r = await fetch(`/api/markers/${editingMarkerId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json', ...headers },
+                    body: JSON.stringify({ name, area, price, status, description, media_photo, media_video, marker_type })
+                });
+                if (!r.ok) { const err = await r.json(); throw new Error(err.error || 'Failed to update'); }
+                showToast('Marker updated');
+                markerFormModal?.classList.remove('visible');
+                loadMarkers();
+                loadPlots();
+            } catch (e) {
+                showToast(e.message || 'Update failed', 'error');
+            }
+        });
 
         // Shared event handlers (available in both modes)
         document.getElementById('close-details').addEventListener('click', () => plotDetailsModal.classList.remove('visible'));
@@ -2573,6 +2824,8 @@
             if (e.key === 'Enter' && isDrawing && currentPoints.length >= 3) completeDrawing();
             else if (e.key === 'Escape') {
                 if (shareModal && shareModal.classList.contains('visible')) shareModal.classList.remove('visible');
+                else if (markerFormModal && markerFormModal.classList.contains('visible')) markerFormModal.classList.remove('visible');
+                else if (addMarkerMode) exitAddMarkerMode();
                 else if (plotFormModal.classList.contains('visible')) closePlotForm();
                 else if (plotDetailsModal.classList.contains('visible')) plotDetailsModal.classList.remove('visible');
                 else if (isDrawing) cancelDrawing();

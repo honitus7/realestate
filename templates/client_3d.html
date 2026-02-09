@@ -73,6 +73,26 @@
             pointer-events: none;
             white-space: nowrap;
         }
+        .psv-point-marker {
+            width: 40px; height: 40px;
+            border-radius: 50%;
+            background: rgba(201, 169, 98, 0.95);
+            border: 2px solid rgba(255,255,255,0.9);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.25rem;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            cursor: pointer;
+            transition: transform 0.2s ease;
+        }
+        .psv-point-marker:hover { transform: scale(1.15); }
+        .add-marker-toolbar { pointer-events: auto; display: flex; align-items: center; gap: 0.5rem; background: rgba(10, 10, 11, 0.9); border: 1px solid var(--color-accent-dim); padding: 0.5rem 0.75rem; border-radius: 8px; backdrop-filter: blur(10px); }
+        .add-marker-toolbar select { background: rgba(255,255,255,0.08); border: 1px solid var(--color-accent-dim); color: var(--color-text); padding: 0.35rem 0.6rem; border-radius: 6px; font-size: 0.75rem; }
+        .marker-details-modal .modal { max-width: 480px; width: 90%; border-radius: 20px; overflow: hidden; border: 1px solid rgba(201, 169, 98, 0.25); box-shadow: 0 24px 48px rgba(0,0,0,0.4); }
+        .marker-details-modal .marker-modal-header { display: flex; align-items: center; gap: 1rem; padding: 1.5rem 1.5rem 1rem; background: linear-gradient(180deg, rgba(201, 169, 98, 0.12) 0%, transparent 100%); border-bottom: 1px solid rgba(255,255,255,0.08); }
+        .marker-details-modal .marker-modal-icon { width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; background: rgba(201, 169, 98, 0.2); border: 1px solid var(--color-accent-dim); }
+        .marker-details-modal .marker-modal-title { font-family: var(--font-display); font-size: 1.5rem; font-style: italic; color: var(--color-text); }
+        .marker-details-modal .marker-modal-body { padding: 1.5rem; }
+        .marker-details-modal .modal-actions { padding: 1rem 1.5rem; }
 
         .image-container {
             width: 100vw;
@@ -1723,6 +1743,26 @@
                 </div>
             </div>
             <div class="header-controls">
+                <div id="add-marker-wrap" style="display: none; pointer-events: auto;">
+                    <div class="add-marker-toolbar" id="add-marker-toolbar" style="display: none;">
+                        <span class="hint">Click on panorama to place marker</span>
+                        <select id="marker-type-select">
+                            <option value="pin">📍 Pin</option>
+                            <option value="flag">🚩 Flag</option>
+                            <option value="star">⭐ Star</option>
+                            <option value="info">ℹ️ Info</option>
+                            <option value="heart">❤️ Heart</option>
+                            <option value="warning">⚠️ Warning</option>
+                            <option value="check">✅ Check</option>
+                        </select>
+                        <button class="modal-btn primary" id="place-marker-view">Place at current view</button>
+                        <button class="modal-btn secondary" id="cancel-add-marker-3d">Cancel</button>
+                    </div>
+                    <button class="edit-toggle" id="marker-mode-btn-3d" style="display: inline-flex;">
+                        <span>📍</span>
+                        <span id="marker-mode-text-3d">Marker Mode</span>
+                    </button>
+                </div>
                 <button class="share-btn" id="share-btn">
                     <span>🔗</span>
                     <span>Share</span>
@@ -1824,6 +1864,7 @@
         <div class="modal">
             <div class="details-header">
                 <div class="details-color" id="details-color"></div>
+                <div class="details-icon" id="details-icon" style="display: none; width: 56px; height: 56px; border-radius: 14px; background: rgba(201,169,98,0.3); border: 1px solid var(--color-accent-dim); align-items: center; justify-content: center; font-size: 1.75rem;"></div>
                 <div class="details-title" id="details-title">Plot Name</div>
             </div>
             <div class="details-grid">
@@ -1854,6 +1895,61 @@
             </div>
             <div class="modal-actions">
                 <button class="modal-btn secondary" id="close-details">Close</button>
+                <button class="modal-btn primary" id="details-edit-btn" style="display: none;">Edit</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-backdrop" id="marker-form-modal">
+        <div class="modal">
+            <div class="modal-title">Edit Marker</div>
+            <div class="form-group">
+                <label class="form-label">Name</label>
+                <input type="text" class="form-input" id="marker-form-name" placeholder="e.g., Entrance">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Area (sq ft)</label>
+                <input type="text" class="form-input" id="marker-form-area" placeholder="e.g., 2,400">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Price</label>
+                <input type="text" class="form-input" id="marker-form-price" placeholder="e.g., $125,000">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Status</label>
+                <select class="form-input" id="marker-form-status">
+                    <option value="available">Available</option>
+                    <option value="on_hold">On Hold</option>
+                    <option value="sold">Sold</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Description</label>
+                <textarea class="form-input" id="marker-form-description" placeholder="Details..."></textarea>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Photo link</label>
+                <input type="text" class="form-input" id="marker-form-media-photo" placeholder="e.g. Google Drive link">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Video link</label>
+                <input type="text" class="form-input" id="marker-form-media-video" placeholder="e.g. Google Drive link">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Marker type</label>
+                <select class="form-input" id="marker-form-type">
+                    <option value="pin">📍 Pin</option>
+                    <option value="flag">🚩 Flag</option>
+                    <option value="star">⭐ Star</option>
+                    <option value="info">ℹ️ Info</option>
+                    <option value="heart">❤️ Heart</option>
+                    <option value="warning">⚠️ Warning</option>
+                    <option value="check">✅ Check</option>
+                </select>
+            </div>
+            <div class="modal-actions">
+                <button class="modal-btn secondary" id="marker-form-cancel">Cancel</button>
+                <button class="modal-btn primary" id="marker-form-save">Save</button>
             </div>
         </div>
     </div>
@@ -1906,6 +2002,8 @@
         const plotFormTitle = document.getElementById('plot-form-title');
         const plotDetailsModal = document.getElementById('plot-details-modal');
         const toastContainer = document.getElementById('toast-container');
+        const PANORAMA_WIDTH = {{ panorama.width or 4096 }};
+        const PANORAMA_HEIGHT = {{ panorama.height or 2048 }};
         const editPanelToggle = document.getElementById('edit-panel-toggle');
         const formModalToggle = document.getElementById('form-modal-toggle');
         const formModal = plotFormModal ? plotFormModal.querySelector('.modal') : null;
@@ -1963,7 +2061,11 @@
 
         // Shared variables and functions (available in both modes)
         let plots = [];
+        let customMarkers = [];
         let isEditMode = false;
+        let canAddMarkers = false;
+        let editingMarkerId = null;
+        const markerTypeEmoji = { pin: '📍', flag: '🚩', star: '⭐', info: 'ℹ️', heart: '❤️', warning: '⚠️', check: '✅' };
 
         const colorGradients = {
             green: { start: '#22c55e', end: '#16a34a', fill: 'rgba(34, 197, 94, 0.35)' },
@@ -1982,11 +2084,32 @@
         const statusToColor = { available: 'green', reserved: 'orange', on_hold: 'orange', sold: 'red' };
         const colorToStatus = { green: 'available', orange: 'on_hold', red: 'sold' };
 
+        async function loadAccessInfo() {
+            try {
+                const headers = await (window.getAuthHeaders ? window.getAuthHeaders() : Promise.resolve({}));
+                const r = await fetch(`/api/panoramas/${PANORAMA_ID}/access-info`, { headers });
+                if (r.ok) {
+                    const info = await r.json();
+                    canAddMarkers = !!info.can_add_markers;
+                    const wrap = document.getElementById('add-marker-wrap');
+                    if (wrap) wrap.style.display = canAddMarkers ? 'block' : 'none';
+                }
+            } catch (e) { console.warn('Access info failed', e); }
+        }
+        async function loadMarkers() {
+            try {
+                const headers = await (window.getAuthHeaders ? window.getAuthHeaders() : Promise.resolve({}));
+                const r = await fetch(`/api/panoramas/${PANORAMA_ID}/markers`, { headers });
+                customMarkers = await r.json();
+            } catch (e) { console.error('Failed to load markers', e); }
+        }
         async function loadPlots() {
             try {
                 const headers = await (window.getAuthHeaders ? window.getAuthHeaders() : Promise.resolve({}));
+                await loadAccessInfo();
                 const response = await fetch(`/api/panoramas/${PANORAMA_ID}/plots`, { headers });
                 plots = await response.json();
+                await loadMarkers();
                 renderPlots();
                 updatePlotsList();
             } catch (error) {
@@ -1996,6 +2119,7 @@
 
         // Edit toggle for 360° panoramas (client mode)
         editToggle.addEventListener('click', () => {
+            if (addMarkerMode3d) exitMarkerMode3d();
             isEditMode = !isEditMode;
             editToggle.classList.toggle('active', isEditMode);
             editToggleText.textContent = isEditMode ? 'Exit Edit' : 'Edit Mode';
@@ -2075,25 +2199,28 @@
             return /\.(mp4|webm|ogg)(\?.*)?$/.test(url || '');
         }
 
-        async function renderPlotMedia(plot) {
+        let currentDetailsEntity = null;
+        let currentDetailsType = null;
+
+        async function renderEntityMedia(entity) {
             const container = document.getElementById('details-media');
             const wrapper = document.getElementById('details-media-container');
             if (!container || !wrapper) return;
-
             container.innerHTML = '';
-            const photoUrl = (plot.media_photo || '').trim();
-            const videoUrl = (plot.media_video || '').trim();
+            const photoUrl = (entity.media_photo || '').trim();
+            const videoUrl = (entity.media_video || '').trim();
             const mediaElements = [];
+            const name = entity.name || 'Item';
 
-            if (plot.has_image && plot.id) {
+            if (entity.has_image && entity.id && !entity.marker_type) {
                 const mediaWrapper = document.createElement('div');
                 mediaWrapper.className = 'media-wrapper';
                 const img = document.createElement('img');
-                img.alt = (plot.name || 'Plot') + ' photo';
+                img.alt = name + ' photo';
                 img.style.maxWidth = '100%'; img.style.height = 'auto';
                 try {
                     const headers = await (window.getAuthHeaders ? window.getAuthHeaders() : Promise.resolve({}));
-                    const r = await fetch('/api/plots/' + plot.id + '/image', { headers });
+                    const r = await fetch('/api/plots/' + entity.id + '/image', { headers });
                     if (r.ok) { const blob = await r.blob(); img.src = URL.createObjectURL(blob); }
                 } catch (e) { console.warn('Plot image load failed', e); }
                 mediaWrapper.appendChild(img);
@@ -2106,55 +2233,81 @@
                 iframe.allow = 'autoplay';
                 iframe.allowFullscreen = true;
                 iframe.loading = 'lazy';
-                iframe.title = `${plot.name || 'Plot'} photo`;
+                iframe.title = name + ' photo';
                 mediaWrapper.appendChild(iframe);
                 mediaElements.push(mediaWrapper);
             }
 
             if (videoUrl) {
                 const driveId = extractDriveId(videoUrl);
-                const wrapper = document.createElement('div');
-                wrapper.className = 'media-wrapper';
-
+                const w = document.createElement('div');
+                w.className = 'media-wrapper';
                 if (driveId || !isLikelyVideoFile(videoUrl)) {
                     const iframe = document.createElement('iframe');
                     iframe.src = normalizeDriveVideoUrl(videoUrl);
                     iframe.allow = 'autoplay; encrypted-media';
                     iframe.allowFullscreen = true;
                     iframe.loading = 'lazy';
-                    iframe.title = `${plot.name || 'Plot'} video`;
-                    wrapper.appendChild(iframe);
+                    iframe.title = name + ' video';
+                    w.appendChild(iframe);
                 } else {
                     const video = document.createElement('video');
                     video.src = normalizeDriveVideoUrl(videoUrl);
                     video.controls = true;
                     video.playsInline = true;
-                    wrapper.appendChild(video);
+                    w.appendChild(video);
                 }
-                mediaElements.push(wrapper);
+                mediaElements.push(w);
             }
 
-            if (mediaElements.length === 0) {
-                wrapper.style.display = 'none';
-                return;
-            }
-
+            if (mediaElements.length === 0) { wrapper.style.display = 'none'; return; }
             mediaElements.forEach(el => container.appendChild(el));
             wrapper.style.display = 'block';
         }
 
-        function showPlotDetails(plot) {
-            const colors = getPlotColors(plot);
-            document.getElementById('details-color').style.background = `linear-gradient(135deg, ${colors.start}, ${colors.end})`;
-            document.getElementById('details-title').textContent = plot.name;
-            document.getElementById('details-area').textContent = plot.area || '—';
-            document.getElementById('details-price').textContent = plot.price || '—';
-            document.getElementById('details-status').textContent = statusLabels[plot.status] || statusLabels[normalizeStatus(plot.status)] || '—';
+        function showDetails(entity, type) {
+            currentDetailsEntity = entity;
+            currentDetailsType = type;
+            const detailsColor = document.getElementById('details-color');
+            const detailsIcon = document.getElementById('details-icon');
+            const detailsTitle = document.getElementById('details-title');
+            const detailsPrice = document.getElementById('details-price');
+            const detailsArea = document.getElementById('details-area');
+            const detailsStatus = document.getElementById('details-status');
+            const detailsDesc = document.getElementById('details-description');
             const descContainer = document.getElementById('details-description-container');
-            descContainer.style.display = plot.description ? 'block' : 'none';
-            document.getElementById('details-description').textContent = plot.description || '';
-            renderPlotMedia(plot).then(() => {});
+            const editBtn = document.getElementById('details-edit-btn');
+
+            if (type === 'plot') {
+                detailsColor.style.display = 'block';
+                detailsIcon.style.display = 'none';
+                const colors = getPlotColors(entity);
+                detailsColor.style.background = `linear-gradient(135deg, ${colors.start}, ${colors.end})`;
+            } else {
+                detailsColor.style.display = 'none';
+                detailsIcon.style.display = 'flex';
+                detailsIcon.textContent = markerTypeEmoji[entity.marker_type] || '📍';
+            }
+            detailsTitle.textContent = entity.name || (type === 'plot' ? 'Plot' : 'Marker');
+            detailsArea.textContent = entity.area || '—';
+            detailsPrice.textContent = entity.price || '—';
+            detailsStatus.textContent = statusLabels[entity.status] || statusLabels[normalizeStatus(entity.status)] || '—';
+            descContainer.style.display = (entity.description || '').trim() ? 'block' : 'none';
+            detailsDesc.textContent = entity.description || '';
+            if (editBtn) {
+                editBtn.style.display = 'inline-flex';
+                editBtn.onclick = () => {
+                    plotDetailsModal.classList.remove('visible');
+                    if (type === 'plot') openEditPlotForm(entity);
+                    else openMarkerEditForm(entity);
+                };
+            }
+            renderEntityMedia(entity).then(() => {});
             plotDetailsModal.classList.add('visible');
+        }
+
+        function showPlotDetails(plot) {
+            showDetails(plot, 'plot');
         }
 
         function showToast(message, type = 'success') {
@@ -2200,11 +2353,43 @@
                 loadPlots();
             });
 
+            viewer.addEventListener('click', (e) => {
+                if (!addMarkerMode3d || !canAddMarkers) return;
+                const data = e.data || e;
+                const longitude = data.longitude != null ? data.longitude : (data.yaw != null ? data.yaw : 0);
+                const latitude = data.latitude != null ? data.latitude : (data.pitch != null ? data.pitch : 0);
+                const u = (longitude + Math.PI) / (2 * Math.PI);
+                const v = (Math.PI / 2 - latitude) / Math.PI;
+                const x = u * PANORAMA_WIDTH;
+                const y = v * PANORAMA_HEIGHT;
+                const markerType = document.getElementById('marker-type-select')?.value || 'pin';
+                (async () => {
+                    try {
+                        const headers = await (window.getAuthHeaders ? window.getAuthHeaders() : Promise.resolve({}));
+                        const r = await fetch(`/api/panoramas/${PANORAMA_ID}/markers`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json', ...headers },
+                            body: JSON.stringify({ position: { x, y }, marker_type: markerType, name: '', description: '' })
+                        });
+                        if (!r.ok) { const err = await r.json(); throw new Error(err.error || 'Failed'); }
+                        showToast('Marker added — click again to add more');
+                        await loadMarkers();
+                        renderPlots();
+                    } catch (err) {
+                        showToast(err.message || 'Failed to add marker', 'error');
+                    }
+                })();
+            });
+
             if (markersPlugin) {
                 markersPlugin.on('select-marker', (e, marker) => {
-                    if (marker && marker.config && marker.config.data && marker.config.data.label) {
+                    const data = marker && marker.config && marker.config.data;
+                    if (data && data.pointMarkerId) {
+                        const m = customMarkers.find(item => String(item.id) === String(data.pointMarkerId));
+                        if (m) showDetails(m, 'marker');
                         return;
                     }
+                    if (data && data.label) return;
                     const plot = getPlotFromMarker(marker);
                     if (!plot) return;
                     if (isEditMode) {
@@ -2245,18 +2430,65 @@
             return plots.find(item => String(item.id) === String(plotId));
         }
 
+        function showMarkerDetails(marker) {
+            showDetails(marker, 'marker');
+        }
+
+        function openMarkerEditForm(marker) {
+            editingMarkerId = marker.id;
+            document.getElementById('marker-form-name').value = marker.name || '';
+            document.getElementById('marker-form-area').value = marker.area || '';
+            document.getElementById('marker-form-price').value = marker.price || '';
+            document.getElementById('marker-form-status').value = marker.status || 'available';
+            document.getElementById('marker-form-description').value = marker.description || '';
+            document.getElementById('marker-form-media-photo').value = marker.media_photo || '';
+            document.getElementById('marker-form-media-video').value = marker.media_video || '';
+            document.getElementById('marker-form-type').value = marker.marker_type || 'pin';
+            document.getElementById('marker-form-modal').classList.add('visible');
+        }
+
+        const markerFormModal = document.getElementById('marker-form-modal');
+        document.getElementById('marker-form-cancel')?.addEventListener('click', () => markerFormModal?.classList.remove('visible'));
+        markerFormModal?.addEventListener('click', (e) => { if (e.target === markerFormModal) markerFormModal.classList.remove('visible'); });
+        document.getElementById('marker-form-save')?.addEventListener('click', async () => {
+            if (!editingMarkerId) return;
+            const name = document.getElementById('marker-form-name').value.trim();
+            const area = document.getElementById('marker-form-area').value.trim();
+            const price = document.getElementById('marker-form-price').value.trim();
+            const status = document.getElementById('marker-form-status').value || 'available';
+            const description = document.getElementById('marker-form-description').value.trim();
+            const media_photo = document.getElementById('marker-form-media-photo').value.trim();
+            const media_video = document.getElementById('marker-form-media-video').value.trim();
+            const marker_type = document.getElementById('marker-form-type').value || 'pin';
+            try {
+                const headers = await (window.getAuthHeaders ? window.getAuthHeaders() : Promise.resolve({}));
+                const r = await fetch(`/api/markers/${editingMarkerId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json', ...headers },
+                    body: JSON.stringify({ name, area, price, status, description, media_photo, media_video, marker_type })
+                });
+                if (!r.ok) { const err = await r.json(); throw new Error(err.error || 'Failed'); }
+                showToast('Marker updated');
+                markerFormModal?.classList.remove('visible');
+                await loadMarkers();
+                renderPlots();
+            } catch (e) {
+                showToast(e.message || 'Update failed', 'error');
+            }
+        });
+
         // Shared event handlers for 360° mode
         document.getElementById('close-details').addEventListener('click', () => plotDetailsModal.classList.remove('visible'));
         plotDetailsModal.addEventListener('click', (e) => { if (e.target === plotDetailsModal) plotDetailsModal.classList.remove('visible'); });
 
         function renderPlots() {
             if (!markersPlugin || !viewer) return;
-            const markers = [];
+            const allMarkers = [];
             plots
                 .filter(plot => Array.isArray(plot.points) && plot.points.length >= 3)
                 .forEach(plot => {
                     const colors = getPlotColors(plot);
-                    markers.push({
+                    allMarkers.push({
                         id: `plot-${plot.id}`,
                         polygonPx: plot.points.map(point => [point.x, point.y]),
                         svgStyle: {
@@ -2272,7 +2504,7 @@
                     const centroid = getCentroid(plot.points);
                     if (centroid && plot.name) {
                         const spherical = viewer.dataHelper.textureCoordsToSphericalCoords(centroid);
-                        markers.push({
+                        allMarkers.push({
                             id: `plot-label-${plot.id}`,
                             longitude: spherical.longitude,
                             latitude: spherical.latitude,
@@ -2283,8 +2515,74 @@
                         });
                     }
                 });
-            markersPlugin.setMarkers(markers);
+            customMarkers.forEach(m => {
+                const pos = m.position && typeof m.position === 'object' ? m.position : { x: 0, y: 0 };
+                try {
+                    const spherical = viewer.dataHelper.textureCoordsToSphericalCoords(pos);
+                    const emoji = markerTypeEmoji[m.marker_type] || '📍';
+                    allMarkers.push({
+                        id: `point-marker-${m.id}`,
+                        longitude: spherical.longitude,
+                        latitude: spherical.latitude,
+                        html: `<div class="psv-point-marker" title="${escapeHtml(m.name || 'Marker')}">${emoji}</div>`,
+                        anchor: 'center center',
+                        tooltip: m.name || 'Marker',
+                        data: { pointMarkerId: m.id }
+                    });
+                } catch (err) { console.warn('Marker position invalid', m.id, err); }
+            });
+            markersPlugin.setMarkers(allMarkers);
         }
+
+        let addMarkerMode3d = false;
+        function exitMarkerMode3d() {
+            addMarkerMode3d = false;
+            document.getElementById('add-marker-toolbar').style.display = 'none';
+            const btn = document.getElementById('marker-mode-btn-3d');
+            const text = document.getElementById('marker-mode-text-3d');
+            if (btn) btn.classList.remove('active');
+            if (text) text.textContent = 'Marker Mode';
+        }
+        document.getElementById('marker-mode-btn-3d')?.addEventListener('click', () => {
+            if (!canAddMarkers) return;
+            if (isEditMode) {
+                isEditMode = false;
+                editToggle.classList.remove('active');
+                editToggleText.textContent = 'Edit Mode';
+                if (editPanel) editPanel.classList.remove('visible');
+            }
+            addMarkerMode3d = !addMarkerMode3d;
+            const btn = document.getElementById('marker-mode-btn-3d');
+            const text = document.getElementById('marker-mode-text-3d');
+            const toolbar = document.getElementById('add-marker-toolbar');
+            if (btn) btn.classList.toggle('active', addMarkerMode3d);
+            if (text) text.textContent = addMarkerMode3d ? 'Exit Marker Mode' : 'Marker Mode';
+            if (toolbar) toolbar.style.display = addMarkerMode3d ? 'flex' : 'none';
+        });
+        document.getElementById('cancel-add-marker-3d')?.addEventListener('click', exitMarkerMode3d);
+        document.getElementById('place-marker-view')?.addEventListener('click', async () => {
+            if (!viewer || !canAddMarkers) return;
+            const pos = viewer.getPosition();
+            const longitude = pos && (pos.longitude != null ? pos.longitude : pos.yaw != null ? pos.yaw : 0) !== undefined ? (pos.longitude != null ? pos.longitude : pos.yaw) : 0;
+            const latitude = pos && (pos.latitude != null ? pos.latitude : pos.pitch != null ? pos.pitch : 0) !== undefined ? (pos.latitude != null ? pos.latitude : pos.pitch) : 0;
+            const x = (longitude / (2 * Math.PI) + 0.5) * PANORAMA_WIDTH;
+            const y = (0.5 - latitude / Math.PI) * PANORAMA_HEIGHT;
+            const markerType = document.getElementById('marker-type-select')?.value || 'pin';
+            try {
+                const headers = await (window.getAuthHeaders ? window.getAuthHeaders() : Promise.resolve({}));
+                const r = await fetch(`/api/panoramas/${PANORAMA_ID}/markers`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', ...headers },
+                    body: JSON.stringify({ position: { x, y }, marker_type: markerType, name: '', description: '' })
+                });
+                if (!r.ok) { const err = await r.json(); throw new Error(err.error || 'Failed'); }
+                showToast('Marker added — click to add more');
+                await loadMarkers();
+                renderPlots();
+            } catch (err) {
+                showToast(err.message || 'Failed to add marker', 'error');
+            }
+        });
 
         const plotStatusSelect = document.getElementById('plot-status');
         const plotMediaPhotoInput = document.getElementById('plot-media-photo');
@@ -2491,6 +2789,8 @@
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') {
                 if (shareModal && shareModal.classList.contains('visible')) shareModal.classList.remove('visible');
+                else if (markerFormModal && markerFormModal.classList.contains('visible')) markerFormModal.classList.remove('visible');
+                else if (addMarkerMode3d) exitMarkerMode3d();
                 else if (plotFormModal && plotFormModal.classList.contains('visible')) closePlotForm();
                 else if (plotDetailsModal && plotDetailsModal.classList.contains('visible')) plotDetailsModal.classList.remove('visible');
                 else if (isEditMode) editToggle.click();

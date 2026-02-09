@@ -33,6 +33,7 @@ from db import (
     get_panorama_by_id,
     list_panoramas_for_user,
     can_edit_plots,
+    can_add_markers,
     can_delete_panorama,
     get_profile,
     ensure_profile,
@@ -512,6 +513,171 @@ def upload_plot_image(user_id, role, plot_id):
     except Exception as e:
         return jsonify({'error': str(e)}), 500
     return jsonify({'success': True, 'content_type': content_type})
+
+
+# ----- Markers (point markers; only owner/admin add; clients can edit details only) -----
+@app.route('/api/panoramas/<int:panorama_id>/markers', methods=['GET'])
+@require_auth
+def get_markers(user_id, role, panorama_id):
+    sb = get_supabase()
+    if not sb:
+        return jsonify({'error': 'Database not configured'}), 503
+    panorama, _ = get_panorama_with_access(sb, panorama_id, user_id)
+    if not panorama:
+        return jsonify({'error': 'Panorama not found'}), 404
+    try:
+        r = sb.table('markers').select('*').eq('panorama_id', panorama_id).order('created_at').execute()
+        markers = []
+        for row in (r.data or []):
+            m = dict(row)
+            if isinstance(m.get('position'), str):
+                try:
+                    m['position'] = json.loads(m['position'])
+                except Exception:
+                    m['position'] = {'x': 0, 'y': 0}
+            markers.append(m)
+        return jsonify(markers)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/panoramas/<int:panorama_id>/markers', methods=['POST'])
+@require_auth
+def create_marker(user_id, role, panorama_id):
+    data = request.get_json()
+    if not data or not data.get('position'):
+        return jsonify({'error': 'Position is required'}), 400
+    sb = get_supabase()
+    if not sb:
+        return jsonify({'error': 'Database not configured'}), 503
+    panorama, access_type = get_panorama_with_access(sb, panorama_id, user_id)
+    if not panorama:
+        return jsonify({'error': 'Panorama not found'}), 404
+    if not can_add_markers(access_type, role):
+        return jsonify({'error': 'Only owner or admin can add markers'}), 403
+    pos = data['position']
+    if not isinstance(pos, dict) or 'x' not in pos or 'y' not in pos:
+        return jsonify({'error': 'Position must be {x, y}'}), 400
+    marker_type = (data.get('marker_type') or 'pin').lower()
+    if marker_type not in ('pin', 'flag', 'star', 'info', 'heart', 'warning', 'check'):
+        marker_type = 'pin'
+    try:
+        r = sb.table('markers').insert({
+            'panorama_id': panorama_id,
+            'marker_type': marker_type,
+            'name': data.get('name', ''),
+            'description': data.get('description', ''),
+            'position': pos,
+            'area': data.get('area', ''),
+            'price': data.get('price', ''),
+            'status': data.get('status', 'available'),
+            'color': data.get('color', 'emerald'),
+            'media_photo': data.get('media_photo', ''),
+            'media_video': data.get('media_video', ''),
+        }).execute()
+        if not r.data or len(r.data) == 0:
+            return jsonify({'error': 'Insert failed'}), 500
+        row = r.data[0]
+        sb.table('panoramas').update({'updated_at': datetime.utcnow().isoformat()}).eq('id', panorama_id).execute()
+        return jsonify({'id': row['id'], 'panorama_id': panorama_id, **data}), 201
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/markers/<int:marker_id>', methods=['PUT'])
+@require_auth
+def update_marker(user_id, role, marker_id):
+    data = request.get_json()
+    if not data:
+        return jsonify({'error': 'Body required'}), 400
+    sb = get_supabase()
+    if not sb:
+        return jsonify({'error': 'Database not configured'}), 503
+    try:
+        mr = sb.table('markers').select('panorama_id').eq('id', marker_id).limit(1).execute()
+        if not mr.data or len(mr.data) == 0:
+            return jsonify({'error': 'Marker not found'}), 404
+        panorama_id = mr.data[0]['panorama_id']
+    except Exception:
+        return jsonify({'error': 'Not found'}), 404
+    panorama, access_type = get_panorama_with_access(sb, panorama_id, user_id)
+    if not panorama:
+        return jsonify({'error': 'Forbidden'}), 403
+    updating_position = 'position' in data and data['position'] is not None
+    if updating_position and not can_add_markers(access_type, role):
+        return jsonify({'error': 'Only owner or admin can change marker position'}), 403
+    if not updating_position and not can_edit_plots(access_type):
+        return jsonify({'error': 'You cannot edit this marker'}), 403
+    try:
+        upd = {'updated_at': datetime.utcnow().isoformat()}
+        if 'name' in data:
+            upd['name'] = data.get('name', '')
+        if 'description' in data:
+            upd['description'] = data.get('description', '')
+        if 'area' in data:
+            upd['area'] = data.get('area', '')
+        if 'price' in data:
+            upd['price'] = data.get('price', '')
+        if 'status' in data:
+            upd['status'] = data.get('status', 'available')
+        if 'color' in data:
+            upd['color'] = data.get('color', 'emerald')
+        if 'media_photo' in data:
+            upd['media_photo'] = data.get('media_photo', '')
+        if 'media_video' in data:
+            upd['media_video'] = data.get('media_video', '')
+        if 'marker_type' in data:
+            mt = (data.get('marker_type') or 'pin').lower()
+            upd['marker_type'] = mt if mt in ('pin', 'flag', 'star', 'info', 'heart', 'warning', 'check') else 'pin'
+        if updating_position:
+            pos = data['position']
+            if isinstance(pos, dict) and 'x' in pos and 'y' in pos:
+                upd['position'] = pos
+        sb.table('markers').update(upd).eq('id', marker_id).execute()
+        sb.table('panoramas').update({'updated_at': datetime.utcnow().isoformat()}).eq('id', panorama_id).execute()
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    return jsonify({'success': True})
+
+
+@app.route('/api/markers/<int:marker_id>', methods=['DELETE'])
+@require_auth
+def delete_marker(user_id, role, marker_id):
+    sb = get_supabase()
+    if not sb:
+        return jsonify({'error': 'Database not configured'}), 503
+    try:
+        mr = sb.table('markers').select('panorama_id').eq('id', marker_id).limit(1).execute()
+        if not mr.data or len(mr.data) == 0:
+            return jsonify({'error': 'Marker not found'}), 404
+        panorama_id = mr.data[0]['panorama_id']
+    except Exception:
+        return jsonify({'error': 'Not found'}), 404
+    panorama, access_type = get_panorama_with_access(sb, panorama_id, user_id)
+    if not panorama or not can_add_markers(access_type, role):
+        return jsonify({'error': 'Only owner or admin can delete markers'}), 403
+    try:
+        sb.table('markers').delete().eq('id', marker_id).execute()
+        sb.table('panoramas').update({'updated_at': datetime.utcnow().isoformat()}).eq('id', panorama_id).execute()
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    return jsonify({'success': True})
+
+
+@app.route('/api/panoramas/<int:panorama_id>/access-info', methods=['GET'])
+@require_auth
+def panorama_access_info(user_id, role, panorama_id):
+    """Return current user's access_type and can_add_markers for the panorama (for UI)."""
+    sb = get_supabase()
+    if not sb:
+        return jsonify({'error': 'Database not configured'}), 503
+    panorama, access_type = get_panorama_with_access(sb, panorama_id, user_id)
+    if not panorama:
+        return jsonify({'error': 'Panorama not found'}), 404
+    return jsonify({
+        'access_type': access_type,
+        'can_add_markers': can_add_markers(access_type, role),
+    })
 
 
 # ----- Admin: create user + set as user in profiles -----

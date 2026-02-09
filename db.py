@@ -212,6 +212,11 @@ def can_edit_plots(access_type):
     return access_type in ('owner', 'client')
 
 
+def can_add_markers(access_type, role):
+    """Only owner or app admin can add/remove markers or change their position."""
+    return access_type == 'owner' or role == 'admin'
+
+
 def can_delete_panorama(access_type):
     return access_type == 'owner'
 
