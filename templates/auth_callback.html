@@ -41,7 +41,7 @@
                     ? 'This link has expired. Please request a new sign-in or password reset link.'
                     : (params.error_description || params.error || 'Something went wrong.');
                 msg.textContent = friendly + ' Redirecting to sign in…';
-                setTimeout(function () { window.location.replace('/'); }, 2500);
+                setTimeout(function () { window.location.replace('/login'); }, 2500);
                 return;
             }
             var supabaseUrl = {{ (supabase_url or '')|tojson }};

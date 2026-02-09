@@ -805,7 +805,7 @@
     var s=window.supabase.createClient(url,key);
     window._supabase=s;
     window.getAuthHeaders=function(){return s.auth.getSession().then(function(r){var h={};if(r.data.session&&r.data.session.access_token)h['Authorization']='Bearer '+r.data.session.access_token;return h;});};
-    s.auth.getSession().then(function(r){if(!r.data.session)window.location.replace('/');});
+    s.auth.getSession().then(function(r){if(!r.data.session)window.location.replace('/login');});
     })();
     </script>
     <div class="loading-overlay" id="loading">

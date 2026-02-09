@@ -170,7 +170,7 @@
     <header class="header">
         <nav class="nav">
             <a href="/dashboard">Dashboard</a>
-            <a href="/">Sign in</a>
+            <a href="/login">Sign in</a>
         </nav>
     </header>
     <main class="container">
@@ -219,7 +219,7 @@
             if (session) {
                 form.style.display = 'block';
             } else {
-                window.location.replace('/');
+                window.location.replace('/login');
             }
         });
 

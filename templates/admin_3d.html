@@ -1713,7 +1713,7 @@
     var s=window.supabase.createClient(url,key);
     window._supabase=s;
     window.getAuthHeaders=function(){return s.auth.getSession().then(function(r){var h={};if(r.data.session&&r.data.session.access_token)h['Authorization']='Bearer '+r.data.session.access_token;return h;});};
-    s.auth.getSession().then(function(r){if(!r.data.session)window.location.replace('/');});
+    s.auth.getSession().then(function(r){if(!r.data.session)window.location.replace('/login');});
     })();
     </script>
     <div class="loading-overlay" id="loading">
@@ -1729,7 +1729,7 @@
     <div class="ui-overlay">
         <header class="header">
             <div class="header-left">
-                <a href="/" class="back-btn">← Back</a>
+                <a href="/dashboard" class="back-btn">← Back</a>
                 <div class="project-info">
                     <div class="project-name">{{ panorama.name }}</div>
                 </div>

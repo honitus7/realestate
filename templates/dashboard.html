@@ -616,7 +616,7 @@
         <nav class="header-nav" id="header-nav">
             <a href="/users" id="nav-users">Add user</a>
             <a href="#" id="nav-change-password">Change password</a>
-            <a href="/" id="nav-logout">Sign out</a>
+            <a href="/login" id="nav-logout">Sign out</a>
         </nav>
     </header>
 
@@ -750,14 +750,14 @@
         var supabase = window._supabase;
         supabase.auth.getSession().then(function (r) {
             if (!r.data.session) {
-                window.location.replace('/');
+                window.location.replace('/login');
                 return;
             }
             var logoutEl = document.getElementById('nav-logout');
             if (logoutEl) {
                 logoutEl.addEventListener('click', function (e) {
                     e.preventDefault();
-                    supabase.auth.signOut().then(function () { window.location.href = '/'; });
+                    supabase.auth.signOut().then(function () { window.location.href = '/login'; });
                 });
             }
             var changePwLink = document.getElementById('nav-change-password');
@@ -990,7 +990,7 @@
                 const headers = await getAuthHeaders();
                 const response = await fetch('/api/panoramas', { headers });
                 if (response.status === 401) {
-                    window.location.replace('/');
+                    window.location.replace('/login');
                     return;
                 }
                 projects = await response.json();

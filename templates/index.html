@@ -611,7 +611,7 @@
         <nav class="header-nav" id="header-nav">
             <a href="/login" id="nav-login">Sign in</a>
             <a href="/users" id="nav-users" style="display:none;">Add user</a>
-            <a href="/" id="nav-logout" style="display:none;">Sign out</a>
+            <a href="/login" id="nav-logout" style="display:none;">Sign out</a>
         </nav>
     </header>
 
@@ -731,7 +731,7 @@
                         logoutEl.style.display = '';
                         logoutEl.addEventListener('click', function (e) {
                             e.preventDefault();
-                            supabase.auth.signOut().then(function () { window.location.href = '/'; });
+                            supabase.auth.signOut().then(function () { window.location.href = '/login'; });
                         });
                     }
                 } else {
