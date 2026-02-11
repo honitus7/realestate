@@ -448,15 +448,15 @@
                 transparent 100%);
         }
 
-        .modal > * {
+        .modal > *:not(.marker-modal-close) {
             padding: 2.5rem;
         }
 
-        .modal > *:first-child {
+        .modal > *:not(.marker-modal-close):first-child {
             padding-top: 2.5rem;
         }
 
-        .modal > *:last-child {
+        .modal > *:not(.marker-modal-close):last-child {
             padding-bottom: 2.5rem;
         }
 
@@ -795,6 +795,106 @@
             background: #d4b06e;
         }
 
+        .psv-glass-marker {
+            --mk-rgb: 74, 222, 128;
+            width: 30px;
+            height: 40px;
+            border: none;
+            background: transparent;
+            padding: 0;
+            cursor: pointer;
+            transform: translateZ(0);
+            filter: drop-shadow(0 0 8px rgba(var(--mk-rgb), 0.38));
+            transition: transform 200ms ease;
+        }
+
+        .psv-glass-marker .marker-core {
+            position: absolute;
+            top: 0;
+            left: 50%;
+            width: 30px;
+            height: 30px;
+            border-radius: 999px;
+            transform: translateX(-50%);
+            background:
+                radial-gradient(120% 120% at 24% 18%, rgba(255, 255, 255, 0.62) 0%, rgba(255, 255, 255, 0.12) 36%, rgba(255, 255, 255, 0) 65%),
+                linear-gradient(155deg, rgba(var(--mk-rgb), 0.48) 0%, rgba(var(--mk-rgb), 0.24) 48%, rgba(18, 24, 32, 0.46) 100%);
+            backdrop-filter: blur(7px) saturate(165%);
+            -webkit-backdrop-filter: blur(7px) saturate(165%);
+            border: 1.5px solid rgba(255, 255, 255, 0.92);
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.42), 0 2px 6px rgba(0, 0, 0, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.6);
+            animation: markerIdleFloat 2.7s ease-in-out infinite;
+        }
+
+        .psv-glass-marker .marker-pointer {
+            position: absolute;
+            left: 50%;
+            top: 26px;
+            width: 10px;
+            height: 10px;
+            transform: translateX(-50%) rotate(45deg);
+            background: linear-gradient(145deg, rgba(var(--mk-rgb), 0.5), rgba(24, 30, 38, 0.44));
+            border-right: 1px solid rgba(255, 255, 255, 0.62);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.62);
+            border-radius: 2px;
+        }
+
+        .psv-glass-marker.sold { --mk-rgb: 239, 68, 68; }
+        .psv-glass-marker.reserved { --mk-rgb: 249, 115, 22; }
+        .psv-glass-marker.available { --mk-rgb: 74, 222, 128; }
+        .psv-glass-marker:hover { transform: scale(1.1); }
+        .psv-glass-marker.is-active { transform: scale(1.14); }
+
+        .marker-readonly-modal {
+            position: relative;
+            max-width: 520px;
+            width: min(95vw, 520px);
+        }
+
+        .marker-modal-close {
+            position: absolute;
+            top: 0.9rem;
+            right: 0.9rem;
+            width: 34px;
+            height: 34px;
+            border-radius: 999px;
+            border: 1px solid rgba(255, 255, 255, 0.18);
+            background: rgba(10, 10, 11, 0.64);
+            color: #fff;
+            font-size: 1.25rem;
+            line-height: 1;
+            cursor: pointer;
+            transition: transform 0.15s ease, background 0.15s ease;
+            z-index: 5;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .marker-modal-close:hover {
+            background: rgba(22, 22, 24, 0.9);
+            transform: scale(1.06);
+        }
+
+        .marker-readonly-modal.no-media {
+            max-width: 480px;
+        }
+
+        .marker-readonly-modal.no-media .details-grid {
+            grid-template-columns: 1fr;
+            gap: 0;
+        }
+
+        .marker-readonly-modal.no-media .details-info-column {
+            grid-column: 1;
+        }
+
+        @keyframes markerIdleFloat {
+            0% { transform: translateX(-50%) translateY(0); }
+            50% { transform: translateX(-50%) translateY(-2px); }
+            100% { transform: translateX(-50%) translateY(0); }
+        }
+
         @keyframes spin {
             to {
                 transform: rotate(360deg);
@@ -821,6 +921,7 @@
             .details-grid {
                 grid-template-columns: 1fr;
             }
+
         }
     </style>
     <script src="/static/js/supabase.min.js"></script>
@@ -918,6 +1019,30 @@
             <button class="copy-btn" id="copy-btn">Copy Link</button>
             <div class="modal-actions">
                 <button class="modal-btn secondary" id="close-share">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-backdrop details-modal" id="marker-readonly-modal">
+        <div class="modal marker-readonly-modal">
+            <button class="marker-modal-close" id="close-marker-readonly-icon" type="button" aria-label="Close marker details">×</button>
+            <div class="details-header">
+                <div class="details-color" id="marker-readonly-color"></div>
+                <div class="details-title" id="marker-readonly-name">Marker</div>
+            </div>
+            <div class="details-grid">
+                <div class="details-media-column" id="marker-readonly-media-col" style="display:none;">
+                    <div class="details-media" id="marker-readonly-media"></div>
+                </div>
+                <div class="details-info-column">
+                    <div class="detail-item">
+                        <div class="detail-label">Description</div>
+                        <div class="detail-value description" id="marker-readonly-description">—</div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button class="modal-btn secondary" id="close-marker-readonly">Close</button>
             </div>
         </div>
     </div>
@@ -1078,6 +1203,217 @@
             plotDetailsModal.classList.add('visible');
         }
 
+        class CustomerMarkerManager {
+            constructor() {
+                this.plotId = String(PANORAMA_ID);
+                this.viewer = null;
+                this.markersPlugin = null;
+                this.markerMap = new Map();
+                this.selectedMarkerId = null;
+
+                this.dom = {
+                    modal: document.getElementById('marker-readonly-modal'),
+                    closeBtn: document.getElementById('close-marker-readonly'),
+                    closeIconBtn: document.getElementById('close-marker-readonly-icon'),
+                    name: document.getElementById('marker-readonly-name'),
+                    color: document.getElementById('marker-readonly-color'),
+                    description: document.getElementById('marker-readonly-description'),
+                    mediaCol: document.getElementById('marker-readonly-media-col'),
+                    media: document.getElementById('marker-readonly-media')
+                };
+                this.bindUi();
+            }
+
+            bindUi() {
+                if (this.dom.closeBtn) {
+                    this.dom.closeBtn.addEventListener('click', () => this.closeReadonly());
+                }
+                if (this.dom.closeIconBtn) {
+                    this.dom.closeIconBtn.addEventListener('click', () => this.closeReadonly());
+                }
+                if (this.dom.modal) {
+                    this.dom.modal.addEventListener('click', (event) => {
+                        if (event.target === this.dom.modal) this.closeReadonly();
+                    });
+                }
+            }
+
+            init(viewer, markersPlugin) {
+                this.viewer = viewer;
+                this.markersPlugin = markersPlugin;
+            }
+
+            async loadMarkers() {
+                try {
+                    const rows = await this.fetchMarkers(this.plotId);
+                    this.markerMap.clear();
+                    rows.forEach((row) => {
+                        this.markerMap.set(String(row.id), this.normalizeMarker(row));
+                    });
+                    this.syncViewerMarkers();
+                } catch (error) {
+                    console.error('Marker load failed', error);
+                }
+            }
+
+            normalizeMarker(row) {
+                const status = typeof row.status === 'string' ? row.status.toLowerCase() : 'available';
+                return {
+                    id: String(row.id),
+                    name: row.name || '',
+                    description: row.description || '',
+                    image_base64: row.image_base64 || '',
+                    longitude: Number(row.longitude || 0),
+                    latitude: Number(row.latitude || 0),
+                    status: ['available', 'sold', 'reserved'].includes(status) ? status : 'available',
+                    created_at: row.created_at || ''
+                };
+            }
+
+            toViewerMarkerId(id) {
+                return `poi-${id}`;
+            }
+
+            getStatusClass(marker) {
+                const s = (marker.status || '').toLowerCase();
+                if (s === 'sold') return 'sold';
+                if (s === 'reserved' || s === 'on_hold') return 'reserved';
+                return 'available';
+            }
+
+            buildViewerMarker(marker) {
+                return {
+                    id: this.toViewerMarkerId(marker.id),
+                    longitude: marker.longitude,
+                    latitude: marker.latitude,
+                    html: `<button class="psv-glass-marker ${this.getStatusClass(marker)}" type="button" data-marker-id="${this.escapeAttr(marker.id)}" aria-label="${this.escapeAttr(marker.name || 'Marker')}"><span class="marker-core" aria-hidden="true"></span><span class="marker-pointer" aria-hidden="true"></span></button>`,
+                    anchor: 'center bottom',
+                    style: { zIndex: 120 },
+                    tooltip: marker.name || '',
+                    data: { markerType: 'poi', markerId: marker.id }
+                };
+            }
+
+            syncViewerMarkers() {
+                if (!this.markersPlugin) return;
+                const existing = new Set();
+                (this.markersPlugin.getMarkers ? this.markersPlugin.getMarkers() : []).forEach((marker) => {
+                    if (marker && marker.config && marker.config.data && marker.config.data.markerType === 'poi') {
+                        existing.add(marker.id);
+                    }
+                });
+                this.markerMap.forEach((marker) => {
+                    const config = this.buildViewerMarker(marker);
+                    if (existing.has(config.id)) {
+                        this.markersPlugin.updateMarker(config);
+                        existing.delete(config.id);
+                    } else {
+                        this.markersPlugin.addMarker(config);
+                    }
+                });
+                existing.forEach((id) => {
+                    try { this.markersPlugin.removeMarker(id); } catch (error) {}
+                });
+            }
+
+            handleMarkerSelection(marker) {
+                const markerData = marker && marker.config ? marker.config.data : null;
+                if (!markerData || markerData.markerType !== 'poi') return false;
+                const markerId = String(markerData.markerId);
+                this.focus(markerId, false);
+                this.openReadonly(markerId);
+                return true;
+            }
+
+            focus(markerId, rotate = true) {
+                const marker = this.markerMap.get(String(markerId));
+                if (!marker) return;
+                this.selectedMarkerId = String(markerId);
+                this.setActiveState(markerId, true);
+                if (rotate && this.markersPlugin) {
+                    this.markersPlugin.gotoMarker(this.toViewerMarkerId(markerId), '6rpm').catch(() => {});
+                }
+            }
+
+            openReadonly(markerId) {
+                const marker = this.markerMap.get(String(markerId));
+                if (!marker || !this.dom.modal) return;
+                if (this.dom.name) this.dom.name.textContent = marker.name || 'Marker';
+                if (this.dom.description) this.dom.description.textContent = marker.description || 'No description.';
+                if (this.dom.color) {
+                    const status = this.getStatusClass(marker);
+                    const colors = status === 'sold'
+                        ? { start: '#ef4444', end: '#b91c1c' }
+                        : status === 'reserved'
+                            ? { start: '#f97316', end: '#ea580c' }
+                            : { start: '#22c55e', end: '#16a34a' };
+                    this.dom.color.style.background = `linear-gradient(135deg, ${colors.start}, ${colors.end})`;
+                }
+                if (this.dom.media && this.dom.mediaCol) {
+                    this.dom.media.innerHTML = '';
+                    if (marker.image_base64) {
+                        this.dom.media.innerHTML = `<img src="${this.escapeAttr(marker.image_base64)}" alt="${this.escapeAttr(marker.name || 'Marker')}" style="max-width:100%;height:auto;">`;
+                        this.dom.mediaCol.style.display = 'block';
+                        this.dom.modal.classList.remove('no-media');
+                    } else {
+                        this.dom.mediaCol.style.display = 'none';
+                        this.dom.modal.classList.add('no-media');
+                    }
+                }
+                this.dom.modal.classList.add('visible');
+            }
+
+            closeReadonly() {
+                if (this.dom.modal) this.dom.modal.classList.remove('visible');
+            }
+
+            async fetchMarkers(plotId) {
+                const supabase = this.getSupabaseClient();
+                const { data, error } = await supabase
+                    .from('plot_markers')
+                    .select('*')
+                    .eq('plot_id', String(plotId))
+                    .order('created_at', { ascending: true });
+                if (error) throw error;
+                return data || [];
+            }
+
+            getSupabaseClient() {
+                if (!window._supabase || typeof window._supabase.from !== 'function') {
+                    throw new Error('Supabase unavailable');
+                }
+                return window._supabase;
+            }
+
+            setActiveState(markerId, active) {
+                document.querySelectorAll('.psv-glass-marker.is-active').forEach((el) => el.classList.remove('is-active'));
+                const selectorId = (typeof CSS !== 'undefined' && typeof CSS.escape === 'function')
+                    ? CSS.escape(String(markerId))
+                    : String(markerId).replace(/"/g, '\\"');
+                const markerEl = document.querySelector(`.psv-glass-marker[data-marker-id="${selectorId}"]`);
+                if (markerEl) markerEl.classList.toggle('is-active', Boolean(active));
+            }
+
+            formatCoords(longitude, latitude) {
+                return `Lon: ${Number(longitude || 0).toFixed(5)}, Lat: ${Number(latitude || 0).toFixed(5)}`;
+            }
+
+            escapeHtml(value) {
+                return String(value || '')
+                    .replace(/&/g, '&amp;')
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;')
+                    .replace(/"/g, '&quot;')
+                    .replace(/'/g, '&#39;');
+            }
+
+            escapeAttr(value) {
+                return this.escapeHtml(value);
+            }
+        }
+
+        const markerManager = new CustomerMarkerManager();
+
         function getCentroid(points) {
             if (!points || points.length === 0) return null;
             let x = 0, y = 0;
@@ -1130,6 +1466,7 @@
                     }
                 });
             markersPlugin.setMarkers(markers);
+            markerManager.syncViewerMarkers();
         }
 
         function getPlotFromMarker(marker) {
@@ -1154,14 +1491,19 @@
             });
 
             markersPlugin = viewer.getPlugin(PhotoSphereViewer.MarkersPlugin);
+            markerManager.init(viewer, markersPlugin);
 
             viewer.on('ready', () => {
                 loading.classList.add('hidden');
                 loadPlots();
+                markerManager.loadMarkers();
             });
 
             if (markersPlugin) {
                 markersPlugin.on('select-marker', (e, marker) => {
+                    if (markerManager.handleMarkerSelection(marker)) {
+                        return;
+                    }
                     if (marker && marker.config && marker.config.data && marker.config.data.label) {
                         return;
                     }
@@ -1225,6 +1567,7 @@
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') {
                 if (plotDetailsModal && plotDetailsModal.classList.contains('visible')) plotDetailsModal.classList.remove('visible');
+                if (document.getElementById('marker-readonly-modal') && document.getElementById('marker-readonly-modal').classList.contains('visible')) markerManager.closeReadonly();
                 if (shareModal && shareModal.classList.contains('visible')) shareModal.classList.remove('visible');
             }
         });

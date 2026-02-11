@@ -1491,6 +1491,168 @@
             border-color: var(--color-danger);
         }
 
+        .psv-glass-marker {
+            --mk-rgb: 74, 222, 128;
+            width: 30px;
+            height: 40px;
+            border: none;
+            background: transparent;
+            padding: 0;
+            cursor: pointer;
+            transform: translateZ(0);
+            filter: drop-shadow(0 0 8px rgba(var(--mk-rgb), 0.38));
+            transition: transform 200ms ease, filter 200ms ease;
+        }
+
+        .psv-glass-marker .marker-core {
+            position: absolute;
+            top: 0;
+            left: 50%;
+            width: 30px;
+            height: 30px;
+            border-radius: 999px;
+            transform: translateX(-50%);
+            background:
+                radial-gradient(120% 120% at 24% 18%, rgba(255, 255, 255, 0.62) 0%, rgba(255, 255, 255, 0.12) 36%, rgba(255, 255, 255, 0) 65%),
+                linear-gradient(155deg, rgba(var(--mk-rgb), 0.48) 0%, rgba(var(--mk-rgb), 0.24) 48%, rgba(18, 24, 32, 0.46) 100%);
+            backdrop-filter: blur(7px) saturate(165%);
+            -webkit-backdrop-filter: blur(7px) saturate(165%);
+            border: 1.5px solid rgba(255, 255, 255, 0.92);
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.42), 0 2px 6px rgba(0, 0, 0, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.6);
+            animation: markerIdleFloat 2.7s ease-in-out infinite;
+        }
+
+        .psv-glass-marker .marker-pointer {
+            position: absolute;
+            left: 50%;
+            top: 26px;
+            width: 10px;
+            height: 10px;
+            transform: translateX(-50%) rotate(45deg);
+            background: linear-gradient(145deg, rgba(var(--mk-rgb), 0.5), rgba(24, 30, 38, 0.44));
+            border-right: 1px solid rgba(255, 255, 255, 0.62);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.62);
+            border-radius: 2px;
+        }
+
+        .psv-glass-marker.sold { --mk-rgb: 239, 68, 68; }
+        .psv-glass-marker.reserved { --mk-rgb: 249, 115, 22; }
+        .psv-glass-marker.available { --mk-rgb: 74, 222, 128; }
+        .psv-glass-marker:hover { transform: scale(1.1); }
+        .psv-glass-marker.is-active { transform: scale(1.14); }
+        .psv-glass-marker.is-entering { animation: markerBounceIn 520ms cubic-bezier(0.16, 0.84, 0.34, 1.22); }
+
+        .marker-modal-backdrop {
+            position: fixed;
+            inset: 0;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            background: rgba(6, 6, 7, 0.74);
+            z-index: 260;
+            padding: 1rem;
+        }
+
+        .marker-modal-backdrop.visible {
+            display: flex;
+        }
+
+        .marker-modal {
+            position: relative;
+            width: min(430px, 96vw);
+            background: linear-gradient(180deg, rgba(24, 24, 25, 0.98) 0%, rgba(16, 16, 17, 0.98) 100%);
+            border: 1px solid rgba(201, 169, 98, 0.28);
+            border-radius: 12px;
+            padding: 1rem;
+            box-shadow: 0 16px 30px rgba(0, 0, 0, 0.45);
+        }
+
+        .marker-modal-close {
+            position: absolute;
+            top: 0.55rem;
+            right: 0.55rem;
+            width: 30px;
+            height: 30px;
+            border-radius: 999px;
+            border: 1px solid rgba(255, 255, 255, 0.18);
+            background: rgba(255, 255, 255, 0.05);
+            color: #fff;
+            font-size: 1.1rem;
+            line-height: 1;
+            cursor: pointer;
+            transition: transform 0.15s ease, background 0.15s ease;
+        }
+
+        .marker-modal-close:hover {
+            background: rgba(255, 255, 255, 0.1);
+            transform: scale(1.06);
+        }
+
+        .marker-modal-title {
+            font-size: 1.02rem;
+            font-weight: 600;
+            color: var(--color-accent);
+            margin-bottom: 0.75rem;
+        }
+
+        .marker-form-label {
+            display: block;
+            font-size: 0.72rem;
+            margin-bottom: 0.28rem;
+            color: var(--color-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+        }
+
+        .marker-form-input,
+        .marker-form-textarea {
+            width: 100%;
+            padding: 0.65rem 0.75rem;
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.14);
+            background: rgba(255, 255, 255, 0.04);
+            color: var(--color-text);
+            font-family: var(--font-body);
+            font-size: 0.84rem;
+            margin-bottom: 0.65rem;
+        }
+
+        .marker-form-textarea {
+            min-height: 88px;
+            resize: vertical;
+        }
+
+        .marker-image-preview {
+            margin-bottom: 0.65rem;
+            display: none;
+        }
+
+        .marker-image-preview img {
+            width: 100%;
+            max-height: 130px;
+            object-fit: cover;
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.14);
+        }
+
+        .marker-modal-actions {
+            display: flex;
+            gap: 0.6rem;
+            justify-content: flex-end;
+        }
+
+        @keyframes markerBounceIn {
+            0% { opacity: 0; transform: scale(0.35) translateY(8px); }
+            60% { opacity: 1; transform: scale(1.18) translateY(-2px); }
+            100% { opacity: 1; transform: scale(1) translateY(0); }
+        }
+
+        @keyframes markerIdleFloat {
+            0% { transform: translateX(-50%) translateY(0); }
+            50% { transform: translateX(-50%) translateY(-2px); }
+            100% { transform: translateX(-50%) translateY(0); }
+        }
+
         @keyframes spin {
             to {
                 transform: rotate(360deg);
@@ -1690,6 +1852,7 @@
                 padding-left: 1.5rem;
                 padding-right: 1.5rem;
             }
+
         }
     </style>
     <script src="/static/js/supabase.min.js"></script>
@@ -1886,6 +2049,24 @@
 
             <div class="modal-actions">
                 <button class="modal-btn secondary" id="close-share">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="marker-modal-backdrop" id="marker-form-modal">
+        <div class="marker-modal">
+            <button class="marker-modal-close" id="close-marker-form" type="button" aria-label="Close marker form">×</button>
+            <div class="marker-modal-title">Edit Marker</div>
+            <label class="marker-form-label" for="marker-name">Name</label>
+            <input id="marker-name" class="marker-form-input" type="text" maxlength="120">
+            <label class="marker-form-label" for="marker-description">Description</label>
+            <textarea id="marker-description" class="marker-form-textarea" maxlength="2000"></textarea>
+            <label class="marker-form-label" for="marker-image">Image</label>
+            <input id="marker-image" class="marker-form-input" type="file" accept="image/png,image/jpeg,image/jpg,image/webp">
+            <div class="marker-image-preview" id="marker-image-preview"></div>
+            <div class="marker-modal-actions">
+                <button class="modal-btn secondary" id="cancel-marker">Cancel</button>
+                <button class="modal-btn primary" id="save-marker">Save Marker</button>
             </div>
         </div>
     </div>
@@ -2165,6 +2346,353 @@
             setTimeout(() => toast.remove(), 3000);
         }
 
+        class ClientMarkerManager {
+            constructor() {
+                this.plotId = String(PANORAMA_ID);
+                this.viewer = null;
+                this.markersPlugin = null;
+                this.markerMap = new Map();
+                this.selectedMarkerId = null;
+                this.currentImageBase64 = '';
+                this.maxImageBytes = 300 * 1024;
+
+                this.dom = {
+                    formBackdrop: document.getElementById('marker-form-modal'),
+                    nameInput: document.getElementById('marker-name'),
+                    descriptionInput: document.getElementById('marker-description'),
+                    imageInput: document.getElementById('marker-image'),
+                    imagePreview: document.getElementById('marker-image-preview'),
+                    cancelBtn: document.getElementById('cancel-marker'),
+                    saveBtn: document.getElementById('save-marker'),
+                    closeBtn: document.getElementById('close-marker-form')
+                };
+
+                this.bindUi();
+            }
+
+            bindUi() {
+                const d = this.dom;
+                if (d.cancelBtn) {
+                    d.cancelBtn.addEventListener('click', () => this.closeForm());
+                }
+                if (d.closeBtn) {
+                    d.closeBtn.addEventListener('click', () => this.closeForm());
+                }
+                if (d.saveBtn) {
+                    d.saveBtn.addEventListener('click', () => this.saveSelectedMarker());
+                }
+                if (d.formBackdrop) {
+                    d.formBackdrop.addEventListener('click', (event) => {
+                        if (event.target === d.formBackdrop) this.closeForm();
+                    });
+                }
+                if (d.imageInput) {
+                    d.imageInput.addEventListener('change', () => this.previewSelectedImage());
+                }
+            }
+
+            init(viewer, markersPlugin) {
+                this.viewer = viewer;
+                this.markersPlugin = markersPlugin;
+            }
+
+            async loadMarkers() {
+                try {
+                    const markers = await this.fetchMarkers(this.plotId);
+                    this.markerMap.clear();
+                    markers.forEach((row) => {
+                        const marker = this.normalizeMarker(row);
+                        this.markerMap.set(marker.id, marker);
+                    });
+                    this.syncViewerMarkers();
+                } catch (error) {
+                    showToast('Failed to load markers', 'error');
+                }
+            }
+
+            normalizeMarker(row) {
+                const status = typeof row.status === 'string' ? row.status.toLowerCase() : 'available';
+                return {
+                    id: String(row.id),
+                    plot_id: String(row.plot_id || this.plotId),
+                    name: row.name || '',
+                    description: row.description || '',
+                    image_base64: row.image_base64 || '',
+                    longitude: Number(row.longitude || 0),
+                    latitude: Number(row.latitude || 0),
+                    status: ['available', 'sold', 'reserved'].includes(status) ? status : 'available',
+                    created_at: row.created_at || ''
+                };
+            }
+
+            toViewerMarkerId(id) {
+                return `poi-${id}`;
+            }
+
+            getStatusClass(marker) {
+                const s = (marker.status || '').toLowerCase();
+                if (s === 'sold') return 'sold';
+                if (s === 'reserved' || s === 'on_hold') return 'reserved';
+                return 'available';
+            }
+
+            buildViewerMarker(marker) {
+                return {
+                    id: this.toViewerMarkerId(marker.id),
+                    longitude: marker.longitude,
+                    latitude: marker.latitude,
+                    html: `<button class="psv-glass-marker ${this.getStatusClass(marker)}" type="button" data-marker-id="${this.escapeAttr(marker.id)}" aria-label="${this.escapeAttr(marker.name || 'Marker')}"><span class="marker-core" aria-hidden="true"></span><span class="marker-pointer" aria-hidden="true"></span></button>`,
+                    anchor: 'center bottom',
+                    style: { zIndex: 120 },
+                    tooltip: marker.name || '',
+                    data: {
+                        markerType: 'poi',
+                        markerId: marker.id
+                    }
+                };
+            }
+
+            syncViewerMarkers() {
+                if (!this.markersPlugin) return;
+                const existing = new Set();
+                (this.markersPlugin.getMarkers ? this.markersPlugin.getMarkers() : []).forEach((marker) => {
+                    if (marker && marker.config && marker.config.data && marker.config.data.markerType === 'poi') {
+                        existing.add(marker.id);
+                    }
+                });
+
+                this.markerMap.forEach((marker) => {
+                    const config = this.buildViewerMarker(marker);
+                    if (existing.has(config.id)) {
+                        this.markersPlugin.updateMarker(config);
+                        existing.delete(config.id);
+                    } else {
+                        this.markersPlugin.addMarker(config);
+                    }
+                });
+                existing.forEach((id) => {
+                    try {
+                        this.markersPlugin.removeMarker(id);
+                    } catch (error) {}
+                });
+            }
+
+            handleMarkerSelection(marker) {
+                const markerData = marker && marker.config ? marker.config.data : null;
+                if (!markerData || markerData.markerType !== 'poi') return false;
+                const markerId = String(markerData.markerId);
+                this.focus(markerId, false);
+                this.openEditModal(markerId);
+                return true;
+            }
+
+            focus(markerId, rotate = true) {
+                const marker = this.markerMap.get(String(markerId));
+                if (!marker) return;
+                this.selectedMarkerId = String(markerId);
+                this.setActiveState(markerId, true);
+                if (rotate && this.markersPlugin) {
+                    this.markersPlugin.gotoMarker(this.toViewerMarkerId(markerId), '6rpm').catch(() => {});
+                }
+            }
+
+            openEditModal(markerId) {
+                const marker = this.markerMap.get(String(markerId));
+                if (!marker) return;
+                const d = this.dom;
+                this.selectedMarkerId = marker.id;
+                this.currentImageBase64 = marker.image_base64 || '';
+                if (d.nameInput) d.nameInput.value = marker.name || '';
+                if (d.descriptionInput) d.descriptionInput.value = marker.description || '';
+                if (d.imageInput) d.imageInput.value = '';
+                this.updatePreview(this.currentImageBase64);
+                if (d.formBackdrop) d.formBackdrop.classList.add('visible');
+            }
+
+            closeForm() {
+                if (this.dom.formBackdrop) this.dom.formBackdrop.classList.remove('visible');
+                this.currentImageBase64 = '';
+            }
+
+            previewSelectedImage() {
+                const file = this.dom.imageInput && this.dom.imageInput.files ? this.dom.imageInput.files[0] : null;
+                if (!file) {
+                    this.updatePreview(this.currentImageBase64);
+                    return;
+                }
+                const reader = new FileReader();
+                reader.onload = () => this.updatePreview(String(reader.result || ''));
+                reader.readAsDataURL(file);
+            }
+
+            updatePreview(src) {
+                if (!this.dom.imagePreview) return;
+                if (!src) {
+                    this.dom.imagePreview.innerHTML = '';
+                    this.dom.imagePreview.style.display = 'none';
+                    return;
+                }
+                this.dom.imagePreview.innerHTML = `<img src="${this.escapeAttr(src)}" alt="Preview" loading="lazy">`;
+                this.dom.imagePreview.style.display = 'block';
+            }
+
+            async saveSelectedMarker() {
+                const markerId = this.selectedMarkerId;
+                if (!markerId) return;
+                const marker = this.markerMap.get(markerId);
+                if (!marker) return;
+                const name = (this.dom.nameInput ? this.dom.nameInput.value : '').trim();
+                if (!name) {
+                    showToast('Marker name is required', 'error');
+                    return;
+                }
+                const description = (this.dom.descriptionInput ? this.dom.descriptionInput.value : '').trim();
+                let imageBase64 = marker.image_base64 || '';
+                const file = this.dom.imageInput && this.dom.imageInput.files ? this.dom.imageInput.files[0] : null;
+                try {
+                    if (file) {
+                        const compressed = await this.compressImage(file);
+                        imageBase64 = await this.convertToBase64(compressed);
+                        if (this.estimateBase64Bytes(imageBase64) > this.maxImageBytes) {
+                            throw new Error('Compressed image exceeds 300KB');
+                        }
+                    }
+                    await this.updateMarker(markerId, {
+                        name,
+                        description,
+                        image_base64: imageBase64 || null
+                    });
+                    showToast('Marker updated');
+                    this.closeForm();
+                } catch (error) {
+                    showToast(error && error.message ? error.message : 'Failed to update marker', 'error');
+                }
+            }
+
+            async updateMarker(id, data) {
+                const supabase = this.getSupabaseClient();
+                const { data: rows, error } = await supabase
+                    .from('plot_markers')
+                    .update({
+                        name: data.name,
+                        description: data.description || '',
+                        image_base64: data.image_base64 || null
+                    })
+                    .eq('id', id)
+                    .select('*')
+                    .limit(1);
+                if (error) throw error;
+                if (!rows || !rows[0]) throw new Error('Update failed');
+                const marker = this.normalizeMarker(rows[0]);
+                this.markerMap.set(marker.id, marker);
+                this.syncViewerMarkers();
+                this.setActiveState(marker.id, true);
+            }
+
+            async fetchMarkers(plotId) {
+                const supabase = this.getSupabaseClient();
+                const { data, error } = await supabase
+                    .from('plot_markers')
+                    .select('*')
+                    .eq('plot_id', String(plotId))
+                    .order('created_at', { ascending: true });
+                if (error) throw error;
+                return data || [];
+            }
+
+            getSupabaseClient() {
+                if (!window._supabase || typeof window._supabase.from !== 'function') {
+                    throw new Error('Supabase unavailable');
+                }
+                return window._supabase;
+            }
+
+            setActiveState(markerId, active) {
+                document.querySelectorAll('.psv-glass-marker.is-active').forEach((el) => el.classList.remove('is-active'));
+                const selectorId = (typeof CSS !== 'undefined' && typeof CSS.escape === 'function')
+                    ? CSS.escape(String(markerId))
+                    : String(markerId).replace(/"/g, '\\"');
+                const markerEl = document.querySelector(`.psv-glass-marker[data-marker-id="${selectorId}"]`);
+                if (markerEl) markerEl.classList.toggle('is-active', Boolean(active));
+            }
+
+            async compressImage(file) {
+                const sourceImage = await this.loadImage(file);
+                const canvas = document.createElement('canvas');
+                const context = canvas.getContext('2d');
+                if (!context) throw new Error('Image compression not supported');
+                const maxSide = Math.max(sourceImage.width, sourceImage.height);
+                const baseScale = maxSide > 1920 ? 1920 / maxSide : 1;
+                let quality = 0.86;
+                let scale = baseScale;
+                for (let i = 0; i < 10; i += 1) {
+                    canvas.width = Math.max(1, Math.round(sourceImage.width * scale));
+                    canvas.height = Math.max(1, Math.round(sourceImage.height * scale));
+                    context.clearRect(0, 0, canvas.width, canvas.height);
+                    context.drawImage(sourceImage, 0, 0, canvas.width, canvas.height);
+                    const blob = await new Promise((resolve, reject) => {
+                        canvas.toBlob((value) => value ? resolve(value) : reject(new Error('Compression failed')), 'image/jpeg', quality);
+                    });
+                    if (blob.size <= this.maxImageBytes) return blob;
+                    if (quality > 0.45) quality -= 0.1;
+                    else {
+                        scale *= 0.85;
+                        quality = 0.8;
+                    }
+                }
+                throw new Error('Unable to compress image below 300KB');
+            }
+
+            async convertToBase64(file) {
+                return new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onload = () => resolve(String(reader.result || ''));
+                    reader.onerror = () => reject(new Error('Failed to convert image'));
+                    reader.readAsDataURL(file);
+                });
+            }
+
+            estimateBase64Bytes(dataUrl) {
+                const payload = (String(dataUrl || '').split(',')[1] || '');
+                const paddingMatch = payload.match(/=*$/);
+                const padding = paddingMatch ? paddingMatch[0].length : 0;
+                return Math.ceil((payload.length * 3) / 4) - padding;
+            }
+
+            loadImage(file) {
+                return new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onload = () => {
+                        const image = new Image();
+                        image.onload = () => resolve(image);
+                        image.onerror = () => reject(new Error('Invalid image'));
+                        image.src = String(reader.result || '');
+                    };
+                    reader.onerror = () => reject(new Error('Failed to read image file'));
+                    reader.readAsDataURL(file);
+                });
+            }
+
+            formatCoords(longitude, latitude) {
+                return `Lon: ${Number(longitude || 0).toFixed(5)}, Lat: ${Number(latitude || 0).toFixed(5)}`;
+            }
+
+            escapeHtml(value) {
+                return String(value || '')
+                    .replace(/&/g, '&amp;')
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;')
+                    .replace(/"/g, '&quot;')
+                    .replace(/'/g, '&#39;');
+            }
+
+            escapeAttr(value) {
+                return this.escapeHtml(value);
+            }
+        }
+
+        const markerManager = new ClientMarkerManager();
+
         let viewer = null;
         let markersPlugin = null;
         const psvContainer = document.getElementById('psv-container');
@@ -2194,14 +2722,19 @@
             });
 
             markersPlugin = viewer.getPlugin(PhotoSphereViewer.MarkersPlugin);
+            markerManager.init(viewer, markersPlugin);
 
             viewer.on('ready', () => {
                 loading.classList.add('hidden');
                 loadPlots();
+                markerManager.loadMarkers();
             });
 
             if (markersPlugin) {
                 markersPlugin.on('select-marker', (e, marker) => {
+                    if (markerManager.handleMarkerSelection(marker)) {
+                        return;
+                    }
                     if (marker && marker.config && marker.config.data && marker.config.data.label) {
                         return;
                     }
@@ -2284,6 +2817,7 @@
                     }
                 });
             markersPlugin.setMarkers(markers);
+            markerManager.syncViewerMarkers();
         }
 
         const plotStatusSelect = document.getElementById('plot-status');
@@ -2492,6 +3026,7 @@
             if (e.key === 'Escape') {
                 if (shareModal && shareModal.classList.contains('visible')) shareModal.classList.remove('visible');
                 else if (plotFormModal && plotFormModal.classList.contains('visible')) closePlotForm();
+                else if (document.getElementById('marker-form-modal') && document.getElementById('marker-form-modal').classList.contains('visible')) markerManager.closeForm();
                 else if (plotDetailsModal && plotDetailsModal.classList.contains('visible')) plotDetailsModal.classList.remove('visible');
                 else if (isEditMode) editToggle.click();
             }
