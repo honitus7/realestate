@@ -24,7 +24,12 @@
             --color-text: #f5f5f0;
             --color-accent: #c9a962;
             --color-accent-dim: rgba(201, 169, 98, 0.3);
+            --color-surface: rgba(10, 10, 11, 0.72);
+            --color-surface-strong: rgba(10, 10, 11, 0.88);
             --color-muted: #6b6b6b;
+            --color-available: #22c55e;
+            --color-hold: #f97316;
+            --color-sold: #ef4444;
             --font-display: 'Instrument Serif', Georgia, serif;
             --font-body: 'Syne', sans-serif;
         }
@@ -117,8 +122,11 @@
             height: 100%;
             pointer-events: none;
             z-index: 5;
-            background: linear-gradient(to bottom, rgba(10, 10, 11, 0.3) 0%, transparent 10%, transparent 90%, rgba(10, 10, 11, 0.4) 100%),
-                linear-gradient(to right, rgba(10, 10, 11, 0.2) 0%, transparent 5%, transparent 95%, rgba(10, 10, 11, 0.2) 100%);
+            background:
+                radial-gradient(circle at 14% 14%, rgba(201, 169, 98, 0.14), transparent 34%),
+                radial-gradient(circle at 82% 88%, rgba(201, 169, 98, 0.08), transparent 32%),
+                linear-gradient(to bottom, rgba(10, 10, 11, 0.42) 0%, transparent 16%, transparent 84%, rgba(10, 10, 11, 0.58) 100%),
+                linear-gradient(to right, rgba(10, 10, 11, 0.3) 0%, transparent 8%, transparent 92%, rgba(10, 10, 11, 0.3) 100%);
         }
 
         .ui-overlay {
@@ -139,6 +147,7 @@
             display: flex;
             justify-content: space-between;
             align-items: flex-start;
+            gap: 1rem;
         }
 
         .header-left {
@@ -148,60 +157,288 @@
         }
 
         .project-info {
-            background: rgba(10, 10, 11, 0.8);
-            padding: 0.75rem 1.25rem;
-            border-radius: 8px;
+            min-width: min(62vw, 460px);
+            background: linear-gradient(140deg, rgba(14, 14, 16, 0.9) 0%, rgba(10, 10, 11, 0.86) 100%);
+            padding: 1rem 1.25rem;
+            border-radius: 14px;
             backdrop-filter: blur(10px);
-            border: 1px solid var(--color-accent-dim);
+            border: 1px solid rgba(201, 169, 98, 0.28);
+            box-shadow: 0 14px 28px rgba(0, 0, 0, 0.32);
+        }
+
+        .project-kicker {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            border-radius: 999px;
+            background: rgba(201, 169, 98, 0.16);
+            border: 1px solid rgba(201, 169, 98, 0.35);
+            color: var(--color-accent);
+            padding: 0.22rem 0.62rem;
+            margin-bottom: 0.45rem;
+            font-size: 0.66rem;
+            letter-spacing: 0.13em;
+            text-transform: uppercase;
+            font-weight: 600;
         }
 
         .project-name {
             font-family: var(--font-display);
-            font-size: 1.2rem;
+            font-size: 1.45rem;
             font-style: italic;
             color: var(--color-accent);
+            line-height: 1.1;
         }
 
         .project-subtitle {
-            font-size: 0.7rem;
+            font-size: 0.73rem;
             color: var(--color-muted);
-            margin-top: 0.25rem;
+            margin-top: 0.3rem;
             text-transform: uppercase;
-            letter-spacing: 0.1em;
+            letter-spacing: 0.12em;
+        }
+
+        .project-meta {
+            margin-top: 0.65rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+
+        .project-meta-item {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            border-radius: 999px;
+            border: 1px solid rgba(255, 255, 255, 0.14);
+            background: rgba(255, 255, 255, 0.05);
+            color: rgba(245, 245, 240, 0.9);
+            padding: 0.24rem 0.62rem;
+            font-size: 0.68rem;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+        }
+
+        .project-meta-dot {
+            width: 7px;
+            height: 7px;
+            border-radius: 999px;
+            background: var(--color-available);
+            box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.22);
         }
 
         .header-right {
             display: flex;
+            flex-direction: column;
+            align-items: flex-end;
             gap: 0.75rem;
             pointer-events: auto;
         }
 
         .share-btn {
-            background: rgba(10, 10, 11, 0.8);
-            border: 1px solid var(--color-accent-dim);
+            background: linear-gradient(135deg, rgba(201, 169, 98, 0.24) 0%, rgba(201, 169, 98, 0.12) 100%);
+            border: 1px solid rgba(201, 169, 98, 0.4);
             color: var(--color-text);
-            padding: 0.6rem 1rem;
-            border-radius: 6px;
+            padding: 0.62rem 1rem;
+            border-radius: 10px;
             cursor: pointer;
             font-family: var(--font-body);
-            font-size: 0.75rem;
+            font-size: 0.74rem;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
             display: flex;
             align-items: center;
             gap: 0.5rem;
-            transition: all 0.2s;
+            transition: transform 0.2s ease, background 0.2s ease, border-color 0.2s ease;
             backdrop-filter: blur(10px);
             text-decoration: none;
+            font-weight: 600;
+            box-shadow: 0 8px 18px rgba(0, 0, 0, 0.3);
         }
 
         .share-btn:hover {
-            border-color: var(--color-accent);
-            background: rgba(201, 169, 98, 0.1);
+            border-color: rgba(201, 169, 98, 0.8);
+            background: linear-gradient(135deg, rgba(201, 169, 98, 0.34) 0%, rgba(201, 169, 98, 0.18) 100%);
+            transform: translateY(-1px);
         }
 
         .footer {
             display: flex;
-            justify-content: space-between;
+            justify-content: flex-start;
             align-items: flex-end;
+            gap: 0.75rem;
+            flex-wrap: wrap;
+        }
+
+        .status-legend {
+            width: min(92vw, 320px);
+            background: linear-gradient(145deg, rgba(14, 14, 16, 0.9), rgba(10, 10, 11, 0.78));
+            border: 1px solid rgba(201, 169, 98, 0.24);
+            border-radius: 12px;
+            backdrop-filter: blur(12px);
+            box-shadow: 0 12px 24px rgba(0, 0, 0, 0.34);
+            padding: 0.8rem;
+        }
+
+        .legend-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-size: 0.68rem;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            color: var(--color-muted);
+            margin-bottom: 0.55rem;
+        }
+
+        .legend-total {
+            border-radius: 999px;
+            border: 1px solid rgba(255, 255, 255, 0.14);
+            background: rgba(255, 255, 255, 0.06);
+            color: var(--color-text);
+            padding: 0.2rem 0.48rem;
+            font-size: 0.67rem;
+            letter-spacing: 0.04em;
+        }
+
+        .legend-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 0.38rem;
+        }
+
+        .status-pill {
+            display: grid;
+            grid-template-columns: auto 1fr auto;
+            align-items: center;
+            gap: 0.55rem;
+            border-radius: 9px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            background: rgba(255, 255, 255, 0.04);
+            padding: 0.42rem 0.55rem;
+            font-size: 0.74rem;
+        }
+
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 999px;
+            box-shadow: 0 0 0 5px rgba(255, 255, 255, 0.05);
+        }
+
+        .status-pill.available .status-dot {
+            background: var(--color-available);
+            box-shadow: 0 0 0 5px rgba(34, 197, 94, 0.18);
+        }
+
+        .status-pill.hold .status-dot {
+            background: var(--color-hold);
+            box-shadow: 0 0 0 5px rgba(249, 115, 22, 0.17);
+        }
+
+        .status-pill.sold .status-dot {
+            background: var(--color-sold);
+            box-shadow: 0 0 0 5px rgba(239, 68, 68, 0.17);
+        }
+
+        .status-pill strong {
+            font-size: 0.84rem;
+            color: var(--color-text);
+            font-variant-numeric: tabular-nums;
+        }
+
+        .customer-guide {
+            pointer-events: auto;
+            width: min(95vw, 360px);
+            border-radius: 14px;
+            border: 1px solid rgba(201, 169, 98, 0.24);
+            background: linear-gradient(145deg, rgba(13, 13, 15, 0.86), rgba(10, 10, 11, 0.72));
+            backdrop-filter: blur(12px);
+            box-shadow: 0 14px 28px rgba(0, 0, 0, 0.34);
+            padding: 0.95rem 1rem;
+            position: relative;
+            transition: opacity 0.25s ease, transform 0.25s ease;
+        }
+
+        .customer-guide.is-hidden {
+            opacity: 0;
+            transform: translateY(8px);
+            pointer-events: none;
+            display: none;
+        }
+
+        .guide-title {
+            font-size: 0.76rem;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            color: var(--color-accent);
+            margin-bottom: 0.45rem;
+            font-weight: 600;
+        }
+
+        .guide-list {
+            list-style: none;
+            display: grid;
+            gap: 0.32rem;
+            color: rgba(245, 245, 240, 0.88);
+            font-size: 0.78rem;
+            line-height: 1.45;
+            padding-right: 1.25rem;
+        }
+
+        .guide-list li {
+            position: relative;
+            padding-left: 1rem;
+        }
+
+        .guide-list li::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 0.48rem;
+            width: 6px;
+            height: 6px;
+            border-radius: 999px;
+            background: rgba(201, 169, 98, 0.9);
+        }
+
+        .guide-dismiss {
+            position: absolute;
+            top: 0.55rem;
+            right: 0.55rem;
+            width: 24px;
+            height: 24px;
+            border: 1px solid rgba(255, 255, 255, 0.14);
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.04);
+            color: rgba(255, 255, 255, 0.76);
+            cursor: pointer;
+            line-height: 1;
+            font-size: 1rem;
+        }
+
+        .footer-note {
+            pointer-events: auto;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            border-radius: 999px;
+            border: 1px solid rgba(255, 255, 255, 0.14);
+            background: var(--color-surface);
+            color: rgba(245, 245, 240, 0.82);
+            padding: 0.45rem 0.75rem;
+            font-size: 0.74rem;
+            letter-spacing: 0.02em;
+            backdrop-filter: blur(8px);
+        }
+
+        .footer-note-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 999px;
+            background: var(--color-accent);
+            box-shadow: 0 0 0 5px rgba(201, 169, 98, 0.22);
         }
 
         .zoom-controls {
@@ -448,16 +685,42 @@
                 transparent 100%);
         }
 
-        .modal > *:not(.marker-modal-close) {
+        .modal > *:not(.marker-modal-close):not(.modal-close) {
             padding: 2.5rem;
         }
 
-        .modal > *:not(.marker-modal-close):first-child {
+        .modal > *:not(.marker-modal-close):not(.modal-close):first-child {
             padding-top: 2.5rem;
         }
 
-        .modal > *:not(.marker-modal-close):last-child {
+        .modal > *:not(.marker-modal-close):not(.modal-close):last-child {
             padding-bottom: 2.5rem;
+        }
+
+        .modal-close {
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+            width: 34px;
+            height: 34px;
+            border-radius: 999px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            background: rgba(10, 10, 11, 0.72);
+            color: #fff;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.18rem;
+            line-height: 1;
+            cursor: pointer;
+            transition: transform 0.15s ease, background 0.15s ease, border-color 0.15s ease;
+            z-index: 4;
+        }
+
+        .modal-close:hover {
+            transform: scale(1.06);
+            background: rgba(20, 20, 22, 0.95);
+            border-color: rgba(201, 169, 98, 0.4);
         }
 
         .details-header {
@@ -764,11 +1027,40 @@
             overflow: hidden;
         }
 
+        .details-modal .modal.no-media .details-grid {
+            grid-template-columns: 1fr;
+            gap: 0;
+        }
+
+        .details-modal .modal.no-media .details-info-column {
+            grid-column: 1;
+        }
+
         .share-url-container {
             background: rgba(255, 255, 255, 0.05);
             border-radius: 8px;
             padding: 1rem;
             margin: 1rem 0;
+        }
+
+        .share-modal-title {
+            font-family: var(--font-display);
+            font-size: 1.55rem;
+            font-style: italic;
+            color: var(--color-accent);
+            margin-bottom: 0.45rem;
+        }
+
+        .share-modal-subtitle {
+            color: rgba(245, 245, 240, 0.76);
+            margin-bottom: 0.9rem;
+            line-height: 1.55;
+            font-size: 0.9rem;
+        }
+
+        .share-modal-content {
+            display: flex;
+            flex-direction: column;
         }
 
         .share-url {
@@ -907,11 +1199,31 @@
             }
 
             .project-info {
-                padding: 0.6rem 1rem;
+                min-width: 0;
+                width: 100%;
+                padding: 0.72rem 0.9rem;
             }
 
             .project-name {
                 font-size: 1rem;
+            }
+
+            .project-meta {
+                margin-top: 0.5rem;
+            }
+
+            .header {
+                flex-direction: column;
+                align-items: stretch;
+                gap: 0.7rem;
+            }
+
+            .header-right {
+                align-items: stretch;
+            }
+
+            .status-legend {
+                width: 100%;
             }
 
             .info-panel {
@@ -920,6 +1232,19 @@
 
             .details-grid {
                 grid-template-columns: 1fr;
+            }
+
+            .customer-guide {
+                width: 100%;
+            }
+
+            .footer {
+                width: 100%;
+            }
+
+            .footer-note {
+                width: 100%;
+                justify-content: center;
             }
 
         }
@@ -950,8 +1275,16 @@
         <header class="header">
             <div class="header-left">
                 <div class="project-info">
+                    <div class="project-kicker">360° Plot Showcase</div>
                     <div class="project-name">{{ panorama.name }}</div>
-                    <div class="project-subtitle">Interactive View</div>
+                    <div class="project-subtitle">Customer View</div>
+                    <div class="project-meta">
+                        <div class="project-meta-item">
+                            <span class="project-meta-dot"></span>
+                            <span>Live Availability</span>
+                        </div>
+                        <div class="project-meta-item" id="meta-total-plots">0 Plots</div>
+                    </div>
                 </div>
             </div>
             <div class="header-right">
@@ -959,16 +1292,52 @@
                     <span>🔗</span>
                     <span>Share Link</span>
                 </button>
+                <div class="status-legend" id="status-legend">
+                    <div class="legend-head">
+                        <span>Plot Status</span>
+                        <span class="legend-total" id="status-count-total">0</span>
+                    </div>
+                    <div class="legend-grid">
+                        <div class="status-pill available">
+                            <span class="status-dot"></span>
+                            <span>Available</span>
+                            <strong id="status-count-available">0</strong>
+                        </div>
+                        <div class="status-pill hold">
+                            <span class="status-dot"></span>
+                            <span>On Hold</span>
+                            <strong id="status-count-hold">0</strong>
+                        </div>
+                        <div class="status-pill sold">
+                            <span class="status-dot"></span>
+                            <span>Sold</span>
+                            <strong id="status-count-sold">0</strong>
+                        </div>
+                    </div>
+                </div>
             </div>
         </header>
 
         <footer class="footer">
-            <div style="width: 200px;"></div>
+            <div class="customer-guide" id="customer-guide">
+                <button class="guide-dismiss" id="dismiss-guide" type="button" aria-label="Dismiss guide">×</button>
+                <div class="guide-title">Explore Smartly</div>
+                <ul class="guide-list">
+                    <li>Drag to look around and discover all plot zones.</li>
+                    <li>Tap a highlighted plot to view pricing, area, and media.</li>
+                    <li>Tap a floating marker to open amenity details instantly.</li>
+                </ul>
+            </div>
+            <div class="footer-note">
+                <span class="footer-note-dot"></span>
+                <span>Tip: Use mouse wheel or pinch to zoom in on plot boundaries.</span>
+            </div>
         </footer>
     </div>
 
     <div class="modal-backdrop details-modal" id="plot-details-modal">
         <div class="modal">
+            <button class="modal-close" id="close-details-icon" type="button" aria-label="Close plot details">×</button>
             <div class="details-header">
                 <div class="details-color" id="details-color"></div>
                 <div class="details-title" id="details-title">Plot Name</div>
@@ -1007,16 +1376,17 @@
 
     <div class="modal-backdrop share-modal" id="share-modal">
         <div class="modal">
-            <div
-                style="font-family: var(--font-display); font-size: 1.5rem; font-style: italic; margin-bottom: 1rem; color: var(--color-accent);">
-                Share This View</div>
-            <div style="color: var(--color-muted); margin-bottom: 1rem; line-height: 1.6;">
-                Share this link with clients to give them view-only access to this interactive panorama.
+            <button class="modal-close" id="close-share-icon" type="button" aria-label="Close share modal">×</button>
+            <div class="share-modal-content">
+                <div class="share-modal-title">Share This View</div>
+                <div class="share-modal-subtitle">
+                    Share this link with clients to give them view-only access to this interactive panorama.
+                </div>
+                <div class="share-url-container">
+                    <div class="share-url" id="share-url"></div>
+                </div>
+                <button class="copy-btn" id="copy-btn">Copy Link</button>
             </div>
-            <div class="share-url-container">
-                <div class="share-url" id="share-url"></div>
-            </div>
-            <button class="copy-btn" id="copy-btn">Copy Link</button>
             <div class="modal-actions">
                 <button class="modal-btn secondary" id="close-share">Close</button>
             </div>
@@ -1057,6 +1427,8 @@
         const shareUrl = document.getElementById('share-url');
         const copyBtn = document.getElementById('copy-btn');
         const plotDetailsModal = document.getElementById('plot-details-modal');
+        const customerGuide = document.getElementById('customer-guide');
+        const dismissGuideBtn = document.getElementById('dismiss-guide');
 
         // Shared variables and functions (available in both modes)
         let plots = [];
@@ -1113,6 +1485,7 @@
         async function renderPlotMedia(plot) {
             const container = document.getElementById('details-media');
             const wrapper = document.getElementById('details-media-container');
+            const detailsModalCard = document.querySelector('#plot-details-modal .modal');
             if (!container || !wrapper) return;
 
             container.innerHTML = '';
@@ -1171,18 +1544,48 @@
 
             if (mediaElements.length === 0) {
                 wrapper.style.display = 'none';
+                if (detailsModalCard) detailsModalCard.classList.add('no-media');
                 return;
             }
 
             mediaElements.forEach(el => container.appendChild(el));
             wrapper.style.display = 'block';
+            if (detailsModalCard) detailsModalCard.classList.remove('no-media');
+        }
+
+        function updateStatusLegend() {
+            const counts = { available: 0, on_hold: 0, sold: 0, total: 0 };
+            plots.forEach((plot) => {
+                const key = getStatusKey(plot.status);
+                if (key === 'available') counts.available += 1;
+                else if (key === 'on_hold') counts.on_hold += 1;
+                else if (key === 'sold') counts.sold += 1;
+                counts.total += 1;
+            });
+
+            const setText = (id, value) => {
+                const el = document.getElementById(id);
+                if (el) el.textContent = String(value);
+            };
+
+            setText('status-count-available', counts.available);
+            setText('status-count-hold', counts.on_hold);
+            setText('status-count-sold', counts.sold);
+            setText('status-count-total', counts.total);
+
+            const totalMeta = document.getElementById('meta-total-plots');
+            if (totalMeta) {
+                totalMeta.textContent = `${counts.total} ${counts.total === 1 ? 'Plot' : 'Plots'}`;
+            }
         }
 
         async function loadPlots() {
             try {
                 const headers = await (window.getAuthHeaders ? window.getAuthHeaders() : Promise.resolve({}));
                 const response = await fetch(`/api/panoramas/${PANORAMA_ID}/plots`, { headers });
-                plots = await response.json();
+                const data = await response.json();
+                plots = Array.isArray(data) ? data : [];
+                updateStatusLegend();
                 renderPlots();
             } catch (error) {
                 console.error('Failed to load plots:', error);
@@ -1414,6 +1817,22 @@
 
         const markerManager = new CustomerMarkerManager();
 
+        if (dismissGuideBtn && customerGuide) {
+            const storageKey = `customer-guide-dismissed-${PANORAMA_ID}`;
+            try {
+                if (window.localStorage && localStorage.getItem(storageKey) === '1') {
+                    customerGuide.classList.add('is-hidden');
+                }
+            } catch (error) {}
+
+            dismissGuideBtn.addEventListener('click', () => {
+                customerGuide.classList.add('is-hidden');
+                try {
+                    if (window.localStorage) localStorage.setItem(storageKey, '1');
+                } catch (error) {}
+            });
+        }
+
         function getCentroid(points) {
             if (!points || points.length === 0) return null;
             let x = 0, y = 0;
@@ -1423,6 +1842,10 @@
 
         // Shared event handlers
         document.getElementById('close-details').addEventListener('click', () => plotDetailsModal.classList.remove('visible'));
+        const closeDetailsIcon = document.getElementById('close-details-icon');
+        if (closeDetailsIcon) {
+            closeDetailsIcon.addEventListener('click', () => plotDetailsModal.classList.remove('visible'));
+        }
         plotDetailsModal.addEventListener('click', (e) => { if (e.target === plotDetailsModal) plotDetailsModal.classList.remove('visible'); });
 
         let viewer = null;
@@ -1558,8 +1981,12 @@
             }
 
             const closeShare = document.getElementById('close-share');
+            const closeShareIcon = document.getElementById('close-share-icon');
             if (closeShare) {
                 closeShare.addEventListener('click', () => shareModal.classList.remove('visible'));
+            }
+            if (closeShareIcon) {
+                closeShareIcon.addEventListener('click', () => shareModal.classList.remove('visible'));
             }
             shareModal.addEventListener('click', (e) => { if (e.target === shareModal) shareModal.classList.remove('visible'); });
         }
