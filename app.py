@@ -5,6 +5,7 @@ Uses Supabase for Auth + DB. All data is user-scoped; admin can grant client/vie
 import os
 import json
 import base64
+import io
 from datetime import datetime
 
 from dotenv import load_dotenv
@@ -23,6 +24,9 @@ except ImportError:
 
 from flask import Flask, render_template, request, jsonify, send_from_directory, redirect, Response
 from werkzeug.utils import secure_filename
+from PIL import Image, ImageOps
+
+RESAMPLE_LANCZOS = Image.Resampling.LANCZOS if hasattr(Image, 'Resampling') else Image.LANCZOS
 
 from db import (
     get_supabase,
@@ -53,6 +57,12 @@ IMAGE_CONTENT_TYPES = {
     'png': 'image/png', 'jpg': 'image/jpeg', 'jpeg': 'image/jpeg',
     'gif': 'image/gif', 'webp': 'image/webp',
 }
+CONTENT_TYPE_TO_EXT = {
+    'image/png': 'png',
+    'image/jpeg': 'jpg',
+    'image/gif': 'gif',
+    'image/webp': 'webp',
+}
 
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 os.makedirs('templates', exist_ok=True)
@@ -65,6 +75,171 @@ def auth_ctx():
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+
+def _target_plot_image_bytes():
+    return int(os.environ.get('PLOT_IMAGE_TARGET_BYTES', str(420 * 1024)))
+
+
+def _max_plot_image_edge():
+    return int(os.environ.get('PLOT_IMAGE_MAX_EDGE', '1600'))
+
+
+def _normalize_ext(value):
+    ext = (value or '').lower().strip().lstrip('.')
+    return ext if ext in ALLOWED_EXTENSIONS else 'jpg'
+
+
+def _detect_ext_from_content_type(content_type):
+    return _normalize_ext(CONTENT_TYPE_TO_EXT.get((content_type or '').lower(), 'jpg'))
+
+
+def _encode_image_bytes(image, fmt, quality):
+    buffer = io.BytesIO()
+    if fmt == 'JPEG':
+        img = image if image.mode == 'RGB' else image.convert('RGB')
+        img.save(buffer, format='JPEG', quality=quality, optimize=True, progressive=True)
+        return buffer.getvalue(), 'image/jpeg'
+    img = image if image.mode in ('RGB', 'RGBA') else image.convert('RGBA')
+    img.save(buffer, format='WEBP', quality=quality, method=6)
+    return buffer.getvalue(), 'image/webp'
+
+
+def compress_plot_image_bytes(raw_bytes, preferred_ext='jpg', target_bytes=None, max_edge=None):
+    """Compress plot image for DB storage and return (bytes, content_type)."""
+    target_bytes = target_bytes or _target_plot_image_bytes()
+    max_edge = max_edge or _max_plot_image_edge()
+    preferred_ext = _normalize_ext(preferred_ext)
+
+    with Image.open(io.BytesIO(raw_bytes)) as img:
+        img = ImageOps.exif_transpose(img)
+        has_alpha = ('A' in img.getbands()) or ('transparency' in img.info)
+
+        if has_alpha:
+            if img.mode != 'RGBA':
+                img = img.convert('RGBA')
+        elif img.mode != 'RGB':
+            img = img.convert('RGB')
+
+        max_side = max(img.width, img.height) or 1
+        if max_side > max_edge:
+            scale = max_edge / float(max_side)
+            new_size = (
+                max(1, int(round(img.width * scale))),
+                max(1, int(round(img.height * scale))),
+            )
+            img = img.resize(new_size, RESAMPLE_LANCZOS)
+
+        if preferred_ext == 'webp':
+            output_format = 'WEBP'
+        elif preferred_ext in ('png', 'gif'):
+            output_format = 'WEBP'
+        else:
+            output_format = 'WEBP' if has_alpha else 'JPEG'
+
+        quality = 84
+        working = img
+        best_data = None
+        best_type = 'image/jpeg'
+
+        for attempt in range(10):
+            encoded, content_type = _encode_image_bytes(working, output_format, quality)
+            if best_data is None or len(encoded) < len(best_data):
+                best_data, best_type = encoded, content_type
+            if len(encoded) <= target_bytes:
+                return encoded, content_type
+
+            quality = max(42, quality - 8)
+            if attempt in (3, 6, 8):
+                nw = max(320, int(round(working.width * 0.87)))
+                nh = max(240, int(round(working.height * 0.87)))
+                if nw < working.width and nh < working.height:
+                    working = working.resize((nw, nh), RESAMPLE_LANCZOS)
+
+        return best_data, best_type
+
+
+def maybe_compress_plot_image_base64(image_b64, content_type):
+    """Return (b64, content_type, changed) for legacy oversized/unoptimized images."""
+    if not image_b64:
+        return image_b64, content_type, False
+    try:
+        raw = base64.b64decode(image_b64)
+    except Exception:
+        return image_b64, content_type, False
+
+    target_bytes = _target_plot_image_bytes()
+    should_recompress = (
+        len(raw) > target_bytes
+        or (content_type or '').lower() not in ('image/jpeg', 'image/webp')
+    )
+    if not should_recompress:
+        return image_b64, content_type, False
+
+    try:
+        preferred_ext = _detect_ext_from_content_type(content_type)
+        compressed, new_type = compress_plot_image_bytes(raw, preferred_ext=preferred_ext)
+    except Exception:
+        return image_b64, content_type, False
+
+    if not compressed:
+        return image_b64, content_type, False
+    if len(compressed) >= len(raw):
+        return image_b64, content_type, False
+
+    return base64.b64encode(compressed).decode('ascii'), new_type, True
+
+
+def _decode_base64_or_data_url(value):
+    if not value:
+        return None, None
+    raw_value = str(value).strip()
+    content_type = None
+    payload = raw_value
+    if raw_value.startswith('data:') and ',' in raw_value:
+        header, payload = raw_value.split(',', 1)
+        if ';' in header:
+            content_type = header[5:header.find(';')]
+        else:
+            content_type = header[5:]
+    try:
+        return base64.b64decode(payload), (content_type or 'image/jpeg')
+    except Exception:
+        return None, content_type
+
+
+def _encode_data_url(raw_bytes, content_type):
+    return f"data:{content_type};base64,{base64.b64encode(raw_bytes).decode('ascii')}"
+
+
+def maybe_compress_marker_image_data(image_value):
+    """Return (image_value, changed) for marker image_base64 (data URL or plain base64)."""
+    raw, content_type = _decode_base64_or_data_url(image_value)
+    if not raw:
+        return image_value, False
+
+    target_bytes = int(os.environ.get('MARKER_IMAGE_TARGET_BYTES', str(300 * 1024)))
+    should_recompress = (
+        len(raw) > target_bytes
+        or (content_type or '').lower() not in ('image/jpeg', 'image/webp')
+    )
+    if not should_recompress:
+        return image_value, False
+
+    preferred_ext = _detect_ext_from_content_type(content_type)
+    try:
+        compressed, new_type = compress_plot_image_bytes(
+            raw,
+            preferred_ext=preferred_ext,
+            target_bytes=target_bytes,
+            max_edge=int(os.environ.get('MARKER_IMAGE_MAX_EDGE', '1200')),
+        )
+    except Exception:
+        return image_value, False
+
+    if not compressed or len(compressed) >= len(raw):
+        return image_value, False
+    return _encode_data_url(compressed, new_type), True
 
 
 # ----- Public routes -----
@@ -316,7 +491,16 @@ def get_plots(user_id, role, panorama_id):
     if not panorama:
         return jsonify({'error': 'Panorama not found'}), 404
     try:
-        r = sb.table('plots').select('*').eq('panorama_id', panorama_id).order('created_at').execute()
+        # Keep list payload light: do not read image_data blob here.
+        r = sb.table('plots').select(
+            'id, panorama_id, name, area, price, status, description, color, media_photo, media_video, points, created_at, updated_at, image_content_type'
+        ).eq('panorama_id', panorama_id).order('created_at').execute()
+        legacy_image_ids = set()
+        try:
+            legacy = sb.table('plots').select('id').eq('panorama_id', panorama_id).not_.is_('image_data', 'null').execute()
+            legacy_image_ids = {row.get('id') for row in (legacy.data or []) if row.get('id') is not None}
+        except Exception:
+            legacy_image_ids = set()
         plots = []
         for row in (r.data or []):
             p = dict(row)
@@ -325,8 +509,8 @@ def get_plots(user_id, role, panorama_id):
                     p['points'] = json.loads(p['points'])
                 except Exception:
                     p['points'] = []
-            # Exclude blob from list; frontend uses GET /api/plots/<id>/image when has_image
-            p['has_image'] = bool(p.pop('image_data', None))
+            # Frontend loads image by id; use content type presence as a lightweight has_image flag.
+            p['has_image'] = bool(p.get('image_content_type')) or (p.get('id') in legacy_image_ids)
             p.pop('image_content_type', None)
             plots.append(p)
         return jsonify(plots)
@@ -435,7 +619,7 @@ def update_plot(user_id, role, plot_id):
 
 # ----- Plot image (blob in Postgres: base64 in image_data) -----
 ALLOWED_IMAGE_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
-MAX_PLOT_IMAGE_BYTES = 5 * 1024 * 1024  # 5MB
+MAX_PLOT_IMAGE_BYTES = 12 * 1024 * 1024  # 12MB raw upload limit before compression
 
 
 @app.route('/api/plots/<int:plot_id>/image', methods=['GET'])
@@ -464,7 +648,26 @@ def get_plot_image(user_id, role, plot_id):
     except Exception:
         return jsonify({'error': 'Invalid image data'}), 500
     content_type = row.get('image_content_type') or 'image/jpeg'
-    return Response(data, mimetype=content_type)
+
+    # Auto-migrate legacy large/unoptimized images during read.
+    try:
+        compressed_b64, compressed_type, changed = maybe_compress_plot_image_base64(image_b64, content_type)
+        if changed:
+            content_type = compressed_type
+            data = base64.b64decode(compressed_b64)
+            sb.table('plots').update({
+                'image_data': compressed_b64,
+                'image_content_type': compressed_type,
+                'updated_at': datetime.utcnow().isoformat(),
+            }).eq('id', plot_id).execute()
+    except Exception:
+        # Serve existing image even if migration fails.
+        pass
+
+    response = Response(data, mimetype=content_type)
+    response.headers['Cache-Control'] = 'private, max-age=86400'
+    response.headers['X-Image-Optimized'] = '1'
+    return response
 
 
 @app.route('/api/plots/<int:plot_id>/image', methods=['POST', 'PUT'])
@@ -496,8 +699,8 @@ def upload_plot_image(user_id, role, plot_id):
         raw = file.read()
         if len(raw) > MAX_PLOT_IMAGE_BYTES:
             return jsonify({'error': f'Image too large (max {MAX_PLOT_IMAGE_BYTES // (1024*1024)}MB)'}), 400
-        image_b64 = base64.b64encode(raw).decode('ascii')
-        content_type = IMAGE_CONTENT_TYPES.get(ext, 'image/jpeg')
+        compressed_raw, content_type = compress_plot_image_bytes(raw, preferred_ext=ext)
+        image_b64 = base64.b64encode(compressed_raw).decode('ascii')
         sb.table('plots').update({
             'image_data': image_b64,
             'image_content_type': content_type,
@@ -511,7 +714,58 @@ def upload_plot_image(user_id, role, plot_id):
             }), 500
     except Exception as e:
         return jsonify({'error': str(e)}), 500
-    return jsonify({'success': True, 'content_type': content_type})
+    return jsonify({
+        'success': True,
+        'content_type': content_type,
+        'size_bytes': len(compressed_raw),
+        'target_bytes': _target_plot_image_bytes(),
+    })
+
+
+@app.route('/api/markers/<marker_id>/image', methods=['GET'])
+@require_auth
+def get_marker_image(user_id, role, marker_id):
+    """Fetch a single marker image and auto-migrate legacy oversized data."""
+    sb = get_supabase()
+    if not sb:
+        return jsonify({'error': 'Database not configured'}), 503
+
+    try:
+        r = sb.table('plot_markers').select('id, plot_id, image_base64').eq('id', marker_id).limit(1).execute()
+        if not r.data:
+            return jsonify({'error': 'Marker not found'}), 404
+        row = r.data[0]
+    except Exception:
+        return jsonify({'error': 'Marker not found'}), 404
+
+    plot_id = str(row.get('plot_id') or '').strip()
+    if not plot_id:
+        return jsonify({'error': 'Invalid marker'}), 400
+
+    try:
+        panorama_id = int(plot_id)
+    except Exception:
+        return jsonify({'error': 'Invalid marker reference'}), 400
+
+    panorama, _ = get_panorama_with_access(sb, panorama_id, user_id)
+    if not panorama:
+        return jsonify({'error': 'Forbidden'}), 403
+
+    image_value = row.get('image_base64') or ''
+    if not image_value:
+        return jsonify({'image_base64': None, 'optimized': False})
+
+    optimized_value, changed = maybe_compress_marker_image_data(image_value)
+    if changed:
+        try:
+            sb.table('plot_markers').update({
+                'image_base64': optimized_value,
+            }).eq('id', marker_id).execute()
+            image_value = optimized_value
+        except Exception:
+            image_value = optimized_value
+
+    return jsonify({'image_base64': image_value, 'optimized': bool(changed)})
 
 
 # ----- Admin: create user + set as user in profiles -----

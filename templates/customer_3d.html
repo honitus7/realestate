@@ -899,6 +899,16 @@
             object-fit: cover;
         }
 
+        .marker-media-loading {
+            width: 100%;
+            min-height: 140px;
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            background: linear-gradient(120deg, rgba(255, 255, 255, 0.03) 20%, rgba(255, 255, 255, 0.09) 38%, rgba(255, 255, 255, 0.03) 56%);
+            background-size: 240% 100%;
+            animation: shimmer 1.15s ease-in-out infinite;
+        }
+
         @media (max-width: 768px) {
             .details-grid {
                 grid-template-columns: 1fr;
@@ -1185,6 +1195,11 @@
             0% { transform: translateX(-50%) translateY(0); }
             50% { transform: translateX(-50%) translateY(-2px); }
             100% { transform: translateX(-50%) translateY(0); }
+        }
+
+        @keyframes shimmer {
+            0% { background-position: 100% 0; }
+            100% { background-position: 0 0; }
         }
 
         @keyframes spin {
@@ -1666,6 +1681,7 @@
                     name: row.name || '',
                     description: row.description || '',
                     image_base64: row.image_base64 || '',
+                    _imageLoaded: Boolean(row.image_base64),
                     longitude: Number(row.longitude || 0),
                     latitude: Number(row.latitude || 0),
                     status: ['available', 'sold', 'reserved'].includes(status) ? status : 'available',
@@ -1752,29 +1768,82 @@
                             : { start: '#22c55e', end: '#16a34a' };
                     this.dom.color.style.background = `linear-gradient(135deg, ${colors.start}, ${colors.end})`;
                 }
-                if (this.dom.media && this.dom.mediaCol) {
-                    this.dom.media.innerHTML = '';
-                    if (marker.image_base64) {
-                        this.dom.media.innerHTML = `<img src="${this.escapeAttr(marker.image_base64)}" alt="${this.escapeAttr(marker.name || 'Marker')}" style="max-width:100%;height:auto;">`;
-                        this.dom.mediaCol.style.display = 'block';
-                        this.dom.modal.classList.remove('no-media');
-                    } else {
-                        this.dom.mediaCol.style.display = 'none';
-                        this.dom.modal.classList.add('no-media');
-                    }
-                }
+                this.selectedMarkerId = String(markerId);
+                this.showMediaLoading();
                 this.dom.modal.classList.add('visible');
+                this.ensureMarkerImage(markerId)
+                    .then((imageBase64) => {
+                        if (this.selectedMarkerId !== String(markerId)) return;
+                        this.renderMedia(marker, imageBase64);
+                    })
+                    .catch(() => {
+                        if (this.selectedMarkerId !== String(markerId)) return;
+                        this.renderMedia(marker, marker.image_base64 || '');
+                    });
             }
 
             closeReadonly() {
                 if (this.dom.modal) this.dom.modal.classList.remove('visible');
             }
 
+            showMediaLoading() {
+                if (!this.dom.media || !this.dom.mediaCol || !this.dom.modal) return;
+                this.dom.mediaCol.style.display = 'block';
+                this.dom.media.innerHTML = '<div class="marker-media-loading" aria-hidden="true"></div>';
+                this.dom.modal.classList.remove('no-media');
+            }
+
+            renderMedia(marker, imageBase64) {
+                if (!this.dom.media || !this.dom.mediaCol || !this.dom.modal) return;
+                this.dom.media.innerHTML = '';
+                if (imageBase64) {
+                    this.dom.media.innerHTML = `<img src="${this.escapeAttr(imageBase64)}" alt="${this.escapeAttr(marker.name || 'Marker')}" style="max-width:100%;height:auto;">`;
+                    this.dom.mediaCol.style.display = 'block';
+                    this.dom.modal.classList.remove('no-media');
+                } else {
+                    this.dom.mediaCol.style.display = 'none';
+                    this.dom.modal.classList.add('no-media');
+                }
+            }
+
+            async ensureMarkerImage(markerId) {
+                const marker = this.markerMap.get(String(markerId));
+                if (!marker) return '';
+                if (!marker._imageLoaded) {
+                    try {
+                        const headers = await (window.getAuthHeaders ? window.getAuthHeaders() : Promise.resolve({}));
+                        const response = await fetch(`/api/markers/${encodeURIComponent(String(markerId))}/image`, { headers });
+                        if (response.ok) {
+                            const payload = await response.json();
+                            marker.image_base64 = payload && payload.image_base64 ? String(payload.image_base64) : '';
+                            marker._imageLoaded = true;
+                            return marker.image_base64;
+                        }
+                    } catch (error) {
+                        // Fallback to direct read if API optimization endpoint is unavailable.
+                    }
+
+                    const supabase = this.getSupabaseClient();
+                    const { data, error } = await supabase
+                        .from('plot_markers')
+                        .select('image_base64')
+                        .eq('id', String(markerId))
+                        .limit(1);
+                    if (error) throw error;
+                    marker.image_base64 = (data && data[0] && data[0].image_base64) ? data[0].image_base64 : '';
+                    marker._imageLoaded = true;
+                }
+
+                if (!marker.image_base64) return '';
+
+                return marker.image_base64 || '';
+            }
+
             async fetchMarkers(plotId) {
                 const supabase = this.getSupabaseClient();
                 const { data, error } = await supabase
                     .from('plot_markers')
-                    .select('*')
+                    .select('id, plot_id, name, description, longitude, latitude, status, created_at')
                     .eq('plot_id', String(plotId))
                     .order('created_at', { ascending: true });
                 if (error) throw error;
@@ -1795,10 +1864,6 @@
                     : String(markerId).replace(/"/g, '\\"');
                 const markerEl = document.querySelector(`.psv-glass-marker[data-marker-id="${selectorId}"]`);
                 if (markerEl) markerEl.classList.toggle('is-active', Boolean(active));
-            }
-
-            formatCoords(longitude, latitude) {
-                return `Lon: ${Number(longitude || 0).toFixed(5)}, Lat: ${Number(latitude || 0).toFixed(5)}`;
             }
 
             escapeHtml(value) {
