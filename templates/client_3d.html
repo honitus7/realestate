@@ -18,6 +18,7 @@
         onload="window.PSV_LOADED = true"></script>
     <script src="https://unpkg.com/photo-sphere-viewer@4.8.1/dist/plugins/markers.js"
         onload="window.PSV_MARKERS_LOADED = true"></script>
+    <script src="https://code.iconify.design/iconify-icon/1.0.8/iconify-icon.min.js"></script>
     <style>
         :root {
             --color-bg: #0a0a0b;
@@ -29,6 +30,14 @@
             --color-danger: #ef4444;
             --font-display: 'Instrument Serif', Georgia, serif;
             --font-body: 'Syne', sans-serif;
+            --marker-size: 30px;
+            --marker-blur: 7px;
+            --marker-ring: rgba(255, 255, 255, 0.92);
+            --marker-shadow: 0 8px 20px rgba(0, 0, 0, 0.42), 0 2px 6px rgba(0, 0, 0, 0.28);
+            --marker-inner-glow: inset 0 1px 0 rgba(255, 255, 255, 0.6), inset 0 -10px 16px rgba(0, 0, 0, 0.24);
+            --marker-available-rgb: 74, 222, 128;
+            --marker-sold-rgb: 239, 68, 68;
+            --marker-reserved-rgb: 249, 115, 22;
         }
 
         * {
@@ -65,13 +74,44 @@
         }
 
         .psv-plot-label {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.38rem;
+            padding: 0.34rem 0.66rem;
+            border-radius: 999px;
+            background: rgba(8, 9, 11, 0.82);
+            border: 1px solid rgba(255, 255, 255, 0.22);
             color: #fff;
             font-family: var(--font-body);
-            font-weight: 600;
-            font-size: 0.85rem;
-            text-shadow: 0 2px 6px rgba(0, 0, 0, 0.5);
+            font-weight: 700;
+            font-size: 0.72rem;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            text-shadow: 0 2px 7px rgba(0, 0, 0, 0.55);
+            box-shadow: 0 12px 24px rgba(0, 0, 0, 0.36);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
             pointer-events: none;
             white-space: nowrap;
+        }
+
+        .psv-plot-label::before {
+            content: '';
+            width: 7px;
+            height: 7px;
+            border-radius: 999px;
+            background: rgba(74, 222, 128, 0.95);
+            box-shadow: 0 0 0 3px rgba(74, 222, 128, 0.24);
+        }
+
+        .psv-plot-label.psv-plot-label--hold::before {
+            background: rgba(249, 115, 22, 0.95);
+            box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.24);
+        }
+
+        .psv-plot-label.psv-plot-label--sold::before {
+            background: rgba(239, 68, 68, 0.95);
+            box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.24);
         }
 
         .image-container {
@@ -1492,54 +1532,399 @@
         }
 
         .psv-glass-marker {
-            --mk-rgb: 74, 222, 128;
-            width: 30px;
-            height: 40px;
+            --mk-rgb: var(--marker-available-rgb);
+            position: relative;
+            width: var(--marker-size);
+            height: calc(var(--marker-size) + 10px);
             border: none;
             background: transparent;
             padding: 0;
             cursor: pointer;
+            outline: none;
             transform: translateZ(0);
             filter: drop-shadow(0 0 8px rgba(var(--mk-rgb), 0.38));
-            transition: transform 200ms ease, filter 200ms ease;
+            transition: transform 220ms cubic-bezier(0.2, 0.8, 0.2, 1), filter 220ms ease;
+        }
+
+        .psv-glass-marker .marker-halo {
+            position: absolute;
+            left: 50%;
+            top: calc(var(--marker-size) / 2);
+            width: calc(var(--marker-size) + 10px);
+            height: calc(var(--marker-size) + 10px);
+            border-radius: 999px;
+            transform: translate(-50%, -50%);
+            border: 1px solid rgba(var(--mk-rgb), 0.42);
+            background: radial-gradient(circle, rgba(var(--mk-rgb), 0.2) 0%, rgba(var(--mk-rgb), 0.05) 60%, rgba(var(--mk-rgb), 0) 100%);
+            animation: markerPulse 2.5s ease-in-out infinite;
+            pointer-events: none;
         }
 
         .psv-glass-marker .marker-core {
             position: absolute;
             top: 0;
             left: 50%;
-            width: 30px;
-            height: 30px;
+            width: var(--marker-size);
+            height: var(--marker-size);
             border-radius: 999px;
             transform: translateX(-50%);
             background:
                 radial-gradient(120% 120% at 24% 18%, rgba(255, 255, 255, 0.62) 0%, rgba(255, 255, 255, 0.12) 36%, rgba(255, 255, 255, 0) 65%),
                 linear-gradient(155deg, rgba(var(--mk-rgb), 0.48) 0%, rgba(var(--mk-rgb), 0.24) 48%, rgba(18, 24, 32, 0.46) 100%);
-            backdrop-filter: blur(7px) saturate(165%);
-            -webkit-backdrop-filter: blur(7px) saturate(165%);
-            border: 1.5px solid rgba(255, 255, 255, 0.92);
-            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.42), 0 2px 6px rgba(0, 0, 0, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.6);
-            animation: markerIdleFloat 2.7s ease-in-out infinite;
+            backdrop-filter: blur(var(--marker-blur)) saturate(165%);
+            -webkit-backdrop-filter: blur(var(--marker-blur)) saturate(165%);
+            border: 1.5px solid var(--marker-ring);
+            box-shadow: var(--marker-shadow), var(--marker-inner-glow), 0 0 0 1px rgba(255, 255, 255, 0.2);
+            animation: markerIdleFloat 2.9s ease-in-out infinite;
+        }
+
+        .psv-glass-marker .marker-dot {
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            width: 8px;
+            height: 8px;
+            border-radius: 999px;
+            transform: translate(-50%, -50%);
+            background: rgba(255, 255, 255, 0.96);
+            box-shadow: 0 0 8px rgba(var(--mk-rgb), 0.72);
+            z-index: 3;
+        }
+
+        .psv-glass-marker .marker-icon {
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            width: 16px;
+            height: 16px;
+            color: rgba(255, 255, 255, 0.95);
+            filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.45));
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            pointer-events: none;
+            z-index: 4;
+        }
+
+        .psv-glass-marker .marker-icon iconify-icon {
+            width: 100%;
+            height: 100%;
         }
 
         .psv-glass-marker .marker-pointer {
             position: absolute;
             left: 50%;
-            top: 26px;
+            top: calc(var(--marker-size) - 4px);
             width: 10px;
             height: 10px;
             transform: translateX(-50%) rotate(45deg);
             background: linear-gradient(145deg, rgba(var(--mk-rgb), 0.5), rgba(24, 30, 38, 0.44));
             border-right: 1px solid rgba(255, 255, 255, 0.62);
             border-bottom: 1px solid rgba(255, 255, 255, 0.62);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.32);
             border-radius: 2px;
         }
 
-        .psv-glass-marker.sold { --mk-rgb: 239, 68, 68; }
-        .psv-glass-marker.reserved { --mk-rgb: 249, 115, 22; }
-        .psv-glass-marker.available { --mk-rgb: 74, 222, 128; }
-        .psv-glass-marker:hover { transform: scale(1.1); }
-        .psv-glass-marker.is-active { transform: scale(1.14); }
+        .psv-glass-marker.available { --mk-rgb: var(--marker-available-rgb); }
+        .psv-glass-marker.sold { --mk-rgb: var(--marker-sold-rgb); }
+        .psv-glass-marker.reserved { --mk-rgb: var(--marker-reserved-rgb); }
+
+        .psv-glass-marker:hover {
+            transform: scale(1.1) translateY(-1px);
+            filter: drop-shadow(0 0 10px rgba(var(--mk-rgb), 0.48));
+        }
+
+        .psv-glass-marker:hover .marker-halo {
+            opacity: 0.92;
+        }
+
+        .psv-glass-marker.is-active {
+            transform: scale(1.14) translateY(-1px);
+            filter: drop-shadow(0 0 14px rgba(var(--mk-rgb), 0.58));
+        }
+
+        .psv-glass-marker.marker-theme-neon .marker-core {
+            box-shadow: 0 0 0 1.5px rgba(255, 255, 255, 0.3), 0 0 16px rgba(var(--mk-rgb), 0.72), var(--marker-inner-glow);
+        }
+
+        .psv-glass-marker.marker-theme-crystal .marker-core {
+            clip-path: polygon(50% 0%, 88% 23%, 88% 77%, 50% 100%, 12% 77%, 12% 23%);
+            border-radius: 8px;
+        }
+
+        .psv-glass-marker.marker-theme-orb .marker-pointer {
+            display: none;
+        }
+
+        .psv-glass-marker.marker-theme-orb {
+            height: var(--marker-size);
+        }
+
+        .psv-glass-marker.marker-theme-orb .marker-halo {
+            width: calc(var(--marker-size) + 18px);
+            height: calc(var(--marker-size) + 18px);
+        }
+
+        .psv-glass-marker.marker-theme-pin .marker-core {
+            border-radius: 50% 50% 50% 0;
+            transform: translateX(-50%) rotate(-45deg);
+        }
+
+        .psv-glass-marker.marker-theme-pin .marker-dot,
+        .psv-glass-marker.marker-theme-pin .marker-icon {
+            transform: translate(-50%, -50%) rotate(45deg);
+        }
+
+        .psv-glass-marker.marker-theme-pin .marker-pointer {
+            display: none;
+        }
+
+        .psv-glass-marker.marker-theme-chip .marker-core {
+            border-radius: 10px;
+        }
+
+        .psv-glass-marker.marker-theme-ring .marker-core {
+            background: rgba(8, 10, 12, 0.18);
+            box-shadow: 0 0 0 3px rgba(var(--mk-rgb), 0.78), inset 0 0 0 1px rgba(255, 255, 255, 0.28);
+        }
+
+        .psv-glass-marker.marker-theme-ring .marker-dot {
+            width: 6px;
+            height: 6px;
+        }
+
+        .psv-glass-marker.marker-theme-minimal {
+            --marker-size: 24px;
+            height: 32px;
+        }
+
+        .psv-glass-marker.marker-theme-beacon .marker-halo {
+            animation-duration: 1.5s;
+        }
+
+        .psv-glass-marker.marker-theme-gem .marker-core {
+            clip-path: polygon(50% 0%, 85% 22%, 100% 58%, 76% 100%, 24% 100%, 0% 58%, 15% 22%);
+            border-radius: 6px;
+        }
+
+        .psv-glass-marker.marker-theme-retro .marker-core {
+            backdrop-filter: none;
+            -webkit-backdrop-filter: none;
+            background: linear-gradient(180deg, rgba(var(--mk-rgb), 0.9) 0%, rgba(10, 12, 16, 0.72) 100%);
+        }
+
+        .psv-glass-marker.marker-theme-comet .marker-pointer {
+            width: 12px;
+            height: 16px;
+            top: calc(var(--marker-size) - 2px);
+            border-radius: 0 0 8px 8px;
+            transform: translateX(-50%) rotate(0deg);
+        }
+
+        .psv-glass-marker.marker-super {
+            width: 148px;
+            height: 128px;
+            filter: none;
+        }
+
+        .psv-glass-marker.marker-super:hover,
+        .psv-glass-marker.marker-super.is-active {
+            transform: translateZ(0);
+            filter: none;
+        }
+
+        .psv-glass-marker.marker-super .marker-callout {
+            position: absolute;
+            left: 50%;
+            top: 0;
+            transform: translateX(-50%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.2s ease;
+        }
+
+        .psv-glass-marker.marker-super .marker-stem {
+            width: 2px;
+            height: 66px;
+            background: rgba(233, 239, 247, 0.92);
+            box-shadow: 0 0 0 1px rgba(22, 41, 72, 0.12);
+        }
+
+        .psv-glass-marker.marker-super .marker-tag {
+            margin-bottom: 7px;
+            margin-top: -2px;
+            background: #1f3660;
+            color: #f4f8ff;
+            font-size: 0.82rem;
+            line-height: 1;
+            font-weight: 700;
+            letter-spacing: 0.01em;
+            padding: 0.42rem 0.62rem 0.4rem;
+            white-space: nowrap;
+            border-radius: 2px;
+            box-shadow: 0 7px 18px rgba(8, 24, 48, 0.4);
+        }
+
+        .psv-glass-marker.marker-super .marker-base {
+            position: absolute;
+            left: 50%;
+            bottom: 9px;
+            width: 42px;
+            height: 42px;
+            transform: translateX(-50%);
+            display: grid;
+            place-items: center;
+            pointer-events: none;
+        }
+
+        .psv-glass-marker.marker-super .marker-ring-outer {
+            position: absolute;
+            width: 42px;
+            height: 42px;
+            border-radius: 999px;
+            border: 6px solid rgba(215, 222, 233, 0.85);
+            background: rgba(255, 255, 255, 0.06);
+            box-shadow: 0 8px 16px rgba(5, 19, 38, 0.24);
+        }
+
+        .psv-glass-marker.marker-super .marker-ring-inner {
+            position: absolute;
+            width: 14px;
+            height: 14px;
+            border-radius: 999px;
+            border: 2px solid rgba(247, 251, 255, 0.94);
+            background: rgba(196, 206, 221, 0.9);
+            box-shadow: 0 0 0 4px rgba(95, 121, 161, 0.22);
+        }
+
+        .psv-glass-marker.marker-super:hover .marker-callout,
+        .psv-glass-marker.marker-super.is-active .marker-callout {
+            opacity: 1;
+        }
+
+        .psv-glass-marker.marker-super:hover .marker-ring-outer,
+        .psv-glass-marker.marker-super.is-active .marker-ring-outer {
+            border-color: rgba(242, 247, 255, 0.94);
+            box-shadow: 0 0 0 6px rgba(106, 131, 172, 0.16), 0 10px 20px rgba(4, 22, 46, 0.32);
+        }
+
+        .psv-glass-marker.marker-super.is-active .marker-tag {
+            background: #1b2e54;
+            color: #ffffff;
+        }
+        .psv-glass-marker.marker-photo {
+            width: 156px;
+            height: 158px;
+            filter: none;
+            transition: transform 0.24s ease;
+        }
+
+        .psv-glass-marker.marker-photo:hover,
+        .psv-glass-marker.marker-photo.is-active {
+            transform: translateZ(0) scale(1.03);
+            filter: none;
+        }
+
+        .psv-glass-marker.marker-photo .marker-photo-stem {
+            position: absolute;
+            left: 50%;
+            bottom: 16px;
+            width: 3px;
+            height: 76px;
+            transform: translateX(-50%);
+            background: linear-gradient(180deg, rgba(238, 214, 118, 0.98) 0%, rgba(223, 188, 84, 0.98) 100%);
+            border-radius: 999px;
+            box-shadow: 0 0 0 1px rgba(56, 61, 42, 0.14);
+            pointer-events: none;
+        }
+
+        .psv-glass-marker.marker-photo .marker-photo-base {
+            position: absolute;
+            left: 50%;
+            bottom: 8px;
+            width: 14px;
+            height: 14px;
+            transform: translateX(-50%);
+            border-radius: 999px;
+            background: linear-gradient(180deg, rgba(238, 214, 118, 0.98) 0%, rgba(223, 188, 84, 0.98) 100%);
+            border: 2px solid rgba(255, 255, 255, 0.92);
+            box-shadow: 0 3px 8px rgba(0, 0, 0, 0.34);
+            pointer-events: none;
+        }
+
+        .psv-glass-marker.marker-photo .marker-photo-disc {
+            position: absolute;
+            left: 50%;
+            top: 20px;
+            width: 60px;
+            height: 60px;
+            transform: translateX(-50%);
+            border-radius: 999px;
+            border: 3px solid rgba(236, 204, 97, 0.96);
+            background: rgba(255, 245, 211, 0.86);
+            overflow: hidden;
+            box-shadow: 0 8px 16px rgba(14, 29, 51, 0.26), 0 0 0 2px rgba(255, 255, 255, 0.38) inset;
+            transition: transform 0.24s ease, box-shadow 0.24s ease;
+            pointer-events: none;
+        }
+
+        .psv-glass-marker.marker-photo .marker-photo-image {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+            pointer-events: none;
+        }
+
+        .psv-glass-marker.marker-photo .marker-photo-placeholder {
+            width: 100%;
+            height: 100%;
+            display: grid;
+            place-items: center;
+            color: #3a4d68;
+            font-size: 0.68rem;
+            font-weight: 700;
+            letter-spacing: 0.03em;
+            text-transform: uppercase;
+            background: linear-gradient(140deg, rgba(225, 237, 255, 0.88) 0%, rgba(197, 216, 238, 0.88) 100%);
+            pointer-events: none;
+        }
+
+        .psv-glass-marker.marker-photo .marker-photo-name {
+            position: absolute;
+            left: 50%;
+            top: 0;
+            transform: translateX(-50%);
+            background: #1f3660;
+            color: #f4f8ff;
+            font-size: 0.82rem;
+            line-height: 1;
+            font-weight: 700;
+            letter-spacing: 0.01em;
+            padding: 0.42rem 0.62rem 0.4rem;
+            white-space: nowrap;
+            border-radius: 2px;
+            box-shadow: 0 7px 18px rgba(8, 24, 48, 0.4);
+            opacity: 0;
+            transition: opacity 0.2s ease;
+            pointer-events: none;
+        }
+
+        .psv-glass-marker.marker-photo:hover .marker-photo-name,
+        .psv-glass-marker.marker-photo.is-active .marker-photo-name {
+            opacity: 1;
+        }
+
+        .psv-glass-marker.marker-photo:hover .marker-photo-disc,
+        .psv-glass-marker.marker-photo.is-active .marker-photo-disc {
+            transform: translateX(-50%) scale(1.06);
+            box-shadow: 0 12px 22px rgba(14, 29, 51, 0.32), 0 0 0 2px rgba(255, 255, 255, 0.45) inset;
+        }
         .psv-glass-marker.is-entering { animation: markerBounceIn 520ms cubic-bezier(0.16, 0.84, 0.34, 1.22); }
 
         .marker-modal-backdrop {
@@ -1559,12 +1944,14 @@
 
         .marker-modal {
             position: relative;
-            width: min(430px, 96vw);
+            width: min(560px, 96vw);
             background: linear-gradient(180deg, rgba(24, 24, 25, 0.98) 0%, rgba(16, 16, 17, 0.98) 100%);
             border: 1px solid rgba(201, 169, 98, 0.28);
             border-radius: 12px;
             padding: 1rem;
             box-shadow: 0 16px 30px rgba(0, 0, 0, 0.45);
+            max-height: 92vh;
+            overflow: auto;
         }
 
         .marker-modal-close {
@@ -1605,7 +1992,8 @@
         }
 
         .marker-form-input,
-        .marker-form-textarea {
+        .marker-form-textarea,
+        .marker-form-select {
             width: 100%;
             padding: 0.65rem 0.75rem;
             border-radius: 8px;
@@ -1615,6 +2003,161 @@
             font-family: var(--font-body);
             font-size: 0.84rem;
             margin-bottom: 0.65rem;
+        }
+
+        .marker-form-select {
+            appearance: none;
+            background-image:
+                linear-gradient(45deg, transparent 50%, rgba(255, 255, 255, 0.7) 50%),
+                linear-gradient(135deg, rgba(255, 255, 255, 0.7) 50%, transparent 50%);
+            background-position:
+                calc(100% - 14px) calc(50% - 2px),
+                calc(100% - 8px) calc(50% - 2px);
+            background-size: 6px 6px, 6px 6px;
+            background-repeat: no-repeat;
+            padding-right: 1.9rem;
+        }
+
+        .marker-icon-select {
+            position: relative;
+            margin-bottom: 0.5rem;
+        }
+
+        .marker-icon-trigger {
+            width: 100%;
+            display: grid;
+            grid-template-columns: auto 1fr auto;
+            align-items: center;
+            gap: 0.6rem;
+            padding: 0.58rem 0.72rem;
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.14);
+            background: rgba(255, 255, 255, 0.04);
+            color: var(--color-text);
+            cursor: pointer;
+            font-family: var(--font-body);
+            font-size: 0.84rem;
+            text-align: left;
+        }
+
+        .marker-icon-trigger:hover {
+            border-color: rgba(201, 169, 98, 0.5);
+            background: rgba(255, 255, 255, 0.08);
+        }
+
+        .marker-icon-trigger[aria-expanded="true"] {
+            border-color: rgba(201, 169, 98, 0.75);
+        }
+
+        .marker-icon-caret {
+            color: rgba(255, 255, 255, 0.72);
+            font-size: 0.78rem;
+        }
+
+        .marker-icon-value {
+            color: rgba(255, 255, 255, 0.9);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .marker-icon-swatch {
+            width: 28px;
+            height: 28px;
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(255, 255, 255, 0.08);
+            color: #ffffff;
+            font-size: 18px;
+            flex-shrink: 0;
+        }
+
+        .marker-icon-swatch iconify-icon {
+            width: 18px;
+            height: 18px;
+        }
+
+        .marker-icon-panel {
+            position: absolute;
+            top: calc(100% + 6px);
+            left: 0;
+            right: 0;
+            z-index: 25;
+            display: none;
+            border: 1px solid rgba(201, 169, 98, 0.36);
+            border-radius: 10px;
+            background: rgba(14, 14, 16, 0.98);
+            box-shadow: 0 12px 28px rgba(0, 0, 0, 0.48);
+            padding: 0.55rem;
+        }
+
+        .marker-icon-panel.open {
+            display: block;
+        }
+
+        .marker-icon-search {
+            margin-bottom: 0.5rem;
+        }
+
+        .marker-icon-options {
+            max-height: 232px;
+            overflow-y: auto;
+            display: grid;
+            gap: 0.3rem;
+            padding-right: 0.15rem;
+        }
+
+        .marker-icon-option {
+            width: 100%;
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            background: rgba(255, 255, 255, 0.04);
+            border-radius: 8px;
+            color: var(--color-text);
+            display: grid;
+            grid-template-columns: auto 1fr;
+            align-items: center;
+            gap: 0.55rem;
+            padding: 0.44rem 0.5rem;
+            font-size: 0.78rem;
+            cursor: pointer;
+            text-align: left;
+        }
+
+        .marker-icon-option:hover,
+        .marker-icon-option.is-active {
+            border-color: rgba(201, 169, 98, 0.52);
+            background: rgba(201, 169, 98, 0.16);
+        }
+
+        .marker-icon-name {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            color: rgba(255, 255, 255, 0.92);
+        }
+
+        .marker-icon-empty {
+            border: 1px dashed rgba(255, 255, 255, 0.18);
+            border-radius: 8px;
+            padding: 0.55rem 0.6rem;
+            font-size: 0.74rem;
+            color: var(--color-muted);
+            text-align: center;
+        }
+
+        .marker-color-input {
+            height: 42px;
+            padding: 0.35rem;
+            cursor: pointer;
+        }
+
+        .marker-icon-helper {
+            margin: -0.3rem 0 0.65rem;
+            color: var(--color-muted);
+            font-size: 0.74rem;
         }
 
         .marker-form-textarea {
@@ -1639,6 +2182,12 @@
             display: flex;
             gap: 0.6rem;
             justify-content: flex-end;
+        }
+
+        @keyframes markerPulse {
+            0% { transform: translate(-50%, -50%) scale(0.88); opacity: 0.72; }
+            50% { transform: translate(-50%, -50%) scale(1.06); opacity: 0.98; }
+            100% { transform: translate(-50%, -50%) scale(0.88); opacity: 0.72; }
         }
 
         @keyframes markerBounceIn {
@@ -2061,6 +2610,26 @@
             <input id="marker-name" class="marker-form-input" type="text" maxlength="120">
             <label class="marker-form-label" for="marker-description">Description</label>
             <textarea id="marker-description" class="marker-form-textarea" maxlength="2000"></textarea>
+            <label class="marker-form-label" for="marker-style">Marker Type</label>
+            <select id="marker-style" class="marker-form-select"></select>
+            <label class="marker-form-label" for="marker-icon-search">Marker Icon</label>
+            <div class="marker-icon-select" id="marker-icon-select">
+                <button class="marker-icon-trigger" id="marker-icon-trigger" type="button" aria-haspopup="listbox" aria-expanded="false">
+                    <span class="marker-icon-swatch marker-icon-swatch--trigger">
+                        <iconify-icon id="marker-icon-preview" icon="mdi:map-marker-radius"></iconify-icon>
+                    </span>
+                    <span class="marker-icon-value" id="marker-icon-value">mdi:map-marker-radius</span>
+                    <span class="marker-icon-caret" aria-hidden="true">▾</span>
+                </button>
+                <div class="marker-icon-panel" id="marker-icon-panel" role="listbox" aria-label="Marker icons">
+                    <input id="marker-icon-search" class="marker-form-input marker-icon-search" type="text" maxlength="80" placeholder="Search icons (e.g. tree, home)">
+                    <div class="marker-icon-options" id="marker-icon-options"></div>
+                </div>
+            </div>
+            <input id="marker-icon" type="hidden" value="mdi:map-marker-radius">
+            <div class="marker-icon-helper">Pick from icon options with preview, or type a custom Iconify id in search (e.g. `mdi:tree`).</div>
+            <label class="marker-form-label" for="marker-color">Marker Color</label>
+            <input id="marker-color" class="marker-form-input marker-color-input" type="color" value="#4ade80">
             <label class="marker-form-label" for="marker-image">Image</label>
             <input id="marker-image" class="marker-form-input" type="file" accept="image/png,image/jpeg,image/jpg,image/webp">
             <div class="marker-image-preview" id="marker-image-preview"></div>
@@ -2162,6 +2731,84 @@
         const statusLabels = { available: 'Available', reserved: 'On Hold', on_hold: 'On Hold', sold: 'Sold' };
         const statusToColor = { available: 'green', reserved: 'orange', on_hold: 'orange', sold: 'red' };
         const colorToStatus = { green: 'available', orange: 'on_hold', red: 'sold' };
+        const DEFAULT_MARKER_STYLE = 'glass';
+        const SUPER_MARKER_STYLE = 'super';
+        const PHOTO_MARKER_STYLE = 'photo';
+        const DEFAULT_MARKER_ICON = 'mdi:map-marker-radius';
+        const DEFAULT_MARKER_COLOR = '#4ade80';
+        const MARKER_STYLE_OPTIONS = Object.freeze([
+            { value: 'super', label: 'Super Marker' },
+            { value: 'glass', label: 'Glass Pin' },
+            { value: 'photo', label: 'Photo Circle' },
+            { value: 'neon', label: 'Neon Glow' },
+            { value: 'orb', label: 'Floating Orb' },
+            { value: 'pin', label: 'Classic Pin' },
+            { value: 'crystal', label: 'Crystal Hex' },
+            { value: 'ring', label: 'Pulse Ring' },
+            { value: 'chip', label: 'Rounded Chip' },
+            { value: 'beacon', label: 'Beacon Pulse' },
+            { value: 'gem', label: 'Gem Cut' },
+            { value: 'retro', label: 'Retro Dot' },
+            { value: 'comet', label: 'Comet Tail' },
+            { value: 'minimal', label: 'Minimal Dot' }
+        ]);
+        const MARKER_ICON_GROUPS = Object.freeze({
+            mdi: [
+                'map-marker', 'map-marker-radius', 'map-marker-star', 'map-marker-check', 'map-marker-alert',
+                'home', 'home-city', 'office-building', 'warehouse', 'city', 'domain', 'school', 'hospital-building',
+                'store', 'shopping', 'shopping-outline', 'cart', 'cart-outline', 'cash-register', 'bank',
+                'car', 'car-sports', 'car-electric', 'bus', 'train', 'airplane', 'ferry', 'bike',
+                'tree', 'pine-tree', 'flower', 'leaf', 'sprout', 'water', 'wave', 'weather-sunny',
+                'pool', 'swim', 'dumbbell', 'tennis', 'golf', 'soccer', 'basketball', 'stadium',
+                'food', 'silverware-fork-knife', 'coffee', 'beer', 'glass-cocktail', 'chef-hat', 'grill',
+                'account-group', 'account-tie', 'account-heart', 'human-male-female-child', 'baby-face-outline',
+                'dog', 'cat', 'paw', 'horse-variant', 'duck', 'fish', 'bird',
+                'shield-check', 'cctv', 'lock', 'key', 'fire-extinguisher', 'alarm-light', 'bell-alert',
+                'camera', 'video', 'image', 'image-multiple', 'movie-open', 'music', 'microphone',
+                'wifi', 'lightning-bolt', 'power-plug', 'solar-power', 'battery-charging', 'ev-station',
+                'calendar', 'clock-outline', 'information', 'star', 'heart', 'thumb-up', 'flag',
+                'tools', 'hammer-wrench', 'wrench', 'screwdriver', 'brush-variant', 'palette', 'format-color-fill',
+                'gift', 'party-popper', 'balloon', 'firework', 'crown', 'diamond-stone', 'trophy',
+                'spa', 'meditation', 'yoga', 'run', 'walk', 'hiking', 'map-search'
+            ],
+            tabler: [
+                'building', 'building-estate', 'building-castle', 'building-factory', 'building-warehouse',
+                'map-pin', 'map-pin-star', 'map-pin-check', 'route', 'navigation',
+                'trees', 'tree', 'plant-2', 'flower', 'mountain', 'beach',
+                'car', 'truck', 'bus', 'bike', 'plane', 'ship', 'ambulance',
+                'pool', 'ball-football', 'ball-basketball', 'barbell', 'tennis', 'golf',
+                'users', 'user-heart', 'baby-carriage', 'pets', 'paw', 'stethoscope',
+                'shield-check', 'cctv', 'lock', 'key', 'flame', 'alarm',
+                'camera', 'photo', 'movie', 'music', 'microphone', 'wifi',
+                'bolt', 'plug', 'battery-4', 'calendar-event', 'clock-hour-4', 'star', 'heart'
+            ],
+            ph: [
+                'map-pin-line', 'map-pin-plus', 'house-line', 'buildings', 'storefront', 'warehouse',
+                'tree-evergreen', 'flower-lotus', 'waves', 'mountains', 'sun', 'cloud-rain',
+                'car-profile', 'bus', 'train', 'airplane-tilt', 'boat', 'bicycle',
+                'barbell', 'soccer-ball', 'basketball', 'tennis-ball', 'golf',
+                'users-three', 'baby', 'dog', 'cat', 'heartbeat', 'shield-checkered',
+                'camera', 'film-strip', 'music-note-simple', 'wifi-high', 'lightning',
+                'calendar-blank', 'clock', 'star', 'heart-straight', 'gift', 'crown'
+            ]
+        });
+        const MARKER_ICON_LIBRARY = Object.freeze(
+            Object.entries(MARKER_ICON_GROUPS).flatMap(([prefix, names]) => names.map((name) => `${prefix}:${name}`))
+        );
+
+        function normalizeMarkerColorHex(value) {
+            const raw = String(value || '').trim();
+            const match = raw.match(/^#([0-9a-fA-F]{6})$/);
+            return match ? `#${match[1].toLowerCase()}` : DEFAULT_MARKER_COLOR;
+        }
+
+        function hexToMarkerRgb(hexColor) {
+            const hex = normalizeMarkerColorHex(hexColor).slice(1);
+            const r = parseInt(hex.slice(0, 2), 16);
+            const g = parseInt(hex.slice(2, 4), 16);
+            const b = parseInt(hex.slice(4, 6), 16);
+            return `${r}, ${g}, ${b}`;
+        }
 
         async function loadPlots() {
             try {
@@ -2355,11 +3002,23 @@
                 this.selectedMarkerId = null;
                 this.currentImageBase64 = '';
                 this.maxImageBytes = 300 * 1024;
+                this.styleColumnsSupported = true;
+                this.iconDropdownBound = false;
 
                 this.dom = {
                     formBackdrop: document.getElementById('marker-form-modal'),
                     nameInput: document.getElementById('marker-name'),
                     descriptionInput: document.getElementById('marker-description'),
+                    styleSelect: document.getElementById('marker-style'),
+                    iconInput: document.getElementById('marker-icon'),
+                    iconSelect: document.getElementById('marker-icon-select'),
+                    iconTrigger: document.getElementById('marker-icon-trigger'),
+                    iconPreview: document.getElementById('marker-icon-preview'),
+                    iconValue: document.getElementById('marker-icon-value'),
+                    iconPanel: document.getElementById('marker-icon-panel'),
+                    iconSearch: document.getElementById('marker-icon-search'),
+                    iconOptions: document.getElementById('marker-icon-options'),
+                    colorInput: document.getElementById('marker-color'),
                     imageInput: document.getElementById('marker-image'),
                     imagePreview: document.getElementById('marker-image-preview'),
                     cancelBtn: document.getElementById('cancel-marker'),
@@ -2368,6 +3027,7 @@
                 };
 
                 this.bindUi();
+                this.initializeMarkerSelectorUi();
             }
 
             bindUi() {
@@ -2389,6 +3049,148 @@
                 if (d.imageInput) {
                     d.imageInput.addEventListener('change', () => this.previewSelectedImage());
                 }
+                if (!this.iconDropdownBound) {
+                    if (d.iconTrigger) {
+                        d.iconTrigger.addEventListener('click', () => this.toggleIconPanel());
+                    }
+                    if (d.iconSearch) {
+                        d.iconSearch.addEventListener('input', () => this.renderIconOptions(d.iconSearch.value));
+                        d.iconSearch.addEventListener('keydown', (event) => this.handleIconSearchKeyDown(event));
+                    }
+                    if (d.iconOptions) {
+                        d.iconOptions.addEventListener('click', (event) => {
+                            const option = event.target.closest('.marker-icon-option[data-icon]');
+                            if (!option) return;
+                            this.setIconValue(option.dataset.icon || DEFAULT_MARKER_ICON, { closePanel: true });
+                        });
+                    }
+                    document.addEventListener('pointerdown', (event) => {
+                        if (!this.isIconPanelOpen()) return;
+                        if (d.iconSelect && d.iconSelect.contains(event.target)) return;
+                        this.closeIconPanel();
+                    });
+                    this.iconDropdownBound = true;
+                }
+            }
+
+            initializeMarkerSelectorUi() {
+                const d = this.dom;
+                if (d.styleSelect) {
+                    d.styleSelect.innerHTML = MARKER_STYLE_OPTIONS
+                        .map((option) => `<option value="${this.escapeAttr(option.value)}">${this.escapeHtml(option.label)}</option>`)
+                        .join('');
+                    d.styleSelect.value = DEFAULT_MARKER_STYLE;
+                }
+                this.setIconValue(DEFAULT_MARKER_ICON, { closePanel: true, rerender: true });
+                if (d.colorInput) d.colorInput.value = DEFAULT_MARKER_COLOR;
+            }
+
+            isIconPanelOpen() {
+                return Boolean(this.dom.iconPanel && this.dom.iconPanel.classList.contains('open'));
+            }
+
+            openIconPanel() {
+                const d = this.dom;
+                if (!d.iconPanel || !d.iconTrigger) return;
+                d.iconPanel.classList.add('open');
+                d.iconTrigger.setAttribute('aria-expanded', 'true');
+                const currentIcon = this.normalizeMarkerIcon(d.iconInput ? d.iconInput.value : DEFAULT_MARKER_ICON);
+                if (d.iconSearch) {
+                    d.iconSearch.value = '';
+                    d.iconSearch.placeholder = `Search icons (current: ${currentIcon})`;
+                    requestAnimationFrame(() => d.iconSearch && d.iconSearch.focus());
+                }
+                this.renderIconOptions('');
+            }
+
+            closeIconPanel() {
+                const d = this.dom;
+                if (d.iconPanel) d.iconPanel.classList.remove('open');
+                if (d.iconTrigger) d.iconTrigger.setAttribute('aria-expanded', 'false');
+            }
+
+            toggleIconPanel() {
+                if (this.isIconPanelOpen()) this.closeIconPanel();
+                else this.openIconPanel();
+            }
+
+            setIconValue(icon, options = {}) {
+                const d = this.dom;
+                const closePanel = options.closePanel !== false;
+                const rerender = options.rerender !== false;
+                const normalized = this.normalizeMarkerIcon(icon);
+                if (d.iconInput) d.iconInput.value = normalized;
+                if (d.iconValue) d.iconValue.textContent = normalized;
+                if (d.iconPreview) d.iconPreview.setAttribute('icon', normalized);
+                if (rerender) this.renderIconOptions(d.iconSearch ? d.iconSearch.value : '');
+                if (closePanel) this.closeIconPanel();
+            }
+
+            renderIconOptions(query) {
+                const d = this.dom;
+                if (!d.iconOptions) return;
+                const raw = String(query || '').trim();
+                const normalizedQuery = raw.toLowerCase();
+                let options = MARKER_ICON_LIBRARY;
+                if (normalizedQuery) {
+                    options = MARKER_ICON_LIBRARY.filter((icon) => icon.toLowerCase().includes(normalizedQuery));
+                }
+                options = options.slice(0, 220);
+                const selected = this.normalizeMarkerIcon(d.iconInput ? d.iconInput.value : DEFAULT_MARKER_ICON);
+                const exactExists = MARKER_ICON_LIBRARY.some((icon) => icon.toLowerCase() === normalizedQuery);
+                const customCandidate = raw.includes(':') ? raw : '';
+                const rows = [];
+                if (customCandidate && !exactExists) {
+                    rows.push({ icon: customCandidate, label: `Use custom: ${customCandidate}`, custom: true });
+                }
+                options.forEach((icon) => rows.push({ icon, label: icon, custom: false }));
+                if (!rows.length) {
+                    d.iconOptions.innerHTML = '<div class="marker-icon-empty">No icon matches. Try `mdi:tree` or `tabler:building`.</div>';
+                    return;
+                }
+                d.iconOptions.innerHTML = rows.map((row) => {
+                    const activeClass = row.icon === selected ? ' is-active' : '';
+                    return `<button type="button" class="marker-icon-option${activeClass}" data-icon="${this.escapeAttr(row.icon)}"><span class="marker-icon-swatch"><iconify-icon icon="${this.escapeAttr(row.icon)}"></iconify-icon></span><span class="marker-icon-name">${this.escapeHtml(row.label)}</span></button>`;
+                }).join('');
+            }
+
+            handleIconSearchKeyDown(event) {
+                if (event.key === 'Escape') {
+                    event.preventDefault();
+                    this.closeIconPanel();
+                    return;
+                }
+                if (event.key !== 'Enter') return;
+                event.preventDefault();
+                const d = this.dom;
+                const first = d.iconOptions ? d.iconOptions.querySelector('.marker-icon-option[data-icon]') : null;
+                if (first && first.dataset.icon) {
+                    this.setIconValue(first.dataset.icon, { closePanel: true });
+                    return;
+                }
+                const raw = d.iconSearch ? d.iconSearch.value.trim() : '';
+                if (raw && raw.includes(':')) {
+                    this.setIconValue(raw, { closePanel: true });
+                }
+            }
+
+            normalizeMarkerStyle(value) {
+                const style = String(value || '').trim().toLowerCase();
+                return MARKER_STYLE_OPTIONS.some((option) => option.value === style) ? style : DEFAULT_MARKER_STYLE;
+            }
+
+            normalizeMarkerIcon(value) {
+                const icon = String(value || '').trim();
+                return icon || DEFAULT_MARKER_ICON;
+            }
+
+            normalizeMarkerColor(value) {
+                return normalizeMarkerColorHex(value);
+            }
+
+            isStyleColumnError(error) {
+                const message = String(error && (error.message || error.details || error.hint) ? (error.message || error.details || error.hint) : '').toLowerCase();
+                return message.includes('marker_style') || message.includes('marker_icon') || message.includes('marker_color');
             }
 
             init(viewer, markersPlugin) {
@@ -2418,6 +3220,9 @@
                     name: row.name || '',
                     description: row.description || '',
                     image_base64: row.image_base64 || '',
+                    marker_style: this.normalizeMarkerStyle(row.marker_style),
+                    marker_icon: this.normalizeMarkerIcon(row.marker_icon),
+                    marker_color: this.normalizeMarkerColor(row.marker_color),
                     longitude: Number(row.longitude || 0),
                     latitude: Number(row.latitude || 0),
                     status: ['available', 'sold', 'reserved'].includes(status) ? status : 'available',
@@ -2436,12 +3241,29 @@
                 return 'available';
             }
 
+            buildPhotoMarkerHtml(marker, statusClass) {
+                const hasImage = Boolean(marker.image_base64);
+                const imageContent = hasImage
+                    ? `<img class="marker-photo-image" src="${this.escapeAttr(marker.image_base64)}" alt="${this.escapeAttr(marker.name || 'Marker')}">`
+                    : `<span class="marker-photo-placeholder">${this.escapeHtml((marker.name || 'POI').slice(0, 2).toUpperCase())}</span>`;
+                return `<button class="psv-glass-marker marker-photo ${statusClass}" type="button" data-marker-id="${this.escapeAttr(marker.id)}" aria-label="${this.escapeAttr(marker.name || 'Marker')}"><span class="marker-photo-name">${this.escapeHtml(marker.name || 'Marker')}</span><span class="marker-photo-disc">${imageContent}</span><span class="marker-photo-stem" aria-hidden="true"></span><span class="marker-photo-base" aria-hidden="true"></span></button>`;
+            }
+
             buildViewerMarker(marker) {
+                const statusClass = this.getStatusClass(marker);
+                const markerStyle = this.normalizeMarkerStyle(marker.marker_style);
+                const markerIcon = this.normalizeMarkerIcon(marker.marker_icon);
+                const markerRgb = hexToMarkerRgb(marker.marker_color);
+                const markerHtml = markerStyle === SUPER_MARKER_STYLE
+                    ? `<button class="psv-glass-marker marker-super ${statusClass}" type="button" data-marker-id="${this.escapeAttr(marker.id)}" aria-label="${this.escapeAttr(marker.name || 'Marker')}"><span class="marker-callout" aria-hidden="true"><span class="marker-tag">${this.escapeHtml(marker.name || 'Marker')}</span><span class="marker-stem"></span></span><span class="marker-base" aria-hidden="true"><span class="marker-ring-outer"></span><span class="marker-ring-inner"></span></span></button>`
+                    : (markerStyle === PHOTO_MARKER_STYLE
+                        ? this.buildPhotoMarkerHtml(marker, statusClass)
+                        : `<button class="psv-glass-marker marker-classic ${statusClass} marker-theme-${this.escapeAttr(markerStyle)}" style="--mk-rgb:${this.escapeAttr(markerRgb)};" type="button" data-marker-id="${this.escapeAttr(marker.id)}" aria-label="${this.escapeAttr(marker.name || 'Marker')}"><span class="marker-halo" aria-hidden="true"></span><span class="marker-core" aria-hidden="true"><span class="marker-dot"></span><span class="marker-icon" aria-hidden="true"><iconify-icon icon="${this.escapeAttr(markerIcon)}"></iconify-icon></span></span><span class="marker-pointer" aria-hidden="true"></span></button>`);
                 return {
                     id: this.toViewerMarkerId(marker.id),
                     longitude: marker.longitude,
                     latitude: marker.latitude,
-                    html: `<button class="psv-glass-marker ${this.getStatusClass(marker)}" type="button" data-marker-id="${this.escapeAttr(marker.id)}" aria-label="${this.escapeAttr(marker.name || 'Marker')}"><span class="marker-core" aria-hidden="true"></span><span class="marker-pointer" aria-hidden="true"></span></button>`,
+                    html: markerHtml,
                     anchor: 'center bottom',
                     style: { zIndex: 120 },
                     tooltip: marker.name || '',
@@ -2450,6 +3272,45 @@
                         markerId: marker.id
                     }
                 };
+            }
+
+            applyMarkerVisualStyle(markerId = null) {
+                const targetIds = markerId ? [String(markerId)] : Array.from(this.markerMap.keys());
+                const styleClasses = MARKER_STYLE_OPTIONS.map((option) => `marker-theme-${option.value}`);
+                targetIds.forEach((id) => {
+                    const marker = this.markerMap.get(String(id));
+                    if (!marker) return;
+                    const selectorId = (typeof CSS !== 'undefined' && typeof CSS.escape === 'function')
+                        ? CSS.escape(String(id))
+                        : String(id).replace(/"/g, '\\"');
+                    const markerEl = document.querySelector(`.psv-glass-marker[data-marker-id="${selectorId}"]`);
+                    if (!markerEl) return;
+                    const normalizedStyle = this.normalizeMarkerStyle(marker.marker_style);
+                    const isSuper = normalizedStyle === SUPER_MARKER_STYLE;
+                    const isPhoto = normalizedStyle === PHOTO_MARKER_STYLE;
+                    markerEl.classList.remove(...styleClasses);
+                    markerEl.classList.remove('marker-super', 'marker-classic', 'marker-photo');
+                    if (isSuper) {
+                        markerEl.classList.add('marker-super');
+                        const labelEl = markerEl.querySelector('.marker-tag');
+                        if (labelEl) labelEl.textContent = marker.name || 'Marker';
+                    } else if (isPhoto) {
+                        markerEl.classList.add('marker-photo');
+                        const nameEl = markerEl.querySelector('.marker-photo-name');
+                        if (nameEl) nameEl.textContent = marker.name || 'Marker';
+                        const imgEl = markerEl.querySelector('.marker-photo-image');
+                        if (imgEl && marker.image_base64) {
+                            imgEl.setAttribute('src', marker.image_base64);
+                        }
+                    } else {
+                        markerEl.classList.add('marker-classic', `marker-theme-${normalizedStyle}`);
+                        markerEl.style.setProperty('--mk-rgb', hexToMarkerRgb(marker.marker_color));
+                        const iconEl = markerEl.querySelector('iconify-icon');
+                        if (iconEl) {
+                            iconEl.setAttribute('icon', this.normalizeMarkerIcon(marker.marker_icon));
+                        }
+                    }
+                });
             }
 
             syncViewerMarkers() {
@@ -2475,6 +3336,8 @@
                         this.markersPlugin.removeMarker(id);
                     } catch (error) {}
                 });
+                requestAnimationFrame(() => this.applyMarkerVisualStyle());
+                setTimeout(() => this.applyMarkerVisualStyle(), 60);
             }
 
             handleMarkerSelection(marker) {
@@ -2504,6 +3367,9 @@
                 this.currentImageBase64 = marker.image_base64 || '';
                 if (d.nameInput) d.nameInput.value = marker.name || '';
                 if (d.descriptionInput) d.descriptionInput.value = marker.description || '';
+                if (d.styleSelect) d.styleSelect.value = this.normalizeMarkerStyle(marker.marker_style);
+                this.setIconValue(this.normalizeMarkerIcon(marker.marker_icon), { closePanel: true, rerender: true });
+                if (d.colorInput) d.colorInput.value = this.normalizeMarkerColor(marker.marker_color);
                 if (d.imageInput) d.imageInput.value = '';
                 this.updatePreview(this.currentImageBase64);
                 if (d.formBackdrop) d.formBackdrop.classList.add('visible');
@@ -2511,6 +3377,9 @@
 
             closeForm() {
                 if (this.dom.formBackdrop) this.dom.formBackdrop.classList.remove('visible');
+                if (this.dom.styleSelect) this.dom.styleSelect.value = DEFAULT_MARKER_STYLE;
+                this.setIconValue(DEFAULT_MARKER_ICON, { closePanel: true, rerender: true });
+                if (this.dom.colorInput) this.dom.colorInput.value = DEFAULT_MARKER_COLOR;
                 this.currentImageBase64 = '';
             }
 
@@ -2547,6 +3416,9 @@
                     return;
                 }
                 const description = (this.dom.descriptionInput ? this.dom.descriptionInput.value : '').trim();
+                const markerStyle = this.normalizeMarkerStyle(this.dom.styleSelect ? this.dom.styleSelect.value : DEFAULT_MARKER_STYLE);
+                const markerIcon = this.normalizeMarkerIcon(this.dom.iconInput ? this.dom.iconInput.value : DEFAULT_MARKER_ICON);
+                const markerColor = this.normalizeMarkerColor(this.dom.colorInput ? this.dom.colorInput.value : DEFAULT_MARKER_COLOR);
                 let imageBase64 = marker.image_base64 || '';
                 const file = this.dom.imageInput && this.dom.imageInput.files ? this.dom.imageInput.files[0] : null;
                 try {
@@ -2560,6 +3432,9 @@
                     await this.updateMarker(markerId, {
                         name,
                         description,
+                        marker_style: markerStyle,
+                        marker_icon: markerIcon,
+                        marker_color: markerColor,
                         image_base64: imageBase64 || null
                     });
                     showToast('Marker updated');
@@ -2571,16 +3446,38 @@
 
             async updateMarker(id, data) {
                 const supabase = this.getSupabaseClient();
-                const { data: rows, error } = await supabase
+                const payload = {
+                    name: data.name,
+                    description: data.description || '',
+                    image_base64: data.image_base64 || null
+                };
+                if (this.styleColumnsSupported) {
+                    payload.marker_style = this.normalizeMarkerStyle(data.marker_style);
+                    payload.marker_icon = this.normalizeMarkerIcon(data.marker_icon);
+                    payload.marker_color = this.normalizeMarkerColor(data.marker_color);
+                }
+                let result = await supabase
                     .from('plot_markers')
-                    .update({
-                        name: data.name,
-                        description: data.description || '',
-                        image_base64: data.image_base64 || null
-                    })
+                    .update(payload)
                     .eq('id', id)
                     .select('*')
                     .limit(1);
+                if (result.error && this.styleColumnsSupported && this.isStyleColumnError(result.error)) {
+                    this.styleColumnsSupported = false;
+                    showToast('Run marker style migration in Supabase to persist icon/style choices.', 'error');
+                    const legacyPayload = {
+                        name: data.name,
+                        description: data.description || '',
+                        image_base64: data.image_base64 || null
+                    };
+                    result = await supabase
+                        .from('plot_markers')
+                        .update(legacyPayload)
+                        .eq('id', id)
+                        .select('*')
+                        .limit(1);
+                }
+                const { data: rows, error } = result;
                 if (error) throw error;
                 if (!rows || !rows[0]) throw new Error('Update failed');
                 const marker = this.normalizeMarker(rows[0]);
@@ -2789,13 +3686,18 @@
                 .filter(plot => Array.isArray(plot.points) && plot.points.length >= 3)
                 .forEach(plot => {
                     const colors = getPlotColors(plot);
+                    const statusKey = normalizeStatus(plot.status || colorToStatus[plot.color] || 'available');
+                    const labelClass = statusKey === 'sold'
+                        ? 'psv-plot-label--sold'
+                        : (statusKey === 'on_hold' ? 'psv-plot-label--hold' : 'psv-plot-label--available');
                     markers.push({
                         id: `plot-${plot.id}`,
                         polygonPx: plot.points.map(point => [point.x, point.y]),
                         svgStyle: {
                             fill: colors.fill,
                             stroke: colors.start,
-                            strokeWidth: 3,
+                            strokeWidth: 3.1,
+                            strokeLinecap: 'round',
                             strokeLinejoin: 'round'
                         },
                         tooltip: plot.name || '',
@@ -2809,7 +3711,7 @@
                             id: `plot-label-${plot.id}`,
                             longitude: spherical.longitude,
                             latitude: spherical.latitude,
-                            html: `<div class="psv-plot-label">${escapeHtml(plot.name)}</div>`,
+                            html: `<div class="psv-plot-label ${labelClass}">${escapeHtml(plot.name)}</div>`,
                             anchor: 'center center',
                             style: { pointerEvents: 'none' },
                             data: { plotId: plot.id, label: true }

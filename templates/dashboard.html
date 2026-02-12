@@ -66,6 +66,20 @@
             gap: 1.25rem;
         }
 
+        .header-logo {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            text-decoration: none;
+        }
+
+        .header-logo img {
+            height: 42px;
+            width: auto;
+            object-fit: contain;
+            filter: drop-shadow(0 10px 18px rgba(0, 0, 0, 0.35));
+        }
+
         .header-nav a {
             color: var(--color-text-dim);
             text-decoration: none;
@@ -431,6 +445,17 @@
             background: var(--color-accent-hover);
         }
 
+        .project-btn.rename {
+            background: rgba(201, 169, 98, 0.14);
+            color: var(--color-accent);
+            border: 1px solid rgba(201, 169, 98, 0.35);
+        }
+
+        .project-btn.rename:hover {
+            background: rgba(201, 169, 98, 0.24);
+            border-color: rgba(201, 169, 98, 0.55);
+        }
+
         .project-btn.delete {
             background: rgba(239, 68, 68, 0.1);
             color: var(--color-danger);
@@ -618,6 +643,9 @@
             <a href="#" id="nav-change-password">Change password</a>
             <a href="/login" id="nav-logout">Sign out</a>
         </nav>
+        <a class="header-logo" href="/dashboard" aria-label="Dashboard">
+            <img src="/static/Logo.png" alt="Logo" loading="eager">
+        </a>
     </header>
 
     <main class="container">
@@ -709,6 +737,24 @@
             <div class="modal-actions">
                 <button class="btn btn-secondary" id="cancel-delete">Cancel</button>
                 <button class="btn btn-danger" id="confirm-delete">Delete</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Rename Project Modal -->
+    <div class="modal-backdrop" id="rename-modal">
+        <div class="modal">
+            <div class="modal-title">Rename Project</div>
+            <div class="modal-text" style="margin-bottom: 1rem;">Enter a new project name.</div>
+            <div class="form-group" style="margin-bottom: 1rem;">
+                <label class="form-label" for="rename-project-input">Project name</label>
+                <input type="text" id="rename-project-input" class="form-input" maxlength="120"
+                    placeholder="Project name">
+            </div>
+            <div id="rename-project-error" class="msg error" style="display:none; margin-bottom: 1rem;"></div>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" id="cancel-rename">Cancel</button>
+                <button class="btn btn-primary" id="confirm-rename">Rename</button>
             </div>
         </div>
     </div>
@@ -825,6 +871,7 @@
         let projects = [];
         let selectedFile = null;
         let deleteTargetId = null;
+        let renameTargetId = null;
 
         // DOM Elements
         const uploadZone = document.getElementById('upload-zone');
@@ -843,6 +890,11 @@
         const deleteModal = document.getElementById('delete-modal');
         const cancelDelete = document.getElementById('cancel-delete');
         const confirmDelete = document.getElementById('confirm-delete');
+        const renameModal = document.getElementById('rename-modal');
+        const cancelRename = document.getElementById('cancel-rename');
+        const confirmRename = document.getElementById('confirm-rename');
+        const renameProjectInput = document.getElementById('rename-project-input');
+        const renameProjectError = document.getElementById('rename-project-error');
         const toastContainer = document.getElementById('toast-container');
 
         // Initialize
@@ -1023,6 +1075,7 @@
                 var actions = '<button class="project-btn edit" onclick="openEditor(' + project.id + ')">' + openLabel + '</button>';
                 if (isOwner) {
                     actions += '<button class="project-btn" onclick="window.location.href=\'/panorama/' + project.id + '/access\'">Manage access</button>';
+                    actions += '<button class="project-btn rename" onclick="showRenameModal(' + project.id + ', event)">Rename</button>';
                     actions += '<button class="project-btn delete" onclick="showDeleteModal(' + project.id + ', event)">Delete</button>';
                 }
                 return `
@@ -1065,6 +1118,33 @@
             deleteModal.classList.add('visible');
         }
 
+        function showRenameProjectError(message) {
+            if (!renameProjectError) return;
+            renameProjectError.textContent = message || '';
+            renameProjectError.style.display = message ? 'block' : 'none';
+        }
+
+        function closeRenameModal() {
+            if (!renameModal) return;
+            renameModal.classList.remove('visible');
+            renameTargetId = null;
+            if (renameProjectInput) renameProjectInput.value = '';
+            showRenameProjectError('');
+        }
+
+        function showRenameModal(id, event) {
+            if (event) event.stopPropagation();
+            renameTargetId = id;
+            const project = projects.find((p) => String(p.id) === String(id));
+            if (renameProjectInput) {
+                renameProjectInput.value = project && project.name ? project.name : '';
+                renameProjectInput.focus();
+                renameProjectInput.select();
+            }
+            showRenameProjectError('');
+            renameModal.classList.add('visible');
+        }
+
         cancelDelete.addEventListener('click', () => {
             deleteModal.classList.remove('visible');
             deleteTargetId = null;
@@ -1092,6 +1172,66 @@
 
             deleteTargetId = null;
         });
+
+        if (cancelRename) {
+            cancelRename.addEventListener('click', closeRenameModal);
+        }
+
+        if (confirmRename) {
+            confirmRename.addEventListener('click', async () => {
+                if (!renameTargetId) return;
+                const nextName = (renameProjectInput ? renameProjectInput.value : '').trim();
+                showRenameProjectError('');
+
+                if (!nextName) {
+                    showRenameProjectError('Project name is required.');
+                    if (renameProjectInput) renameProjectInput.focus();
+                    return;
+                }
+                if (nextName.length > 120) {
+                    showRenameProjectError('Project name must be 120 characters or fewer.');
+                    if (renameProjectInput) renameProjectInput.focus();
+                    return;
+                }
+
+                confirmRename.disabled = true;
+                try {
+                    const headers = await getAuthHeaders();
+                    headers['Content-Type'] = 'application/json';
+                    const response = await fetch(`/api/panoramas/${renameTargetId}`, {
+                        method: 'PUT',
+                        headers,
+                        body: JSON.stringify({ name: nextName }),
+                    });
+
+                    if (!response.ok) {
+                        let errorText = 'Failed to rename project';
+                        try {
+                            const err = await response.json();
+                            if (err && err.error) errorText = err.error;
+                        } catch (_) { }
+                        throw new Error(errorText);
+                    }
+
+                    showToast('Project renamed successfully!', 'success');
+                    closeRenameModal();
+                    loadProjects();
+                } catch (error) {
+                    showRenameProjectError(error.message || 'Failed to rename project');
+                } finally {
+                    confirmRename.disabled = false;
+                }
+            });
+        }
+
+        if (renameProjectInput) {
+            renameProjectInput.addEventListener('keydown', (event) => {
+                if (event.key === 'Enter') {
+                    event.preventDefault();
+                    if (confirmRename) confirmRename.click();
+                }
+            });
+        }
 
         // Utilities
         function formatFileSize(bytes) {
@@ -1140,6 +1280,12 @@
                 deleteTargetId = null;
             }
         });
+
+        if (renameModal) {
+            renameModal.addEventListener('click', (e) => {
+                if (e.target === renameModal) closeRenameModal();
+            });
+        }
     </script>
 </body>
 

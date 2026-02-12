@@ -108,6 +108,35 @@
             padding: 2rem 1.5rem;
         }
 
+        .corner-logo {
+            position: fixed;
+            top: 22px;
+            right: 26px;
+            z-index: 6;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            text-decoration: none;
+        }
+
+        .corner-logo img {
+            height: 44px;
+            width: auto;
+            object-fit: contain;
+            filter: drop-shadow(0 12px 20px rgba(0, 0, 0, 0.45));
+        }
+
+        @media (max-width: 640px) {
+            .corner-logo {
+                top: 16px;
+                right: 16px;
+            }
+
+            .corner-logo img {
+                height: 38px;
+            }
+        }
+
         .auth-wrap {
             width: 100%;
             max-width: 420px;
@@ -368,6 +397,9 @@
 <body>
     <div class="page-bg" aria-hidden="true"></div>
     <div class="page-grid" aria-hidden="true"></div>
+    <a class="corner-logo" href="/dashboard" aria-label="Dashboard">
+        <img src="/static/Logo.png" alt="Logo" loading="eager">
+    </a>
 
     <div class="auth-wrap">
         <div class="card" id="card">

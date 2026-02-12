@@ -18,20 +18,29 @@
         onload="window.PSV_LOADED = true"></script>
     <script src="https://unpkg.com/photo-sphere-viewer@4.8.1/dist/plugins/markers.js"
         onload="window.PSV_MARKERS_LOADED = true"></script>
+    <script src="https://code.iconify.design/iconify-icon/1.0.8/iconify-icon.min.js"></script>
     <style>
         :root {
-            --color-bg: #0a0a0b;
-            --color-text: #f5f5f0;
-            --color-accent: #c9a962;
-            --color-accent-dim: rgba(201, 169, 98, 0.3);
-            --color-surface: rgba(10, 10, 11, 0.72);
-            --color-surface-strong: rgba(10, 10, 11, 0.88);
-            --color-muted: #6b6b6b;
+            --color-bg: #b8c8d9;
+            --color-text: #162338;
+            --color-accent: #bf8c4a;
+            --color-accent-dim: rgba(191, 140, 74, 0.28);
+            --color-surface: rgba(244, 248, 252, 0.82);
+            --color-surface-strong: rgba(244, 248, 252, 0.94);
+            --color-muted: #58677b;
             --color-available: #22c55e;
             --color-hold: #f97316;
             --color-sold: #ef4444;
             --font-display: 'Instrument Serif', Georgia, serif;
             --font-body: 'Syne', sans-serif;
+            --marker-size: 30px;
+            --marker-blur: 7px;
+            --marker-ring: rgba(255, 255, 255, 0.92);
+            --marker-shadow: 0 8px 20px rgba(0, 0, 0, 0.42), 0 2px 6px rgba(0, 0, 0, 0.28);
+            --marker-inner-glow: inset 0 1px 0 rgba(255, 255, 255, 0.6), inset 0 -10px 16px rgba(0, 0, 0, 0.24);
+            --marker-available-rgb: 132, 146, 166;
+            --marker-sold-rgb: 132, 146, 166;
+            --marker-reserved-rgb: 132, 146, 166;
         }
 
         * {
@@ -64,13 +73,44 @@
         }
 
         .psv-plot-label {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.38rem;
+            padding: 0.34rem 0.66rem;
+            border-radius: 999px;
+            background: rgba(8, 9, 11, 0.82);
+            border: 1px solid rgba(255, 255, 255, 0.22);
             color: #fff;
             font-family: var(--font-body);
-            font-weight: 600;
-            font-size: 0.85rem;
-            text-shadow: 0 2px 6px rgba(0, 0, 0, 0.5);
+            font-weight: 700;
+            font-size: 0.72rem;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            text-shadow: 0 2px 7px rgba(0, 0, 0, 0.55);
+            box-shadow: 0 12px 24px rgba(0, 0, 0, 0.36);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
             pointer-events: none;
             white-space: nowrap;
+        }
+
+        .psv-plot-label::before {
+            content: '';
+            width: 7px;
+            height: 7px;
+            border-radius: 999px;
+            background: rgba(74, 222, 128, 0.95);
+            box-shadow: 0 0 0 3px rgba(74, 222, 128, 0.24);
+        }
+
+        .psv-plot-label.psv-plot-label--hold::before {
+            background: rgba(249, 115, 22, 0.95);
+            box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.24);
+        }
+
+        .psv-plot-label.psv-plot-label--sold::before {
+            background: rgba(239, 68, 68, 0.95);
+            box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.24);
         }
 
         .image-container {
@@ -123,10 +163,7 @@
             pointer-events: none;
             z-index: 5;
             background:
-                radial-gradient(circle at 14% 14%, rgba(201, 169, 98, 0.14), transparent 34%),
-                radial-gradient(circle at 82% 88%, rgba(201, 169, 98, 0.08), transparent 32%),
-                linear-gradient(to bottom, rgba(10, 10, 11, 0.42) 0%, transparent 16%, transparent 84%, rgba(10, 10, 11, 0.58) 100%),
-                linear-gradient(to right, rgba(10, 10, 11, 0.3) 0%, transparent 8%, transparent 92%, rgba(10, 10, 11, 0.3) 100%);
+                linear-gradient(to bottom, rgba(248, 252, 255, 0.22) 0%, rgba(248, 252, 255, 0) 24%, rgba(10, 18, 34, 0.04) 78%, rgba(10, 18, 34, 0.18) 100%);
         }
 
         .ui-overlay {
@@ -137,10 +174,7 @@
             height: 100%;
             z-index: 10;
             pointer-events: none;
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
-            padding: 1.5rem 2rem;
+            padding: 1.05rem 1.2rem;
         }
 
         .header {
@@ -152,220 +186,286 @@
 
         .header-left {
             display: flex;
-            align-items: center;
-            gap: 1rem;
+            align-items: flex-start;
+            pointer-events: auto;
         }
 
         .project-info {
-            min-width: min(62vw, 460px);
-            background: linear-gradient(140deg, rgba(14, 14, 16, 0.9) 0%, rgba(10, 10, 11, 0.86) 100%);
-            padding: 1rem 1.25rem;
-            border-radius: 14px;
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(201, 169, 98, 0.28);
-            box-shadow: 0 14px 28px rgba(0, 0, 0, 0.32);
+            min-width: 228px;
+            padding: 0.78rem 1rem 0.68rem;
+            border-radius: 0;
+            border: 1px solid rgba(16, 36, 68, 0.12);
+            background: rgba(246, 248, 252, 0.93);
+            box-shadow: 0 6px 20px rgba(7, 25, 52, 0.14);
         }
 
         .project-kicker {
             display: inline-flex;
-            align-items: center;
-            gap: 0.35rem;
-            border-radius: 999px;
-            background: rgba(201, 169, 98, 0.16);
-            border: 1px solid rgba(201, 169, 98, 0.35);
-            color: var(--color-accent);
-            padding: 0.22rem 0.62rem;
-            margin-bottom: 0.45rem;
-            font-size: 0.66rem;
-            letter-spacing: 0.13em;
+            font-size: 0.58rem;
+            letter-spacing: 0.16em;
             text-transform: uppercase;
-            font-weight: 600;
+            color: #2c4368;
+            margin-bottom: 0.2rem;
+            font-weight: 700;
         }
 
         .project-name {
             font-family: var(--font-display);
-            font-size: 1.45rem;
-            font-style: italic;
-            color: var(--color-accent);
-            line-height: 1.1;
+            font-size: 1.9rem;
+            line-height: 1;
+            color: #b5772d;
+            letter-spacing: 0.01em;
+            text-transform: uppercase;
+            font-style: normal;
         }
 
         .project-subtitle {
-            font-size: 0.73rem;
-            color: var(--color-muted);
-            margin-top: 0.3rem;
+            font-size: 0.63rem;
+            color: #2d3f5f;
+            margin-top: 0.12rem;
             text-transform: uppercase;
-            letter-spacing: 0.12em;
+            letter-spacing: 0.1em;
+            font-weight: 600;
         }
 
         .project-meta {
-            margin-top: 0.65rem;
+            display: none;
+        }
+
+        .header-center {
+            flex: 1;
             display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            flex-wrap: wrap;
+            justify-content: center;
+            pointer-events: auto;
         }
 
-        .project-meta-item {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.35rem;
-            border-radius: 999px;
-            border: 1px solid rgba(255, 255, 255, 0.14);
-            background: rgba(255, 255, 255, 0.05);
-            color: rgba(245, 245, 240, 0.9);
-            padding: 0.24rem 0.62rem;
-            font-size: 0.68rem;
-            letter-spacing: 0.04em;
-            text-transform: uppercase;
+        .search-plot-input {
+            width: min(80vw, 1020px);
+            height: 52px;
+            border: 1px solid rgba(33, 53, 84, 0.14);
+            border-radius: 28px;
+            padding: 0 1.35rem;
+            outline: none;
+            font-family: var(--font-body);
+            font-weight: 600;
+            font-size: 1.02rem;
+            color: #344868;
+            background: rgba(255, 255, 255, 0.94);
+            box-shadow: 0 8px 18px rgba(8, 20, 36, 0.12);
         }
 
-        .project-meta-dot {
-            width: 7px;
-            height: 7px;
-            border-radius: 999px;
-            background: var(--color-available);
-            box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.22);
+        .search-plot-input::placeholder {
+            color: #5d6f8f;
+            font-weight: 600;
         }
 
         .header-right {
             display: flex;
-            flex-direction: column;
-            align-items: flex-end;
-            gap: 0.75rem;
+            align-items: flex-start;
             pointer-events: auto;
         }
 
-        .share-btn {
-            background: linear-gradient(135deg, rgba(201, 169, 98, 0.24) 0%, rgba(201, 169, 98, 0.12) 100%);
-            border: 1px solid rgba(201, 169, 98, 0.4);
-            color: var(--color-text);
-            padding: 0.62rem 1rem;
-            border-radius: 10px;
-            cursor: pointer;
-            font-family: var(--font-body);
-            font-size: 0.74rem;
-            letter-spacing: 0.06em;
-            text-transform: uppercase;
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            transition: transform 0.2s ease, background 0.2s ease, border-color 0.2s ease;
-            backdrop-filter: blur(10px);
-            text-decoration: none;
-            font-weight: 600;
-            box-shadow: 0 8px 18px rgba(0, 0, 0, 0.3);
+        .compass-card {
+            width: 84px;
+            height: 84px;
+            border: 1px solid rgba(18, 36, 67, 0.16);
+            background: rgba(246, 248, 252, 0.93);
+            box-shadow: 0 10px 24px rgba(8, 20, 40, 0.13);
+            border-radius: 0;
+            display: grid;
+            place-items: center;
+            color: #b58a4c;
+            font-size: 2.2rem;
+            font-family: var(--font-display);
         }
 
-        .share-btn:hover {
-            border-color: rgba(201, 169, 98, 0.8);
-            background: linear-gradient(135deg, rgba(201, 169, 98, 0.34) 0%, rgba(201, 169, 98, 0.18) 100%);
-            transform: translateY(-1px);
-        }
-
-        .footer {
-            display: flex;
-            justify-content: flex-start;
-            align-items: flex-end;
-            gap: 0.75rem;
-            flex-wrap: wrap;
+        .compass-card::before {
+            content: '✧';
+            text-shadow: 0 0 0 #fff, 0 0 16px rgba(181, 138, 76, 0.22);
         }
 
         .status-legend {
-            width: min(92vw, 320px);
-            background: linear-gradient(145deg, rgba(14, 14, 16, 0.9), rgba(10, 10, 11, 0.78));
-            border: 1px solid rgba(201, 169, 98, 0.24);
-            border-radius: 12px;
-            backdrop-filter: blur(12px);
-            box-shadow: 0 12px 24px rgba(0, 0, 0, 0.34);
-            padding: 0.8rem;
+            position: fixed;
+            top: 50%;
+            right: 14px;
+            transform: translateY(-50%);
+            width: 170px;
+            background: rgba(247, 249, 253, 0.94);
+            border: 1px solid rgba(18, 36, 67, 0.12);
+            border-radius: 0;
+            box-shadow: 0 10px 22px rgba(7, 27, 56, 0.15);
+            padding: 0.82rem 0.64rem;
+            pointer-events: auto;
+        }
+
+        .viewer-actions {
+            position: fixed;
+            right: 14px;
+            bottom: 14px;
+            z-index: 22;
+            display: flex;
+            gap: 0.5rem;
+            pointer-events: auto;
+        }
+
+        .viewer-action-btn {
+            border: 1px solid rgba(18, 36, 67, 0.22);
+            background: rgba(246, 248, 252, 0.94);
+            color: #23395f;
+            font-family: var(--font-body);
+            font-size: 0.73rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            padding: 0.54rem 0.72rem;
+            min-height: 38px;
+            border-radius: 0;
+            cursor: pointer;
+            box-shadow: 0 8px 18px rgba(7, 25, 50, 0.15);
+            transition: background 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+        }
+
+        .viewer-action-btn:hover {
+            background: #ffffff;
+            border-color: rgba(18, 36, 67, 0.36);
+            transform: translateY(-1px);
         }
 
         .legend-head {
             display: flex;
             align-items: center;
             justify-content: space-between;
-            font-size: 0.68rem;
-            letter-spacing: 0.12em;
-            text-transform: uppercase;
-            color: var(--color-muted);
-            margin-bottom: 0.55rem;
+            font-size: 0.74rem;
+            letter-spacing: 0.01em;
+            color: #22395f;
+            margin-bottom: 0.62rem;
+            font-weight: 700;
         }
 
         .legend-total {
-            border-radius: 999px;
-            border: 1px solid rgba(255, 255, 255, 0.14);
-            background: rgba(255, 255, 255, 0.06);
-            color: var(--color-text);
-            padding: 0.2rem 0.48rem;
-            font-size: 0.67rem;
-            letter-spacing: 0.04em;
+            border-radius: 0;
+            border: 1px solid rgba(33, 53, 84, 0.18);
+            background: rgba(228, 235, 246, 0.8);
+            color: #22395f;
+            padding: 0.14rem 0.38rem;
+            font-size: 0.64rem;
+            letter-spacing: 0.02em;
         }
 
         .legend-grid {
             display: grid;
             grid-template-columns: 1fr;
-            gap: 0.38rem;
+            gap: 0.52rem;
         }
 
         .status-pill {
             display: grid;
             grid-template-columns: auto 1fr auto;
             align-items: center;
-            gap: 0.55rem;
-            border-radius: 9px;
-            border: 1px solid rgba(255, 255, 255, 0.08);
-            background: rgba(255, 255, 255, 0.04);
-            padding: 0.42rem 0.55rem;
-            font-size: 0.74rem;
+            gap: 0.48rem;
+            border-radius: 0;
+            border: 1px solid rgba(24, 42, 72, 0.1);
+            background: rgba(236, 241, 249, 0.92);
+            padding: 0.38rem 0.44rem;
+            font-size: 0.7rem;
+            color: #253a5d;
         }
 
         .status-dot {
-            width: 10px;
-            height: 10px;
-            border-radius: 999px;
-            box-shadow: 0 0 0 5px rgba(255, 255, 255, 0.05);
+            width: 11px;
+            height: 20px;
+            border-radius: 0;
+            box-shadow: none;
         }
 
         .status-pill.available .status-dot {
-            background: var(--color-available);
-            box-shadow: 0 0 0 5px rgba(34, 197, 94, 0.18);
+            background: #d6d489;
         }
 
         .status-pill.hold .status-dot {
-            background: var(--color-hold);
-            box-shadow: 0 0 0 5px rgba(249, 115, 22, 0.17);
+            background: #97c89e;
         }
 
         .status-pill.sold .status-dot {
-            background: var(--color-sold);
-            box-shadow: 0 0 0 5px rgba(239, 68, 68, 0.17);
+            background: #e38f8b;
         }
 
         .status-pill strong {
-            font-size: 0.84rem;
-            color: var(--color-text);
+            font-size: 0.78rem;
+            color: #273f67;
             font-variant-numeric: tabular-nums;
         }
 
-        .customer-guide {
-            pointer-events: auto;
-            width: min(95vw, 360px);
-            border-radius: 14px;
-            border: 1px solid rgba(201, 169, 98, 0.24);
-            background: linear-gradient(145deg, rgba(13, 13, 15, 0.86), rgba(10, 10, 11, 0.72));
-            backdrop-filter: blur(12px);
-            box-shadow: 0 14px 28px rgba(0, 0, 0, 0.34);
-            padding: 0.95rem 1rem;
-            position: relative;
-            transition: opacity 0.25s ease, transform 0.25s ease;
+        .share-btn,
+        .customer-guide,
+        .footer,
+        .footer-note,
+        .zoom-controls,
+        .info-panel,
+        .adjustment-panel,
+        .psv-navbar {
+            display: none !important;
         }
 
-        .customer-guide.is-hidden {
-            opacity: 0;
-            transform: translateY(8px);
-            pointer-events: none;
+        .search-plot-input:focus {
+            border-color: rgba(33, 53, 84, 0.36);
+            box-shadow: 0 12px 24px rgba(8, 20, 36, 0.16);
+        }
+
+        .search-plot-input.search-miss {
+            border-color: rgba(180, 58, 58, 0.58);
+            box-shadow: 0 12px 24px rgba(180, 58, 58, 0.16);
+        }
+
+        .psv-plot-label {
+            gap: 0;
+            padding: 0;
+            border: none;
+            background: transparent;
+            color: rgba(250, 253, 255, 0.96);
+            font-size: 0.54rem;
+            font-weight: 700;
+            letter-spacing: 0.01em;
+            text-transform: none;
+            box-shadow: none;
+            text-shadow: 0 1px 2px rgba(11, 28, 52, 0.52), 0 0 1px rgba(11, 28, 52, 0.48);
+            backdrop-filter: none;
+            -webkit-backdrop-filter: none;
+        }
+
+        .psv-plot-label::before {
             display: none;
+        }
+
+        .psv-plot-label.psv-plot-label--available {
+            color: rgba(251, 255, 238, 0.98);
+        }
+
+        .psv-plot-label.psv-plot-label--hold {
+            color: rgba(243, 255, 246, 0.98);
+        }
+
+        .psv-plot-label.psv-plot-label--sold {
+            color: rgba(255, 244, 244, 0.98);
+        }
+
+        body.overlays-hidden .ui-overlay {
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none;
+            transition: opacity 0.2s ease;
+        }
+
+        body.overlays-hidden .psv-plot-label {
+            display: none !important;
+        }
+
+        body.overlays-hidden .psv-glass-marker .marker-callout {
+            display: none !important;
+        }
+
+        body.overlays-hidden .psv-glass-marker .marker-photo-name {
+            display: none !important;
         }
 
         .guide-title {
@@ -1029,12 +1129,16 @@
         }
 
         .details-modal .modal {
-            max-width: 600px;
-            width: 90%;
-            max-height: 90vh;
+            max-width: 760px;
+            width: min(94vw, 760px);
+            max-height: min(90vh, 820px);
             display: flex;
             flex-direction: column;
             overflow: hidden;
+            background: linear-gradient(160deg, rgba(246, 250, 255, 0.97) 0%, rgba(238, 246, 255, 0.97) 100%);
+            border: 1px solid rgba(23, 47, 84, 0.16);
+            box-shadow: 0 24px 48px rgba(7, 23, 45, 0.3), 0 2px 8px rgba(7, 23, 45, 0.16);
+            color: #1d3558;
         }
 
         .details-modal .modal.no-media .details-grid {
@@ -1044,6 +1148,159 @@
 
         .details-modal .modal.no-media .details-info-column {
             grid-column: 1;
+        }
+
+        .details-modal.modal-backdrop {
+            background: linear-gradient(180deg, rgba(12, 24, 43, 0.34) 0%, rgba(12, 24, 43, 0.48) 100%);
+            backdrop-filter: blur(10px) saturate(140%);
+        }
+
+        .details-modal .modal::before {
+            height: 2px;
+            background: linear-gradient(90deg, rgba(191, 140, 74, 0) 0%, rgba(191, 140, 74, 0.78) 50%, rgba(191, 140, 74, 0) 100%);
+        }
+
+        .details-modal .modal > *:not(.marker-modal-close):not(.modal-close) {
+            padding: 1.6rem 1.8rem;
+        }
+
+        .details-modal .details-header {
+            align-items: center;
+            gap: 1rem;
+            padding-bottom: 1.1rem;
+            border-bottom: 1px solid rgba(27, 53, 89, 0.14);
+            background: linear-gradient(180deg, rgba(255, 255, 255, 0.68) 0%, rgba(255, 255, 255, 0) 100%);
+        }
+
+        .details-modal .details-color {
+            width: 52px;
+            height: 52px;
+            border-radius: 10px;
+            box-shadow: 0 8px 18px rgba(20, 41, 73, 0.2), inset 0 0 0 1px rgba(255, 255, 255, 0.66);
+        }
+
+        .details-modal .details-title {
+            font-size: 1.52rem;
+            font-style: normal;
+            color: #173256;
+            text-shadow: none;
+            letter-spacing: 0.01em;
+        }
+
+        .details-modal .details-grid {
+            gap: 1.2rem;
+            padding: 1.45rem 1.8rem 1.35rem;
+        }
+
+        .details-modal .details-info-column {
+            gap: 0.72rem;
+        }
+
+        .details-modal .detail-item {
+            background: rgba(255, 255, 255, 0.8);
+            border: 1px solid rgba(27, 53, 89, 0.12);
+            border-radius: 12px;
+            padding: 0.92rem 1rem;
+            box-shadow: 0 3px 10px rgba(20, 41, 73, 0.08);
+        }
+
+        .details-modal .detail-item:hover {
+            transform: none;
+            background: rgba(255, 255, 255, 0.9);
+            border-color: rgba(27, 53, 89, 0.2);
+            box-shadow: 0 3px 10px rgba(20, 41, 73, 0.1);
+        }
+
+        .details-modal .detail-label {
+            font-size: 0.64rem;
+            color: #44608a;
+            margin-bottom: 0.36rem;
+            opacity: 1;
+        }
+
+        .details-modal .detail-value {
+            font-size: 1rem;
+            color: #1d3558;
+            line-height: 1.5;
+        }
+
+        .details-modal .detail-value.price {
+            color: #b5772d;
+            font-size: 1.56rem;
+            letter-spacing: 0;
+            text-shadow: none;
+        }
+
+        .details-modal .detail-value.description {
+            font-size: 0.92rem;
+            color: #334f74;
+            line-height: 1.58;
+        }
+
+        .details-modal .media-wrapper {
+            border: 1px solid rgba(27, 53, 89, 0.16);
+            border-radius: 12px;
+            min-height: 210px;
+            box-shadow: 0 6px 18px rgba(9, 29, 54, 0.14);
+            background: #eaf1fb;
+        }
+
+        .details-modal .marker-media-loading {
+            border: 1px solid rgba(27, 53, 89, 0.14);
+            background: linear-gradient(120deg, rgba(171, 194, 227, 0.12) 20%, rgba(212, 225, 243, 0.65) 40%, rgba(171, 194, 227, 0.12) 58%);
+            background-size: 240% 100%;
+        }
+
+        .details-modal .modal-actions {
+            padding-top: 1.1rem;
+            border-top: 1px solid rgba(27, 53, 89, 0.14);
+            background: linear-gradient(180deg, rgba(255, 255, 255, 0) 0%, rgba(226, 236, 250, 0.42) 100%);
+        }
+
+        .details-modal .modal-btn {
+            flex: 0 0 auto;
+            min-width: 136px;
+            margin-left: auto;
+            padding: 0.72rem 1.25rem;
+            border-radius: 10px;
+            font-size: 0.76rem;
+        }
+
+        .details-modal .modal-btn::before {
+            display: none;
+        }
+
+        .details-modal .modal-btn.secondary {
+            background: rgba(17, 40, 72, 0.08);
+            border: 1px solid rgba(17, 40, 72, 0.22);
+            color: #183254;
+            backdrop-filter: none;
+        }
+
+        .details-modal .modal-btn.secondary:hover {
+            background: rgba(17, 40, 72, 0.14);
+            border-color: rgba(17, 40, 72, 0.34);
+            color: #142844;
+            transform: translateY(-1px);
+            box-shadow: none;
+        }
+
+        .details-modal .modal-close,
+        .details-modal .marker-modal-close {
+            top: 0.85rem;
+            right: 0.85rem;
+            width: 32px;
+            height: 32px;
+            background: rgba(240, 246, 255, 0.94);
+            border: 1px solid rgba(24, 47, 80, 0.22);
+            color: #1b3558;
+        }
+
+        .details-modal .modal-close:hover,
+        .details-modal .marker-modal-close:hover {
+            background: rgba(255, 255, 255, 0.96);
+            border-color: rgba(24, 47, 80, 0.38);
+            transform: scale(1.04);
         }
 
         .share-url-container {
@@ -1098,59 +1355,471 @@
         }
 
         .psv-glass-marker {
-            --mk-rgb: 74, 222, 128;
-            width: 30px;
-            height: 40px;
+            --mk-rgb: var(--marker-available-rgb);
+            position: relative;
             border: none;
             background: transparent;
             padding: 0;
             cursor: pointer;
+            outline: none;
             transform: translateZ(0);
-            filter: drop-shadow(0 0 8px rgba(var(--mk-rgb), 0.38));
-            transition: transform 200ms ease;
+            pointer-events: auto;
         }
 
-        .psv-glass-marker .marker-core {
+        .psv-glass-marker.marker-classic {
+            width: var(--marker-size);
+            height: calc(var(--marker-size) + 10px);
+            filter: drop-shadow(0 0 8px rgba(var(--mk-rgb), 0.38));
+            transition: transform 220ms cubic-bezier(0.2, 0.8, 0.2, 1), filter 220ms ease;
+        }
+
+        .psv-glass-marker.marker-classic .marker-halo {
+            position: absolute;
+            left: 50%;
+            top: calc(var(--marker-size) / 2);
+            width: calc(var(--marker-size) + 10px);
+            height: calc(var(--marker-size) + 10px);
+            border-radius: 999px;
+            transform: translate(-50%, -50%);
+            border: 1px solid rgba(var(--mk-rgb), 0.42);
+            background: radial-gradient(circle, rgba(var(--mk-rgb), 0.2) 0%, rgba(var(--mk-rgb), 0.05) 60%, rgba(var(--mk-rgb), 0) 100%);
+            animation: markerPulse 2.5s ease-in-out infinite;
+            pointer-events: none;
+        }
+
+        .psv-glass-marker.marker-classic .marker-core {
             position: absolute;
             top: 0;
             left: 50%;
-            width: 30px;
-            height: 30px;
+            width: var(--marker-size);
+            height: var(--marker-size);
             border-radius: 999px;
             transform: translateX(-50%);
             background:
                 radial-gradient(120% 120% at 24% 18%, rgba(255, 255, 255, 0.62) 0%, rgba(255, 255, 255, 0.12) 36%, rgba(255, 255, 255, 0) 65%),
                 linear-gradient(155deg, rgba(var(--mk-rgb), 0.48) 0%, rgba(var(--mk-rgb), 0.24) 48%, rgba(18, 24, 32, 0.46) 100%);
-            backdrop-filter: blur(7px) saturate(165%);
-            -webkit-backdrop-filter: blur(7px) saturate(165%);
-            border: 1.5px solid rgba(255, 255, 255, 0.92);
-            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.42), 0 2px 6px rgba(0, 0, 0, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.6);
-            animation: markerIdleFloat 2.7s ease-in-out infinite;
+            backdrop-filter: blur(var(--marker-blur)) saturate(165%);
+            -webkit-backdrop-filter: blur(var(--marker-blur)) saturate(165%);
+            border: 1.5px solid var(--marker-ring);
+            box-shadow: var(--marker-shadow), var(--marker-inner-glow), 0 0 0 1px rgba(255, 255, 255, 0.2);
+            animation: markerIdleFloat 2.9s ease-in-out infinite;
         }
 
-        .psv-glass-marker .marker-pointer {
+        .psv-glass-marker.marker-classic .marker-dot {
             position: absolute;
             left: 50%;
-            top: 26px;
+            top: 50%;
+            width: 8px;
+            height: 8px;
+            border-radius: 999px;
+            transform: translate(-50%, -50%);
+            background: rgba(255, 255, 255, 0.96);
+            box-shadow: 0 0 8px rgba(var(--mk-rgb), 0.72);
+            z-index: 3;
+        }
+
+        .psv-glass-marker.marker-classic .marker-icon {
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            width: 16px;
+            height: 16px;
+            color: rgba(255, 255, 255, 0.95);
+            filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.45));
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            pointer-events: none;
+            z-index: 4;
+        }
+
+        .psv-glass-marker.marker-classic .marker-icon iconify-icon {
+            width: 100%;
+            height: 100%;
+        }
+
+        .psv-glass-marker.marker-classic .marker-pointer {
+            position: absolute;
+            left: 50%;
+            top: calc(var(--marker-size) - 4px);
             width: 10px;
             height: 10px;
             transform: translateX(-50%) rotate(45deg);
             background: linear-gradient(145deg, rgba(var(--mk-rgb), 0.5), rgba(24, 30, 38, 0.44));
             border-right: 1px solid rgba(255, 255, 255, 0.62);
             border-bottom: 1px solid rgba(255, 255, 255, 0.62);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.32);
             border-radius: 2px;
         }
 
-        .psv-glass-marker.sold { --mk-rgb: 239, 68, 68; }
-        .psv-glass-marker.reserved { --mk-rgb: 249, 115, 22; }
-        .psv-glass-marker.available { --mk-rgb: 74, 222, 128; }
-        .psv-glass-marker:hover { transform: scale(1.1); }
-        .psv-glass-marker.is-active { transform: scale(1.14); }
+        .psv-glass-marker.marker-classic .marker-callout {
+            position: absolute;
+            left: 50%;
+            top: -10px;
+            transform: translate(-50%, -100%) scale(0.98);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.18s ease, transform 0.22s cubic-bezier(0.2, 0.8, 0.2, 1);
+            filter: drop-shadow(0 10px 20px rgba(0, 0, 0, 0.4));
+        }
+
+        .psv-glass-marker.marker-classic .marker-tag {
+            max-width: 220px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            background: rgba(17, 31, 54, 0.94);
+            color: rgba(245, 248, 255, 0.98);
+            font-size: 0.78rem;
+            line-height: 1;
+            font-weight: 700;
+            letter-spacing: 0.01em;
+            padding: 0.4rem 0.55rem 0.38rem;
+            border-radius: 2px;
+            border: 1px solid rgba(255, 255, 255, 0.16);
+            box-shadow: 0 10px 20px rgba(5, 19, 38, 0.3);
+        }
+
+        .psv-glass-marker.marker-classic:hover .marker-callout,
+        .psv-glass-marker.marker-classic.is-active .marker-callout,
+        .psv-glass-marker.marker-classic.is-focused .marker-callout {
+            opacity: 1;
+            transform: translate(-50%, -110%) scale(1);
+        }
+
+        .psv-glass-marker.marker-classic:hover {
+            transform: scale(1.1) translateY(-1px);
+            filter: drop-shadow(0 0 10px rgba(var(--mk-rgb), 0.48));
+        }
+
+        .psv-glass-marker.marker-classic:hover .marker-halo {
+            opacity: 0.92;
+        }
+
+        .psv-glass-marker.marker-classic.is-active {
+            transform: scale(1.14) translateY(-1px);
+            filter: drop-shadow(0 0 14px rgba(var(--mk-rgb), 0.58));
+        }
+
+        .psv-glass-marker.marker-classic.marker-theme-neon .marker-core {
+            box-shadow: 0 0 0 1.5px rgba(255, 255, 255, 0.3), 0 0 16px rgba(var(--mk-rgb), 0.72), var(--marker-inner-glow);
+        }
+
+        .psv-glass-marker.marker-classic.marker-theme-crystal .marker-core {
+            clip-path: polygon(50% 0%, 88% 23%, 88% 77%, 50% 100%, 12% 77%, 12% 23%);
+            border-radius: 8px;
+        }
+
+        .psv-glass-marker.marker-classic.marker-theme-orb .marker-pointer {
+            display: none;
+        }
+
+        .psv-glass-marker.marker-classic.marker-theme-orb {
+            height: var(--marker-size);
+        }
+
+        .psv-glass-marker.marker-classic.marker-theme-orb .marker-halo {
+            width: calc(var(--marker-size) + 18px);
+            height: calc(var(--marker-size) + 18px);
+        }
+
+        .psv-glass-marker.marker-classic.marker-theme-pin .marker-core {
+            border-radius: 50% 50% 50% 0;
+            transform: translateX(-50%) rotate(-45deg);
+        }
+
+        .psv-glass-marker.marker-classic.marker-theme-pin .marker-dot,
+        .psv-glass-marker.marker-classic.marker-theme-pin .marker-icon {
+            transform: translate(-50%, -50%) rotate(45deg);
+        }
+
+        .psv-glass-marker.marker-classic.marker-theme-pin .marker-pointer {
+            display: none;
+        }
+
+        .psv-glass-marker.marker-classic.marker-theme-chip .marker-core {
+            border-radius: 10px;
+        }
+
+        .psv-glass-marker.marker-classic.marker-theme-ring .marker-core {
+            background: rgba(8, 10, 12, 0.18);
+            box-shadow: 0 0 0 3px rgba(var(--mk-rgb), 0.78), inset 0 0 0 1px rgba(255, 255, 255, 0.28);
+        }
+
+        .psv-glass-marker.marker-classic.marker-theme-ring .marker-dot {
+            width: 6px;
+            height: 6px;
+        }
+
+        .psv-glass-marker.marker-classic.marker-theme-minimal {
+            --marker-size: 24px;
+            height: 32px;
+        }
+
+        .psv-glass-marker.marker-classic.marker-theme-beacon .marker-halo {
+            animation-duration: 1.5s;
+        }
+
+        .psv-glass-marker.marker-classic.marker-theme-gem .marker-core {
+            clip-path: polygon(50% 0%, 85% 22%, 100% 58%, 76% 100%, 24% 100%, 0% 58%, 15% 22%);
+            border-radius: 6px;
+        }
+
+        .psv-glass-marker.marker-classic.marker-theme-retro .marker-core {
+            backdrop-filter: none;
+            -webkit-backdrop-filter: none;
+            background: linear-gradient(180deg, rgba(var(--mk-rgb), 0.9) 0%, rgba(10, 12, 16, 0.72) 100%);
+        }
+
+        .psv-glass-marker.marker-classic.marker-theme-comet .marker-pointer {
+            width: 12px;
+            height: 16px;
+            top: calc(var(--marker-size) - 2px);
+            border-radius: 0 0 8px 8px;
+            transform: translateX(-50%) rotate(0deg);
+        }
+
+        .psv-glass-marker.marker-super {
+            width: 148px;
+            height: 128px;
+        }
+
+        .psv-glass-marker.marker-super .marker-callout {
+            position: absolute;
+            left: 50%;
+            top: 0;
+            transform: translateX(-50%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.2s ease;
+        }
+
+        .psv-glass-marker.marker-super .marker-stem {
+            width: 2px;
+            height: 66px;
+            background: rgba(233, 239, 247, 0.92);
+            box-shadow: 0 0 0 1px rgba(22, 41, 72, 0.12);
+        }
+
+        .psv-glass-marker.marker-super .marker-tag {
+            margin-bottom: 7px;
+            margin-top: -2px;
+            background: #1f3660;
+            color: #f4f8ff;
+            font-size: 0.82rem;
+            line-height: 1;
+            font-weight: 700;
+            letter-spacing: 0.01em;
+            padding: 0.42rem 0.62rem 0.4rem;
+            white-space: nowrap;
+            border-radius: 2px;
+            box-shadow: 0 7px 18px rgba(8, 24, 48, 0.4);
+        }
+
+        .psv-glass-marker.marker-super .marker-base {
+            position: absolute;
+            left: 50%;
+            bottom: 9px;
+            width: 42px;
+            height: 42px;
+            transform: translateX(-50%);
+            display: grid;
+            place-items: center;
+            pointer-events: none;
+        }
+
+        .psv-glass-marker.marker-super .marker-ring-outer {
+            position: absolute;
+            width: 42px;
+            height: 42px;
+            border-radius: 999px;
+            border: 6px solid rgba(215, 222, 233, 0.85);
+            background: rgba(255, 255, 255, 0.06);
+            box-shadow: 0 8px 16px rgba(5, 19, 38, 0.24);
+        }
+
+        .psv-glass-marker.marker-super .marker-ring-inner {
+            position: absolute;
+            width: 14px;
+            height: 14px;
+            border-radius: 999px;
+            border: 2px solid rgba(247, 251, 255, 0.94);
+            background: rgba(196, 206, 221, 0.9);
+            box-shadow: 0 0 0 4px rgba(95, 121, 161, 0.22);
+        }
+
+        .psv-glass-marker.marker-super:hover .marker-callout,
+        .psv-glass-marker.marker-super.is-active .marker-callout,
+        .psv-glass-marker.marker-super.is-focused .marker-callout {
+            opacity: 1;
+        }
+
+        .psv-glass-marker.marker-super:hover .marker-ring-outer,
+        .psv-glass-marker.marker-super.is-active .marker-ring-outer,
+        .psv-glass-marker.marker-super.is-focused .marker-ring-outer {
+            border-color: rgba(242, 247, 255, 0.94);
+            box-shadow: 0 0 0 6px rgba(106, 131, 172, 0.16), 0 10px 20px rgba(4, 22, 46, 0.32);
+        }
+
+        .psv-glass-marker.marker-super.is-active .marker-tag,
+        .psv-glass-marker.marker-super.is-focused .marker-tag {
+            background: #1b2e54;
+            color: #ffffff;
+        }
+
+        .psv-glass-marker.marker-photo {
+            width: 156px;
+            height: 158px;
+            transition: transform 0.24s ease;
+        }
+
+        .psv-glass-marker.marker-photo .marker-photo-stem {
+            position: absolute;
+            left: 50%;
+            bottom: 16px;
+            width: 3px;
+            height: 76px;
+            transform: translateX(-50%);
+            background: linear-gradient(180deg, rgba(238, 214, 118, 0.98) 0%, rgba(223, 188, 84, 0.98) 100%);
+            border-radius: 999px;
+            box-shadow: 0 0 0 1px rgba(56, 61, 42, 0.14);
+        }
+
+        .psv-glass-marker.marker-photo .marker-photo-base {
+            position: absolute;
+            left: 50%;
+            bottom: 8px;
+            width: 14px;
+            height: 14px;
+            transform: translateX(-50%);
+            border-radius: 999px;
+            background: linear-gradient(180deg, rgba(238, 214, 118, 0.98) 0%, rgba(223, 188, 84, 0.98) 100%);
+            border: 2px solid rgba(255, 255, 255, 0.92);
+            box-shadow: 0 3px 8px rgba(0, 0, 0, 0.34);
+        }
+
+        .psv-glass-marker.marker-photo .marker-photo-disc {
+            position: absolute;
+            left: 50%;
+            top: 20px;
+            width: 60px;
+            height: 60px;
+            transform: translateX(-50%);
+            border-radius: 999px;
+            border: 3px solid rgba(236, 204, 97, 0.96);
+            background: rgba(255, 245, 211, 0.86);
+            overflow: hidden;
+            box-shadow: 0 8px 16px rgba(14, 29, 51, 0.26), 0 0 0 2px rgba(255, 255, 255, 0.38) inset;
+            transition: transform 0.24s ease, box-shadow 0.24s ease;
+        }
+
+        .psv-glass-marker.marker-photo .marker-photo-image {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+        }
+
+        .psv-glass-marker.marker-photo .marker-photo-placeholder {
+            width: 100%;
+            height: 100%;
+            display: grid;
+            place-items: center;
+            color: #3a4d68;
+            font-size: 0.68rem;
+            font-weight: 700;
+            letter-spacing: 0.03em;
+            text-transform: uppercase;
+            background: linear-gradient(140deg, rgba(225, 237, 255, 0.88) 0%, rgba(197, 216, 238, 0.88) 100%);
+        }
+
+        .psv-glass-marker.marker-photo .marker-photo-name {
+            position: absolute;
+            left: 50%;
+            top: -2px;
+            transform: translateX(-50%);
+            max-width: 138px;
+            padding: 0.3rem 0.54rem;
+            border-radius: 4px;
+            background: rgba(176, 135, 49, 0.95);
+            color: #fff8e7;
+            font-size: 0.76rem;
+            font-weight: 700;
+            line-height: 1;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            opacity: 0;
+            transition: opacity 0.2s ease;
+            box-shadow: 0 8px 15px rgba(25, 27, 23, 0.26);
+            pointer-events: none;
+        }
+
+        .psv-glass-marker.marker-photo:hover .marker-photo-name,
+        .psv-glass-marker.marker-photo.is-active .marker-photo-name,
+        .psv-glass-marker.marker-photo.is-focused .marker-photo-name {
+            opacity: 1;
+        }
+
+        .psv-glass-marker.marker-photo:hover .marker-photo-disc,
+        .psv-glass-marker.marker-photo.is-active .marker-photo-disc,
+        .psv-glass-marker.marker-photo.is-focused .marker-photo-disc {
+            transform: translateX(-50%) scale(1.2);
+            box-shadow: 0 10px 22px rgba(7, 24, 46, 0.34), 0 0 0 2px rgba(255, 255, 255, 0.45) inset;
+        }
+
+        .psv-glass-marker.marker-photo:hover {
+            transform: translateY(-1px);
+        }
+
+        .marker-photo-lightbox {
+            position: fixed;
+            inset: 0;
+            z-index: 170;
+            display: none;
+            place-items: center;
+            background: rgba(7, 17, 31, 0.86);
+            backdrop-filter: blur(5px) saturate(115%);
+            -webkit-backdrop-filter: blur(5px) saturate(115%);
+            padding: 2rem;
+            cursor: zoom-out;
+            --photo-origin-x: 50vw;
+            --photo-origin-y: 50vh;
+        }
+
+        .marker-photo-lightbox.visible {
+            display: grid;
+        }
+
+        .marker-photo-lightbox-image {
+            max-width: min(94vw, 1500px);
+            max-height: 90vh;
+            border-radius: 18px;
+            border: 1px solid rgba(255, 255, 255, 0.26);
+            box-shadow: 0 18px 40px rgba(0, 0, 0, 0.48);
+            transform: scale(0.62);
+            opacity: 0;
+            transform-origin: var(--photo-origin-x) var(--photo-origin-y);
+            transition: transform 0.34s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.24s ease;
+        }
+
+        .marker-photo-lightbox.visible.is-zoomed .marker-photo-lightbox-image {
+            transform: scale(1);
+            opacity: 1;
+        }
 
         .marker-readonly-modal {
             position: relative;
-            max-width: 520px;
-            width: min(95vw, 520px);
+            max-width: 640px;
+            width: min(94vw, 640px);
         }
 
         .marker-modal-close {
@@ -1179,7 +1848,7 @@
         }
 
         .marker-readonly-modal.no-media {
-            max-width: 480px;
+            max-width: 520px;
         }
 
         .marker-readonly-modal.no-media .details-grid {
@@ -1189,6 +1858,12 @@
 
         .marker-readonly-modal.no-media .details-info-column {
             grid-column: 1;
+        }
+
+        @keyframes markerPulse {
+            0% { transform: translate(-50%, -50%) scale(0.88); opacity: 0.72; }
+            50% { transform: translate(-50%, -50%) scale(1.06); opacity: 0.98; }
+            100% { transform: translate(-50%, -50%) scale(0.88); opacity: 0.72; }
         }
 
         @keyframes markerIdleFloat {
@@ -1209,59 +1884,67 @@
         }
 
         @media (max-width: 768px) {
-            .ui-overlay {
-                padding: 1rem;
+            .header {
+                display: grid;
+                grid-template-columns: 1fr;
+                gap: 0.65rem;
             }
 
             .project-info {
                 min-width: 0;
-                width: 100%;
-                padding: 0.72rem 0.9rem;
-            }
-
-            .project-name {
-                font-size: 1rem;
-            }
-
-            .project-meta {
-                margin-top: 0.5rem;
-            }
-
-            .header {
-                flex-direction: column;
-                align-items: stretch;
-                gap: 0.7rem;
-            }
-
-            .header-right {
-                align-items: stretch;
+                width: auto;
             }
 
             .status-legend {
+                top: auto;
+                right: 10px;
+                bottom: 10px;
+                transform: none;
+            }
+
+            .viewer-actions {
+                right: 10px;
+                bottom: 10px;
+                flex-direction: column;
+            }
+
+            .header-center {
+                justify-content: flex-start;
+            }
+
+            .search-plot-input {
                 width: 100%;
+                height: 46px;
+                font-size: 0.92rem;
             }
 
-            .info-panel {
-                display: none;
+            .compass-card {
+                width: 64px;
+                height: 64px;
+                font-size: 1.6rem;
             }
 
-            .details-grid {
-                grid-template-columns: 1fr;
+            .details-modal .modal {
+                width: 95vw;
+                max-height: 92vh;
             }
 
-            .customer-guide {
-                width: 100%;
+            .details-modal .modal > *:not(.marker-modal-close):not(.modal-close) {
+                padding: 1.1rem 1rem;
             }
 
-            .footer {
-                width: 100%;
+            .details-modal .details-grid {
+                padding: 1rem;
+                gap: 0.9rem;
             }
 
-            .footer-note {
-                width: 100%;
-                justify-content: center;
+            .details-modal .details-title {
+                font-size: 1.22rem;
             }
 
+            .details-modal .modal-actions {
+                padding-top: 0.8rem;
+            }
         }
     </style>
     <script src="/static/js/supabase.min.js"></script>
@@ -1286,13 +1969,18 @@
 
     <div class="overlay-gradient"></div>
 
+    <div class="viewer-actions">
+        <button id="toggle-overlays-btn" class="viewer-action-btn" type="button">Hide All</button>
+        <button id="fullscreen-btn" class="viewer-action-btn" type="button">Fullscreen</button>
+    </div>
+
     <div class="ui-overlay">
         <header class="header">
             <div class="header-left">
                 <div class="project-info">
-                    <div class="project-kicker">360° Plot Showcase</div>
+                    <div class="project-kicker">Premium Township</div>
                     <div class="project-name">{{ panorama.name }}</div>
-                    <div class="project-subtitle">Customer View</div>
+                    <div class="project-subtitle">Interactive Plot Explorer</div>
                     <div class="project-meta">
                         <div class="project-meta-item">
                             <span class="project-meta-dot"></span>
@@ -1302,52 +1990,43 @@
                     </div>
                 </div>
             </div>
+            <div class="header-center">
+                <input
+                    id="plot-search-input"
+                    class="search-plot-input"
+                    type="search"
+                    placeholder="Search your dream plot"
+                    autocomplete="off"
+                    spellcheck="false"
+                    aria-label="Search plots and markers">
+            </div>
             <div class="header-right">
-                <button class="share-btn" id="share-btn">
-                    <span>🔗</span>
-                    <span>Share Link</span>
-                </button>
-                <div class="status-legend" id="status-legend">
-                    <div class="legend-head">
-                        <span>Plot Status</span>
-                        <span class="legend-total" id="status-count-total">0</span>
-                    </div>
-                    <div class="legend-grid">
-                        <div class="status-pill available">
-                            <span class="status-dot"></span>
-                            <span>Available</span>
-                            <strong id="status-count-available">0</strong>
-                        </div>
-                        <div class="status-pill hold">
-                            <span class="status-dot"></span>
-                            <span>On Hold</span>
-                            <strong id="status-count-hold">0</strong>
-                        </div>
-                        <div class="status-pill sold">
-                            <span class="status-dot"></span>
-                            <span>Sold</span>
-                            <strong id="status-count-sold">0</strong>
-                        </div>
-                    </div>
-                </div>
+                <div class="compass-card" aria-hidden="true"></div>
             </div>
         </header>
-
-        <footer class="footer">
-            <div class="customer-guide" id="customer-guide">
-                <button class="guide-dismiss" id="dismiss-guide" type="button" aria-label="Dismiss guide">×</button>
-                <div class="guide-title">Explore Smartly</div>
-                <ul class="guide-list">
-                    <li>Drag to look around and discover all plot zones.</li>
-                    <li>Tap a highlighted plot to view pricing, area, and media.</li>
-                    <li>Tap a floating marker to open amenity details instantly.</li>
-                </ul>
+        <div class="status-legend" id="status-legend">
+            <div class="legend-head">
+                <span>Plot Range</span>
+                <span class="legend-total" id="status-count-total">0</span>
             </div>
-            <div class="footer-note">
-                <span class="footer-note-dot"></span>
-                <span>Tip: Use mouse wheel or pinch to zoom in on plot boundaries.</span>
+            <div class="legend-grid">
+                <div class="status-pill available">
+                    <span class="status-dot"></span>
+                    <span>Available</span>
+                    <strong id="status-count-available">0</strong>
+                </div>
+                <div class="status-pill hold">
+                    <span class="status-dot"></span>
+                    <span>On Hold</span>
+                    <strong id="status-count-hold">0</strong>
+                </div>
+                <div class="status-pill sold">
+                    <span class="status-dot"></span>
+                    <span>Sold</span>
+                    <strong id="status-count-sold">0</strong>
+                </div>
             </div>
-        </footer>
+        </div>
     </div>
 
     <div class="modal-backdrop details-modal" id="plot-details-modal">
@@ -1432,6 +2111,10 @@
         </div>
     </div>
 
+    <div class="marker-photo-lightbox" id="marker-photo-lightbox" aria-hidden="true">
+        <img class="marker-photo-lightbox-image" id="marker-photo-lightbox-image" alt="Marker photo">
+    </div>
+
     <script>
         const PANORAMA_ID = {{ panorama.id }};
         const IS_360 = 1; // Always 360 for 3D routes
@@ -1442,18 +2125,50 @@
         const shareUrl = document.getElementById('share-url');
         const copyBtn = document.getElementById('copy-btn');
         const plotDetailsModal = document.getElementById('plot-details-modal');
+        const plotSearchInput = document.getElementById('plot-search-input');
+        const toggleOverlaysBtn = document.getElementById('toggle-overlays-btn');
+        const fullscreenBtn = document.getElementById('fullscreen-btn');
         const customerGuide = document.getElementById('customer-guide');
         const dismissGuideBtn = document.getElementById('dismiss-guide');
+        const markerPhotoLightbox = document.getElementById('marker-photo-lightbox');
+        const markerPhotoLightboxImage = document.getElementById('marker-photo-lightbox-image');
+        const AUTO_ROTATE_BOOT_DELAY_MS = 1200;
+        const AUTO_ROTATE_RESUME_DELAY_MS = 4200;
 
         // Shared variables and functions (available in both modes)
         let plots = [];
 
         const statusLabels = { available: 'Available', reserved: 'On Hold', on_hold: 'On Hold', sold: 'Sold' };
         const statusColorMap = {
-            available: { start: '#22c55e', end: '#16a34a', fill: 'rgba(34, 197, 94, 0.35)' },
-            on_hold: { start: '#f97316', end: '#ea580c', fill: 'rgba(249, 115, 22, 0.35)' },
-            sold: { start: '#ef4444', end: '#b91c1c', fill: 'rgba(239, 68, 68, 0.35)' }
+            available: {
+                start: '#d0d480',
+                end: '#bac868',
+                fillHex: '#c6d97f',
+                fillOpacity: 0.62,
+                stroke: '#edf3de'
+            },
+            on_hold: {
+                start: '#9acba7',
+                end: '#7fb58d',
+                fillHex: '#9ecdad',
+                fillOpacity: 0.6,
+                stroke: '#e3f1e6'
+            },
+            sold: {
+                start: '#e1a3a0',
+                end: '#cb8683',
+                fillHex: '#e2aba9',
+                fillOpacity: 0.61,
+                stroke: '#f7e8e8'
+            }
         };
+        const DEFAULT_MARKER_STYLE = 'glass';
+        const PHOTO_MARKER_STYLE = 'photo';
+        const DEFAULT_MARKER_ICON = 'mdi:map-marker-radius';
+        const DEFAULT_MARKER_COLOR = '#4ade80';
+        const MARKER_STYLE_VALUES = Object.freeze([
+            'super', 'photo', 'glass', 'neon', 'orb', 'pin', 'crystal', 'ring', 'chip', 'beacon', 'gem', 'retro', 'comet', 'minimal'
+        ]);
 
         function normalizeStatus(status) {
             return status === 'reserved' ? 'on_hold' : status;
@@ -1466,6 +2181,56 @@
 
         function getStatusColors(status) {
             return statusColorMap[getStatusKey(status)];
+        }
+
+        function hashString(value) {
+            const text = String(value || '');
+            let hash = 0;
+            for (let i = 0; i < text.length; i += 1) {
+                hash = ((hash << 5) - hash + text.charCodeAt(i)) | 0;
+            }
+            return Math.abs(hash);
+        }
+
+        function tintHex(hexColor, amount) {
+            const match = String(hexColor || '').trim().match(/^#([0-9a-fA-F]{6})$/);
+            if (!match) return '#bfcddd';
+            const hex = match[1];
+            const weight = Math.max(-0.28, Math.min(0.28, Number(amount) || 0));
+            const target = weight >= 0 ? 255 : 0;
+            const ratio = Math.abs(weight);
+            const mix = (channel) => {
+                const parsed = parseInt(channel, 16);
+                return Math.round(parsed + (target - parsed) * ratio).toString(16).padStart(2, '0');
+            };
+            return `#${mix(hex.slice(0, 2))}${mix(hex.slice(2, 4))}${mix(hex.slice(4, 6))}`;
+        }
+
+        function getPlotSurfaceStyle(plot) {
+            const base = getStatusColors(plot.status);
+            const seed = hashString(`${plot.id || ''}:${plot.name || ''}`);
+            const fillVariance = ((seed % 7) - 3) / 28;
+            const strokeVariance = ((seed % 5) - 2) / 34;
+            const opacityShift = (((seed >> 3) % 5) - 2) * 0.02;
+            return {
+                fill: tintHex(base.fillHex, fillVariance),
+                fillOpacity: Math.max(0.52, Math.min(0.74, base.fillOpacity + opacityShift)),
+                stroke: tintHex(base.stroke, strokeVariance)
+            };
+        }
+
+        function normalizeMarkerColorHex(value) {
+            const raw = String(value || '').trim();
+            const match = raw.match(/^#([0-9a-fA-F]{6})$/);
+            return match ? `#${match[1].toLowerCase()}` : DEFAULT_MARKER_COLOR;
+        }
+
+        function hexToMarkerRgb(hexColor) {
+            const hex = normalizeMarkerColorHex(hexColor).slice(1);
+            const r = parseInt(hex.slice(0, 2), 16);
+            const g = parseInt(hex.slice(2, 4), 16);
+            const b = parseInt(hex.slice(4, 6), 16);
+            return `${r}, ${g}, ${b}`;
         }
 
         function escapeHtml(value) {
@@ -1608,6 +2373,7 @@
         }
 
         function showPlotDetails(plot) {
+            stopAutoRotate();
             const colors = getStatusColors(plot.status);
             document.getElementById('details-color').style.background = `linear-gradient(135deg, ${colors.start}, ${colors.end})`;
             document.getElementById('details-title').textContent = plot.name;
@@ -1621,6 +2387,53 @@
             plotDetailsModal.classList.add('visible');
         }
 
+        function isMarkerPhotoLightboxVisible() {
+            return Boolean(markerPhotoLightbox && markerPhotoLightbox.classList.contains('visible'));
+        }
+
+        function closeMarkerPhotoLightbox() {
+            if (!markerPhotoLightbox || !markerPhotoLightboxImage) return;
+            markerPhotoLightbox.classList.remove('is-zoomed');
+            markerPhotoLightbox.setAttribute('aria-hidden', 'true');
+            window.setTimeout(() => {
+                if (markerPhotoLightbox && !markerPhotoLightbox.classList.contains('is-zoomed')) {
+                    markerPhotoLightbox.classList.remove('visible');
+                    markerPhotoLightboxImage.removeAttribute('src');
+                }
+            }, 260);
+            scheduleAutoRotateResume(850);
+        }
+
+        function openMarkerPhotoLightbox(imageBase64, markerName, markerId) {
+            if (!markerPhotoLightbox || !markerPhotoLightboxImage || !imageBase64) return;
+            const selectorId = (typeof CSS !== 'undefined' && typeof CSS.escape === 'function')
+                ? CSS.escape(String(markerId || ''))
+                : String(markerId || '').replace(/"/g, '\\"');
+            const markerEl = selectorId
+                ? document.querySelector(`.psv-glass-marker[data-marker-id="${selectorId}"]`)
+                : null;
+            if (markerEl) {
+                const rect = markerEl.getBoundingClientRect();
+                markerPhotoLightbox.style.setProperty('--photo-origin-x', `${Math.round(rect.left + rect.width / 2)}px`);
+                markerPhotoLightbox.style.setProperty('--photo-origin-y', `${Math.round(rect.top + rect.height / 2)}px`);
+            } else {
+                markerPhotoLightbox.style.setProperty('--photo-origin-x', '50vw');
+                markerPhotoLightbox.style.setProperty('--photo-origin-y', '50vh');
+            }
+
+            stopAutoRotate();
+            markerPhotoLightboxImage.src = imageBase64;
+            markerPhotoLightboxImage.alt = markerName ? `${markerName} photo` : 'Marker photo';
+            markerPhotoLightbox.setAttribute('aria-hidden', 'false');
+            markerPhotoLightbox.classList.remove('is-zoomed');
+            markerPhotoLightbox.classList.add('visible');
+            requestAnimationFrame(() => markerPhotoLightbox.classList.add('is-zoomed'));
+        }
+
+        if (markerPhotoLightbox) {
+            markerPhotoLightbox.addEventListener('click', () => closeMarkerPhotoLightbox());
+        }
+
         class CustomerMarkerManager {
             constructor() {
                 this.plotId = String(PANORAMA_ID);
@@ -1628,6 +2441,8 @@
                 this.markersPlugin = null;
                 this.markerMap = new Map();
                 this.selectedMarkerId = null;
+                this.focusedMarkerId = null;
+                this.styleColumnsSupported = true;
 
                 this.dom = {
                     modal: document.getElementById('marker-readonly-modal'),
@@ -1674,6 +2489,29 @@
                 }
             }
 
+            normalizeMarkerStyle(value) {
+                const style = String(value || '').trim().toLowerCase();
+                return MARKER_STYLE_VALUES.includes(style) ? style : DEFAULT_MARKER_STYLE;
+            }
+
+            isPhotoMarkerStyle(value) {
+                return this.normalizeMarkerStyle(value) === PHOTO_MARKER_STYLE;
+            }
+
+            normalizeMarkerIcon(value) {
+                const icon = String(value || '').trim();
+                return icon || DEFAULT_MARKER_ICON;
+            }
+
+            normalizeMarkerColor(value) {
+                return normalizeMarkerColorHex(value);
+            }
+
+            isStyleColumnError(error) {
+                const message = String(error && (error.message || error.details || error.hint) ? (error.message || error.details || error.hint) : '').toLowerCase();
+                return message.includes('marker_style') || message.includes('marker_icon') || message.includes('marker_color');
+            }
+
             normalizeMarker(row) {
                 const status = typeof row.status === 'string' ? row.status.toLowerCase() : 'available';
                 return {
@@ -1681,6 +2519,9 @@
                     name: row.name || '',
                     description: row.description || '',
                     image_base64: row.image_base64 || '',
+                    marker_style: this.normalizeMarkerStyle(row.marker_style),
+                    marker_icon: this.normalizeMarkerIcon(row.marker_icon),
+                    marker_color: this.normalizeMarkerColor(row.marker_color),
                     _imageLoaded: Boolean(row.image_base64),
                     longitude: Number(row.longitude || 0),
                     latitude: Number(row.latitude || 0),
@@ -1700,17 +2541,77 @@
                 return 'available';
             }
 
+            buildPhotoMarkerHtml(marker, statusClass) {
+                const hasImage = Boolean(marker.image_base64);
+                const imageContent = hasImage
+                    ? `<img class="marker-photo-image" src="${this.escapeAttr(marker.image_base64)}" alt="${this.escapeAttr(marker.name || 'Marker')}">`
+                    : `<span class="marker-photo-placeholder">${this.escapeHtml((marker.name || 'POI').slice(0, 2).toUpperCase())}</span>`;
+                return `<button class="psv-glass-marker marker-photo ${statusClass}" type="button" data-marker-id="${this.escapeAttr(marker.id)}" aria-label="${this.escapeAttr(marker.name || 'Marker')}"><span class="marker-photo-name">${this.escapeHtml(marker.name || 'Marker')}</span><span class="marker-photo-disc">${imageContent}</span><span class="marker-photo-stem" aria-hidden="true"></span><span class="marker-photo-base" aria-hidden="true"></span></button>`;
+            }
+
             buildViewerMarker(marker) {
+                const statusClass = this.getStatusClass(marker);
+                const markerStyle = this.normalizeMarkerStyle(marker.marker_style);
+                const markerIcon = this.normalizeMarkerIcon(marker.marker_icon);
+                const markerRgb = hexToMarkerRgb(marker.marker_color);
+                let markerHtml = '';
+                if (markerStyle === 'super') {
+                    markerHtml = `<button class="psv-glass-marker marker-super ${statusClass}" type="button" data-marker-id="${this.escapeAttr(marker.id)}" aria-label="${this.escapeAttr(marker.name || 'Marker')}"><span class="marker-callout" aria-hidden="true"><span class="marker-tag">${this.escapeHtml(marker.name || 'Marker')}</span><span class="marker-stem"></span></span><span class="marker-base" aria-hidden="true"><span class="marker-ring-outer"></span><span class="marker-ring-inner"></span></span></button>`;
+                } else if (this.isPhotoMarkerStyle(markerStyle)) {
+                    markerHtml = this.buildPhotoMarkerHtml(marker, statusClass);
+                } else {
+                    markerHtml = `<button class="psv-glass-marker marker-classic ${statusClass} marker-theme-${this.escapeAttr(markerStyle)}" style="--mk-rgb:${this.escapeAttr(markerRgb)};" type="button" data-marker-id="${this.escapeAttr(marker.id)}" aria-label="${this.escapeAttr(marker.name || 'Marker')}"><span class="marker-callout" aria-hidden="true"><span class="marker-tag">${this.escapeHtml(marker.name || 'Marker')}</span></span><span class="marker-halo" aria-hidden="true"></span><span class="marker-core" aria-hidden="true"><span class="marker-dot"></span><span class="marker-icon" aria-hidden="true"><iconify-icon icon="${this.escapeAttr(markerIcon)}"></iconify-icon></span></span><span class="marker-pointer" aria-hidden="true"></span></button>`;
+                }
                 return {
                     id: this.toViewerMarkerId(marker.id),
                     longitude: marker.longitude,
                     latitude: marker.latitude,
-                    html: `<button class="psv-glass-marker ${this.getStatusClass(marker)}" type="button" data-marker-id="${this.escapeAttr(marker.id)}" aria-label="${this.escapeAttr(marker.name || 'Marker')}"><span class="marker-core" aria-hidden="true"></span><span class="marker-pointer" aria-hidden="true"></span></button>`,
+                    html: markerHtml,
                     anchor: 'center bottom',
                     style: { zIndex: 120 },
-                    tooltip: marker.name || '',
                     data: { markerType: 'poi', markerId: marker.id }
                 };
+            }
+
+            applyMarkerVisualStyle(markerId = null) {
+                const targetIds = markerId ? [String(markerId)] : Array.from(this.markerMap.keys());
+                const styleClasses = MARKER_STYLE_VALUES.map((value) => `marker-theme-${value}`);
+                targetIds.forEach((id) => {
+                    const marker = this.markerMap.get(String(id));
+                    if (!marker) return;
+                    const selectorId = (typeof CSS !== 'undefined' && typeof CSS.escape === 'function')
+                        ? CSS.escape(String(id))
+                        : String(id).replace(/"/g, '\\"');
+                    const markerEl = document.querySelector(`.psv-glass-marker[data-marker-id="${selectorId}"]`);
+                    if (!markerEl) return;
+                    const normalizedStyle = this.normalizeMarkerStyle(marker.marker_style);
+                    const isSuper = normalizedStyle === 'super';
+                    const isPhoto = this.isPhotoMarkerStyle(normalizedStyle);
+                    markerEl.classList.remove(...styleClasses);
+                    markerEl.classList.remove('marker-super', 'marker-classic', 'marker-photo');
+                    if (isSuper) {
+                        markerEl.classList.add('marker-super');
+                        const labelEl = markerEl.querySelector('.marker-tag');
+                        if (labelEl) labelEl.textContent = marker.name || 'Marker';
+                    } else if (isPhoto) {
+                        markerEl.classList.add('marker-photo');
+                        const nameEl = markerEl.querySelector('.marker-photo-name');
+                        if (nameEl) nameEl.textContent = marker.name || 'Marker';
+                        const imgEl = markerEl.querySelector('.marker-photo-image');
+                        if (imgEl && marker.image_base64) {
+                            imgEl.setAttribute('src', marker.image_base64);
+                        }
+                    } else {
+                        markerEl.classList.add('marker-classic', `marker-theme-${normalizedStyle}`);
+                        markerEl.style.setProperty('--mk-rgb', hexToMarkerRgb(marker.marker_color));
+                        const labelEl = markerEl.querySelector('.marker-tag');
+                        if (labelEl) labelEl.textContent = marker.name || 'Marker';
+                        const iconEl = markerEl.querySelector('iconify-icon');
+                        if (iconEl) {
+                            iconEl.setAttribute('icon', this.normalizeMarkerIcon(marker.marker_icon));
+                        }
+                    }
+                });
             }
 
             syncViewerMarkers() {
@@ -1733,12 +2634,21 @@
                 existing.forEach((id) => {
                     try { this.markersPlugin.removeMarker(id); } catch (error) {}
                 });
+                requestAnimationFrame(() => this.applyMarkerVisualStyle());
+                setTimeout(() => this.applyMarkerVisualStyle(), 60);
+                setTimeout(() => this.updateViewportFocus(), 90);
             }
 
             handleMarkerSelection(marker) {
                 const markerData = marker && marker.config ? marker.config.data : null;
                 if (!markerData || markerData.markerType !== 'poi') return false;
                 const markerId = String(markerData.markerId);
+                const selected = this.markerMap.get(markerId);
+                if (selected && this.isPhotoMarkerStyle(selected.marker_style)) {
+                    this.focus(markerId, false);
+                    this.openPhotoMarker(markerId);
+                    return true;
+                }
                 this.focus(markerId, false);
                 this.openReadonly(markerId);
                 return true;
@@ -1757,15 +2667,13 @@
             openReadonly(markerId) {
                 const marker = this.markerMap.get(String(markerId));
                 if (!marker || !this.dom.modal) return;
+                stopAutoRotate();
                 if (this.dom.name) this.dom.name.textContent = marker.name || 'Marker';
                 if (this.dom.description) this.dom.description.textContent = marker.description || 'No description.';
                 if (this.dom.color) {
-                    const status = this.getStatusClass(marker);
-                    const colors = status === 'sold'
-                        ? { start: '#ef4444', end: '#b91c1c' }
-                        : status === 'reserved'
-                            ? { start: '#f97316', end: '#ea580c' }
-                            : { start: '#22c55e', end: '#16a34a' };
+                    const status = (marker.status || '').toLowerCase();
+                    const statusKey = status === 'reserved' ? 'on_hold' : (status === 'sold' ? 'sold' : 'available');
+                    const colors = statusColorMap[statusKey] || statusColorMap.available;
                     this.dom.color.style.background = `linear-gradient(135deg, ${colors.start}, ${colors.end})`;
                 }
                 this.selectedMarkerId = String(markerId);
@@ -1782,8 +2690,27 @@
                     });
             }
 
+            openPhotoMarker(markerId) {
+                const marker = this.markerMap.get(String(markerId));
+                if (!marker) return;
+                if (this.dom.modal) this.dom.modal.classList.remove('visible');
+                this.ensureMarkerImage(markerId)
+                    .then((imageBase64) => {
+                        const value = String(imageBase64 || marker.image_base64 || '');
+                        if (!value) {
+                            this.openReadonly(markerId);
+                            return;
+                        }
+                        marker.image_base64 = value;
+                        marker._imageLoaded = true;
+                        openMarkerPhotoLightbox(value, marker.name || 'Marker', marker.id);
+                    })
+                    .catch(() => this.openReadonly(markerId));
+            }
+
             closeReadonly() {
                 if (this.dom.modal) this.dom.modal.classList.remove('visible');
+                scheduleAutoRotateResume(850);
             }
 
             showMediaLoading() {
@@ -1841,13 +2768,23 @@
 
             async fetchMarkers(plotId) {
                 const supabase = this.getSupabaseClient();
-                const { data, error } = await supabase
+                const styledColumns = 'id, plot_id, name, description, image_base64, longitude, latitude, status, marker_style, marker_icon, marker_color, created_at';
+                const baseColumns = 'id, plot_id, name, description, image_base64, longitude, latitude, status, created_at';
+                let result = await supabase
                     .from('plot_markers')
-                    .select('id, plot_id, name, description, longitude, latitude, status, created_at')
+                    .select(this.styleColumnsSupported ? styledColumns : baseColumns)
                     .eq('plot_id', String(plotId))
                     .order('created_at', { ascending: true });
-                if (error) throw error;
-                return data || [];
+                if (result.error && this.styleColumnsSupported && this.isStyleColumnError(result.error)) {
+                    this.styleColumnsSupported = false;
+                    result = await supabase
+                        .from('plot_markers')
+                        .select(baseColumns)
+                        .eq('plot_id', String(plotId))
+                        .order('created_at', { ascending: true });
+                }
+                if (result.error) throw result.error;
+                return result.data || [];
             }
 
             getSupabaseClient() {
@@ -1866,6 +2803,56 @@
                 if (markerEl) markerEl.classList.toggle('is-active', Boolean(active));
             }
 
+            getAngularDistance(longitudeA, latitudeA, longitudeB, latitudeB) {
+                const sinA = Math.sin(latitudeA);
+                const cosA = Math.cos(latitudeA);
+                const sinB = Math.sin(latitudeB);
+                const cosB = Math.cos(latitudeB);
+                const cosDelta = Math.cos(longitudeA - longitudeB);
+                const dot = (sinA * sinB) + (cosA * cosB * cosDelta);
+                return Math.acos(Math.min(1, Math.max(-1, dot)));
+            }
+
+            setViewportFocus(markerId) {
+                if (this.focusedMarkerId === markerId) return;
+                document.querySelectorAll('.psv-glass-marker.is-focused').forEach((el) => el.classList.remove('is-focused'));
+                this.focusedMarkerId = markerId || null;
+                if (!markerId) return;
+                const selectorId = (typeof CSS !== 'undefined' && typeof CSS.escape === 'function')
+                    ? CSS.escape(String(markerId))
+                    : String(markerId).replace(/"/g, '\\"');
+                const markerEl = document.querySelector(`.psv-glass-marker[data-marker-id="${selectorId}"]`);
+                if (markerEl) markerEl.classList.add('is-focused');
+            }
+
+            updateViewportFocus() {
+                if (!this.viewer || this.markerMap.size === 0) return;
+                let position = null;
+                try {
+                    position = this.viewer.getPosition();
+                } catch (error) {
+                    return;
+                }
+                if (!position || typeof position.longitude !== 'number' || typeof position.latitude !== 'number') return;
+                let bestId = null;
+                let bestDistance = Number.POSITIVE_INFINITY;
+                this.markerMap.forEach((marker) => {
+                    const d = this.getAngularDistance(
+                        position.longitude,
+                        position.latitude,
+                        Number(marker.longitude || 0),
+                        Number(marker.latitude || 0)
+                    );
+                    if (d < bestDistance) {
+                        bestDistance = d;
+                        bestId = marker.id;
+                    }
+                });
+                // Larger focus radius so marker names appear during drag/autorotate more reliably.
+                const focusThreshold = 0.26;
+                this.setViewportFocus(bestDistance <= focusThreshold ? bestId : null);
+            }
+
             escapeHtml(value) {
                 return String(value || '')
                     .replace(/&/g, '&amp;')
@@ -1881,6 +2868,59 @@
         }
 
         const markerManager = new CustomerMarkerManager();
+        let overlaysHidden = false;
+
+        function setOverlaysHidden(hidden) {
+            overlaysHidden = Boolean(hidden);
+            document.body.classList.toggle('overlays-hidden', overlaysHidden);
+            if (toggleOverlaysBtn) {
+                toggleOverlaysBtn.textContent = overlaysHidden ? 'Show UI' : 'Hide All';
+            }
+            if (!overlaysHidden) return;
+
+            if (plotDetailsModal && plotDetailsModal.classList.contains('visible')) {
+                closePlotDetails();
+            }
+            const markerModal = document.getElementById('marker-readonly-modal');
+            if (markerModal && markerModal.classList.contains('visible')) {
+                markerManager.closeReadonly();
+            }
+            if (isMarkerPhotoLightboxVisible()) {
+                closeMarkerPhotoLightbox();
+            }
+            if (shareModal && shareModal.classList.contains('visible')) {
+                shareModal.classList.remove('visible');
+            }
+        }
+
+        function updateFullscreenButton() {
+            if (!fullscreenBtn) return;
+            const active = viewer && typeof viewer.isFullscreenEnabled === 'function'
+                ? viewer.isFullscreenEnabled()
+                : Boolean(document.fullscreenElement);
+            fullscreenBtn.textContent = active ? 'Exit Fullscreen' : 'Fullscreen';
+        }
+
+        function toggleFullscreenMode() {
+            if (viewer && typeof viewer.toggleFullscreen === 'function') {
+                viewer.toggleFullscreen();
+                return;
+            }
+            if (!document.fullscreenElement && psvContainer && psvContainer.requestFullscreen) {
+                psvContainer.requestFullscreen().catch(() => {});
+            } else if (document.fullscreenElement && document.exitFullscreen) {
+                document.exitFullscreen().catch(() => {});
+            }
+        }
+
+        if (toggleOverlaysBtn) {
+            toggleOverlaysBtn.addEventListener('click', () => setOverlaysHidden(!overlaysHidden));
+        }
+        if (fullscreenBtn) {
+            fullscreenBtn.addEventListener('click', () => toggleFullscreenMode());
+        }
+        setOverlaysHidden(false);
+        document.addEventListener('fullscreenchange', updateFullscreenButton);
 
         if (dismissGuideBtn && customerGuide) {
             const storageKey = `customer-guide-dismissed-${PANORAMA_ID}`;
@@ -1898,6 +2938,39 @@
             });
         }
 
+        function focusMatchFromQuery(rawQuery) {
+            const query = String(rawQuery || '').trim().toLowerCase();
+            if (!query) return false;
+
+            const markerMatch = Array.from(markerManager.markerMap.values()).find((marker) =>
+                String(marker.name || '').toLowerCase().includes(query)
+            );
+            if (markerMatch) {
+                markerManager.focus(markerMatch.id, true);
+                markerManager.setViewportFocus(markerMatch.id);
+                return true;
+            }
+
+            const plotMatch = plots.find((plot) => String(plot.name || '').toLowerCase().includes(query));
+            if (plotMatch && markersPlugin) {
+                markersPlugin.gotoMarker(`plot-label-${plotMatch.id}`, '6rpm').catch(() => {});
+                return true;
+            }
+            return false;
+        }
+
+        if (plotSearchInput) {
+            plotSearchInput.addEventListener('focus', () => stopAutoRotate());
+            plotSearchInput.addEventListener('blur', () => scheduleAutoRotateResume(1200));
+            plotSearchInput.addEventListener('input', () => plotSearchInput.classList.remove('search-miss'));
+            plotSearchInput.addEventListener('keydown', (event) => {
+                if (event.key !== 'Enter') return;
+                event.preventDefault();
+                const found = focusMatchFromQuery(plotSearchInput.value);
+                plotSearchInput.classList.toggle('search-miss', !found);
+            });
+        }
+
         function getCentroid(points) {
             if (!points || points.length === 0) return null;
             let x = 0, y = 0;
@@ -1906,18 +2979,59 @@
         }
 
         // Shared event handlers
-        document.getElementById('close-details').addEventListener('click', () => plotDetailsModal.classList.remove('visible'));
+        document.getElementById('close-details').addEventListener('click', closePlotDetails);
         const closeDetailsIcon = document.getElementById('close-details-icon');
         if (closeDetailsIcon) {
-            closeDetailsIcon.addEventListener('click', () => plotDetailsModal.classList.remove('visible'));
+            closeDetailsIcon.addEventListener('click', closePlotDetails);
         }
-        plotDetailsModal.addEventListener('click', (e) => { if (e.target === plotDetailsModal) plotDetailsModal.classList.remove('visible'); });
+        plotDetailsModal.addEventListener('click', (e) => { if (e.target === plotDetailsModal) closePlotDetails(); });
 
         let viewer = null;
         let markersPlugin = null;
         const psvContainer = document.getElementById('psv-container');
         const MAX_PSV_RETRIES = 50;
         let psvRetryCount = 0;
+        let autoRotateResumeTimer = null;
+
+        function isModalVisible() {
+            return Boolean(
+                (plotDetailsModal && plotDetailsModal.classList.contains('visible')) ||
+                (shareModal && shareModal.classList.contains('visible')) ||
+                (document.getElementById('marker-readonly-modal') && document.getElementById('marker-readonly-modal').classList.contains('visible')) ||
+                isMarkerPhotoLightboxVisible()
+            );
+        }
+
+        function stopAutoRotate() {
+            if (autoRotateResumeTimer) {
+                clearTimeout(autoRotateResumeTimer);
+                autoRotateResumeTimer = null;
+            }
+            if (!viewer || typeof viewer.stopAutorotate !== 'function') return;
+            if (typeof viewer.isAutorotateEnabled === 'function' && !viewer.isAutorotateEnabled()) return;
+            viewer.stopAutorotate();
+        }
+
+        function scheduleAutoRotateResume(delayMs = AUTO_ROTATE_RESUME_DELAY_MS) {
+            if (!viewer || typeof viewer.startAutorotate !== 'function') return;
+            if (autoRotateResumeTimer) clearTimeout(autoRotateResumeTimer);
+            autoRotateResumeTimer = setTimeout(() => {
+                if (!viewer || isModalVisible()) return;
+                if (typeof viewer.isAutorotateEnabled === 'function' && viewer.isAutorotateEnabled()) return;
+                viewer.startAutorotate();
+            }, delayMs);
+        }
+
+        function pauseAutoRotateForInteraction() {
+            stopAutoRotate();
+            scheduleAutoRotateResume();
+        }
+
+        function closePlotDetails() {
+            if (!plotDetailsModal) return;
+            plotDetailsModal.classList.remove('visible');
+            scheduleAutoRotateResume(850);
+        }
 
         function renderPlots() {
             if (!markersPlugin || !viewer) return;
@@ -1925,17 +3039,23 @@
             plots
                 .filter(plot => Array.isArray(plot.points) && plot.points.length >= 3)
                 .forEach(plot => {
-                    const colors = getStatusColors(plot.status);
+                    const surface = getPlotSurfaceStyle(plot);
+                    const statusKey = getStatusKey(plot.status);
+                    const labelClass = statusKey === 'sold'
+                        ? 'psv-plot-label--sold'
+                        : (statusKey === 'on_hold' ? 'psv-plot-label--hold' : 'psv-plot-label--available');
                     markers.push({
                         id: `plot-${plot.id}`,
                         polygonPx: plot.points.map(point => [point.x, point.y]),
                         svgStyle: {
-                            fill: colors.fill,
-                            stroke: colors.start,
-                            strokeWidth: 3,
+                            fill: surface.fill,
+                            fillOpacity: surface.fillOpacity,
+                            stroke: surface.stroke,
+                            strokeOpacity: 0.94,
+                            strokeWidth: 2.05,
+                            strokeLinecap: 'round',
                             strokeLinejoin: 'round'
                         },
-                        tooltip: plot.name || '',
                         data: { plotId: plot.id }
                     });
 
@@ -1946,7 +3066,7 @@
                             id: `plot-label-${plot.id}`,
                             longitude: spherical.longitude,
                             latitude: spherical.latitude,
-                            html: `<div class="psv-plot-label">${escapeHtml(plot.name)}</div>`,
+                            html: `<div class="psv-plot-label ${labelClass}">${escapeHtml(plot.name)}</div>`,
                             anchor: 'center center',
                             style: { pointerEvents: 'none' },
                             data: { plotId: plot.id, label: true }
@@ -1972,11 +3092,15 @@
                 mousewheel: true,
                 mousemove: true,
                 touchmoveTwoFingers: false,
+                autorotateDelay: null,
+                autorotateSpeed: '1.1rpm',
+                autorotateLat: '5deg',
                 loadingTxt: '',
                 plugins: [
                     [PhotoSphereViewer.MarkersPlugin, {}]
                 ]
             });
+            updateFullscreenButton();
 
             markersPlugin = viewer.getPlugin(PhotoSphereViewer.MarkersPlugin);
             markerManager.init(viewer, markersPlugin);
@@ -1985,7 +3109,13 @@
                 loading.classList.add('hidden');
                 loadPlots();
                 markerManager.loadMarkers();
+                scheduleAutoRotateResume(AUTO_ROTATE_BOOT_DELAY_MS);
+                setTimeout(() => markerManager.updateViewportFocus(), 250);
             });
+
+            viewer.on('position-updated', () => markerManager.updateViewportFocus());
+            viewer.on('zoom-updated', () => markerManager.updateViewportFocus());
+            viewer.on('fullscreen-updated', () => updateFullscreenButton());
 
             if (markersPlugin) {
                 markersPlugin.on('select-marker', (e, marker) => {
@@ -2001,10 +3131,9 @@
                 });
             }
 
-            const zoomControls = document.querySelector('.zoom-controls');
-            if (zoomControls) {
-                zoomControls.style.display = 'none';
-            }
+            ['pointerdown', 'wheel', 'touchstart'].forEach((eventName) => {
+                psvContainer.addEventListener(eventName, pauseAutoRotateForInteraction, { passive: true });
+            });
         }
 
         function startPsvInit() {
@@ -2028,6 +3157,7 @@
 
         if (shareBtn) {
             shareBtn.addEventListener('click', () => {
+                stopAutoRotate();
                 const viewUrl = `${window.location.origin}/customer/3d/${PANORAMA_ID}`;
                 shareUrl.textContent = viewUrl;
                 shareModal.classList.add('visible');
@@ -2048,19 +3178,34 @@
             const closeShare = document.getElementById('close-share');
             const closeShareIcon = document.getElementById('close-share-icon');
             if (closeShare) {
-                closeShare.addEventListener('click', () => shareModal.classList.remove('visible'));
+                closeShare.addEventListener('click', () => {
+                    shareModal.classList.remove('visible');
+                    scheduleAutoRotateResume(850);
+                });
             }
             if (closeShareIcon) {
-                closeShareIcon.addEventListener('click', () => shareModal.classList.remove('visible'));
+                closeShareIcon.addEventListener('click', () => {
+                    shareModal.classList.remove('visible');
+                    scheduleAutoRotateResume(850);
+                });
             }
-            shareModal.addEventListener('click', (e) => { if (e.target === shareModal) shareModal.classList.remove('visible'); });
+            shareModal.addEventListener('click', (e) => {
+                if (e.target === shareModal) {
+                    shareModal.classList.remove('visible');
+                    scheduleAutoRotateResume(850);
+                }
+            });
         }
 
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') {
-                if (plotDetailsModal && plotDetailsModal.classList.contains('visible')) plotDetailsModal.classList.remove('visible');
+                if (isMarkerPhotoLightboxVisible()) closeMarkerPhotoLightbox();
+                if (plotDetailsModal && plotDetailsModal.classList.contains('visible')) closePlotDetails();
                 if (document.getElementById('marker-readonly-modal') && document.getElementById('marker-readonly-modal').classList.contains('visible')) markerManager.closeReadonly();
-                if (shareModal && shareModal.classList.contains('visible')) shareModal.classList.remove('visible');
+                if (shareModal && shareModal.classList.contains('visible')) {
+                    shareModal.classList.remove('visible');
+                    scheduleAutoRotateResume(850);
+                }
             }
         });
     </script>

@@ -620,6 +620,70 @@ def delete_panorama(user_id, role, panorama_id):
     return jsonify({'success': True})
 
 
+@app.route('/api/panoramas/<int:panorama_id>', methods=['PUT', 'PATCH'])
+@require_auth
+def rename_panorama(user_id, role, panorama_id):
+    sb = get_supabase()
+    if not sb:
+        return jsonify({'error': 'Database not configured'}), 503
+
+    panorama, access_type = get_panorama_with_access(sb, panorama_id, user_id)
+    if not panorama:
+        return jsonify({'error': 'Panorama not found'}), 404
+    if not can_delete_panorama(access_type):
+        return jsonify({'error': 'Only the owner can rename this panorama'}), 403
+
+    payload = request.get_json(silent=True) or request.form or {}
+    name = str(payload.get('name', '')).strip()
+    if not name:
+        return jsonify({'error': 'Project name is required'}), 400
+    if len(name) > 120:
+        return jsonify({'error': 'Project name must be 120 characters or fewer'}), 400
+
+    try:
+        # supabase-py v2 postgrest update builders don't support chaining .select() after .update().
+        # Do the update, then (if needed) fetch the row.
+        response = sb.table('panoramas').update({
+            'name': name,
+            'updated_at': datetime.utcnow().isoformat(),
+        }).eq('id', panorama_id).execute()
+        err = getattr(response, 'error', None)
+        if err:
+            message = getattr(err, 'message', None) or str(err)
+            return jsonify({'error': message}), 500
+
+        row = None
+        data = getattr(response, 'data', None)
+        if isinstance(data, list) and data:
+            row = data[0]
+
+        if not row:
+            # Fallback: explicit fetch for clients/configs that don't return updated rows.
+            fetch = sb.table('panoramas').select('id, name, updated_at').eq('id', panorama_id).limit(1).execute()
+            ferr = getattr(fetch, 'error', None)
+            if ferr:
+                message = getattr(ferr, 'message', None) or str(ferr)
+                return jsonify({'error': message}), 500
+            fdata = getattr(fetch, 'data', None)
+            if isinstance(fdata, list) and fdata:
+                row = fdata[0]
+
+        if row:
+            return jsonify({
+                'id': row.get('id', panorama_id),
+                'name': row.get('name', name),
+                'updated_at': str(row.get('updated_at') or datetime.utcnow().isoformat()),
+            })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+    return jsonify({
+        'id': panorama_id,
+        'name': name,
+        'updated_at': datetime.utcnow().isoformat(),
+    })
+
+
 @app.route('/api/panoramas/<int:panorama_id>/plots', methods=['GET'])
 @require_auth
 def get_plots(user_id, role, panorama_id):

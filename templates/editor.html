@@ -106,6 +106,62 @@
             pointer-events: none;
         }
 
+        .plots-overlay .plot-boundary {
+            transition: fill 180ms ease, stroke-width 180ms ease;
+        }
+
+        .plots-overlay .plot-outline {
+            pointer-events: none;
+            transition: stroke-opacity 180ms ease;
+        }
+
+        .plots-overlay .plot-label-group {
+            pointer-events: none;
+            transform-box: fill-box;
+            transform-origin: center;
+            transition: transform 180ms ease;
+        }
+
+        .plots-overlay .plot-label-group.is-active {
+            transform: translateY(-2px);
+        }
+
+        .plots-overlay .plot-label-bg {
+            fill: rgba(9, 10, 12, 0.8);
+            stroke: rgba(255, 255, 255, 0.28);
+            stroke-width: 1.2;
+        }
+
+        .plots-overlay .plot-label-text {
+            fill: #fbfaf7;
+            font-family: var(--font-body);
+            font-weight: 700;
+            font-size: 16px;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            paint-order: stroke;
+            stroke: rgba(0, 0, 0, 0.26);
+            stroke-width: 0.7;
+        }
+
+        .plots-overlay .plot-label-group.is-available .plot-label-bg {
+            stroke: rgba(34, 197, 94, 0.58);
+        }
+
+        .plots-overlay .plot-label-group.is-hold .plot-label-bg {
+            stroke: rgba(249, 115, 22, 0.62);
+        }
+
+        .plots-overlay .plot-label-group.is-sold .plot-label-bg {
+            stroke: rgba(239, 68, 68, 0.62);
+        }
+
+        @media (max-width: 900px) {
+            .plots-overlay .plot-label-text {
+                font-size: 13px;
+            }
+        }
+
         .overlay-gradient {
             position: fixed;
             top: 0;
@@ -2263,31 +2319,66 @@
 
         drawingCanvas.addEventListener('mousemove', (e) => { if (!isEditMode || currentPoints.length === 0) return; drawCurrentPolygon(getImageCoords(e)); });
 
+        function getBounds(points) {
+            return points.reduce((acc, point) => ({
+                minX: Math.min(acc.minX, point.x),
+                minY: Math.min(acc.minY, point.y),
+                maxX: Math.max(acc.maxX, point.x),
+                maxY: Math.max(acc.maxY, point.y)
+            }), { minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity });
+        }
+
         function drawCurrentPolygon(mousePos = null) {
             ctx.clearRect(0, 0, drawingCanvas.width, drawingCanvas.height);
             if (currentPoints.length === 0) return;
 
-            ctx.beginPath();
-            ctx.moveTo(currentPoints[0].x, currentPoints[0].y);
-            for (let i = 1; i < currentPoints.length; i++) ctx.lineTo(currentPoints[i].x, currentPoints[i].y);
-            if (mousePos) ctx.lineTo(mousePos.x, mousePos.y);
-            ctx.closePath();
+            const previewPoints = mousePos ? [...currentPoints, mousePos] : [...currentPoints];
+            const canFill = currentPoints.length >= 3;
 
-            ctx.fillStyle = 'rgba(201, 169, 98, 0.3)';
-            ctx.fill();
-            ctx.strokeStyle = '#c9a962';
-            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.moveTo(previewPoints[0].x, previewPoints[0].y);
+            for (let i = 1; i < previewPoints.length; i++) ctx.lineTo(previewPoints[i].x, previewPoints[i].y);
+            if (canFill) {
+                ctx.closePath();
+                const bounds = getBounds(currentPoints);
+                const gradient = ctx.createLinearGradient(bounds.minX, bounds.minY, bounds.maxX, bounds.maxY);
+                gradient.addColorStop(0, 'rgba(201, 169, 98, 0.34)');
+                gradient.addColorStop(1, 'rgba(201, 169, 98, 0.14)');
+                ctx.fillStyle = gradient;
+                ctx.fill();
+            }
+            ctx.setLineDash([10, 8]);
+            ctx.strokeStyle = '#f3d9a6';
+            ctx.lineWidth = 2.5;
             ctx.stroke();
+            ctx.setLineDash([]);
 
             currentPoints.forEach((point, index) => {
                 ctx.beginPath();
-                ctx.arc(point.x, point.y, 8, 0, Math.PI * 2);
-                ctx.fillStyle = index === 0 ? '#4ade80' : '#c9a962';
+                ctx.arc(point.x, point.y, index === 0 ? 9 : 7, 0, Math.PI * 2);
+                ctx.fillStyle = index === 0 ? '#16a34a' : '#c9a962';
                 ctx.fill();
+                if (index === 0) {
+                    ctx.beginPath();
+                    ctx.arc(point.x, point.y, 14, 0, Math.PI * 2);
+                    ctx.strokeStyle = 'rgba(74, 222, 128, 0.65)';
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
+                }
                 ctx.strokeStyle = '#fff';
                 ctx.lineWidth = 2;
                 ctx.stroke();
             });
+
+            if (mousePos) {
+                ctx.beginPath();
+                ctx.arc(mousePos.x, mousePos.y, 5, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(243, 217, 166, 0.95)';
+                ctx.fill();
+                ctx.strokeStyle = 'rgba(10, 10, 11, 0.78)';
+                ctx.lineWidth = 1.5;
+                ctx.stroke();
+            }
         }
 
         function updateEditInstruction() {
@@ -2490,34 +2581,100 @@
             });
             plotsOverlay.appendChild(defs);
 
-            plots.forEach(plot => {
-                const colors = getPlotColors(plot);
-                const pointsStr = plot.points.map(p => `${p.x},${p.y}`).join(' ');
+            plots
+                .filter(plot => Array.isArray(plot.points) && plot.points.length >= 3)
+                .forEach(plot => {
+                    const statusKey = normalizeStatus(plot.status || colorToStatus[plot.color] || 'available');
+                    const colorKey = plot.color && colorGradients[plot.color] ? plot.color : statusToColor[statusKey] || 'green';
+                    const colors = getPlotColors(plot);
+                    const pointsStr = plot.points.map(p => `${p.x},${p.y}`).join(' ');
 
-                const polygon = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
-                polygon.setAttribute('points', pointsStr);
-                polygon.setAttribute('fill', colors.fill);
-                polygon.setAttribute('stroke', `url(#gradient-${plot.color && colorGradients[plot.color] ? plot.color : statusToColor[normalizeStatus(plot.status)] || 'green'})`);
-                polygon.setAttribute('stroke-width', '3');
-                polygon.style.cursor = 'pointer';
-                polygon.style.pointerEvents = 'auto';
+                    const polygon = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+                    polygon.setAttribute('class', 'plot-boundary');
+                    polygon.setAttribute('points', pointsStr);
+                    polygon.setAttribute('fill', withFillOpacity(colors.fill, 0.3));
+                    polygon.setAttribute('stroke', `url(#gradient-${colorKey})`);
+                    polygon.setAttribute('stroke-width', '3');
+                    polygon.setAttribute('stroke-linejoin', 'round');
+                    polygon.style.cursor = 'pointer';
+                    polygon.style.pointerEvents = 'auto';
 
-                polygon.addEventListener('mouseenter', () => polygon.setAttribute('fill', colors.fill.replace('0.35', '0.5')));
-                polygon.addEventListener('mouseleave', () => polygon.setAttribute('fill', colors.fill));
-                polygon.addEventListener('click', (e) => { if (isEditMode) return; e.stopPropagation(); showPlotDetails(plot); });
+                    const outline = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+                    outline.setAttribute('class', 'plot-outline');
+                    outline.setAttribute('points', pointsStr);
+                    outline.setAttribute('fill', 'none');
+                    outline.setAttribute('stroke', 'rgba(255, 255, 255, 0.7)');
+                    outline.setAttribute('stroke-width', '1.1');
+                    outline.setAttribute('stroke-dasharray', '10 7');
+                    outline.setAttribute('stroke-linejoin', 'round');
+                    outline.setAttribute('stroke-opacity', '0.58');
 
-                plotsOverlay.appendChild(polygon);
+                    plotsOverlay.appendChild(polygon);
+                    plotsOverlay.appendChild(outline);
 
-                const centroid = getCentroid(plot.points);
-                const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-                text.setAttribute('x', centroid.x); text.setAttribute('y', centroid.y);
-                text.setAttribute('text-anchor', 'middle'); text.setAttribute('dominant-baseline', 'middle');
-                text.setAttribute('fill', '#fff'); text.setAttribute('font-size', '24');
-                text.setAttribute('font-family', 'Syne, sans-serif'); text.setAttribute('font-weight', '600');
-                text.setAttribute('pointer-events', 'none');
-                text.textContent = plot.name;
-                plotsOverlay.appendChild(text);
-            });
+                    const centroid = getCentroid(plot.points);
+                    const label = createPlotLabel(plotsOverlay, plot, centroid, statusKey);
+
+                    const setActiveState = (active) => {
+                        polygon.setAttribute('fill', withFillOpacity(colors.fill, active ? 0.48 : 0.3));
+                        polygon.setAttribute('stroke-width', active ? '4' : '3');
+                        outline.setAttribute('stroke-opacity', active ? '0.9' : '0.58');
+                        label.bg.setAttribute('fill', active ? 'rgba(9, 10, 12, 0.92)' : 'rgba(9, 10, 12, 0.8)');
+                        label.group.classList.toggle('is-active', Boolean(active));
+                    };
+
+                    polygon.addEventListener('mouseenter', () => setActiveState(true));
+                    polygon.addEventListener('mouseleave', () => setActiveState(false));
+                    polygon.addEventListener('click', (e) => { if (isEditMode) return; e.stopPropagation(); showPlotDetails(plot); });
+                });
+        }
+
+        function createPlotLabel(plotsOverlay, plot, centroid, statusKey) {
+            const labelGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+            labelGroup.setAttribute('class', `plot-label-group ${getStatusClass(statusKey)}`);
+
+            const labelBg = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+            labelBg.setAttribute('class', 'plot-label-bg');
+            labelBg.setAttribute('rx', '13');
+            labelBg.setAttribute('ry', '13');
+
+            const labelText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+            labelText.setAttribute('class', 'plot-label-text');
+            labelText.setAttribute('x', centroid.x);
+            labelText.setAttribute('y', centroid.y);
+            labelText.setAttribute('text-anchor', 'middle');
+            labelText.setAttribute('dominant-baseline', 'middle');
+            labelText.textContent = String(plot.name || '').toUpperCase();
+
+            labelGroup.appendChild(labelBg);
+            labelGroup.appendChild(labelText);
+            plotsOverlay.appendChild(labelGroup);
+
+            const bbox = labelText.getBBox();
+            const paddingX = 16;
+            const paddingY = 9;
+            const width = Math.max(84, bbox.width + (paddingX * 2));
+            const height = bbox.height + (paddingY * 2);
+            labelBg.setAttribute('x', centroid.x - (width / 2));
+            labelBg.setAttribute('y', centroid.y - (height / 2));
+            labelBg.setAttribute('width', width);
+            labelBg.setAttribute('height', height);
+
+            return { group: labelGroup, bg: labelBg };
+        }
+
+        function getStatusClass(statusKey) {
+            if (statusKey === 'sold') return 'is-sold';
+            if (statusKey === 'on_hold') return 'is-hold';
+            return 'is-available';
+        }
+
+        function withFillOpacity(fillColor, alpha) {
+            const match = String(fillColor || '').match(/^rgba?\(([^)]+)\)$/i);
+            if (!match) return fillColor;
+            const parts = match[1].split(',').map(part => part.trim());
+            if (parts.length < 3) return fillColor;
+            return `rgba(${parts[0]}, ${parts[1]}, ${parts[2]}, ${alpha})`;
         }
 
         function getCentroid(points) {
