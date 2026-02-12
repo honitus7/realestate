@@ -9,7 +9,12 @@ import io
 from datetime import datetime
 
 from dotenv import load_dotenv
-load_dotenv()
+_DOTENV_PATH = os.path.join(os.path.dirname(__file__), '.env')
+try:
+    load_dotenv(dotenv_path=_DOTENV_PATH)
+except Exception:
+    # If dotenv discovery/load fails for any reason, rely on real env vars.
+    pass
 
 # Fix SSL certificate errors (e.g. "self-signed certificate in certificate chain" on macOS)
 if os.environ.get('SUPABASE_SSL_VERIFY', 'true').lower() in ('false', '0', 'no'):
@@ -103,6 +108,10 @@ def _get_s3_client():
         return None
     if not boto3:
         return None
+    if not SUPABASE_S3_ENDPOINT or not SUPABASE_S3_REGION:
+        return None
+    if not SUPABASE_S3_BUCKET:
+        return None
     if not SUPABASE_S3_ACCESS_KEY_ID or not SUPABASE_S3_SECRET_ACCESS_KEY:
         return None
     if _s3_client is None:
@@ -114,7 +123,13 @@ def _get_s3_client():
             'aws_secret_access_key': SUPABASE_S3_SECRET_ACCESS_KEY,
         }
         if BotoConfig:
-            kwargs['config'] = BotoConfig(signature_version='s3v4', s3={'addressing_style': 'path'})
+            kwargs['config'] = BotoConfig(
+                signature_version='s3v4',
+                s3={'addressing_style': 'path'},
+                connect_timeout=5,
+                read_timeout=30,
+                retries={'max_attempts': 6, 'mode': 'standard'},
+            )
         _s3_client = boto3.client(**kwargs)
     return _s3_client
 
@@ -129,7 +144,21 @@ def _panorama_object_key(filename):
 def _upload_panorama_to_s3(filename, raw_bytes, content_type):
     client = _get_s3_client()
     if not client:
-        raise RuntimeError('Supabase S3 is not fully configured')
+        missing = []
+        if not boto3:
+            missing.append('boto3 (pip install -r requirements.txt)')
+        if not SUPABASE_S3_ENDPOINT:
+            missing.append('SUPABASE_S3_ENDPOINT')
+        if not SUPABASE_S3_REGION:
+            missing.append('SUPABASE_S3_REGION')
+        if not SUPABASE_S3_BUCKET:
+            missing.append('SUPABASE_S3_BUCKET')
+        if not SUPABASE_S3_ACCESS_KEY_ID:
+            missing.append('SUPABASE_S3_ACCESS_KEY_ID')
+        if not SUPABASE_S3_SECRET_ACCESS_KEY:
+            missing.append('SUPABASE_S3_SECRET_ACCESS_KEY')
+        hint = f" Missing: {', '.join(missing)}" if missing else ''
+        raise RuntimeError(f'Supabase S3 is not fully configured.{hint}')
     client.put_object(
         Bucket=SUPABASE_S3_BUCKET,
         Key=_panorama_object_key(filename),
