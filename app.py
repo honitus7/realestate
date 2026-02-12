@@ -25,6 +25,12 @@ except ImportError:
 from flask import Flask, render_template, request, jsonify, send_from_directory, redirect, Response
 from werkzeug.utils import secure_filename
 from PIL import Image, ImageOps
+try:
+    import boto3
+    from botocore.config import Config as BotoConfig
+except Exception:
+    boto3 = None
+    BotoConfig = None
 
 RESAMPLE_LANCZOS = Image.Resampling.LANCZOS if hasattr(Image, 'Resampling') else Image.LANCZOS
 
@@ -51,6 +57,22 @@ app.config['DATABASE'] = 'panorama.db'
 SUPABASE_URL = os.environ.get('SUPABASE_URL', '').rstrip('/')
 SUPABASE_ANON_KEY = os.environ.get('SUPABASE_ANON_KEY', '')
 SUPABASE_SERVICE_ROLE_KEY = os.environ.get('SUPABASE_SERVICE_ROLE_KEY', '')
+SUPABASE_S3_ENDPOINT = os.environ.get(
+    'SUPABASE_S3_ENDPOINT',
+    'https://qavugigprqbnslywkmri.storage.supabase.co/storage/v1/s3',
+).rstrip('/')
+SUPABASE_S3_REGION = os.environ.get('SUPABASE_S3_REGION', 'ap-south-1')
+SUPABASE_S3_BUCKET = os.environ.get('SUPABASE_S3_BUCKET', '').strip()
+SUPABASE_S3_ACCESS_KEY_ID = (
+    os.environ.get('SUPABASE_S3_ACCESS_KEY_ID')
+    or os.environ.get('AWS_ACCESS_KEY_ID', '')
+).strip()
+SUPABASE_S3_SECRET_ACCESS_KEY = (
+    os.environ.get('SUPABASE_S3_SECRET_ACCESS_KEY')
+    or os.environ.get('AWS_SECRET_ACCESS_KEY', '')
+).strip()
+SUPABASE_S3_PANORAMA_PREFIX = os.environ.get('SUPABASE_S3_PANORAMA_PREFIX', 'panoramas').strip('/')
+SUPABASE_S3_SIGNED_URL_TTL = max(60, int(os.environ.get('SUPABASE_S3_SIGNED_URL_TTL', '900')))
 
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
 IMAGE_CONTENT_TYPES = {
@@ -67,6 +89,79 @@ CONTENT_TYPE_TO_EXT = {
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 os.makedirs('templates', exist_ok=True)
 os.makedirs('static', exist_ok=True)
+
+_s3_client = None
+
+
+def _use_s3_for_panoramas():
+    return bool(SUPABASE_S3_BUCKET)
+
+
+def _get_s3_client():
+    global _s3_client
+    if not _use_s3_for_panoramas():
+        return None
+    if not boto3:
+        return None
+    if not SUPABASE_S3_ACCESS_KEY_ID or not SUPABASE_S3_SECRET_ACCESS_KEY:
+        return None
+    if _s3_client is None:
+        kwargs = {
+            'service_name': 's3',
+            'endpoint_url': SUPABASE_S3_ENDPOINT,
+            'region_name': SUPABASE_S3_REGION,
+            'aws_access_key_id': SUPABASE_S3_ACCESS_KEY_ID,
+            'aws_secret_access_key': SUPABASE_S3_SECRET_ACCESS_KEY,
+        }
+        if BotoConfig:
+            kwargs['config'] = BotoConfig(signature_version='s3v4', s3={'addressing_style': 'path'})
+        _s3_client = boto3.client(**kwargs)
+    return _s3_client
+
+
+def _panorama_object_key(filename):
+    safe_name = os.path.basename(filename or '').strip()
+    if SUPABASE_S3_PANORAMA_PREFIX:
+        return f"{SUPABASE_S3_PANORAMA_PREFIX}/{safe_name}"
+    return safe_name
+
+
+def _upload_panorama_to_s3(filename, raw_bytes, content_type):
+    client = _get_s3_client()
+    if not client:
+        raise RuntimeError('Supabase S3 is not fully configured')
+    client.put_object(
+        Bucket=SUPABASE_S3_BUCKET,
+        Key=_panorama_object_key(filename),
+        Body=raw_bytes,
+        ContentType=content_type,
+    )
+
+
+def _get_panorama_s3_url(filename):
+    client = _get_s3_client()
+    if not client:
+        return None
+    key = _panorama_object_key(filename)
+    try:
+        client.head_object(Bucket=SUPABASE_S3_BUCKET, Key=key)
+    except Exception:
+        return None
+    return client.generate_presigned_url(
+        ClientMethod='get_object',
+        Params={'Bucket': SUPABASE_S3_BUCKET, 'Key': key},
+        ExpiresIn=SUPABASE_S3_SIGNED_URL_TTL,
+    )
+
+
+def _delete_panorama_from_s3(filename):
+    client = _get_s3_client()
+    if not client:
+        return
+    try:
+        client.delete_object(Bucket=SUPABASE_S3_BUCKET, Key=_panorama_object_key(filename))
+    except Exception:
+        pass
 
 
 def auth_ctx():
@@ -344,7 +439,11 @@ def customer_3d(panorama_id):
 
 @app.route('/uploads/<filename>')
 def uploaded_file(filename):
-    """Serve panorama image from DB (base64) when present, else from disk."""
+    """Serve panorama image from Supabase S3 when configured, else legacy sources."""
+    s3_url = _get_panorama_s3_url(filename)
+    if s3_url:
+        return redirect(s3_url, code=302)
+
     sb = get_supabase()
     if sb:
         try:
@@ -400,26 +499,31 @@ def create_panorama(user_id, role):
     original_filename = secure_filename(file.filename)
     ext = original_filename.rsplit('.', 1)[1].lower()
     filename = f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{secure_filename(name)}.{ext}"
-    filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-    file.save(filepath)
+    raw = file.read()
+    if not raw:
+        return jsonify({'error': 'Uploaded file is empty'}), 400
 
     try:
-        from PIL import Image
-        with Image.open(filepath) as img:
+        with Image.open(io.BytesIO(raw)) as img:
             width, height = img.size
     except Exception:
         width, height = 0, 0
 
-    # Store panorama image as base64 in DB (for serving from Postgres)
-    image_b64 = None
     image_content_type = IMAGE_CONTENT_TYPES.get(ext, 'image/jpeg')
-    try:
-        with open(filepath, 'rb') as f:
-            raw = f.read()
-        if len(raw) <= 20 * 1024 * 1024:  # 20MB max for panorama
-            image_b64 = base64.b64encode(raw).decode('ascii')
-    except Exception:
-        pass
+    local_filepath = None
+
+    if _use_s3_for_panoramas():
+        try:
+            _upload_panorama_to_s3(filename, raw, image_content_type)
+        except Exception as e:
+            return jsonify({'error': f'Panorama upload to Supabase S3 failed: {e}'}), 500
+    else:
+        local_filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+        try:
+            with open(local_filepath, 'wb') as f:
+                f.write(raw)
+        except Exception as e:
+            return jsonify({'error': f'Failed to save panorama file: {e}'}), 500
 
     sb = get_supabase()
     if not sb:
@@ -432,10 +536,8 @@ def create_panorama(user_id, role):
         'width': width,
         'height': height,
         'is_360': is_360,
+        'image_content_type': image_content_type,
     }
-    if image_b64 is not None:
-        insert_row['image_data'] = image_b64
-        insert_row['image_content_type'] = image_content_type
     try:
         r = sb.table('panoramas').insert(insert_row).execute()
         if not r.data or len(r.data) == 0:
@@ -443,6 +545,13 @@ def create_panorama(user_id, role):
         row = r.data[0]
         panorama_id = row['id']
     except Exception as e:
+        if _use_s3_for_panoramas():
+            _delete_panorama_from_s3(filename)
+        elif local_filepath and os.path.exists(local_filepath):
+            try:
+                os.remove(local_filepath)
+            except Exception:
+                pass
         return jsonify({'error': str(e)}), 500
 
     return jsonify({
@@ -469,6 +578,7 @@ def delete_panorama(user_id, role, panorama_id):
         return jsonify({'error': 'Only the owner can delete this panorama'}), 403
 
     filepath = os.path.join(app.config['UPLOAD_FOLDER'], panorama['filename'])
+    _delete_panorama_from_s3(panorama['filename'])
     if os.path.exists(filepath):
         try:
             os.remove(filepath)
