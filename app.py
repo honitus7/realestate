@@ -41,6 +41,7 @@ except Exception:
     BotoConfig = None
 
 RESAMPLE_LANCZOS = Image.Resampling.LANCZOS if hasattr(Image, 'Resampling') else Image.LANCZOS
+EXIF_ORIENTATION_TAG = 274  # 0x0112 (Orientation)
 
 from db import (
     get_supabase,
@@ -240,6 +241,31 @@ def auth_ctx():
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+
+def _probe_image_dimensions(stream):
+    """Return (width, height) without decoding/transcoding the full image.
+
+    Important: avoid ImageOps.exif_transpose() here, because transposing can
+    force full decode of very large images and blow dyno memory (Heroku R14).
+    """
+    try:
+        stream.seek(0)
+    except Exception:
+        pass
+
+    with Image.open(stream) as img:
+        width, height = img.size
+        # Adjust for EXIF orientation without rotating pixel data.
+        try:
+            exif = img.getexif()
+            orientation = exif.get(EXIF_ORIENTATION_TAG)
+            if orientation in (5, 6, 7, 8):
+                width, height = height, width
+        except Exception:
+            pass
+
+    return int(width or 0), int(height or 0)
 
 
 def _target_plot_image_bytes():
@@ -585,14 +611,9 @@ def create_panorama(user_id, role):
 
     width, height = 0, 0
     try:
-        # Read minimal header to detect dimensions; avoid buffering the entire file in memory.
-        try:
-            file.stream.seek(0)
-        except Exception:
-            pass
-        with Image.open(file.stream) as img:
-            img = ImageOps.exif_transpose(img)
-            width, height = img.size
+        # Read minimal header to detect dimensions; avoid decoding/transcoding
+        # huge panoramas into memory (can cause Heroku R14).
+        width, height = _probe_image_dimensions(file.stream)
     except Exception:
         width, height = 0, 0
     finally:
@@ -1006,7 +1027,12 @@ def upload_plot_image(user_id, role, plot_id):
     if not panorama or not can_edit_plots(access_type):
         return jsonify({'error': 'Forbidden'}), 403
     try:
-        raw = file.read()
+        # Read at most MAX_PLOT_IMAGE_BYTES + 1 so oversized uploads don't get fully buffered.
+        try:
+            file.stream.seek(0)
+        except Exception:
+            pass
+        raw = file.read(MAX_PLOT_IMAGE_BYTES + 1)
         if len(raw) > MAX_PLOT_IMAGE_BYTES:
             return jsonify({'error': f'Image too large (max {MAX_PLOT_IMAGE_BYTES // (1024*1024)}MB)'}), 400
         compressed_raw, content_type = compress_plot_image_bytes(raw, preferred_ext=ext)
