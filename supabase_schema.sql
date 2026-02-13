@@ -50,6 +50,7 @@ create table if not exists public.plots (
   media_photo text default '',
   media_video text default '',
   image_data text default null,
+  image_filename text default null,
   image_content_type text default 'image/jpeg',
   points jsonb not null default '[]',
   created_at timestamptz default now(),
@@ -69,6 +70,7 @@ create table if not exists public.plot_markers (
   marker_icon text default 'mdi:map-marker-radius',
   marker_color text default '#4ade80',
   image_base64 text default null,
+  image_filename text default null,
   -- Optional: link a hotspot marker to another panorama
   linked_panorama_id bigint references public.panoramas(id) on delete set null,
   longitude double precision not null,

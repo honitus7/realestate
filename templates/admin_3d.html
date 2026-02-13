@@ -2942,7 +2942,7 @@
                 <input type="file" class="form-input" id="plot-image-file" accept="image/png,image/jpeg,image/jpg,image/gif,image/webp">
                 <input type="text" class="form-input" id="plot-media-photo" style="margin-top:6px"
                     placeholder="Or paste a link (e.g. Google Drive)...">
-                <div class="form-helper">Upload an image (stored in DB) or add a share link.</div>
+                <div class="form-helper">Upload an image (stored in cloud storage) or add a share link.</div>
             </div>
             <div class="form-group">
                 <label class="form-label">Video Link (Google Drive)</label>
@@ -3518,8 +3518,6 @@
                 this.plotId = String(options.plotId || '');
                 this.showToast = options.showToast || (() => {});
                 this.onRequestDisablePlotEdit = options.onRequestDisablePlotEdit || (() => {});
-                this.maxImageBytes = 300 * 1024;
-
                 this.viewer = null;
                 this.markersPlugin = null;
                 this.markerMap = new Map();
@@ -3527,7 +3525,8 @@
                 this.selectedMarkerId = null;
                 this.pendingCoordinates = null;
                 this.editingMarkerId = null;
-                this.currentImageBase64 = '';
+                this.currentImageUrl = '';
+                this.previewObjectUrl = '';
                 this.dragState = null;
                 this.dragRaf = null;
                 this.ignoreSelectUntil = 0;
@@ -3535,6 +3534,7 @@
                 this.lazyObserver = null;
                 this.styleColumnsSupported = true;
                 this.linkColumnsSupported = true;
+                this.imageColumnsSupported = true;
                 this.iconDropdownBound = false;
 
                 this.dom = {
@@ -3822,6 +3822,11 @@
                 return message.includes('linked_panorama_id') || message.includes('linked panorama');
             }
 
+            isImageColumnError(error) {
+                const message = String(error && (error.message || error.details || error.hint) ? (error.message || error.details || error.hint) : '').toLowerCase();
+                return message.includes('image_filename');
+            }
+
             initViewer(viewerInstance) {
                 this.viewer = viewerInstance;
                 if (this.viewer) {
@@ -3909,7 +3914,11 @@
 
             openCreateModal(coords) {
                 this.editingMarkerId = null;
-                this.currentImageBase64 = '';
+                this.currentImageUrl = '';
+                if (this.previewObjectUrl) {
+                    try { URL.revokeObjectURL(this.previewObjectUrl); } catch (e) {}
+                    this.previewObjectUrl = '';
+                }
                 this.pendingCoordinates = coords;
                 if (this.dom.formTitle) this.dom.formTitle.textContent = 'Add Marker';
                 if (this.dom.nameInput) this.dom.nameInput.value = '';
@@ -3930,7 +3939,7 @@
                 const marker = this.markerMap.get(String(markerId));
                 if (!marker) return;
                 this.editingMarkerId = String(markerId);
-                this.currentImageBase64 = marker.image_base64 || '';
+                this.currentImageUrl = marker.image_object_url || '';
                 this.pendingCoordinates = {
                     longitude: Number(marker.longitude),
                     latitude: Number(marker.latitude)
@@ -3952,8 +3961,17 @@
                 this.updateMarkerStyleControls();
                 if (this.dom.imageInput) this.dom.imageInput.value = '';
                 this.updateCoordinatesText(this.pendingCoordinates);
-                this.updateImagePreview(this.currentImageBase64);
+                this.updateImagePreview(this.currentImageUrl);
                 this.openFormModal();
+                this.ensureMarkerImage(marker.id)
+                    .then((url) => {
+                        if (this.editingMarkerId !== String(marker.id)) return;
+                        if (url) {
+                            this.currentImageUrl = url;
+                            this.updateImagePreview(url);
+                        }
+                    })
+                    .catch(() => {});
             }
 
             openFormModal() {
@@ -3970,7 +3988,11 @@
                 this.dom.formBackdrop.classList.remove('visible');
                 this.editingMarkerId = null;
                 this.pendingCoordinates = null;
-                this.currentImageBase64 = '';
+                this.currentImageUrl = '';
+                if (this.previewObjectUrl) {
+                    try { URL.revokeObjectURL(this.previewObjectUrl); } catch (e) {}
+                    this.previewObjectUrl = '';
+                }
                 if (this.dom.linkedPanoramaSelect) this.dom.linkedPanoramaSelect.value = '';
                 if (this.dom.styleSelect) this.dom.styleSelect.value = DEFAULT_MARKER_STYLE;
                 if (this.dom.superToggle) this.dom.superToggle.checked = false;
@@ -3988,13 +4010,14 @@
             previewSelectedImage() {
                 const file = this.dom.imageInput && this.dom.imageInput.files ? this.dom.imageInput.files[0] : null;
                 if (!file) {
-                    this.updateImagePreview(this.currentImageBase64);
+                    this.updateImagePreview(this.currentImageUrl);
                     return;
                 }
-                const reader = new FileReader();
-                reader.onload = () => this.updateImagePreview(String(reader.result || ''));
-                reader.onerror = () => this.updateImagePreview(this.currentImageBase64);
-                reader.readAsDataURL(file);
+                if (this.previewObjectUrl) {
+                    try { URL.revokeObjectURL(this.previewObjectUrl); } catch (e) {}
+                }
+                this.previewObjectUrl = URL.createObjectURL(file);
+                this.updateImagePreview(this.previewObjectUrl);
             }
 
             updateImagePreview(src) {
@@ -4054,16 +4077,6 @@
                         }
                     }
 
-                    let imageBase64 = this.currentImageBase64 || '';
-                    const selectedFile = this.dom.imageInput && this.dom.imageInput.files ? this.dom.imageInput.files[0] : null;
-                    if (selectedFile) {
-                        const compressed = await this.compressImage(selectedFile);
-                        imageBase64 = await this.convertToBase64(compressed);
-                        if (this.estimateBase64Bytes(imageBase64) > this.maxImageBytes) {
-                            throw new Error('Compressed image exceeds 300KB. Choose a smaller image.');
-                        }
-                    }
-
                     const payload = {
                         plot_id: this.plotId,
                         name,
@@ -4072,17 +4085,24 @@
                         marker_icon: markerIcon,
                         marker_color: markerColor,
                         linked_panorama_id: linkedPanoramaId,
-                        image_base64: imageBase64 || null,
                         longitude: Number(this.pendingCoordinates.longitude),
                         latitude: Number(this.pendingCoordinates.latitude)
                     };
 
+                    const selectedFile = this.dom.imageInput && this.dom.imageInput.files ? this.dom.imageInput.files[0] : null;
+                    let savedMarker = null;
                     if (this.editingMarkerId) {
-                        await this.updateMarker(this.editingMarkerId, payload);
+                        savedMarker = await this.updateMarker(this.editingMarkerId, payload);
                         this.showToast('Marker updated successfully.');
                     } else {
-                        await this.addMarker(payload);
+                        savedMarker = await this.addMarker(payload);
                         this.showToast('Marker saved successfully.');
+                    }
+                    if (selectedFile && savedMarker) {
+                        const filename = await this.uploadMarkerImage(savedMarker.id, selectedFile);
+                        if (filename) {
+                            this.updateMarkerImageState(savedMarker.id, filename, selectedFile);
+                        }
                     }
 
                     this.closeFormModal();
@@ -4097,6 +4117,7 @@
             async loadMarkers(plot_id) {
                 this.plotId = String(plot_id || this.plotId || '');
                 const rows = await this.fetchMarkers(this.plotId);
+                this.markerMap.forEach((marker) => this.revokeMarkerImage(marker));
                 this.markerMap.clear();
                 rows.forEach((row) => {
                     const normalized = this.normalizeMarker(row);
@@ -4127,9 +4148,19 @@
                 const payload = {
                     name: data.name,
                     description: data.description || '',
-                    image_base64: data.image_base64 || null,
                     longitude: Number(data.longitude),
                     latitude: Number(data.latitude)
+                };
+                const baseCols = ['id', 'plot_id', 'name', 'description', 'longitude', 'latitude', 'status', 'created_at'];
+                const styleCols = ['marker_style', 'marker_icon', 'marker_color'];
+                const linkCols = ['linked_panorama_id'];
+                const imageCols = ['image_filename'];
+                const buildSelect = () => {
+                    const cols = [...baseCols];
+                    if (this.styleColumnsSupported) cols.push(...styleCols);
+                    if (this.linkColumnsSupported) cols.push(...linkCols);
+                    if (this.imageColumnsSupported) cols.push(...imageCols);
+                    return cols.join(', ');
                 };
                 if (this.styleColumnsSupported) {
                     payload.marker_style = this.normalizeMarkerStyle(data.marker_style);
@@ -4152,7 +4183,7 @@
                         .from('plot_markers')
                         .update(payload)
                         .eq('id', id)
-                        .select('*')
+                        .select(buildSelect())
                         .limit(1);
 
                     if (!result.error) break;
@@ -4172,6 +4203,10 @@
                         delete payload.linked_panorama_id;
                         changed = true;
                     }
+                    if (this.imageColumnsSupported && this.isImageColumnError(result.error)) {
+                        this.imageColumnsSupported = false;
+                        changed = true;
+                    }
                     if (!changed) break;
                 }
                 const { data: rows, error } = result;
@@ -4187,6 +4222,110 @@
                 return marker;
             }
 
+            revokeMarkerImage(marker) {
+                if (!marker || !marker.image_object_url) return;
+                try { URL.revokeObjectURL(marker.image_object_url); } catch (e) {}
+                marker.image_object_url = '';
+            }
+
+            updateMarkerImageState(markerId, filename, file) {
+                const marker = this.markerMap.get(String(markerId));
+                if (!marker) return;
+                this.revokeMarkerImage(marker);
+                marker.image_filename = filename || marker.image_filename || '';
+                if (file) {
+                    if (this.previewObjectUrl) {
+                        marker.image_object_url = this.previewObjectUrl;
+                        this.previewObjectUrl = '';
+                    } else {
+                        marker.image_object_url = URL.createObjectURL(file);
+                    }
+                }
+                marker.image_loading = false;
+                this.syncViewerMarkers();
+                this.renderSidebarList();
+                this.renderDetails(marker.id);
+            }
+
+            async uploadMarkerImage(markerId, file) {
+                if (!file) return '';
+                const headers = await (window.getAuthHeaders ? window.getAuthHeaders() : Promise.resolve({}));
+                const urlResp = await fetch(`/api/markers/${encodeURIComponent(String(markerId))}/image/upload-url`, {
+                    method: 'POST',
+                    headers: Object.assign({ 'Content-Type': 'application/json' }, headers),
+                    body: JSON.stringify({
+                        original_filename: file.name,
+                        content_type: file.type,
+                        size_bytes: file.size
+                    })
+                });
+                if (!urlResp.ok) {
+                    const err = await urlResp.json().catch(() => ({}));
+                    throw new Error(err.error || 'Marker image upload failed');
+                }
+                const info = await urlResp.json();
+                const putResp = await fetch(info.upload_url, {
+                    method: 'PUT',
+                    headers: info.content_type ? { 'Content-Type': info.content_type } : {},
+                    body: file
+                });
+                if (!putResp.ok) {
+                    throw new Error('Marker image upload failed');
+                }
+                const finalize = new FormData();
+                finalize.append('filename', info.filename);
+                finalize.append('upload_token', info.upload_token);
+                const finalizeResp = await fetch(`/api/markers/${encodeURIComponent(String(markerId))}/image`, {
+                    method: 'POST',
+                    headers,
+                    body: finalize
+                });
+                if (!finalizeResp.ok) {
+                    const err = await finalizeResp.json().catch(() => ({}));
+                    throw new Error(err.error || 'Marker image finalize failed');
+                }
+                return info.filename || '';
+            }
+
+            async ensureMarkerImage(markerId) {
+                const marker = this.markerMap.get(String(markerId));
+                if (!marker || !marker.image_filename) return '';
+                if (marker.image_object_url) return marker.image_object_url;
+                if (marker.image_loading) return '';
+                marker.image_loading = true;
+                try {
+                    const headers = await (window.getAuthHeaders ? window.getAuthHeaders() : Promise.resolve({}));
+                    const response = await fetch(`/api/markers/${encodeURIComponent(String(markerId))}/image`, { headers });
+                    if (response.ok) {
+                        const blob = await response.blob();
+                        marker.image_object_url = URL.createObjectURL(blob);
+                        return marker.image_object_url;
+                    }
+                } catch (error) {
+                    return '';
+                } finally {
+                    marker.image_loading = false;
+                }
+                return '';
+            }
+
+            applyMarkerImage(marker, imgEl) {
+                if (!imgEl) return;
+                if (!marker || !marker.image_filename) {
+                    imgEl.removeAttribute('src');
+                    return;
+                }
+                if (marker.image_object_url) {
+                    imgEl.src = marker.image_object_url;
+                    return;
+                }
+                this.ensureMarkerImage(marker.id)
+                    .then((url) => {
+                        if (url) imgEl.src = url;
+                    })
+                    .catch(() => {});
+            }
+
             async deleteMarker(id) {
                 const marker = this.markerMap.get(String(id));
                 if (!marker) return;
@@ -4194,6 +4333,7 @@
                 if (!confirmed) return;
 
                 await this.deleteMarkerFromDB(id);
+                this.revokeMarkerImage(marker);
                 this.markerMap.delete(String(id));
                 this.removeViewerMarker(String(id));
                 this.renderSidebarList();
@@ -4210,9 +4350,19 @@
                     plot_id: String(data.plot_id || this.plotId),
                     name: data.name,
                     description: data.description || '',
-                    image_base64: data.image_base64 || null,
                     longitude: Number(data.longitude),
                     latitude: Number(data.latitude)
+                };
+                const baseCols = ['id', 'plot_id', 'name', 'description', 'longitude', 'latitude', 'status', 'created_at'];
+                const styleCols = ['marker_style', 'marker_icon', 'marker_color'];
+                const linkCols = ['linked_panorama_id'];
+                const imageCols = ['image_filename'];
+                const buildSelect = () => {
+                    const cols = [...baseCols];
+                    if (this.styleColumnsSupported) cols.push(...styleCols);
+                    if (this.linkColumnsSupported) cols.push(...linkCols);
+                    if (this.imageColumnsSupported) cols.push(...imageCols);
+                    return cols.join(', ');
                 };
                 if (this.styleColumnsSupported) {
                     payload.marker_style = this.normalizeMarkerStyle(data.marker_style);
@@ -4234,7 +4384,7 @@
                     result = await supabase
                         .from('plot_markers')
                         .insert(payload)
-                        .select('*')
+                        .select(buildSelect())
                         .limit(1);
 
                     if (!result.error) break;
@@ -4252,6 +4402,10 @@
                         this.linkColumnsSupported = false;
                         this.showToast('Run supabase_migration_panorama_links.sql in Supabase to enable marker panorama links.', 'error');
                         delete payload.linked_panorama_id;
+                        changed = true;
+                    }
+                    if (this.imageColumnsSupported && this.isImageColumnError(result.error)) {
+                        this.imageColumnsSupported = false;
                         changed = true;
                     }
                     if (!changed) break;
@@ -4276,11 +4430,48 @@
 
             async fetchMarkers(plot_id) {
                 const supabase = this.getSupabaseClient();
-                const { data, error } = await supabase
-                    .from('plot_markers')
-                    .select('*')
-                    .eq('plot_id', String(plot_id))
-                    .order('created_at', { ascending: true });
+                const baseCols = ['id', 'plot_id', 'name', 'description', 'longitude', 'latitude', 'status', 'created_at', 'image_filename'];
+                const styleCols = ['marker_style', 'marker_icon', 'marker_color'];
+                const linkCols = ['linked_panorama_id'];
+
+                const buildCols = () => {
+                    const cols = [...baseCols];
+                    if (this.styleColumnsSupported) cols.push(...styleCols);
+                    if (this.linkColumnsSupported) cols.push(...linkCols);
+                    if (this.imageColumnsSupported === false) {
+                        const idx = cols.indexOf('image_filename');
+                        if (idx !== -1) cols.splice(idx, 1);
+                    }
+                    return cols.join(', ');
+                };
+
+                let result = null;
+                for (let attempt = 0; attempt < 3; attempt += 1) {
+                    result = await supabase
+                        .from('plot_markers')
+                        .select(buildCols())
+                        .eq('plot_id', String(plot_id))
+                        .order('created_at', { ascending: true });
+
+                    if (!result.error) break;
+
+                    let changed = false;
+                    if (this.styleColumnsSupported && this.isStyleColumnError(result.error)) {
+                        this.styleColumnsSupported = false;
+                        changed = true;
+                    }
+                    if (this.linkColumnsSupported && this.isLinkColumnError(result.error)) {
+                        this.linkColumnsSupported = false;
+                        changed = true;
+                    }
+                    if (this.imageColumnsSupported && this.isImageColumnError(result.error)) {
+                        this.imageColumnsSupported = false;
+                        changed = true;
+                    }
+                    if (!changed) break;
+                }
+
+                const { data, error } = result || {};
                 if (error) throw error;
                 return data || [];
             }
@@ -4314,7 +4505,9 @@
                     plot_id: String(row.plot_id || this.plotId),
                     name: row.name || '',
                     description: row.description || '',
-                    image_base64: row.image_base64 || '',
+                    image_filename: row.image_filename || '',
+                    image_object_url: '',
+                    image_loading: false,
                     marker_style: this.normalizeMarkerStyle(row.marker_style),
                     marker_icon: this.normalizeMarkerIcon(row.marker_icon),
                     marker_color: this.normalizeMarkerColor(row.marker_color),
@@ -4338,9 +4531,10 @@
             }
 
             buildPhotoMarkerHtml(marker, statusClass) {
-                const hasImage = Boolean(marker.image_base64);
+                const hasImage = Boolean(marker.image_filename);
+                const imageSrc = marker.image_object_url || '';
                 const imageContent = hasImage
-                    ? `<img class="marker-photo-image" src="${this.escapeAttr(marker.image_base64)}" alt="${this.escapeAttr(marker.name || 'Marker')}">`
+                    ? `<img class="marker-photo-image"${imageSrc ? ` src="${this.escapeAttr(imageSrc)}"` : ''} data-marker-id="${this.escapeAttr(marker.id)}" alt="${this.escapeAttr(marker.name || 'Marker')}">`
                     : `<span class="marker-photo-placeholder">${this.escapeHtml((marker.name || 'POI').slice(0, 2).toUpperCase())}</span>`;
                 return `<button class="psv-glass-marker marker-photo ${statusClass}" type="button" data-marker-id="${this.escapeAttr(marker.id)}" aria-label="${this.escapeAttr(marker.name || 'Marker')}"><span class="marker-photo-name">${this.escapeHtml(marker.name || 'Marker')}</span><span class="marker-photo-disc">${imageContent}</span><span class="marker-photo-stem" aria-hidden="true"></span><span class="marker-photo-base" aria-hidden="true"></span></button>`;
             }
@@ -4398,8 +4592,8 @@
                         const nameEl = markerEl.querySelector('.marker-photo-name');
                         if (nameEl) nameEl.textContent = marker.name || 'Marker';
                         const imgEl = markerEl.querySelector('.marker-photo-image');
-                        if (imgEl && marker.image_base64) {
-                            imgEl.setAttribute('src', marker.image_base64);
+                        if (imgEl) {
+                            this.applyMarkerImage(marker, imgEl);
                         }
                     } else {
                         markerEl.classList.add('marker-classic', `marker-theme-${normalizedStyle}`);
@@ -4571,7 +4765,7 @@
 
                 const listHtml = markers.map((marker) => {
                     const isActive = this.selectedMarkerId === marker.id ? ' active' : '';
-                    const thumbHtml = marker.image_base64
+                    const thumbHtml = marker.image_filename
                         ? `<img class="marker-thumb lazy-marker-image" data-marker-id="${this.escapeAttr(marker.id)}" alt="${this.escapeAttr(marker.name || 'Marker')} thumbnail">`
                         : '<div class="marker-thumb-placeholder">No Img</div>';
                     return `
@@ -4602,8 +4796,8 @@
                 if (!('IntersectionObserver' in window)) {
                     lazyImages.forEach((img) => {
                         const marker = this.markerMap.get(String(img.dataset.markerId || ''));
-                        if (marker && marker.image_base64) {
-                            img.src = marker.image_base64;
+                        if (marker) {
+                            this.applyMarkerImage(marker, img);
                         }
                         img.removeAttribute('data-marker-id');
                     });
@@ -4616,8 +4810,8 @@
                             if (!entry.isIntersecting) return;
                             const img = entry.target;
                             const marker = this.markerMap.get(String(img.dataset.markerId || ''));
-                            if (marker && marker.image_base64) {
-                                img.src = marker.image_base64;
+                            if (marker) {
+                                this.applyMarkerImage(marker, img);
                             }
                             img.removeAttribute('data-marker-id');
                             this.lazyObserver.unobserve(img);
@@ -4651,9 +4845,9 @@
                     this.dom.detailCoordinates.textContent = this.formatCoords(marker.longitude, marker.latitude);
                 }
                 if (this.dom.detailImage) {
-                    if (marker.image_base64) {
-                        this.dom.detailImage.src = marker.image_base64;
+                    if (marker.image_filename) {
                         this.dom.detailImage.style.display = 'block';
+                        this.applyMarkerImage(marker, this.dom.detailImage);
                     } else {
                         this.dom.detailImage.removeAttribute('src');
                         this.dom.detailImage.style.display = 'none';
@@ -4666,86 +4860,6 @@
                 this.clearMarkerActiveState();
                 if (this.dom.detailsCard) this.dom.detailsCard.style.display = 'none';
                 if (this.dom.detailsEmpty) this.dom.detailsEmpty.style.display = 'block';
-            }
-
-            async compressImage(file) {
-                if (!file) return null;
-                const sourceImage = await this.loadImage(file);
-
-                const baseMaxDimension = 1920;
-                const maxSide = Math.max(sourceImage.width, sourceImage.height);
-                const baseScale = maxSide > baseMaxDimension ? baseMaxDimension / maxSide : 1;
-
-                const canvas = document.createElement('canvas');
-                const context = canvas.getContext('2d');
-                if (!context) throw new Error('Image compression is not supported in this browser.');
-
-                let quality = 0.86;
-                let dynamicScale = baseScale;
-                let compressedBlob = null;
-
-                for (let attempt = 0; attempt < 10; attempt += 1) {
-                    const drawWidth = Math.max(1, Math.round(sourceImage.width * dynamicScale));
-                    const drawHeight = Math.max(1, Math.round(sourceImage.height * dynamicScale));
-                    canvas.width = drawWidth;
-                    canvas.height = drawHeight;
-                    context.clearRect(0, 0, drawWidth, drawHeight);
-                    context.drawImage(sourceImage, 0, 0, drawWidth, drawHeight);
-
-                    compressedBlob = await new Promise((resolve, reject) => {
-                        canvas.toBlob((blob) => {
-                            if (!blob) {
-                                reject(new Error('Image compression failed.'));
-                                return;
-                            }
-                            resolve(blob);
-                        }, 'image/jpeg', quality);
-                    });
-
-                    if (compressedBlob.size <= this.maxImageBytes) {
-                        return compressedBlob;
-                    }
-
-                    if (quality > 0.45) {
-                        quality -= 0.1;
-                    } else {
-                        dynamicScale *= 0.85;
-                        quality = 0.8;
-                    }
-                }
-
-                throw new Error('Unable to compress image below 300KB.');
-            }
-
-            async convertToBase64(file) {
-                return new Promise((resolve, reject) => {
-                    const reader = new FileReader();
-                    reader.onload = () => resolve(String(reader.result || ''));
-                    reader.onerror = () => reject(new Error('Failed to convert image to Base64.'));
-                    reader.readAsDataURL(file);
-                });
-            }
-
-            estimateBase64Bytes(dataUrl) {
-                const payload = (String(dataUrl || '').split(',')[1] || '');
-                if (!payload) return 0;
-                const paddingMatch = payload.match(/=*$/);
-                const padding = paddingMatch ? paddingMatch[0].length : 0;
-                return Math.ceil((payload.length * 3) / 4) - padding;
-            }
-
-            loadImage(file) {
-                return new Promise((resolve, reject) => {
-                    const reader = new FileReader();
-                    reader.onload = () => {
-                        const image = new Image();
-                        image.onload = () => resolve(image);
-                        image.onerror = () => reject(new Error('Invalid image.'));
-                        image.src = String(reader.result || '');
-                    };
-                    reader.onerror = () => reject(new Error('Failed to read image file.'));
-                    reader.readAsDataURL(file);
-                });
             }
 
             handleMarkerPointerDown(event) {
@@ -5425,10 +5539,31 @@
                 if (plotId) {
                     const plotImageFileInput = document.getElementById('plot-image-file');
                     if (plotImageFileInput && plotImageFileInput.files && plotImageFileInput.files[0]) {
-                        const fd = new FormData();
-                        fd.append('file', plotImageFileInput.files[0]);
+                        const imgFile = plotImageFileInput.files[0];
                         const upHeaders = await (window.getAuthHeaders ? window.getAuthHeaders() : Promise.resolve({}));
-                        const imgRes = await fetch('/api/plots/' + plotId + '/image', { method: 'POST', headers: upHeaders, body: fd });
+                        const urlResp = await fetch('/api/plots/' + plotId + '/image/upload-url', {
+                            method: 'POST',
+                            headers: Object.assign({ 'Content-Type': 'application/json' }, upHeaders),
+                            body: JSON.stringify({
+                                original_filename: imgFile.name,
+                                content_type: imgFile.type,
+                                size_bytes: imgFile.size
+                            })
+                        });
+                        if (!urlResp.ok) {
+                            const err = await urlResp.json().catch(() => ({}));
+                            throw new Error(err.error || 'Plot image upload failed');
+                        }
+                        const info = await urlResp.json();
+                        await fetch(info.upload_url, {
+                            method: 'PUT',
+                            headers: info.content_type ? { 'Content-Type': info.content_type } : {},
+                            body: imgFile
+                        });
+                        const finalize = new FormData();
+                        finalize.append('filename', info.filename);
+                        finalize.append('upload_token', info.upload_token);
+                        const imgRes = await fetch('/api/plots/' + plotId + '/image', { method: 'POST', headers: upHeaders, body: finalize });
                         plotImageFileInput.value = '';
                         if (!imgRes.ok) {
                             const err = await imgRes.json().catch(() => ({}));

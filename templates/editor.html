@@ -1830,7 +1830,7 @@
                 <input type="file" class="form-input" id="plot-image-file" accept="image/png,image/jpeg,image/jpg,image/gif,image/webp">
                 <input type="text" class="form-input" id="plot-media-photo" style="margin-top:6px"
                     placeholder="Or paste a link (e.g. Google Drive)...">
-                <div class="form-helper">Upload an image (stored in DB) or add a share link.</div>
+                <div class="form-helper">Upload an image (stored in cloud storage) or add a share link.</div>
             </div>
             <div class="form-group">
                 <label class="form-label">Video Link (Google Drive)</label>
@@ -2146,10 +2146,7 @@
                 try {
                     const headers = await (window.getAuthHeaders ? window.getAuthHeaders() : Promise.resolve({}));
                     const r = await fetch('/api/plots/' + plot.id + '/image', { headers });
-                    if (r.ok) {
-                        const blob = await r.blob();
-                        img.src = URL.createObjectURL(blob);
-                    }
+                    if (r.ok) { const blob = await r.blob(); img.src = URL.createObjectURL(blob); }
                 } catch (e) { console.warn('Plot image load failed', e); }
                 mediaWrapper.appendChild(img);
                 mediaElements.push(mediaWrapper);
@@ -2540,10 +2537,31 @@
                     plotId = resData.id;
                 }
                 if (plotId && plotImageFileInput && plotImageFileInput.files && plotImageFileInput.files[0]) {
-                    const fd = new FormData();
-                    fd.append('file', plotImageFileInput.files[0]);
+                    const imgFile = plotImageFileInput.files[0];
                     const upHeaders = await (window.getAuthHeaders ? window.getAuthHeaders() : Promise.resolve({}));
-                    const imgRes = await fetch('/api/plots/' + plotId + '/image', { method: 'POST', headers: upHeaders, body: fd });
+                    const urlResp = await fetch('/api/plots/' + plotId + '/image/upload-url', {
+                        method: 'POST',
+                        headers: Object.assign({ 'Content-Type': 'application/json' }, upHeaders),
+                        body: JSON.stringify({
+                            original_filename: imgFile.name,
+                            content_type: imgFile.type,
+                            size_bytes: imgFile.size
+                        })
+                    });
+                    if (!urlResp.ok) {
+                        const err = await urlResp.json().catch(() => ({}));
+                        throw new Error(err.error || 'Plot image upload failed');
+                    }
+                    const info = await urlResp.json();
+                    await fetch(info.upload_url, {
+                        method: 'PUT',
+                        headers: info.content_type ? { 'Content-Type': info.content_type } : {},
+                        body: imgFile
+                    });
+                    const finalize = new FormData();
+                    finalize.append('filename', info.filename);
+                    finalize.append('upload_token', info.upload_token);
+                    const imgRes = await fetch('/api/plots/' + plotId + '/image', { method: 'POST', headers: upHeaders, body: finalize });
                     plotImageFileInput.value = '';
                     if (!imgRes.ok) {
                         const err = await imgRes.json().catch(() => ({}));

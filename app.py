@@ -4,8 +4,6 @@ Uses Supabase for Auth + DB. All data is user-scoped; admin can grant client/vie
 """
 import os
 import json
-import base64
-import io
 import uuid
 import time
 from datetime import datetime
@@ -29,10 +27,10 @@ try:
 except ImportError:
     pass
 
-from flask import Flask, render_template, request, jsonify, send_from_directory, redirect, Response
+from flask import Flask, render_template, request, jsonify, send_from_directory, redirect
 from werkzeug.utils import secure_filename
 from werkzeug.exceptions import RequestEntityTooLarge
-from PIL import Image, ImageOps
+from PIL import Image
 from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
 try:
     import boto3
@@ -84,6 +82,8 @@ SUPABASE_S3_SECRET_ACCESS_KEY = (
 SUPABASE_S3_PANORAMA_PREFIX = os.environ.get('SUPABASE_S3_PANORAMA_PREFIX', 'panoramas').strip('/')
 SUPABASE_S3_SIGNED_URL_TTL = max(60, int(os.environ.get('SUPABASE_S3_SIGNED_URL_TTL', '900')))
 SUPABASE_S3_UPLOAD_URL_TTL = max(60, int(os.environ.get('SUPABASE_S3_UPLOAD_URL_TTL', '900')))
+SUPABASE_S3_PLOT_PREFIX = os.environ.get('SUPABASE_S3_PLOT_PREFIX', 'plot-images').strip('/')
+SUPABASE_S3_MARKER_PREFIX = os.environ.get('SUPABASE_S3_MARKER_PREFIX', 'marker-images').strip('/')
 
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
 IMAGE_CONTENT_TYPES = {
@@ -113,6 +113,14 @@ def _panorama_upload_serializer():
     # Token is short-lived and only used to prevent clients from referencing
     # arbitrary bucket objects when creating panorama records.
     return URLSafeTimedSerializer(app.secret_key, salt='panorama-upload')
+
+
+def _plot_upload_serializer():
+    return URLSafeTimedSerializer(app.secret_key, salt='plot-image-upload')
+
+
+def _marker_upload_serializer():
+    return URLSafeTimedSerializer(app.secret_key, salt='marker-image-upload')
 
 
 def _get_s3_client():
@@ -151,6 +159,20 @@ def _panorama_object_key(filename):
     safe_name = os.path.basename(filename or '').strip()
     if SUPABASE_S3_PANORAMA_PREFIX:
         return f"{SUPABASE_S3_PANORAMA_PREFIX}/{safe_name}"
+    return safe_name
+
+
+def _plot_object_key(filename):
+    safe_name = os.path.basename(filename or '').strip()
+    if SUPABASE_S3_PLOT_PREFIX:
+        return f"{SUPABASE_S3_PLOT_PREFIX}/{safe_name}"
+    return safe_name
+
+
+def _marker_object_key(filename):
+    safe_name = os.path.basename(filename or '').strip()
+    if SUPABASE_S3_MARKER_PREFIX:
+        return f"{SUPABASE_S3_MARKER_PREFIX}/{safe_name}"
     return safe_name
 
 
@@ -243,6 +265,58 @@ def _delete_panorama_from_s3(filename):
         pass
 
 
+def _get_plot_s3_url(filename):
+    client = _get_s3_client()
+    if not client or not filename:
+        return None
+    key = _plot_object_key(filename)
+    try:
+        client.head_object(Bucket=SUPABASE_S3_BUCKET, Key=key)
+    except Exception:
+        return None
+    return client.generate_presigned_url(
+        ClientMethod='get_object',
+        Params={'Bucket': SUPABASE_S3_BUCKET, 'Key': key},
+        ExpiresIn=SUPABASE_S3_SIGNED_URL_TTL,
+    )
+
+
+def _get_marker_s3_url(filename):
+    client = _get_s3_client()
+    if not client or not filename:
+        return None
+    key = _marker_object_key(filename)
+    try:
+        client.head_object(Bucket=SUPABASE_S3_BUCKET, Key=key)
+    except Exception:
+        return None
+    return client.generate_presigned_url(
+        ClientMethod='get_object',
+        Params={'Bucket': SUPABASE_S3_BUCKET, 'Key': key},
+        ExpiresIn=SUPABASE_S3_SIGNED_URL_TTL,
+    )
+
+
+def _delete_plot_from_s3(filename):
+    client = _get_s3_client()
+    if not client or not filename:
+        return
+    try:
+        client.delete_object(Bucket=SUPABASE_S3_BUCKET, Key=_plot_object_key(filename))
+    except Exception:
+        pass
+
+
+def _delete_marker_from_s3(filename):
+    client = _get_s3_client()
+    if not client or not filename:
+        return
+    try:
+        client.delete_object(Bucket=SUPABASE_S3_BUCKET, Key=_marker_object_key(filename))
+    except Exception:
+        pass
+
+
 def auth_ctx():
     return {'supabase_url': SUPABASE_URL, 'supabase_anon_key': SUPABASE_ANON_KEY}
 
@@ -276,14 +350,6 @@ def _probe_image_dimensions(stream):
     return int(width or 0), int(height or 0)
 
 
-def _target_plot_image_bytes():
-    return int(os.environ.get('PLOT_IMAGE_TARGET_BYTES', str(420 * 1024)))
-
-
-def _max_plot_image_edge():
-    return int(os.environ.get('PLOT_IMAGE_MAX_EDGE', '1600'))
-
-
 def _normalize_ext(value):
     ext = (value or '').lower().strip().lstrip('.')
     return ext if ext in ALLOWED_EXTENSIONS else 'jpg'
@@ -291,154 +357,6 @@ def _normalize_ext(value):
 
 def _detect_ext_from_content_type(content_type):
     return _normalize_ext(CONTENT_TYPE_TO_EXT.get((content_type or '').lower(), 'jpg'))
-
-
-def _encode_image_bytes(image, fmt, quality):
-    buffer = io.BytesIO()
-    if fmt == 'JPEG':
-        img = image if image.mode == 'RGB' else image.convert('RGB')
-        img.save(buffer, format='JPEG', quality=quality, optimize=True, progressive=True)
-        return buffer.getvalue(), 'image/jpeg'
-    img = image if image.mode in ('RGB', 'RGBA') else image.convert('RGBA')
-    img.save(buffer, format='WEBP', quality=quality, method=6)
-    return buffer.getvalue(), 'image/webp'
-
-
-def compress_plot_image_bytes(raw_bytes, preferred_ext='jpg', target_bytes=None, max_edge=None):
-    """Compress plot image for DB storage and return (bytes, content_type)."""
-    target_bytes = target_bytes or _target_plot_image_bytes()
-    max_edge = max_edge or _max_plot_image_edge()
-    preferred_ext = _normalize_ext(preferred_ext)
-
-    with Image.open(io.BytesIO(raw_bytes)) as img:
-        img = ImageOps.exif_transpose(img)
-        has_alpha = ('A' in img.getbands()) or ('transparency' in img.info)
-
-        if has_alpha:
-            if img.mode != 'RGBA':
-                img = img.convert('RGBA')
-        elif img.mode != 'RGB':
-            img = img.convert('RGB')
-
-        max_side = max(img.width, img.height) or 1
-        if max_side > max_edge:
-            scale = max_edge / float(max_side)
-            new_size = (
-                max(1, int(round(img.width * scale))),
-                max(1, int(round(img.height * scale))),
-            )
-            img = img.resize(new_size, RESAMPLE_LANCZOS)
-
-        if preferred_ext == 'webp':
-            output_format = 'WEBP'
-        elif preferred_ext in ('png', 'gif'):
-            output_format = 'WEBP'
-        else:
-            output_format = 'WEBP' if has_alpha else 'JPEG'
-
-        quality = 84
-        working = img
-        best_data = None
-        best_type = 'image/jpeg'
-
-        for attempt in range(10):
-            encoded, content_type = _encode_image_bytes(working, output_format, quality)
-            if best_data is None or len(encoded) < len(best_data):
-                best_data, best_type = encoded, content_type
-            if len(encoded) <= target_bytes:
-                return encoded, content_type
-
-            quality = max(42, quality - 8)
-            if attempt in (3, 6, 8):
-                nw = max(320, int(round(working.width * 0.87)))
-                nh = max(240, int(round(working.height * 0.87)))
-                if nw < working.width and nh < working.height:
-                    working = working.resize((nw, nh), RESAMPLE_LANCZOS)
-
-        return best_data, best_type
-
-
-def maybe_compress_plot_image_base64(image_b64, content_type):
-    """Return (b64, content_type, changed) for legacy oversized/unoptimized images."""
-    if not image_b64:
-        return image_b64, content_type, False
-    try:
-        raw = base64.b64decode(image_b64)
-    except Exception:
-        return image_b64, content_type, False
-
-    target_bytes = _target_plot_image_bytes()
-    should_recompress = (
-        len(raw) > target_bytes
-        or (content_type or '').lower() not in ('image/jpeg', 'image/webp')
-    )
-    if not should_recompress:
-        return image_b64, content_type, False
-
-    try:
-        preferred_ext = _detect_ext_from_content_type(content_type)
-        compressed, new_type = compress_plot_image_bytes(raw, preferred_ext=preferred_ext)
-    except Exception:
-        return image_b64, content_type, False
-
-    if not compressed:
-        return image_b64, content_type, False
-    if len(compressed) >= len(raw):
-        return image_b64, content_type, False
-
-    return base64.b64encode(compressed).decode('ascii'), new_type, True
-
-
-def _decode_base64_or_data_url(value):
-    if not value:
-        return None, None
-    raw_value = str(value).strip()
-    content_type = None
-    payload = raw_value
-    if raw_value.startswith('data:') and ',' in raw_value:
-        header, payload = raw_value.split(',', 1)
-        if ';' in header:
-            content_type = header[5:header.find(';')]
-        else:
-            content_type = header[5:]
-    try:
-        return base64.b64decode(payload), (content_type or 'image/jpeg')
-    except Exception:
-        return None, content_type
-
-
-def _encode_data_url(raw_bytes, content_type):
-    return f"data:{content_type};base64,{base64.b64encode(raw_bytes).decode('ascii')}"
-
-
-def maybe_compress_marker_image_data(image_value):
-    """Return (image_value, changed) for marker image_base64 (data URL or plain base64)."""
-    raw, content_type = _decode_base64_or_data_url(image_value)
-    if not raw:
-        return image_value, False
-
-    target_bytes = int(os.environ.get('MARKER_IMAGE_TARGET_BYTES', str(300 * 1024)))
-    should_recompress = (
-        len(raw) > target_bytes
-        or (content_type or '').lower() not in ('image/jpeg', 'image/webp')
-    )
-    if not should_recompress:
-        return image_value, False
-
-    preferred_ext = _detect_ext_from_content_type(content_type)
-    try:
-        compressed, new_type = compress_plot_image_bytes(
-            raw,
-            preferred_ext=preferred_ext,
-            target_bytes=target_bytes,
-            max_edge=int(os.environ.get('MARKER_IMAGE_MAX_EDGE', '1200')),
-        )
-    except Exception:
-        return image_value, False
-
-    if not compressed or len(compressed) >= len(raw):
-        return image_value, False
-    return _encode_data_url(compressed, new_type), True
 
 
 # ----- Public routes -----
@@ -554,18 +472,6 @@ def uploaded_file(filename):
         except Exception:
             resp.headers['Cache-Control'] = 'private, max-age=900'
         return resp
-
-    sb = get_supabase()
-    if sb:
-        try:
-            r = sb.table('panoramas').select('image_data, image_content_type').eq('filename', filename).limit(1).execute()
-            if r.data and len(r.data) > 0 and r.data[0].get('image_data'):
-                row = r.data[0]
-                data = base64.b64decode(row['image_data'])
-                content_type = row.get('image_content_type') or 'image/jpeg'
-                return Response(data, mimetype=content_type)
-        except Exception:
-            pass
     return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
 
 
@@ -691,6 +597,8 @@ def create_panorama(user_id, role):
 
     # ----- Path A: legacy upload through dyno -----
     if file:
+        if _use_s3_for_panoramas():
+            return jsonify({'error': 'Direct upload required. Use /api/panoramas/upload-url.'}), 400
         if file.filename == '':
             return jsonify({'error': 'No file selected'}), 400
         if not allowed_file(file.filename):
@@ -911,11 +819,11 @@ def get_plots(user_id, role, panorama_id):
         # Keep list payload light: do not read image_data blob here.
         fields_base = (
             'id, panorama_id, name, area, price, status, description, color, '
-            'media_photo, media_video, points, created_at, updated_at, image_content_type'
+            'media_photo, media_video, points, created_at, updated_at, image_filename'
         )
         fields_with_links = (
             'id, panorama_id, name, area, price, status, description, color, '
-            'media_photo, media_video, linked_panorama_id, points, created_at, updated_at, image_content_type'
+            'media_photo, media_video, linked_panorama_id, points, created_at, updated_at, image_filename'
         )
         try:
             r = sb.table('plots').select(fields_with_links).eq('panorama_id', panorama_id).order('created_at').execute()
@@ -925,12 +833,6 @@ def get_plots(user_id, role, panorama_id):
                 r = sb.table('plots').select(fields_base).eq('panorama_id', panorama_id).order('created_at').execute()
             else:
                 raise
-        legacy_image_ids = set()
-        try:
-            legacy = sb.table('plots').select('id').eq('panorama_id', panorama_id).not_.is_('image_data', 'null').execute()
-            legacy_image_ids = {row.get('id') for row in (legacy.data or []) if row.get('id') is not None}
-        except Exception:
-            legacy_image_ids = set()
         plots = []
         for row in (r.data or []):
             p = dict(row)
@@ -940,8 +842,8 @@ def get_plots(user_id, role, panorama_id):
                 except Exception:
                     p['points'] = []
             # Frontend loads image by id; use content type presence as a lightweight has_image flag.
-            p['has_image'] = bool(p.get('image_content_type')) or (p.get('id') in legacy_image_ids)
-            p.pop('image_content_type', None)
+            p['has_image'] = bool(p.get('image_filename'))
+            p.pop('image_filename', None)
             plots.append(p)
         return jsonify(plots)
     except Exception as e:
@@ -1009,11 +911,13 @@ def delete_plot(user_id, role, plot_id):
     sb = get_supabase()
     if not sb:
         return jsonify({'error': 'Database not configured'}), 503
+    image_filename = ''
     try:
-        pl = sb.table('plots').select('panorama_id').eq('id', plot_id).limit(1).execute()
+        pl = sb.table('plots').select('panorama_id, image_filename').eq('id', plot_id).limit(1).execute()
         if not pl.data or len(pl.data) == 0:
             return jsonify({'error': 'Plot not found'}), 404
         panorama_id = pl.data[0]['panorama_id']
+        image_filename = pl.data[0].get('image_filename') or ''
     except Exception:
         return jsonify({'error': 'Not found'}), 404
     panorama, access_type = get_panorama_with_access(sb, panorama_id, user_id)
@@ -1021,6 +925,8 @@ def delete_plot(user_id, role, plot_id):
         return jsonify({'error': 'Forbidden'}), 403
     try:
         sb.table('plots').delete().eq('id', plot_id).execute()
+        if image_filename:
+            _delete_plot_from_s3(image_filename)
         sb.table('panoramas').update({'updated_at': datetime.utcnow().isoformat()}).eq('id', panorama_id).execute()
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -1084,20 +990,21 @@ def update_plot(user_id, role, plot_id):
     return jsonify({'success': True})
 
 
-# ----- Plot image (blob in Postgres: base64 in image_data) -----
+# ----- Plot image (stored in S3; DB stores filename) -----
 ALLOWED_IMAGE_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
 MAX_PLOT_IMAGE_BYTES = 12 * 1024 * 1024  # 12MB raw upload limit before compression
+MAX_MARKER_IMAGE_BYTES = int(os.environ.get('MAX_MARKER_IMAGE_BYTES', str(3 * 1024 * 1024)))
 
 
 @app.route('/api/plots/<int:plot_id>/image', methods=['GET'])
 @require_auth
 def get_plot_image(user_id, role, plot_id):
-    """Serve plot image stored in Postgres (any access to panorama can view)."""
+    """Serve plot image from S3 (any access to panorama can view)."""
     sb = get_supabase()
     if not sb:
         return jsonify({'error': 'Database not configured'}), 503
     try:
-        pl = sb.table('plots').select('panorama_id, image_data, image_content_type').eq('id', plot_id).limit(1).execute()
+        pl = sb.table('plots').select('panorama_id, image_filename').eq('id', plot_id).limit(1).execute()
         if not pl.data or len(pl.data) == 0:
             return jsonify({'error': 'Plot not found'}), 404
         row = pl.data[0]
@@ -1107,48 +1014,23 @@ def get_plot_image(user_id, role, plot_id):
     panorama, _ = get_panorama_with_access(sb, panorama_id, user_id)
     if not panorama:
         return jsonify({'error': 'Forbidden'}), 403
-    image_b64 = row.get('image_data')
-    if not image_b64:
+    image_filename = row.get('image_filename') or ''
+    if not image_filename:
         return jsonify({'error': 'No image'}), 404
-    try:
-        data = base64.b64decode(image_b64)
-    except Exception:
-        return jsonify({'error': 'Invalid image data'}), 500
-    content_type = row.get('image_content_type') or 'image/jpeg'
-
-    # Auto-migrate legacy large/unoptimized images during read.
-    try:
-        compressed_b64, compressed_type, changed = maybe_compress_plot_image_base64(image_b64, content_type)
-        if changed:
-            content_type = compressed_type
-            data = base64.b64decode(compressed_b64)
-            sb.table('plots').update({
-                'image_data': compressed_b64,
-                'image_content_type': compressed_type,
-                'updated_at': datetime.utcnow().isoformat(),
-            }).eq('id', plot_id).execute()
-    except Exception:
-        # Serve existing image even if migration fails.
-        pass
-
-    response = Response(data, mimetype=content_type)
-    response.headers['Cache-Control'] = 'private, max-age=86400'
-    response.headers['X-Image-Optimized'] = '1'
-    return response
+    s3_url = _get_plot_s3_url(image_filename)
+    if not s3_url:
+        return jsonify({'error': 'Image not found'}), 404
+    resp = redirect(s3_url, code=302)
+    resp.headers['Cache-Control'] = 'private, max-age=900'
+    return resp
 
 
-@app.route('/api/plots/<int:plot_id>/image', methods=['POST', 'PUT'])
+@app.route('/api/plots/<int:plot_id>/image/upload-url', methods=['POST'])
 @require_auth
-def upload_plot_image(user_id, role, plot_id):
-    """Upload plot photo; store as base64 in Postgres."""
-    if 'file' not in request.files:
-        return jsonify({'error': 'No file provided'}), 400
-    file = request.files['file']
-    if file.filename == '':
-        return jsonify({'error': 'No file selected'}), 400
-    ext = (file.filename or '').rsplit('.', 1)[-1].lower()
-    if ext not in ALLOWED_IMAGE_EXTENSIONS:
-        return jsonify({'error': 'File type not allowed. Use: png, jpg, jpeg, gif, webp'}), 400
+def create_plot_image_upload_url(user_id, role, plot_id):
+    """Return a pre-signed PUT URL for direct-to-S3 plot image uploads."""
+    if not _use_s3_for_panoramas():
+        return jsonify({'error': 'Supabase S3 is not configured'}), 503
     sb = get_supabase()
     if not sb:
         return jsonify({'error': 'Database not configured'}), 503
@@ -1162,48 +1044,140 @@ def upload_plot_image(user_id, role, plot_id):
     panorama, access_type = get_panorama_with_access(sb, panorama_id, user_id)
     if not panorama or not can_edit_plots(access_type):
         return jsonify({'error': 'Forbidden'}), 403
+
+    payload = request.get_json(silent=True) or request.form or {}
+    original_filename = str(payload.get('original_filename') or payload.get('filename') or '').strip()
+    if not original_filename:
+        return jsonify({'error': 'original_filename is required'}), 400
+
     try:
-        # Read at most MAX_PLOT_IMAGE_BYTES + 1 so oversized uploads don't get fully buffered.
-        try:
-            file.stream.seek(0)
-        except Exception:
-            pass
-        raw = file.read(MAX_PLOT_IMAGE_BYTES + 1)
-        if len(raw) > MAX_PLOT_IMAGE_BYTES:
-            return jsonify({'error': f'Image too large (max {MAX_PLOT_IMAGE_BYTES // (1024*1024)}MB)'}), 400
-        compressed_raw, content_type = compress_plot_image_bytes(raw, preferred_ext=ext)
-        image_b64 = base64.b64encode(compressed_raw).decode('ascii')
+        size_bytes = int(payload.get('size_bytes') or payload.get('size') or 0)
+    except Exception:
+        size_bytes = 0
+    if size_bytes and size_bytes > MAX_PLOT_IMAGE_BYTES:
+        return jsonify({'error': f'Image too large (max {MAX_PLOT_IMAGE_BYTES // (1024*1024)}MB)'}), 413
+
+    content_type_hint = str(payload.get('content_type') or '').lower().strip()
+    ext = original_filename.rsplit('.', 1)[-1].lower() if '.' in original_filename else ''
+    if ext not in ALLOWED_IMAGE_EXTENSIONS and content_type_hint:
+        ext = _detect_ext_from_content_type(content_type_hint)
+    if ext not in ALLOWED_IMAGE_EXTENSIONS:
+        return jsonify({'error': 'File type not allowed. Use: png, jpg, jpeg, gif, webp'}), 400
+
+    unique = uuid.uuid4().hex[:10]
+    filename = f"plot_{plot_id}_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}_{unique}.{ext}"
+    content_type = IMAGE_CONTENT_TYPES.get(ext, 'image/jpeg')
+
+    client = _get_s3_client()
+    if not client:
+        return jsonify({'error': 'Supabase S3 is not fully configured'}), 503
+
+    try:
+        upload_url = client.generate_presigned_url(
+            ClientMethod='put_object',
+            Params={'Bucket': SUPABASE_S3_BUCKET, 'Key': _plot_object_key(filename), 'ContentType': content_type},
+            ExpiresIn=int(SUPABASE_S3_UPLOAD_URL_TTL),
+        )
+    except Exception as e:
+        app.logger.exception('Failed to generate plot image upload URL')
+        return jsonify({'error': str(e)}), 500
+
+    token = _plot_upload_serializer().dumps({
+        'user_id': str(user_id),
+        'plot_id': int(plot_id),
+        'filename': filename,
+        'content_type': content_type,
+    })
+    return jsonify({
+        'filename': filename,
+        'upload_url': upload_url,
+        'upload_token': token,
+        'content_type': content_type,
+        'max_bytes': MAX_PLOT_IMAGE_BYTES,
+        'expires_in': int(SUPABASE_S3_UPLOAD_URL_TTL),
+    })
+
+
+@app.route('/api/plots/<int:plot_id>/image', methods=['POST', 'PUT'])
+@require_auth
+def upload_plot_image(user_id, role, plot_id):
+    """Finalize plot image upload (S3 only)."""
+    if request.files.get('file'):
+        return jsonify({'error': 'Direct upload required. Use /api/plots/<id>/image/upload-url.'}), 400
+    if not _use_s3_for_panoramas():
+        return jsonify({'error': 'Supabase S3 is not configured'}), 503
+    sb = get_supabase()
+    if not sb:
+        return jsonify({'error': 'Database not configured'}), 503
+
+    payload = request.form or {}
+    filename = os.path.basename(str(payload.get('filename') or '')).strip()
+    upload_token = str(payload.get('upload_token') or '').strip()
+    if not filename:
+        return jsonify({'error': 'filename is required'}), 400
+    if not upload_token:
+        return jsonify({'error': 'upload_token is required'}), 400
+
+    try:
+        pl = sb.table('plots').select('panorama_id').eq('id', plot_id).limit(1).execute()
+        if not pl.data or len(pl.data) == 0:
+            return jsonify({'error': 'Plot not found'}), 404
+        panorama_id = pl.data[0]['panorama_id']
+    except Exception:
+        return jsonify({'error': 'Not found'}), 404
+    panorama, access_type = get_panorama_with_access(sb, panorama_id, user_id)
+    if not panorama or not can_edit_plots(access_type):
+        return jsonify({'error': 'Forbidden'}), 403
+
+    try:
+        signed = _plot_upload_serializer().loads(upload_token, max_age=int(SUPABASE_S3_UPLOAD_URL_TTL))
+    except SignatureExpired:
+        return jsonify({'error': 'upload_token expired; request a new upload URL'}), 400
+    except BadSignature:
+        return jsonify({'error': 'Invalid upload_token'}), 400
+
+    if str(signed.get('user_id')) != str(user_id) or int(signed.get('plot_id')) != int(plot_id) or str(signed.get('filename')) != filename:
+        return jsonify({'error': 'Invalid upload_token'}), 403
+
+    client = _get_s3_client()
+    if not client:
+        return jsonify({'error': 'Supabase S3 is not fully configured'}), 503
+
+    try:
+        head = client.head_object(Bucket=SUPABASE_S3_BUCKET, Key=_plot_object_key(filename))
+    except Exception:
+        return jsonify({'error': 'Upload not found. Re-upload and try again.'}), 400
+
+    try:
+        size_bytes = int(head.get('ContentLength') or 0)
+    except Exception:
+        size_bytes = 0
+    if size_bytes and size_bytes > MAX_PLOT_IMAGE_BYTES:
+        _delete_plot_from_s3(filename)
+        return jsonify({'error': f'Image too large (max {MAX_PLOT_IMAGE_BYTES // (1024*1024)}MB)'}), 413
+
+    try:
         sb.table('plots').update({
-            'image_data': image_b64,
-            'image_content_type': content_type,
+            'image_filename': filename,
+            'image_content_type': str(signed.get('content_type') or ''),
         }).eq('id', plot_id).execute()
         sb.table('panoramas').update({'updated_at': datetime.utcnow().isoformat()}).eq('id', panorama_id).execute()
-        # Verify (if image_data column missing, run supabase_migration_plot_image.sql)
-        check = sb.table('plots').select('image_data').eq('id', plot_id).limit(1).execute()
-        if not check.data or not check.data[0].get('image_data'):
-            return jsonify({
-                'error': 'Image not saved. Run supabase_migration_plot_image.sql in Supabase SQL Editor.'
-            }), 500
     except Exception as e:
         return jsonify({'error': str(e)}), 500
-    return jsonify({
-        'success': True,
-        'content_type': content_type,
-        'size_bytes': len(compressed_raw),
-        'target_bytes': _target_plot_image_bytes(),
-    })
+
+    return jsonify({'success': True})
 
 
 @app.route('/api/markers/<marker_id>/image', methods=['GET'])
 @require_auth
 def get_marker_image(user_id, role, marker_id):
-    """Fetch a single marker image and auto-migrate legacy oversized data."""
+    """Fetch a single marker image from S3."""
     sb = get_supabase()
     if not sb:
         return jsonify({'error': 'Database not configured'}), 503
 
     try:
-        r = sb.table('plot_markers').select('id, plot_id, image_base64').eq('id', marker_id).limit(1).execute()
+        r = sb.table('plot_markers').select('id, plot_id, image_filename').eq('id', marker_id).limit(1).execute()
         if not r.data:
             return jsonify({'error': 'Marker not found'}), 404
         row = r.data[0]
@@ -1223,21 +1197,171 @@ def get_marker_image(user_id, role, marker_id):
     if not panorama:
         return jsonify({'error': 'Forbidden'}), 403
 
-    image_value = row.get('image_base64') or ''
-    if not image_value:
-        return jsonify({'image_base64': None, 'optimized': False})
+    image_filename = row.get('image_filename') or ''
+    if not image_filename:
+        return jsonify({'error': 'No image'}), 404
 
-    optimized_value, changed = maybe_compress_marker_image_data(image_value)
-    if changed:
-        try:
-            sb.table('plot_markers').update({
-                'image_base64': optimized_value,
-            }).eq('id', marker_id).execute()
-            image_value = optimized_value
-        except Exception:
-            image_value = optimized_value
+    s3_url = _get_marker_s3_url(image_filename)
+    if not s3_url:
+        return jsonify({'error': 'Image not found'}), 404
+    resp = redirect(s3_url, code=302)
+    resp.headers['Cache-Control'] = 'private, max-age=900'
+    return resp
 
-    return jsonify({'image_base64': image_value, 'optimized': bool(changed)})
+
+@app.route('/api/markers/<marker_id>/image/upload-url', methods=['POST'])
+@require_auth
+def create_marker_image_upload_url(user_id, role, marker_id):
+    """Return a pre-signed PUT URL for direct-to-S3 marker image uploads."""
+    if not _use_s3_for_panoramas():
+        return jsonify({'error': 'Supabase S3 is not configured'}), 503
+    sb = get_supabase()
+    if not sb:
+        return jsonify({'error': 'Database not configured'}), 503
+
+    try:
+        r = sb.table('plot_markers').select('id, plot_id').eq('id', marker_id).limit(1).execute()
+        if not r.data:
+            return jsonify({'error': 'Marker not found'}), 404
+        row = r.data[0]
+    except Exception:
+        return jsonify({'error': 'Marker not found'}), 404
+
+    plot_id = str(row.get('plot_id') or '').strip()
+    if not plot_id:
+        return jsonify({'error': 'Invalid marker'}), 400
+    try:
+        panorama_id = int(plot_id)
+    except Exception:
+        return jsonify({'error': 'Invalid marker reference'}), 400
+    panorama, access_type = get_panorama_with_access(sb, panorama_id, user_id)
+    if not panorama or not can_edit_plots(access_type):
+        return jsonify({'error': 'Forbidden'}), 403
+
+    payload = request.get_json(silent=True) or request.form or {}
+    original_filename = str(payload.get('original_filename') or payload.get('filename') or '').strip()
+    if not original_filename:
+        return jsonify({'error': 'original_filename is required'}), 400
+    try:
+        size_bytes = int(payload.get('size_bytes') or payload.get('size') or 0)
+    except Exception:
+        size_bytes = 0
+    if size_bytes and size_bytes > MAX_MARKER_IMAGE_BYTES:
+        return jsonify({'error': f'Image too large (max {MAX_MARKER_IMAGE_BYTES // (1024*1024)}MB)'}), 413
+
+    content_type_hint = str(payload.get('content_type') or '').lower().strip()
+    ext = original_filename.rsplit('.', 1)[-1].lower() if '.' in original_filename else ''
+    if ext not in ALLOWED_IMAGE_EXTENSIONS and content_type_hint:
+        ext = _detect_ext_from_content_type(content_type_hint)
+    if ext not in ALLOWED_IMAGE_EXTENSIONS:
+        return jsonify({'error': 'File type not allowed. Use: png, jpg, jpeg, gif, webp'}), 400
+
+    unique = uuid.uuid4().hex[:10]
+    filename = f"marker_{marker_id}_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}_{unique}.{ext}"
+    content_type = IMAGE_CONTENT_TYPES.get(ext, 'image/jpeg')
+
+    client = _get_s3_client()
+    if not client:
+        return jsonify({'error': 'Supabase S3 is not fully configured'}), 503
+
+    try:
+        upload_url = client.generate_presigned_url(
+            ClientMethod='put_object',
+            Params={'Bucket': SUPABASE_S3_BUCKET, 'Key': _marker_object_key(filename), 'ContentType': content_type},
+            ExpiresIn=int(SUPABASE_S3_UPLOAD_URL_TTL),
+        )
+    except Exception as e:
+        app.logger.exception('Failed to generate marker image upload URL')
+        return jsonify({'error': str(e)}), 500
+
+    token = _marker_upload_serializer().dumps({
+        'user_id': str(user_id),
+        'marker_id': str(marker_id),
+        'filename': filename,
+        'content_type': content_type,
+    })
+    return jsonify({
+        'filename': filename,
+        'upload_url': upload_url,
+        'upload_token': token,
+        'content_type': content_type,
+        'max_bytes': MAX_MARKER_IMAGE_BYTES,
+        'expires_in': int(SUPABASE_S3_UPLOAD_URL_TTL),
+    })
+
+
+@app.route('/api/markers/<marker_id>/image', methods=['POST', 'PUT'])
+@require_auth
+def upload_marker_image(user_id, role, marker_id):
+    """Finalize marker image upload (S3 only)."""
+    if request.files.get('file'):
+        return jsonify({'error': 'Direct upload required. Use /api/markers/<id>/image/upload-url.'}), 400
+    if not _use_s3_for_panoramas():
+        return jsonify({'error': 'Supabase S3 is not configured'}), 503
+    sb = get_supabase()
+    if not sb:
+        return jsonify({'error': 'Database not configured'}), 503
+
+    payload = request.form or {}
+    filename = os.path.basename(str(payload.get('filename') or '')).strip()
+    upload_token = str(payload.get('upload_token') or '').strip()
+    if not filename:
+        return jsonify({'error': 'filename is required'}), 400
+    if not upload_token:
+        return jsonify({'error': 'upload_token is required'}), 400
+
+    try:
+        r = sb.table('plot_markers').select('id, plot_id').eq('id', marker_id).limit(1).execute()
+        if not r.data:
+            return jsonify({'error': 'Marker not found'}), 404
+        row = r.data[0]
+    except Exception:
+        return jsonify({'error': 'Marker not found'}), 404
+
+    plot_id = str(row.get('plot_id') or '').strip()
+    if not plot_id:
+        return jsonify({'error': 'Invalid marker'}), 400
+    try:
+        panorama_id = int(plot_id)
+    except Exception:
+        return jsonify({'error': 'Invalid marker reference'}), 400
+    panorama, access_type = get_panorama_with_access(sb, panorama_id, user_id)
+    if not panorama or not can_edit_plots(access_type):
+        return jsonify({'error': 'Forbidden'}), 403
+
+    try:
+        signed = _marker_upload_serializer().loads(upload_token, max_age=int(SUPABASE_S3_UPLOAD_URL_TTL))
+    except SignatureExpired:
+        return jsonify({'error': 'upload_token expired; request a new upload URL'}), 400
+    except BadSignature:
+        return jsonify({'error': 'Invalid upload_token'}), 400
+
+    if str(signed.get('user_id')) != str(user_id) or str(signed.get('marker_id')) != str(marker_id) or str(signed.get('filename')) != filename:
+        return jsonify({'error': 'Invalid upload_token'}), 403
+
+    client = _get_s3_client()
+    if not client:
+        return jsonify({'error': 'Supabase S3 is not fully configured'}), 503
+    try:
+        head = client.head_object(Bucket=SUPABASE_S3_BUCKET, Key=_marker_object_key(filename))
+    except Exception:
+        return jsonify({'error': 'Upload not found. Re-upload and try again.'}), 400
+    try:
+        size_bytes = int(head.get('ContentLength') or 0)
+    except Exception:
+        size_bytes = 0
+    if size_bytes and size_bytes > MAX_MARKER_IMAGE_BYTES:
+        _delete_marker_from_s3(filename)
+        return jsonify({'error': f'Image too large (max {MAX_MARKER_IMAGE_BYTES // (1024*1024)}MB)'}), 413
+
+    try:
+        sb.table('plot_markers').update({
+            'image_filename': filename,
+        }).eq('id', marker_id).execute()
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+    return jsonify({'success': True})
 
 
 # ----- Admin: create user + set as user in profiles -----

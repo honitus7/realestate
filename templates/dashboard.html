@@ -941,7 +941,7 @@
 	            selectedImageWidth = 0;
 	            selectedImageHeight = 0;
 
-	            // Show preview (avoid base64; large files can freeze some devices).
+	            // Show preview (avoid heavy in-memory encoding; large files can freeze some devices).
 	            if (previewObjectUrl) {
 	                try { URL.revokeObjectURL(previewObjectUrl); } catch (e) {}
 	                previewObjectUrl = '';
@@ -1011,6 +1011,7 @@
 
 	                // Try direct-to-S3 upload first (avoids Heroku 30s router timeout + dyno RAM spikes).
 	                let directInfo = null;
+	                let allowDynoFallback = false;
 	                try {
 	                    const urlResp = await fetch('/api/panoramas/upload-url', {
 	                        method: 'POST',
@@ -1035,9 +1036,16 @@
 	                            resetUploadForm();
 	                            return;
 	                        }
+	                        if (urlResp.status === 503) {
+	                            allowDynoFallback = true;
+	                        } else {
+	                            showToast(msg || `Upload setup failed (${urlResp.status})`, 'error');
+	                            resetUploadForm();
+	                            return;
+	                        }
 	                    }
 	                } catch (e) {
-	                    directInfo = null;
+	                    allowDynoFallback = true;
 	                }
 
 	                if (directInfo && directInfo.upload_url && directInfo.filename && directInfo.upload_token) {
@@ -1093,18 +1101,21 @@
 	                        onCreated(finPayload);
 	                        return;
 	                    } catch (e) {
-	                        // Fall back to dyno upload if direct upload fails (e.g., CORS not configured).
-	                        try {
-	                            const msg = e && e.message ? String(e.message) : 'Direct upload failed.';
-	                            if (msg.toLowerCase().startsWith('file too large')) {
-	                                showToast(msg, 'error');
-	                                resetUploadForm();
-	                                return;
-	                            }
-	                            console.warn('Direct upload failed; falling back to server upload:', msg);
-	                            progressText.textContent = 'Direct upload failed; retrying via server...';
-	                        } catch (e2) {}
+	                        const msg = e && e.message ? String(e.message) : 'Direct upload failed.';
+	                        if (msg.toLowerCase().startsWith('file too large')) {
+	                            showToast(msg, 'error');
+	                        } else {
+	                            showToast(msg, 'error');
+	                        }
+	                        resetUploadForm();
+	                        return;
 	                    }
+	                }
+
+	                if (!allowDynoFallback) {
+	                    showToast('Direct upload is required; server upload is disabled.', 'error');
+	                    resetUploadForm();
+	                    return;
 	                }
 
 	                // Fallback: upload through dyno (can hit Heroku timeout for slow networks).

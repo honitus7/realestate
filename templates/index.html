@@ -746,6 +746,7 @@
         // State
         let projects = [];
         let selectedFile = null;
+        let previewObjectUrl = '';
         let deleteTargetId = null;
 
         // DOM Elements
@@ -806,19 +807,19 @@
         function handleFileSelect(file) {
             selectedFile = file;
 
-            // Show preview
-            const reader = new FileReader();
-            reader.onload = (e) => {
-                previewImage.src = e.target.result;
-
-                // Get image dimensions
-                const img = new Image();
-                img.onload = () => {
-                    previewSize.textContent = `${formatFileSize(file.size)} • ${img.width} × ${img.height}`;
-                };
-                img.src = e.target.result;
+            if (previewObjectUrl) {
+                try { URL.revokeObjectURL(previewObjectUrl); } catch (e) {}
+                previewObjectUrl = '';
+            }
+            previewSize.textContent = `${formatFileSize(file.size)}`;
+            previewObjectUrl = URL.createObjectURL(file);
+            previewImage.onload = () => {
+                if (previewImage.naturalWidth && previewImage.naturalHeight) {
+                    previewSize.textContent = `${formatFileSize(file.size)} • ${previewImage.naturalWidth} × ${previewImage.naturalHeight}`;
+                }
             };
-            reader.readAsDataURL(file);
+            previewImage.onerror = () => {};
+            previewImage.src = previewObjectUrl;
 
             previewFilename.textContent = file.name;
             projectName.value = file.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ');
@@ -899,6 +900,10 @@
             uploadProgress.classList.remove('visible');
             uploadZone.classList.remove('uploading');
             progressFill.style.width = '0%';
+            if (previewObjectUrl) {
+                try { URL.revokeObjectURL(previewObjectUrl); } catch (e) {}
+                previewObjectUrl = '';
+            }
             previewImage.src = '';
             projectName.value = '';
         }

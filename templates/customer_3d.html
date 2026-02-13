@@ -2742,8 +2742,8 @@
             scheduleAutoRotateResume(850);
         }
 
-        function openMarkerPhotoLightbox(imageBase64, markerName, markerId) {
-            if (!markerPhotoLightbox || !markerPhotoLightboxImage || !imageBase64) return;
+        function openMarkerPhotoLightbox(imageUrl, markerName, markerId) {
+            if (!markerPhotoLightbox || !markerPhotoLightboxImage || !imageUrl) return;
             const selectorId = (typeof CSS !== 'undefined' && typeof CSS.escape === 'function')
                 ? CSS.escape(String(markerId || ''))
                 : String(markerId || '').replace(/"/g, '\\"');
@@ -2760,7 +2760,7 @@
             }
 
             stopAutoRotate();
-            markerPhotoLightboxImage.src = imageBase64;
+            markerPhotoLightboxImage.src = imageUrl;
             markerPhotoLightboxImage.alt = markerName ? `${markerName} photo` : 'Marker photo';
             markerPhotoLightbox.setAttribute('aria-hidden', 'false');
             markerPhotoLightbox.classList.remove('is-zoomed');
@@ -2782,6 +2782,7 @@
                 this.focusedMarkerId = null;
                 this.styleColumnsSupported = true;
                 this.linkColumnsSupported = true;
+                this.imageColumnsSupported = true;
 
                 this.dom = {
                     modal: document.getElementById('marker-readonly-modal'),
@@ -2827,6 +2828,7 @@
             async loadMarkers() {
                 try {
                     const rows = await this.fetchMarkers(this.plotId);
+                    this.markerMap.forEach((marker) => this.revokeMarkerImage(marker));
                     this.markerMap.clear();
                     rows.forEach((row) => {
                         this.markerMap.set(String(row.id), this.normalizeMarker(row));
@@ -2865,6 +2867,11 @@
                 return message.includes('linked_panorama_id') || message.includes('linked panorama');
             }
 
+            isImageColumnError(error) {
+                const message = String(error && (error.message || error.details || error.hint) ? (error.message || error.details || error.hint) : '').toLowerCase();
+                return message.includes('image_filename');
+            }
+
             normalizeMarker(row) {
                 const status = typeof row.status === 'string' ? row.status.toLowerCase() : 'available';
                 const rawLinked = row && Object.prototype.hasOwnProperty.call(row, 'linked_panorama_id')
@@ -2877,12 +2884,13 @@
                     id: String(row.id),
                     name: row.name || '',
                     description: row.description || '',
-                    image_base64: row.image_base64 || '',
+                    image_filename: row.image_filename || '',
+                    image_object_url: '',
+                    image_loading: false,
                     marker_style: this.normalizeMarkerStyle(row.marker_style),
                     marker_icon: this.normalizeMarkerIcon(row.marker_icon),
                     marker_color: this.normalizeMarkerColor(row.marker_color),
                     linked_panorama_id: Number.isFinite(parsedLinked) ? parsedLinked : null,
-                    _imageLoaded: Boolean(row.image_base64),
                     longitude: Number(row.longitude || 0),
                     latitude: Number(row.latitude || 0),
                     status: ['available', 'sold', 'reserved'].includes(status) ? status : 'available',
@@ -2902,9 +2910,10 @@
             }
 
             buildPhotoMarkerHtml(marker, statusClass) {
-                const hasImage = Boolean(marker.image_base64);
+                const hasImage = Boolean(marker.image_filename);
+                const imageSrc = marker.image_object_url || '';
                 const imageContent = hasImage
-                    ? `<img class="marker-photo-image" src="${this.escapeAttr(marker.image_base64)}" alt="${this.escapeAttr(marker.name || 'Marker')}">`
+                    ? `<img class="marker-photo-image"${imageSrc ? ` src="${this.escapeAttr(imageSrc)}"` : ''} data-marker-id="${this.escapeAttr(marker.id)}" alt="${this.escapeAttr(marker.name || 'Marker')}">`
                     : `<span class="marker-photo-placeholder">${this.escapeHtml((marker.name || 'POI').slice(0, 2).toUpperCase())}</span>`;
                 return `<button class="psv-glass-marker marker-photo ${statusClass}" type="button" data-marker-id="${this.escapeAttr(marker.id)}" aria-label="${this.escapeAttr(marker.name || 'Marker')}"><span class="marker-photo-name">${this.escapeHtml(marker.name || 'Marker')}</span><span class="marker-photo-disc">${imageContent}</span><span class="marker-photo-stem" aria-hidden="true"></span><span class="marker-photo-base" aria-hidden="true"></span></button>`;
             }
@@ -2958,8 +2967,8 @@
                         const nameEl = markerEl.querySelector('.marker-photo-name');
                         if (nameEl) nameEl.textContent = marker.name || 'Marker';
                         const imgEl = markerEl.querySelector('.marker-photo-image');
-                        if (imgEl && marker.image_base64) {
-                            imgEl.setAttribute('src', marker.image_base64);
+                        if (imgEl) {
+                            this.applyMarkerImage(marker, imgEl);
                         }
                     } else {
                         markerEl.classList.add('marker-classic', `marker-theme-${normalizedStyle}`);
@@ -3057,13 +3066,13 @@
                 this.showMediaLoading();
                 this.dom.modal.classList.add('visible');
                 this.ensureMarkerImage(markerId)
-                    .then((imageBase64) => {
+                    .then((imageUrl) => {
                         if (this.selectedMarkerId !== String(markerId)) return;
-                        this.renderMedia(marker, imageBase64);
+                        this.renderMedia(marker, imageUrl);
                     })
                     .catch(() => {
                         if (this.selectedMarkerId !== String(markerId)) return;
-                        this.renderMedia(marker, marker.image_base64 || '');
+                        this.renderMedia(marker, marker.image_object_url || '');
                     });
             }
 
@@ -3072,14 +3081,13 @@
                 if (!marker) return;
                 if (this.dom.modal) this.dom.modal.classList.remove('visible');
                 this.ensureMarkerImage(markerId)
-                    .then((imageBase64) => {
-                        const value = String(imageBase64 || marker.image_base64 || '');
+                    .then((imageUrl) => {
+                        const value = String(imageUrl || marker.image_object_url || '');
                         if (!value) {
                             this.openReadonly(markerId);
                             return;
                         }
-                        marker.image_base64 = value;
-                        marker._imageLoaded = true;
+                        marker.image_object_url = value;
                         openMarkerPhotoLightbox(value, marker.name || 'Marker', marker.id);
                     })
                     .catch(() => this.openReadonly(markerId));
@@ -3101,11 +3109,11 @@
                 this.dom.modal.classList.remove('no-media');
             }
 
-            renderMedia(marker, imageBase64) {
+            renderMedia(marker, imageUrl) {
                 if (!this.dom.media || !this.dom.mediaCol || !this.dom.modal) return;
                 this.dom.media.innerHTML = '';
-                if (imageBase64) {
-                    this.dom.media.innerHTML = `<img src="${this.escapeAttr(imageBase64)}" alt="${this.escapeAttr(marker.name || 'Marker')}" style="max-width:100%;height:auto;">`;
+                if (imageUrl) {
+                    this.dom.media.innerHTML = `<img src="${this.escapeAttr(imageUrl)}" alt="${this.escapeAttr(marker.name || 'Marker')}" style="max-width:100%;height:auto;">`;
                     this.dom.mediaCol.style.display = 'block';
                     this.dom.modal.classList.remove('no-media');
                 } else {
@@ -3116,41 +3124,53 @@
 
             async ensureMarkerImage(markerId) {
                 const marker = this.markerMap.get(String(markerId));
-                if (!marker) return '';
-                if (!marker._imageLoaded) {
-                    try {
-                        const headers = await (window.getAuthHeaders ? window.getAuthHeaders() : Promise.resolve({}));
-                        const response = await fetch(`/api/markers/${encodeURIComponent(String(markerId))}/image`, { headers });
-                        if (response.ok) {
-                            const payload = await response.json();
-                            marker.image_base64 = payload && payload.image_base64 ? String(payload.image_base64) : '';
-                            marker._imageLoaded = true;
-                            return marker.image_base64;
-                        }
-                    } catch (error) {
-                        // Fallback to direct read if API optimization endpoint is unavailable.
+                if (!marker || !marker.image_filename) return '';
+                if (marker.image_object_url) return marker.image_object_url;
+                if (marker.image_loading) return '';
+                marker.image_loading = true;
+                try {
+                    const headers = await (window.getAuthHeaders ? window.getAuthHeaders() : Promise.resolve({}));
+                    const response = await fetch(`/api/markers/${encodeURIComponent(String(markerId))}/image`, { headers });
+                    if (response.ok) {
+                        const blob = await response.blob();
+                        marker.image_object_url = URL.createObjectURL(blob);
+                        return marker.image_object_url;
                     }
-
-                    const supabase = this.getSupabaseClient();
-                    const { data, error } = await supabase
-                        .from('plot_markers')
-                        .select('image_base64')
-                        .eq('id', String(markerId))
-                        .limit(1);
-                    if (error) throw error;
-                    marker.image_base64 = (data && data[0] && data[0].image_base64) ? data[0].image_base64 : '';
-                    marker._imageLoaded = true;
+                } catch (error) {
+                    return '';
+                } finally {
+                    marker.image_loading = false;
                 }
+                return '';
+            }
 
-                if (!marker.image_base64) return '';
+            revokeMarkerImage(marker) {
+                if (!marker || !marker.image_object_url) return;
+                try { URL.revokeObjectURL(marker.image_object_url); } catch (e) {}
+                marker.image_object_url = '';
+            }
 
-                return marker.image_base64 || '';
+            applyMarkerImage(marker, imgEl) {
+                if (!imgEl) return;
+                if (!marker || !marker.image_filename) {
+                    imgEl.removeAttribute('src');
+                    return;
+                }
+                if (marker.image_object_url) {
+                    imgEl.src = marker.image_object_url;
+                    return;
+                }
+                this.ensureMarkerImage(marker.id)
+                    .then((url) => {
+                        if (url) imgEl.src = url;
+                    })
+                    .catch(() => {});
             }
 
             async fetchMarkers(plotId) {
                 const supabase = this.getSupabaseClient();
                 const baseCols = [
-                    'id', 'plot_id', 'name', 'description', 'image_base64',
+                    'id', 'plot_id', 'name', 'description', 'image_filename',
                     'longitude', 'latitude', 'status', 'created_at'
                 ];
                 const styleCols = ['marker_style', 'marker_icon', 'marker_color'];
@@ -3160,6 +3180,10 @@
                     const cols = [...baseCols];
                     if (this.linkColumnsSupported) cols.push(...linkCols);
                     if (this.styleColumnsSupported) cols.push(...styleCols);
+                    if (this.imageColumnsSupported === false) {
+                        const idx = cols.indexOf('image_filename');
+                        if (idx !== -1) cols.splice(idx, 1);
+                    }
                     return cols.join(', ');
                 };
 
@@ -3180,6 +3204,10 @@
                     }
                     if (this.linkColumnsSupported && this.isLinkColumnError(result.error)) {
                         this.linkColumnsSupported = false;
+                        changed = true;
+                    }
+                    if (this.imageColumnsSupported && this.isImageColumnError(result.error)) {
+                        this.imageColumnsSupported = false;
                         changed = true;
                     }
                     if (!changed) break;
