@@ -1004,17 +1004,29 @@
                             }
                         }, 500);
                     } else {
-                        throw new Error('Upload failed');
+                        let message = `Upload failed (${xhr.status})`;
+                        try {
+                            const payload = JSON.parse(xhr.responseText || '{}');
+                            if (payload && payload.error) message = String(payload.error);
+                        } catch (e) {}
+                        showToast(message, 'error');
+                        resetUploadForm();
                     }
                 });
 
                 xhr.addEventListener('error', () => {
-                    showToast('Upload failed. Please try again.', 'error');
+                    showToast('Upload failed (network error). Please try again.', 'error');
+                    resetUploadForm();
+                });
+
+                xhr.addEventListener('timeout', () => {
+                    showToast('Upload timed out. Please try again.', 'error');
                     resetUploadForm();
                 });
 
                 getAuthHeaders().then(function (headers) {
                     xhr.open('POST', '/api/panoramas');
+                    xhr.timeout = 4 * 60 * 1000;
                     if (headers.Authorization) xhr.setRequestHeader('Authorization', headers.Authorization);
                     xhr.send(formData);
                 });
@@ -1044,6 +1056,12 @@
                 if (response.status === 401) {
                     window.location.replace('/login');
                     return;
+                }
+                if (!response.ok) {
+                    let detail = '';
+                    try { detail = await response.text(); } catch (e) {}
+                    console.warn('Projects load failed', response.status, detail.slice(0, 200));
+                    throw new Error(`Failed to load projects (${response.status})`);
                 }
                 projects = await response.json();
                 renderProjects();

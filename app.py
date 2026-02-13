@@ -6,6 +6,8 @@ import os
 import json
 import base64
 import io
+import uuid
+import time
 from datetime import datetime
 
 from dotenv import load_dotenv
@@ -29,6 +31,7 @@ except ImportError:
 
 from flask import Flask, render_template, request, jsonify, send_from_directory, redirect, Response
 from werkzeug.utils import secure_filename
+from werkzeug.exceptions import RequestEntityTooLarge
 from PIL import Image, ImageOps
 try:
     import boto3
@@ -56,7 +59,7 @@ from db import (
 app = Flask(__name__, static_folder='static', template_folder='templates')
 app.secret_key = os.environ.get('FLASK_SECRET_KEY', os.urandom(24).hex())
 app.config['UPLOAD_FOLDER'] = 'uploads'
-app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024  # 50MB
+app.config['MAX_CONTENT_LENGTH'] = int(os.environ.get('MAX_UPLOAD_BYTES', str(50 * 1024 * 1024)))  # 50MB
 app.config['DATABASE'] = 'panorama.db'
 
 SUPABASE_URL = os.environ.get('SUPABASE_URL', '').rstrip('/')
@@ -96,6 +99,7 @@ os.makedirs('templates', exist_ok=True)
 os.makedirs('static', exist_ok=True)
 
 _s3_client = None
+_s3_signed_url_cache = {}
 
 
 def _use_s3_for_panoramas():
@@ -159,12 +163,37 @@ def _upload_panorama_to_s3(filename, raw_bytes, content_type):
             missing.append('SUPABASE_S3_SECRET_ACCESS_KEY')
         hint = f" Missing: {', '.join(missing)}" if missing else ''
         raise RuntimeError(f'Supabase S3 is not fully configured.{hint}')
+    key = _panorama_object_key(filename)
+    if hasattr(raw_bytes, 'read'):
+        # Use streaming upload when given a file-like object.
+        try:
+            raw_bytes.seek(0)
+        except Exception:
+            pass
+        if hasattr(client, 'upload_fileobj'):
+            client.upload_fileobj(
+                raw_bytes,
+                SUPABASE_S3_BUCKET,
+                key,
+                ExtraArgs={'ContentType': content_type},
+            )
+            return
     client.put_object(
         Bucket=SUPABASE_S3_BUCKET,
-        Key=_panorama_object_key(filename),
+        Key=key,
         Body=raw_bytes,
         ContentType=content_type,
     )
+
+
+@app.errorhandler(RequestEntityTooLarge)
+def handle_request_too_large(_error):
+    if request.path.startswith('/api/'):
+        max_bytes = app.config.get('MAX_CONTENT_LENGTH') or 0
+        max_mb = max(1, int(max_bytes / (1024 * 1024))) if max_bytes else 0
+        hint = f' (max {max_mb}MB)' if max_mb else ''
+        return jsonify({'error': f'Upload too large{hint}'}), 413
+    return _error
 
 
 def _get_panorama_s3_url(filename):
@@ -172,15 +201,27 @@ def _get_panorama_s3_url(filename):
     if not client:
         return None
     key = _panorama_object_key(filename)
+    now = time.time()
+    cached = _s3_signed_url_cache.get(key)
+    if cached:
+        url, expires_at = cached
+        # Leave a small buffer so we don't hand out near-expired URLs.
+        if url and expires_at and now < (expires_at - 30):
+            return url
     try:
         client.head_object(Bucket=SUPABASE_S3_BUCKET, Key=key)
     except Exception:
         return None
-    return client.generate_presigned_url(
+    url = client.generate_presigned_url(
         ClientMethod='get_object',
         Params={'Bucket': SUPABASE_S3_BUCKET, 'Key': key},
         ExpiresIn=SUPABASE_S3_SIGNED_URL_TTL,
     )
+    try:
+        _s3_signed_url_cache[key] = (url, now + float(SUPABASE_S3_SIGNED_URL_TTL))
+    except Exception:
+        pass
+    return url
 
 
 def _delete_panorama_from_s3(filename):
@@ -471,7 +512,14 @@ def uploaded_file(filename):
     """Serve panorama image from Supabase S3 when configured, else legacy sources."""
     s3_url = _get_panorama_s3_url(filename)
     if s3_url:
-        return redirect(s3_url, code=302)
+        resp = redirect(s3_url, code=302)
+        # Cache the redirect privately so repeated loads/prefetches reuse the same presigned URL
+        # (helps navigation performance without making the signed URL publicly cacheable).
+        try:
+            resp.headers['Cache-Control'] = f'private, max-age={int(SUPABASE_S3_SIGNED_URL_TTL)}'
+        except Exception:
+            resp.headers['Cache-Control'] = 'private, max-age=900'
+        return resp
 
     sb = get_supabase()
     if sb:
@@ -525,73 +573,82 @@ def create_panorama(user_id, role):
     if not allowed_file(file.filename):
         return jsonify({'error': 'File type not allowed'}), 400
 
-    original_filename = secure_filename(file.filename)
-    ext = original_filename.rsplit('.', 1)[1].lower()
-    filename = f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{secure_filename(name)}.{ext}"
-    raw = file.read()
-    if not raw:
-        return jsonify({'error': 'Uploaded file is empty'}), 400
-
-    try:
-        with Image.open(io.BytesIO(raw)) as img:
-            width, height = img.size
-    except Exception:
-        width, height = 0, 0
-
-    image_content_type = IMAGE_CONTENT_TYPES.get(ext, 'image/jpeg')
-    local_filepath = None
-
-    if _use_s3_for_panoramas():
-        try:
-            _upload_panorama_to_s3(filename, raw, image_content_type)
-        except Exception as e:
-            return jsonify({'error': f'Panorama upload to Supabase S3 failed: {e}'}), 500
-    else:
-        local_filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-        try:
-            with open(local_filepath, 'wb') as f:
-                f.write(raw)
-        except Exception as e:
-            return jsonify({'error': f'Failed to save panorama file: {e}'}), 500
-
     sb = get_supabase()
     if not sb:
         return jsonify({'error': 'Database not configured'}), 503
-    insert_row = {
-        'user_id': user_id,
-        'name': name,
-        'filename': filename,
-        'original_filename': original_filename,
-        'width': width,
-        'height': height,
-        'is_360': is_360,
-        'image_content_type': image_content_type,
-    }
+
+    original_filename = secure_filename(file.filename) or 'upload'
+    ext = original_filename.rsplit('.', 1)[1].lower()
+    safe_project = secure_filename(name) or 'panorama'
+    unique = uuid.uuid4().hex[:10]
+    filename = f"{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}_{safe_project}_{unique}.{ext}"
+
+    width, height = 0, 0
     try:
+        # Read minimal header to detect dimensions; avoid buffering the entire file in memory.
+        try:
+            file.stream.seek(0)
+        except Exception:
+            pass
+        with Image.open(file.stream) as img:
+            img = ImageOps.exif_transpose(img)
+            width, height = img.size
+    except Exception:
+        width, height = 0, 0
+    finally:
+        try:
+            file.stream.seek(0)
+        except Exception:
+            pass
+
+    image_content_type = IMAGE_CONTENT_TYPES.get(ext, 'image/jpeg')
+    local_filepath = None
+    stored_ok = False
+
+    try:
+        if _use_s3_for_panoramas():
+            _upload_panorama_to_s3(filename, file.stream, image_content_type)
+            stored_ok = True
+        else:
+            local_filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+            file.save(local_filepath)
+            stored_ok = True
+
+        insert_row = {
+            'user_id': user_id,
+            'name': name,
+            'filename': filename,
+            'original_filename': original_filename,
+            'width': width,
+            'height': height,
+            'is_360': is_360,
+            'image_content_type': image_content_type,
+        }
         r = sb.table('panoramas').insert(insert_row).execute()
         if not r.data or len(r.data) == 0:
-            return jsonify({'error': 'Insert failed'}), 500
-        row = r.data[0]
-        panorama_id = row['id']
-    except Exception as e:
-        if _use_s3_for_panoramas():
-            _delete_panorama_from_s3(filename)
-        elif local_filepath and os.path.exists(local_filepath):
-            try:
-                os.remove(local_filepath)
-            except Exception:
-                pass
-        return jsonify({'error': str(e)}), 500
+            raise RuntimeError('Insert failed')
+        panorama_id = r.data[0]['id']
 
-    return jsonify({
-        'id': panorama_id,
-        'name': name,
-        'filename': filename,
-        'width': width,
-        'height': height,
-        'is_360': is_360,
-        'access_type': 'owner',
-    }), 201
+        return jsonify({
+            'id': panorama_id,
+            'name': name,
+            'filename': filename,
+            'width': width,
+            'height': height,
+            'is_360': is_360,
+            'access_type': 'owner',
+        }), 201
+    except Exception as e:
+        app.logger.exception('Panorama upload failed')
+        if stored_ok:
+            if _use_s3_for_panoramas():
+                _delete_panorama_from_s3(filename)
+            elif local_filepath and os.path.exists(local_filepath):
+                try:
+                    os.remove(local_filepath)
+                except Exception:
+                    pass
+        return jsonify({'error': str(e)}), 500
 
 
 @app.route('/api/panoramas/<int:panorama_id>', methods=['DELETE'])
@@ -695,9 +752,22 @@ def get_plots(user_id, role, panorama_id):
         return jsonify({'error': 'Panorama not found'}), 404
     try:
         # Keep list payload light: do not read image_data blob here.
-        r = sb.table('plots').select(
-            'id, panorama_id, name, area, price, status, description, color, media_photo, media_video, points, created_at, updated_at, image_content_type'
-        ).eq('panorama_id', panorama_id).order('created_at').execute()
+        fields_base = (
+            'id, panorama_id, name, area, price, status, description, color, '
+            'media_photo, media_video, points, created_at, updated_at, image_content_type'
+        )
+        fields_with_links = (
+            'id, panorama_id, name, area, price, status, description, color, '
+            'media_photo, media_video, linked_panorama_id, points, created_at, updated_at, image_content_type'
+        )
+        try:
+            r = sb.table('plots').select(fields_with_links).eq('panorama_id', panorama_id).order('created_at').execute()
+        except Exception as e:
+            # Backward-compatible: linked_panorama_id column may not exist yet.
+            if 'linked_panorama_id' in str(e).lower():
+                r = sb.table('plots').select(fields_base).eq('panorama_id', panorama_id).order('created_at').execute()
+            else:
+                raise
         legacy_image_ids = set()
         try:
             legacy = sb.table('plots').select('id').eq('panorama_id', panorama_id).not_.is_('image_data', 'null').execute()
@@ -736,7 +806,7 @@ def create_plot(user_id, role, panorama_id):
     if not can_edit_plots(access_type):
         return jsonify({'error': 'You cannot add plots'}), 403
     try:
-        r = sb.table('plots').insert({
+        insert_row = {
             'panorama_id': panorama_id,
             'name': data['name'],
             'area': data.get('area', ''),
@@ -747,7 +817,26 @@ def create_plot(user_id, role, panorama_id):
             'media_photo': data.get('media_photo', ''),
             'media_video': data.get('media_video', ''),
             'points': data['points'],
-        }).execute()
+        }
+        if 'linked_panorama_id' in (data or {}):
+            raw_link = data.get('linked_panorama_id')
+            link_id = None
+            if raw_link is not None and str(raw_link).strip() != '':
+                try:
+                    link_id = int(raw_link)
+                except Exception:
+                    link_id = None
+            if link_id is not None:
+                insert_row['linked_panorama_id'] = link_id
+        try:
+            r = sb.table('plots').insert(insert_row).execute()
+        except Exception as e:
+            # Backward-compatible: linked_panorama_id column may not exist yet.
+            if 'linked_panorama_id' in str(e).lower():
+                insert_row.pop('linked_panorama_id', None)
+                r = sb.table('plots').insert(insert_row).execute()
+            else:
+                raise
         if not r.data or len(r.data) == 0:
             return jsonify({'error': 'Insert failed'}), 500
         row = r.data[0]
@@ -813,7 +902,25 @@ def update_plot(user_id, role, plot_id):
             'points': data.get('points', []),
             'updated_at': datetime.utcnow().isoformat(),
         }
-        sb.table('plots').update(upd).eq('id', plot_id).execute()
+        if 'linked_panorama_id' in data:
+            raw_link = data.get('linked_panorama_id')
+            link_id = None
+            if raw_link is not None and str(raw_link).strip() != '':
+                try:
+                    link_id = int(raw_link)
+                except Exception:
+                    link_id = None
+            # Explicit null clears the link.
+            upd['linked_panorama_id'] = link_id
+        try:
+            sb.table('plots').update(upd).eq('id', plot_id).execute()
+        except Exception as e:
+            # Backward-compatible: linked_panorama_id column may not exist yet.
+            if 'linked_panorama_id' in str(e).lower():
+                upd.pop('linked_panorama_id', None)
+                sb.table('plots').update(upd).eq('id', plot_id).execute()
+            else:
+                raise
         sb.table('panoramas').update({'updated_at': datetime.utcnow().isoformat()}).eq('id', panorama_id).execute()
     except Exception as e:
         return jsonify({'error': str(e)}), 500

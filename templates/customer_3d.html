@@ -239,8 +239,13 @@
             pointer-events: auto;
         }
 
-        .search-plot-input {
+        .search-shell {
+            position: relative;
             width: min(80vw, 1020px);
+        }
+
+        .search-plot-input {
+            width: 100%;
             height: 52px;
             border: 1px solid rgba(33, 53, 84, 0.14);
             border-radius: 28px;
@@ -257,6 +262,109 @@
         .search-plot-input::placeholder {
             color: #5d6f8f;
             font-weight: 600;
+        }
+
+        .search-dropdown {
+            position: absolute;
+            top: calc(100% + 10px);
+            left: 0;
+            right: 0;
+            z-index: 28;
+            background: rgba(255, 255, 255, 0.96);
+            border: 1px solid rgba(33, 53, 84, 0.14);
+            border-radius: 18px;
+            box-shadow: 0 18px 38px rgba(8, 20, 36, 0.18);
+            overflow: hidden;
+        }
+
+        .search-dropdown-list {
+            max-height: 320px;
+            overflow: auto;
+            padding: 0.4rem;
+        }
+
+        .search-suggestion {
+            width: 100%;
+            border: 0;
+            background: transparent;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.9rem;
+            padding: 0.66rem 0.72rem;
+            border-radius: 14px;
+            transition: background 0.15s ease;
+            text-align: left;
+        }
+
+        .search-suggestion:hover,
+        .search-suggestion.is-active {
+            background: rgba(18, 36, 67, 0.06);
+        }
+
+        .search-suggestion-left {
+            display: flex;
+            flex-direction: column;
+            gap: 0.15rem;
+            min-width: 0;
+        }
+
+        .search-suggestion-title {
+            font-family: var(--font-body);
+            font-weight: 800;
+            font-size: 0.86rem;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: #23395f;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .search-suggestion-sub {
+            font-size: 0.7rem;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            font-weight: 800;
+            color: #5d6f8f;
+        }
+
+        .search-suggestion-right {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            flex-shrink: 0;
+        }
+
+        .search-suggestion-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 999px;
+            background: var(--suggest-color, #94a3b8);
+            box-shadow: 0 0 0 3px rgba(148, 163, 184, 0.22);
+        }
+
+        .search-suggestion-pill {
+            height: 24px;
+            display: inline-flex;
+            align-items: center;
+            padding: 0 0.55rem;
+            border-radius: 999px;
+            border: 1px solid rgba(33, 53, 84, 0.18);
+            background: rgba(248, 251, 255, 0.95);
+            font-size: 0.62rem;
+            letter-spacing: 0.14em;
+            text-transform: uppercase;
+            font-weight: 900;
+            color: #2c4368;
+        }
+
+        .search-dropdown-empty {
+            padding: 0.9rem 1rem 1.05rem;
+            color: #5d6f8f;
+            font-weight: 700;
+            letter-spacing: 0.04em;
         }
 
         .header-right {
@@ -1912,6 +2020,10 @@
                 justify-content: flex-start;
             }
 
+            .search-shell {
+                width: 100%;
+            }
+
             .search-plot-input {
                 width: 100%;
                 height: 46px;
@@ -1970,6 +2082,7 @@
     <div class="overlay-gradient"></div>
 
     <div class="viewer-actions">
+        <button id="back-btn" class="viewer-action-btn" type="button" hidden>Back</button>
         <button id="toggle-overlays-btn" class="viewer-action-btn" type="button">Hide All</button>
         <button id="fullscreen-btn" class="viewer-action-btn" type="button">Fullscreen</button>
     </div>
@@ -1991,14 +2104,22 @@
                 </div>
             </div>
             <div class="header-center">
-                <input
-                    id="plot-search-input"
-                    class="search-plot-input"
-                    type="search"
-                    placeholder="Search your dream plot"
-                    autocomplete="off"
-                    spellcheck="false"
-                    aria-label="Search plots and markers">
+                <div class="search-shell" id="plot-search-shell" role="combobox" aria-haspopup="listbox" aria-expanded="false">
+                    <input
+                        id="plot-search-input"
+                        class="search-plot-input"
+                        type="search"
+                        placeholder="Search your dream plot"
+                        autocomplete="off"
+                        spellcheck="false"
+                        aria-label="Search plots and markers"
+                        aria-controls="plot-search-dropdown-list"
+                        aria-autocomplete="list">
+                    <div class="search-dropdown" id="plot-search-dropdown" hidden>
+                        <div class="search-dropdown-list" id="plot-search-dropdown-list" role="listbox"></div>
+                        <div class="search-dropdown-empty" id="plot-search-dropdown-empty" hidden>No matches</div>
+                    </div>
+                </div>
             </div>
             <div class="header-right">
                 <div class="compass-card" aria-hidden="true"></div>
@@ -2063,6 +2184,7 @@
                 </div>
             </div>
             <div class="modal-actions">
+                <button class="modal-btn primary" id="enter-plot-panorama" type="button" style="display:none;">Enter Panorama</button>
                 <button class="modal-btn secondary" id="close-details">Close</button>
             </div>
         </div>
@@ -2106,6 +2228,7 @@
                 </div>
             </div>
             <div class="modal-actions">
+                <button class="modal-btn primary" id="enter-marker-panorama" type="button" style="display:none;">Enter Panorama</button>
                 <button class="modal-btn secondary" id="close-marker-readonly">Close</button>
             </div>
         </div>
@@ -2126,8 +2249,15 @@
         const copyBtn = document.getElementById('copy-btn');
         const plotDetailsModal = document.getElementById('plot-details-modal');
         const plotSearchInput = document.getElementById('plot-search-input');
+        const plotSearchShell = document.getElementById('plot-search-shell');
+        const plotSearchDropdown = document.getElementById('plot-search-dropdown');
+        const plotSearchDropdownList = document.getElementById('plot-search-dropdown-list');
+        const plotSearchDropdownEmpty = document.getElementById('plot-search-dropdown-empty');
+        const backBtn = document.getElementById('back-btn');
         const toggleOverlaysBtn = document.getElementById('toggle-overlays-btn');
         const fullscreenBtn = document.getElementById('fullscreen-btn');
+        const enterPlotPanoramaBtn = document.getElementById('enter-plot-panorama');
+        const enterMarkerPanoramaBtn = document.getElementById('enter-marker-panorama');
         const customerGuide = document.getElementById('customer-guide');
         const dismissGuideBtn = document.getElementById('dismiss-guide');
         const markerPhotoLightbox = document.getElementById('marker-photo-lightbox');
@@ -2137,6 +2267,198 @@
 
         // Shared variables and functions (available in both modes)
         let plots = [];
+
+        let panoramaIndexCache = null;
+        let panoramaIndexById = new Map();
+        let panoramaIndexPromise = null;
+
+        async function loadPanoramaIndex() {
+            if (panoramaIndexCache) return panoramaIndexCache;
+            if (panoramaIndexPromise) return panoramaIndexPromise;
+            panoramaIndexPromise = (async () => {
+                try {
+                    const headers = await (window.getAuthHeaders ? window.getAuthHeaders() : Promise.resolve({}));
+                    const response = await fetch('/api/panoramas', { headers });
+                    if (!response.ok) throw new Error('Failed to load panoramas');
+                    const data = await response.json();
+                    panoramaIndexCache = Array.isArray(data) ? data : [];
+                } catch (error) {
+                    panoramaIndexCache = [];
+                }
+                panoramaIndexById = new Map(
+                    (panoramaIndexCache || [])
+                        .filter((p) => p && typeof p.id !== 'undefined')
+                        .map((p) => [String(p.id), p])
+                );
+                return panoramaIndexCache;
+            })();
+            return panoramaIndexPromise;
+        }
+
+        function getPanoramaMeta(panoramaId) {
+            return panoramaIndexById ? panoramaIndexById.get(String(panoramaId)) : null;
+        }
+
+        const NAV_STACK_KEY = 're_customer_nav_stack_v1';
+
+        function readNavStack() {
+            try {
+                const raw = sessionStorage.getItem(NAV_STACK_KEY);
+                const parsed = raw ? JSON.parse(raw) : [];
+                return Array.isArray(parsed) ? parsed : [];
+            } catch (e) {
+                return [];
+            }
+        }
+
+        function writeNavStack(stack) {
+            try {
+                sessionStorage.setItem(NAV_STACK_KEY, JSON.stringify(Array.isArray(stack) ? stack : []));
+            } catch (e) {}
+        }
+
+        function pushNavStack(url) {
+            const value = String(url || '').trim();
+            if (!value) return;
+            const stack = readNavStack();
+            const last = stack.length ? String(stack[stack.length - 1]) : '';
+            if (last === value) return;
+            stack.push(value);
+            if (stack.length > 30) stack.splice(0, stack.length - 30);
+            writeNavStack(stack);
+        }
+
+        function popNavStack() {
+            const stack = readNavStack();
+            const value = stack.length ? String(stack.pop()) : '';
+            writeNavStack(stack);
+            return value;
+        }
+
+        function hasNavStack() {
+            const stack = readNavStack();
+            return stack.length > 0;
+        }
+
+        function navigateToPanorama(targetPanoramaId) {
+            const targetId = String(targetPanoramaId || '').trim();
+            if (!targetId) return;
+            stopAutoRotate();
+            pushNavStack(`${window.location.pathname}${window.location.search || ''}`);
+
+            const go = () => {
+                const meta = getPanoramaMeta(targetId);
+                const is360 = meta ? Boolean(meta.is_360) : true;
+                const basePath = is360 ? `/customer/3d/${encodeURIComponent(targetId)}` : `/customer/${encodeURIComponent(targetId)}`;
+                const params = new URLSearchParams();
+                params.set('from', String(PANORAMA_ID));
+                params.set('from_mode', '3d');
+                window.location.href = `${basePath}?${params.toString()}`;
+            };
+
+            // If the index isn't loaded yet, try to load it first so we can route 2D vs 360 correctly.
+            if (!panoramaIndexCache) {
+                loadPanoramaIndex().catch(() => {}).finally(go);
+            } else {
+                go();
+            }
+        }
+
+        if (enterPlotPanoramaBtn) {
+            enterPlotPanoramaBtn.addEventListener('click', () => {
+                const targetId = enterPlotPanoramaBtn.dataset ? enterPlotPanoramaBtn.dataset.panoramaId : null;
+                if (targetId) navigateToPanorama(targetId);
+            });
+        }
+
+        (function initBackButton() {
+            if (!backBtn) return;
+            const params = new URLSearchParams(window.location.search || '');
+            const fromId = String(params.get('from') || '').trim();
+            const fromMode = String(params.get('from_mode') || '').trim().toLowerCase();
+            const canUseFrom = Boolean(fromId && /^[0-9]+$/.test(fromId));
+            if (!hasNavStack() && !canUseFrom) return;
+            backBtn.hidden = false;
+            backBtn.addEventListener('click', () => {
+                const prevUrl = popNavStack();
+                if (prevUrl) {
+                    window.location.href = prevUrl;
+                    return;
+                }
+                if (!canUseFrom) return;
+                const path = fromMode === '2d' ? `/customer/${encodeURIComponent(fromId)}` : `/customer/3d/${encodeURIComponent(fromId)}`;
+                window.location.href = path;
+            });
+        })();
+
+        const prefetchedPanoramaIds = new Set();
+
+        function shouldPrefetchPanoramas() {
+            const conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+            if (!conn) return true;
+            if (conn.saveData) return false;
+            const type = String(conn.effectiveType || '').toLowerCase();
+            if (type.includes('2g') || type.includes('slow-2g')) return false;
+            return true;
+        }
+
+        function prefetchImageUrl(url) {
+            return new Promise((resolve) => {
+                const img = new Image();
+                try { img.decoding = 'async'; } catch (e) {}
+                try { img.fetchPriority = 'low'; } catch (e) {}
+                img.onload = () => resolve(true);
+                img.onerror = () => resolve(false);
+                img.src = url;
+            });
+        }
+
+        async function prefetchLinkedPanoramas() {
+            if (!shouldPrefetchPanoramas()) return;
+
+            const ids = new Set();
+            (plots || []).forEach((plot) => {
+                const raw = plot && Object.prototype.hasOwnProperty.call(plot, 'linked_panorama_id')
+                    ? plot.linked_panorama_id
+                    : null;
+                if (raw === null || raw === undefined || String(raw).trim() === '') return;
+                ids.add(String(raw));
+            });
+            if (markerManager && markerManager.markerMap) {
+                markerManager.markerMap.forEach((marker) => {
+                    const raw = marker && Object.prototype.hasOwnProperty.call(marker, 'linked_panorama_id')
+                        ? marker.linked_panorama_id
+                        : null;
+                    if (raw === null || raw === undefined || String(raw).trim() === '') return;
+                    ids.add(String(raw));
+                });
+            }
+            ids.delete(String(PANORAMA_ID));
+
+            const queue = Array.from(ids)
+                .filter((id) => !prefetchedPanoramaIds.has(id))
+                .slice(0, 10) // safety cap for very large projects
+                .map((id) => {
+                    const meta = getPanoramaMeta(id);
+                    const filename = meta && meta.filename ? String(meta.filename) : '';
+                    return { id, url: filename ? `/uploads/${encodeURIComponent(filename)}` : '' };
+                })
+                .filter((item) => item.url);
+
+            if (!queue.length) return;
+
+            const concurrency = 2;
+            let cursor = 0;
+            const workers = Array.from({ length: concurrency }, () => (async () => {
+                while (cursor < queue.length) {
+                    const next = queue[cursor++];
+                    prefetchedPanoramaIds.add(next.id);
+                    await prefetchImageUrl(next.url);
+                }
+            })());
+
+            await Promise.all(workers);
+        }
 
         const statusLabels = { available: 'Available', reserved: 'On Hold', on_hold: 'On Hold', sold: 'Sold' };
         const statusColorMap = {
@@ -2367,6 +2689,7 @@
                 plots = Array.isArray(data) ? data : [];
                 updateStatusLegend();
                 renderPlots();
+                updateSearchDropdown(plotSearchInput ? plotSearchInput.value : '');
             } catch (error) {
                 console.error('Failed to load plots:', error);
             }
@@ -2384,6 +2707,21 @@
             descContainer.style.display = plot.description ? 'block' : 'none';
             document.getElementById('details-description').textContent = plot.description || '';
             renderPlotMedia(plot).then(() => {});
+            if (enterPlotPanoramaBtn) {
+                const rawLink = plot && Object.prototype.hasOwnProperty.call(plot, 'linked_panorama_id')
+                    ? plot.linked_panorama_id
+                    : null;
+                const linkId = (rawLink === null || rawLink === undefined || String(rawLink).trim() === '')
+                    ? ''
+                    : String(rawLink);
+                if (linkId) {
+                    enterPlotPanoramaBtn.style.display = '';
+                    enterPlotPanoramaBtn.dataset.panoramaId = linkId;
+                } else {
+                    enterPlotPanoramaBtn.style.display = 'none';
+                    if (enterPlotPanoramaBtn.dataset) delete enterPlotPanoramaBtn.dataset.panoramaId;
+                }
+            }
             plotDetailsModal.classList.add('visible');
         }
 
@@ -2443,11 +2781,13 @@
                 this.selectedMarkerId = null;
                 this.focusedMarkerId = null;
                 this.styleColumnsSupported = true;
+                this.linkColumnsSupported = true;
 
                 this.dom = {
                     modal: document.getElementById('marker-readonly-modal'),
                     closeBtn: document.getElementById('close-marker-readonly'),
                     closeIconBtn: document.getElementById('close-marker-readonly-icon'),
+                    enterBtn: document.getElementById('enter-marker-panorama'),
                     name: document.getElementById('marker-readonly-name'),
                     color: document.getElementById('marker-readonly-color'),
                     description: document.getElementById('marker-readonly-description'),
@@ -2463,6 +2803,14 @@
                 }
                 if (this.dom.closeIconBtn) {
                     this.dom.closeIconBtn.addEventListener('click', () => this.closeReadonly());
+                }
+                if (this.dom.enterBtn) {
+                    this.dom.enterBtn.addEventListener('click', () => {
+                        const targetId = this.dom.enterBtn && this.dom.enterBtn.dataset ? this.dom.enterBtn.dataset.panoramaId : null;
+                        if (targetId) {
+                            navigateToPanorama(targetId);
+                        }
+                    });
                 }
                 if (this.dom.modal) {
                     this.dom.modal.addEventListener('click', (event) => {
@@ -2512,8 +2860,19 @@
                 return message.includes('marker_style') || message.includes('marker_icon') || message.includes('marker_color');
             }
 
+            isLinkColumnError(error) {
+                const message = String(error && (error.message || error.details || error.hint) ? (error.message || error.details || error.hint) : '').toLowerCase();
+                return message.includes('linked_panorama_id') || message.includes('linked panorama');
+            }
+
             normalizeMarker(row) {
                 const status = typeof row.status === 'string' ? row.status.toLowerCase() : 'available';
+                const rawLinked = row && Object.prototype.hasOwnProperty.call(row, 'linked_panorama_id')
+                    ? row.linked_panorama_id
+                    : null;
+                const parsedLinked = (rawLinked === null || rawLinked === undefined || String(rawLinked).trim() === '')
+                    ? null
+                    : Number(rawLinked);
                 return {
                     id: String(row.id),
                     name: row.name || '',
@@ -2522,6 +2881,7 @@
                     marker_style: this.normalizeMarkerStyle(row.marker_style),
                     marker_icon: this.normalizeMarkerIcon(row.marker_icon),
                     marker_color: this.normalizeMarkerColor(row.marker_color),
+                    linked_panorama_id: Number.isFinite(parsedLinked) ? parsedLinked : null,
                     _imageLoaded: Boolean(row.image_base64),
                     longitude: Number(row.longitude || 0),
                     latitude: Number(row.latitude || 0),
@@ -2644,7 +3004,14 @@
                 if (!markerData || markerData.markerType !== 'poi') return false;
                 const markerId = String(markerData.markerId);
                 const selected = this.markerMap.get(markerId);
-                if (selected && this.isPhotoMarkerStyle(selected.marker_style)) {
+                if (selected && selected.linked_panorama_id) {
+                    try { this.closeReadonly(); } catch (e) {}
+                    try { if (isMarkerPhotoLightboxVisible()) closeMarkerPhotoLightbox(); } catch (e) {}
+                    this.focus(markerId, false);
+                    navigateToPanorama(selected.linked_panorama_id);
+                    return true;
+                }
+                if (selected && this.isPhotoMarkerStyle(selected.marker_style) && !selected.linked_panorama_id) {
                     this.focus(markerId, false);
                     this.openPhotoMarker(markerId);
                     return true;
@@ -2675,6 +3042,16 @@
                     const statusKey = status === 'reserved' ? 'on_hold' : (status === 'sold' ? 'sold' : 'available');
                     const colors = statusColorMap[statusKey] || statusColorMap.available;
                     this.dom.color.style.background = `linear-gradient(135deg, ${colors.start}, ${colors.end})`;
+                }
+                if (this.dom.enterBtn) {
+                    const linkId = marker.linked_panorama_id;
+                    if (linkId) {
+                        this.dom.enterBtn.style.display = '';
+                        this.dom.enterBtn.dataset.panoramaId = String(linkId);
+                    } else {
+                        this.dom.enterBtn.style.display = 'none';
+                        if (this.dom.enterBtn.dataset) delete this.dom.enterBtn.dataset.panoramaId;
+                    }
                 }
                 this.selectedMarkerId = String(markerId);
                 this.showMediaLoading();
@@ -2710,6 +3087,10 @@
 
             closeReadonly() {
                 if (this.dom.modal) this.dom.modal.classList.remove('visible');
+                if (this.dom.enterBtn) {
+                    this.dom.enterBtn.style.display = 'none';
+                    if (this.dom.enterBtn.dataset) delete this.dom.enterBtn.dataset.panoramaId;
+                }
                 scheduleAutoRotateResume(850);
             }
 
@@ -2768,23 +3149,44 @@
 
             async fetchMarkers(plotId) {
                 const supabase = this.getSupabaseClient();
-                const styledColumns = 'id, plot_id, name, description, image_base64, longitude, latitude, status, marker_style, marker_icon, marker_color, created_at';
-                const baseColumns = 'id, plot_id, name, description, image_base64, longitude, latitude, status, created_at';
-                let result = await supabase
-                    .from('plot_markers')
-                    .select(this.styleColumnsSupported ? styledColumns : baseColumns)
-                    .eq('plot_id', String(plotId))
-                    .order('created_at', { ascending: true });
-                if (result.error && this.styleColumnsSupported && this.isStyleColumnError(result.error)) {
-                    this.styleColumnsSupported = false;
+                const baseCols = [
+                    'id', 'plot_id', 'name', 'description', 'image_base64',
+                    'longitude', 'latitude', 'status', 'created_at'
+                ];
+                const styleCols = ['marker_style', 'marker_icon', 'marker_color'];
+                const linkCols = ['linked_panorama_id'];
+
+                const buildColumns = () => {
+                    const cols = [...baseCols];
+                    if (this.linkColumnsSupported) cols.push(...linkCols);
+                    if (this.styleColumnsSupported) cols.push(...styleCols);
+                    return cols.join(', ');
+                };
+
+                let result = null;
+                for (let attempt = 0; attempt < 3; attempt += 1) {
                     result = await supabase
                         .from('plot_markers')
-                        .select(baseColumns)
+                        .select(buildColumns())
                         .eq('plot_id', String(plotId))
                         .order('created_at', { ascending: true });
+
+                    if (!result.error) break;
+
+                    let changed = false;
+                    if (this.styleColumnsSupported && this.isStyleColumnError(result.error)) {
+                        this.styleColumnsSupported = false;
+                        changed = true;
+                    }
+                    if (this.linkColumnsSupported && this.isLinkColumnError(result.error)) {
+                        this.linkColumnsSupported = false;
+                        changed = true;
+                    }
+                    if (!changed) break;
                 }
-                if (result.error) throw result.error;
-                return result.data || [];
+
+                if (result && result.error) throw result.error;
+                return (result && result.data) ? result.data : [];
             }
 
             getSupabaseClient() {
@@ -2878,6 +3280,7 @@
             }
             if (!overlaysHidden) return;
 
+            hideSearchDropdown();
             if (plotDetailsModal && plotDetailsModal.classList.contains('visible')) {
                 closePlotDetails();
             }
@@ -2959,17 +3362,249 @@
             return false;
         }
 
+        let searchSuggestions = [];
+        let searchActiveIndex = -1;
+        let searchBlurHideTimer = null;
+
+        function isSearchDropdownVisible() {
+            return Boolean(plotSearchDropdown && !plotSearchDropdown.hasAttribute('hidden'));
+        }
+
+        function hideSearchDropdown() {
+            if (searchBlurHideTimer) {
+                clearTimeout(searchBlurHideTimer);
+                searchBlurHideTimer = null;
+            }
+            if (!plotSearchDropdown || !plotSearchShell) return;
+            plotSearchDropdown.setAttribute('hidden', '');
+            plotSearchShell.setAttribute('aria-expanded', 'false');
+            searchSuggestions = [];
+            searchActiveIndex = -1;
+            if (plotSearchDropdownList) plotSearchDropdownList.innerHTML = '';
+            if (plotSearchDropdownEmpty) plotSearchDropdownEmpty.setAttribute('hidden', '');
+        }
+
+        function setSearchActiveIndex(nextIndex) {
+            if (!plotSearchDropdownList) return;
+            const items = plotSearchDropdownList.querySelectorAll('.search-suggestion');
+            if (!items || items.length === 0) {
+                searchActiveIndex = -1;
+                return;
+            }
+            const clamped = Math.max(0, Math.min(items.length - 1, nextIndex));
+            searchActiveIndex = clamped;
+            items.forEach((el, idx) => {
+                el.classList.toggle('is-active', idx === clamped);
+                el.setAttribute('aria-selected', idx === clamped ? 'true' : 'false');
+            });
+        }
+
+        function matchScore(haystackLower, needleLower) {
+            if (!haystackLower || !needleLower) return Number.POSITIVE_INFINITY;
+            if (haystackLower === needleLower) return 0;
+            if (haystackLower.startsWith(needleLower)) return 1;
+            const idx = haystackLower.indexOf(needleLower);
+            if (idx >= 0) return 2 + (idx / 100);
+            return Number.POSITIVE_INFINITY;
+        }
+
+        function buildSearchSuggestions(rawQuery) {
+            const query = String(rawQuery || '').trim().toLowerCase();
+            if (!query) return [];
+
+            const suggestions = [];
+
+            plots.forEach((plot) => {
+                const name = String(plot && plot.name ? plot.name : '').trim();
+                if (!name) return;
+                const score = matchScore(name.toLowerCase(), query);
+                if (!Number.isFinite(score)) return;
+                const statusKey = getStatusKey(plot.status);
+                const colors = statusColorMap[statusKey] || statusColorMap.available;
+                const sub = statusLabels[normalizeStatus(plot.status)] || 'Plot';
+                suggestions.push({
+                    kind: 'plot',
+                    id: plot.id,
+                    name,
+                    sub,
+                    color: colors.start || '#94a3b8',
+                    score
+                });
+            });
+
+            Array.from(markerManager.markerMap.values()).forEach((marker) => {
+                const name = String(marker && marker.name ? marker.name : '').trim();
+                if (!name) return;
+                const score = matchScore(name.toLowerCase(), query);
+                if (!Number.isFinite(score)) return;
+                suggestions.push({
+                    kind: 'marker',
+                    id: marker.id,
+                    name,
+                    sub: 'Marker',
+                    color: (marker.marker_color || DEFAULT_MARKER_COLOR),
+                    score: score + 0.35
+                });
+            });
+
+            suggestions.sort((a, b) => {
+                if (a.score !== b.score) return a.score - b.score;
+                return String(a.name).localeCompare(String(b.name));
+            });
+
+            return suggestions.slice(0, 10);
+        }
+
+        function selectSearchSuggestion(index) {
+            const item = searchSuggestions[index];
+            if (!item || !plotSearchInput) return;
+            plotSearchInput.value = item.name;
+            plotSearchInput.classList.remove('search-miss');
+            hideSearchDropdown();
+
+            if (item.kind === 'marker') {
+                markerManager.focus(String(item.id), true);
+                markerManager.setViewportFocus(String(item.id));
+                return;
+            }
+
+            if (item.kind === 'plot' && markersPlugin) {
+                markersPlugin.gotoMarker(`plot-label-${item.id}`, '6rpm').catch(() => {});
+            }
+        }
+
+        function updateSearchDropdown(rawQuery) {
+            if (!plotSearchDropdown || !plotSearchDropdownList || !plotSearchShell) return;
+            const query = String(rawQuery || '').trim();
+            if (!query) {
+                hideSearchDropdown();
+                return;
+            }
+
+            searchSuggestions = buildSearchSuggestions(query);
+            plotSearchDropdownList.innerHTML = '';
+
+            if (searchSuggestions.length === 0) {
+                plotSearchDropdown.removeAttribute('hidden');
+                plotSearchShell.setAttribute('aria-expanded', 'true');
+                if (plotSearchDropdownEmpty) plotSearchDropdownEmpty.removeAttribute('hidden');
+                searchActiveIndex = -1;
+                return;
+            }
+
+            if (plotSearchDropdownEmpty) plotSearchDropdownEmpty.setAttribute('hidden', '');
+
+            searchSuggestions.forEach((s, idx) => {
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'search-suggestion';
+                btn.setAttribute('role', 'option');
+                btn.setAttribute('aria-selected', 'false');
+                btn.style.setProperty('--suggest-color', String(s.color || '#94a3b8'));
+
+                const left = document.createElement('span');
+                left.className = 'search-suggestion-left';
+
+                const title = document.createElement('span');
+                title.className = 'search-suggestion-title';
+                title.textContent = String(s.name || '');
+
+                const sub = document.createElement('span');
+                sub.className = 'search-suggestion-sub';
+                sub.textContent = String(s.sub || '');
+
+                left.appendChild(title);
+                left.appendChild(sub);
+
+                const right = document.createElement('span');
+                right.className = 'search-suggestion-right';
+
+                const dot = document.createElement('span');
+                dot.className = 'search-suggestion-dot';
+
+                const pill = document.createElement('span');
+                pill.className = 'search-suggestion-pill';
+                pill.textContent = s.kind === 'marker' ? 'Marker' : 'Plot';
+
+                right.appendChild(dot);
+                right.appendChild(pill);
+
+                btn.appendChild(left);
+                btn.appendChild(right);
+
+                btn.addEventListener('mouseenter', () => setSearchActiveIndex(idx));
+                btn.addEventListener('mousedown', (e) => {
+                    e.preventDefault();
+                    selectSearchSuggestion(idx);
+                });
+
+                plotSearchDropdownList.appendChild(btn);
+            });
+
+            plotSearchDropdown.removeAttribute('hidden');
+            plotSearchShell.setAttribute('aria-expanded', 'true');
+            setSearchActiveIndex(0);
+        }
+
         if (plotSearchInput) {
-            plotSearchInput.addEventListener('focus', () => stopAutoRotate());
-            plotSearchInput.addEventListener('blur', () => scheduleAutoRotateResume(1200));
-            plotSearchInput.addEventListener('input', () => plotSearchInput.classList.remove('search-miss'));
+            plotSearchInput.addEventListener('focus', () => {
+                stopAutoRotate();
+                updateSearchDropdown(plotSearchInput.value);
+            });
+            plotSearchInput.addEventListener('blur', () => {
+                scheduleAutoRotateResume(1200);
+                if (searchBlurHideTimer) clearTimeout(searchBlurHideTimer);
+                searchBlurHideTimer = setTimeout(() => hideSearchDropdown(), 160);
+            });
+            plotSearchInput.addEventListener('input', () => {
+                plotSearchInput.classList.remove('search-miss');
+                updateSearchDropdown(plotSearchInput.value);
+            });
             plotSearchInput.addEventListener('keydown', (event) => {
+                if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+                    event.preventDefault();
+                    if (!isSearchDropdownVisible()) updateSearchDropdown(plotSearchInput.value);
+                    if (!searchSuggestions || searchSuggestions.length === 0) return;
+                    const delta = event.key === 'ArrowDown' ? 1 : -1;
+                    const next = Math.max(0, Math.min(searchSuggestions.length - 1, searchActiveIndex + delta));
+                    setSearchActiveIndex(next);
+                    return;
+                }
+
+                if (event.key === 'Escape') {
+                    hideSearchDropdown();
+                    return;
+                }
+
                 if (event.key !== 'Enter') return;
                 event.preventDefault();
+
+                if (isSearchDropdownVisible() && searchSuggestions.length > 0) {
+                    const idx = searchActiveIndex >= 0 ? searchActiveIndex : 0;
+                    selectSearchSuggestion(idx);
+                    return;
+                }
+
                 const found = focusMatchFromQuery(plotSearchInput.value);
                 plotSearchInput.classList.toggle('search-miss', !found);
             });
         }
+
+        if (plotSearchDropdown) {
+            plotSearchDropdown.addEventListener('pointerdown', () => {
+                if (searchBlurHideTimer) {
+                    clearTimeout(searchBlurHideTimer);
+                    searchBlurHideTimer = null;
+                }
+            });
+        }
+
+        document.addEventListener('pointerdown', (event) => {
+            if (!plotSearchShell) return;
+            if (!isSearchDropdownVisible()) return;
+            if (plotSearchShell.contains(event.target)) return;
+            hideSearchDropdown();
+        });
 
         function getCentroid(points) {
             if (!points || points.length === 0) return null;
@@ -3030,6 +3665,10 @@
         function closePlotDetails() {
             if (!plotDetailsModal) return;
             plotDetailsModal.classList.remove('visible');
+            if (enterPlotPanoramaBtn) {
+                enterPlotPanoramaBtn.style.display = 'none';
+                if (enterPlotPanoramaBtn.dataset) delete enterPlotPanoramaBtn.dataset.panoramaId;
+            }
             scheduleAutoRotateResume(850);
         }
 
@@ -3107,8 +3746,21 @@
 
             viewer.on('ready', () => {
                 loading.classList.add('hidden');
-                loadPlots();
-                markerManager.loadMarkers();
+                const indexPromise = loadPanoramaIndex().catch(() => []);
+                const plotsPromise = loadPlots();
+                const markersPromise = markerManager.loadMarkers()
+                    .then(() => updateSearchDropdown(plotSearchInput ? plotSearchInput.value : ''))
+                    .catch(() => {});
+                Promise.all([indexPromise, plotsPromise, markersPromise])
+                    .then(() => {
+                        const runPrefetch = () => prefetchLinkedPanoramas().catch(() => {});
+                        if (typeof requestIdleCallback === 'function') {
+                            requestIdleCallback(runPrefetch, { timeout: 2500 });
+                        } else {
+                            setTimeout(runPrefetch, 1200);
+                        }
+                    })
+                    .catch(() => {});
                 scheduleAutoRotateResume(AUTO_ROTATE_BOOT_DELAY_MS);
                 setTimeout(() => markerManager.updateViewportFocus(), 250);
             });

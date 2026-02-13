@@ -2951,6 +2951,13 @@
                 <div class="form-helper">Optional. Add a share link for a plot video.</div>
             </div>
             <div class="form-group">
+                <label class="form-label">Linked Panorama (optional)</label>
+                <select class="form-input" id="plot-linked-panorama">
+                    <option value="">None</option>
+                </select>
+                <div class="form-helper">Optional. Customers can click "Enter Panorama" on this plot to open the linked view.</div>
+            </div>
+            <div class="form-group">
                 <label class="form-label">Plot Color</label>
                 <div class="color-options" id="color-options">
                     <div class="color-option selected" data-color="green"
@@ -3083,6 +3090,13 @@
                 <label class="marker-form-label" for="marker-description">Description</label>
                 <textarea id="marker-description" class="marker-form-textarea" maxlength="2000"
                     placeholder="Optional description"></textarea>
+            </div>
+            <div class="marker-form-row">
+                <label class="marker-form-label" for="marker-linked-panorama">Linked Panorama (optional)</label>
+                <select id="marker-linked-panorama" class="marker-form-select">
+                    <option value="">None</option>
+                </select>
+                <div class="marker-form-helper">Optional. Customers can click "Enter Panorama" on this marker to open the linked view.</div>
             </div>
             <div class="marker-form-row" id="marker-style-row">
                 <label class="marker-form-label" for="marker-style">Marker Type</label>
@@ -3520,6 +3534,7 @@
                 this.isSaving = false;
                 this.lazyObserver = null;
                 this.styleColumnsSupported = true;
+                this.linkColumnsSupported = true;
                 this.iconDropdownBound = false;
 
                 this.dom = {
@@ -3544,6 +3559,7 @@
                     coordinatesText: document.getElementById('marker-coordinates'),
                     nameInput: document.getElementById('marker-name'),
                     descriptionInput: document.getElementById('marker-description'),
+                    linkedPanoramaSelect: document.getElementById('marker-linked-panorama'),
                     styleSelect: document.getElementById('marker-style'),
                     styleRow: document.getElementById('marker-style-row'),
                     iconInput: document.getElementById('marker-icon'),
@@ -3801,6 +3817,11 @@
                 return message.includes('marker_style') || message.includes('marker_icon') || message.includes('marker_color');
             }
 
+            isLinkColumnError(error) {
+                const message = String(error && (error.message || error.details || error.hint) ? (error.message || error.details || error.hint) : '').toLowerCase();
+                return message.includes('linked_panorama_id') || message.includes('linked panorama');
+            }
+
             initViewer(viewerInstance) {
                 this.viewer = viewerInstance;
                 if (this.viewer) {
@@ -3893,6 +3914,7 @@
                 if (this.dom.formTitle) this.dom.formTitle.textContent = 'Add Marker';
                 if (this.dom.nameInput) this.dom.nameInput.value = '';
                 if (this.dom.descriptionInput) this.dom.descriptionInput.value = '';
+                if (this.dom.linkedPanoramaSelect) this.dom.linkedPanoramaSelect.value = '';
                 if (this.dom.styleSelect) this.dom.styleSelect.value = DEFAULT_MARKER_STYLE;
                 if (this.dom.superToggle) this.dom.superToggle.checked = false;
                 this.setIconValue(DEFAULT_MARKER_ICON, { closePanel: true, rerender: true });
@@ -3916,6 +3938,10 @@
                 if (this.dom.formTitle) this.dom.formTitle.textContent = 'Edit Marker';
                 if (this.dom.nameInput) this.dom.nameInput.value = marker.name || '';
                 if (this.dom.descriptionInput) this.dom.descriptionInput.value = marker.description || '';
+                if (this.dom.linkedPanoramaSelect) {
+                    const linkValue = marker.linked_panorama_id ? String(marker.linked_panorama_id) : '';
+                    this.dom.linkedPanoramaSelect.value = linkValue;
+                }
                 const normalizedStyle = this.normalizeMarkerStyle(marker.marker_style);
                 if (this.dom.superToggle) this.dom.superToggle.checked = normalizedStyle === SUPER_MARKER_STYLE;
                 if (this.dom.styleSelect) {
@@ -3945,6 +3971,7 @@
                 this.editingMarkerId = null;
                 this.pendingCoordinates = null;
                 this.currentImageBase64 = '';
+                if (this.dom.linkedPanoramaSelect) this.dom.linkedPanoramaSelect.value = '';
                 if (this.dom.styleSelect) this.dom.styleSelect.value = DEFAULT_MARKER_STYLE;
                 if (this.dom.superToggle) this.dom.superToggle.checked = false;
                 this.setIconValue(DEFAULT_MARKER_ICON, { closePanel: true, rerender: true });
@@ -4018,6 +4045,15 @@
                         ? DEFAULT_MARKER_COLOR
                         : this.normalizeMarkerColor(this.dom.colorInput ? this.dom.colorInput.value : DEFAULT_MARKER_COLOR);
 
+                    let linkedPanoramaId = null;
+                    if (this.dom.linkedPanoramaSelect) {
+                        const rawLink = String(this.dom.linkedPanoramaSelect.value || '').trim();
+                        if (rawLink) {
+                            const parsed = Number(rawLink);
+                            linkedPanoramaId = Number.isFinite(parsed) ? parsed : null;
+                        }
+                    }
+
                     let imageBase64 = this.currentImageBase64 || '';
                     const selectedFile = this.dom.imageInput && this.dom.imageInput.files ? this.dom.imageInput.files[0] : null;
                     if (selectedFile) {
@@ -4035,6 +4071,7 @@
                         marker_style: markerStyle,
                         marker_icon: markerIcon,
                         marker_color: markerColor,
+                        linked_panorama_id: linkedPanoramaId,
                         image_base64: imageBase64 || null,
                         longitude: Number(this.pendingCoordinates.longitude),
                         latitude: Number(this.pendingCoordinates.latitude)
@@ -4099,28 +4136,43 @@
                     payload.marker_icon = this.normalizeMarkerIcon(data.marker_icon);
                     payload.marker_color = this.normalizeMarkerColor(data.marker_color);
                 }
-                let result = await supabase
-                    .from('plot_markers')
-                    .update(payload)
-                    .eq('id', id)
-                    .select('*')
-                    .limit(1);
-                if (result.error && this.styleColumnsSupported && this.isStyleColumnError(result.error)) {
-                    this.styleColumnsSupported = false;
-                    this.showToast('Run marker style migration in Supabase to persist icon/style choices.', 'error');
-                    const legacyPayload = {
-                        name: data.name,
-                        description: data.description || '',
-                        image_base64: data.image_base64 || null,
-                        longitude: Number(data.longitude),
-                        latitude: Number(data.latitude)
-                    };
+                if (this.linkColumnsSupported) {
+                    const rawLink = data && Object.prototype.hasOwnProperty.call(data, 'linked_panorama_id')
+                        ? data.linked_panorama_id
+                        : null;
+                    const parsed = (rawLink === null || rawLink === undefined || String(rawLink).trim() === '')
+                        ? null
+                        : Number(rawLink);
+                    payload.linked_panorama_id = Number.isFinite(parsed) ? parsed : null;
+                }
+
+                let result = null;
+                for (let attempt = 0; attempt < 3; attempt += 1) {
                     result = await supabase
                         .from('plot_markers')
-                        .update(legacyPayload)
+                        .update(payload)
                         .eq('id', id)
                         .select('*')
                         .limit(1);
+
+                    if (!result.error) break;
+
+                    let changed = false;
+                    if (this.styleColumnsSupported && this.isStyleColumnError(result.error)) {
+                        this.styleColumnsSupported = false;
+                        this.showToast('Run marker style migration in Supabase to persist icon/style choices.', 'error');
+                        delete payload.marker_style;
+                        delete payload.marker_icon;
+                        delete payload.marker_color;
+                        changed = true;
+                    }
+                    if (this.linkColumnsSupported && this.isLinkColumnError(result.error)) {
+                        this.linkColumnsSupported = false;
+                        this.showToast('Run supabase_migration_panorama_links.sql in Supabase to enable marker panorama links.', 'error');
+                        delete payload.linked_panorama_id;
+                        changed = true;
+                    }
+                    if (!changed) break;
                 }
                 const { data: rows, error } = result;
 
@@ -4167,27 +4219,42 @@
                     payload.marker_icon = this.normalizeMarkerIcon(data.marker_icon);
                     payload.marker_color = this.normalizeMarkerColor(data.marker_color);
                 }
-                let result = await supabase
-                    .from('plot_markers')
-                    .insert(payload)
-                    .select('*')
-                    .limit(1);
-                if (result.error && this.styleColumnsSupported && this.isStyleColumnError(result.error)) {
-                    this.styleColumnsSupported = false;
-                    this.showToast('Run marker style migration in Supabase to persist icon/style choices.', 'error');
-                    const legacyPayload = {
-                        plot_id: String(data.plot_id || this.plotId),
-                        name: data.name,
-                        description: data.description || '',
-                        image_base64: data.image_base64 || null,
-                        longitude: Number(data.longitude),
-                        latitude: Number(data.latitude)
-                    };
+                if (this.linkColumnsSupported) {
+                    const rawLink = data && Object.prototype.hasOwnProperty.call(data, 'linked_panorama_id')
+                        ? data.linked_panorama_id
+                        : null;
+                    const parsed = (rawLink === null || rawLink === undefined || String(rawLink).trim() === '')
+                        ? null
+                        : Number(rawLink);
+                    payload.linked_panorama_id = Number.isFinite(parsed) ? parsed : null;
+                }
+
+                let result = null;
+                for (let attempt = 0; attempt < 3; attempt += 1) {
                     result = await supabase
                         .from('plot_markers')
-                        .insert(legacyPayload)
+                        .insert(payload)
                         .select('*')
                         .limit(1);
+
+                    if (!result.error) break;
+
+                    let changed = false;
+                    if (this.styleColumnsSupported && this.isStyleColumnError(result.error)) {
+                        this.styleColumnsSupported = false;
+                        this.showToast('Run marker style migration in Supabase to persist icon/style choices.', 'error');
+                        delete payload.marker_style;
+                        delete payload.marker_icon;
+                        delete payload.marker_color;
+                        changed = true;
+                    }
+                    if (this.linkColumnsSupported && this.isLinkColumnError(result.error)) {
+                        this.linkColumnsSupported = false;
+                        this.showToast('Run supabase_migration_panorama_links.sql in Supabase to enable marker panorama links.', 'error');
+                        delete payload.linked_panorama_id;
+                        changed = true;
+                    }
+                    if (!changed) break;
                 }
                 const { data: rows, error } = result;
                 if (error) throw error;
@@ -4236,6 +4303,12 @@
 
             normalizeMarker(row) {
                 const markerStatus = typeof row.status === 'string' ? row.status.toLowerCase() : 'available';
+                const rawLinked = row && Object.prototype.hasOwnProperty.call(row, 'linked_panorama_id')
+                    ? row.linked_panorama_id
+                    : null;
+                const linkedPanoramaId = (rawLinked === null || rawLinked === undefined || String(rawLinked).trim() === '')
+                    ? null
+                    : Number(rawLinked);
                 return {
                     id: String(row.id),
                     plot_id: String(row.plot_id || this.plotId),
@@ -4245,6 +4318,7 @@
                     marker_style: this.normalizeMarkerStyle(row.marker_style),
                     marker_icon: this.normalizeMarkerIcon(row.marker_icon),
                     marker_color: this.normalizeMarkerColor(row.marker_color),
+                    linked_panorama_id: Number.isFinite(linkedPanoramaId) ? linkedPanoramaId : null,
                     longitude: Number(row.longitude || 0),
                     latitude: Number(row.latitude || 0),
                     status: ['sold', 'reserved', 'available'].includes(markerStatus) ? markerStatus : 'available',
@@ -4868,6 +4942,7 @@
 
             viewer.on('ready', () => {
                 loading.classList.add('hidden');
+                ensurePanoramaLinkSelects().catch(() => {});
                 loadPlots();
                 if (markerManager) {
                     markerManager.loadMarkers(String(PANORAMA_ID)).catch((error) => {
@@ -5130,6 +5205,7 @@
         const plotStatusSelect = document.getElementById('plot-status');
         const plotMediaPhotoInput = document.getElementById('plot-media-photo');
         const plotMediaVideoInput = document.getElementById('plot-media-video');
+        const plotLinkedPanoramaSelect = document.getElementById('plot-linked-panorama');
         const colorOptions = Array.from(document.querySelectorAll('.color-option'));
 
         function escapeHtml(value) {
@@ -5139,6 +5215,65 @@
                 .replace(/>/g, '&gt;')
                 .replace(/\"/g, '&quot;')
                 .replace(/'/g, '&#39;');
+        }
+
+        let panoramaIndexCache = null;
+        let panoramaIndexPromise = null;
+
+        async function loadPanoramaIndex() {
+            if (panoramaIndexCache) return panoramaIndexCache;
+            if (panoramaIndexPromise) return panoramaIndexPromise;
+            panoramaIndexPromise = (async () => {
+                try {
+                    const headers = await (window.getAuthHeaders ? window.getAuthHeaders() : Promise.resolve({}));
+                    const response = await fetch('/api/panoramas', { headers });
+                    if (!response.ok) throw new Error('Failed to load panoramas');
+                    const data = await response.json();
+                    panoramaIndexCache = Array.isArray(data) ? data : [];
+                } catch (error) {
+                    panoramaIndexCache = [];
+                }
+                return panoramaIndexCache;
+            })();
+            return panoramaIndexPromise;
+        }
+
+        function formatPanoramaLabel(panorama) {
+            const name = panorama && panorama.name ? String(panorama.name) : `Panorama ${panorama && panorama.id ? panorama.id : ''}`.trim();
+            const tag = panorama && panorama.is_360 ? '360' : '2D';
+            return `${name} (${tag})`;
+        }
+
+        function populatePanoramaSelect(selectEl, panoramas) {
+            if (!selectEl) return;
+            const current = String(PANORAMA_ID);
+            const currentValue = selectEl.value;
+            const items = (Array.isArray(panoramas) ? panoramas : [])
+                .filter((p) => p && typeof p.id !== 'undefined' && String(p.id) !== current)
+                .map((p) => ({
+                    value: String(p.id),
+                    label: formatPanoramaLabel(p)
+                }));
+
+            selectEl.innerHTML = [
+                '<option value=\"\">None</option>',
+                ...items.map((item) => `<option value=\"${escapeHtml(item.value)}\">${escapeHtml(item.label)}</option>`)
+            ].join('');
+
+            if (currentValue && items.some((item) => item.value === currentValue)) {
+                selectEl.value = currentValue;
+            } else {
+                selectEl.value = '';
+            }
+        }
+
+        function ensurePanoramaLinkSelects() {
+            return loadPanoramaIndex().then((panoramas) => {
+                populatePanoramaSelect(plotLinkedPanoramaSelect, panoramas);
+                const markerLinkSelect = document.getElementById('marker-linked-panorama');
+                populatePanoramaSelect(markerLinkSelect, panoramas);
+                return panoramas;
+            });
         }
 
         function normalizeStatus(status) {
@@ -5210,6 +5345,15 @@
             document.getElementById('plot-description').value = plot.description || '';
             if (plotMediaPhotoInput) plotMediaPhotoInput.value = plot.media_photo || '';
             if (plotMediaVideoInput) plotMediaVideoInput.value = plot.media_video || '';
+            if (plotLinkedPanoramaSelect) {
+                const linkValue = (plot && plot.linked_panorama_id) ? String(plot.linked_panorama_id) : '';
+                plotLinkedPanoramaSelect.value = linkValue;
+                if (linkValue) {
+                    ensurePanoramaLinkSelects()
+                        .then(() => { if (plotLinkedPanoramaSelect) plotLinkedPanoramaSelect.value = linkValue; })
+                        .catch(() => {});
+                }
+            }
             const statusColor = statusToColor[normalizedStatus] || 'green';
             const colorMatchesStatus = allowedPlotColors.includes(plot.color) && colorToStatus[plot.color] === normalizedStatus;
             setSelectedColor(colorMatchesStatus ? plot.color : statusColor, false);
@@ -5231,6 +5375,7 @@
             document.getElementById('plot-description').value = '';
             if (plotMediaPhotoInput) plotMediaPhotoInput.value = '';
             if (plotMediaVideoInput) plotMediaVideoInput.value = '';
+            if (plotLinkedPanoramaSelect) plotLinkedPanoramaSelect.value = '';
             var imgInput = document.getElementById('plot-image-file');
             if (imgInput) imgInput.value = '';
             editingPlotId = null;
@@ -5256,8 +5401,12 @@
                 color: selectedColor,
                 media_photo: plotMediaPhotoInput ? plotMediaPhotoInput.value.trim() : '',
                 media_video: plotMediaVideoInput ? plotMediaVideoInput.value.trim() : '',
+                linked_panorama_id: plotLinkedPanoramaSelect && String(plotLinkedPanoramaSelect.value || '').trim()
+                    ? Number(plotLinkedPanoramaSelect.value)
+                    : null,
                 points: nextPoints
             };
+            const requestedLinkedPanoramaId = plotData.linked_panorama_id;
 
             try {
                 const headers = await (window.getAuthHeaders ? window.getAuthHeaders() : Promise.resolve({}));
@@ -5289,7 +5438,21 @@
                 }
                 showToast(editingPlotId ? 'Plot updated successfully!' : 'Plot saved successfully!');
                 closePlotForm();
-                loadPlots();
+                await loadPlots();
+                if (typeof requestedLinkedPanoramaId === 'number' && Number.isFinite(requestedLinkedPanoramaId) && plotId) {
+                    const savedPlot = Array.isArray(plots)
+                        ? plots.find((p) => p && String(p.id) === String(plotId))
+                        : null;
+                    const rawPersisted = savedPlot && Object.prototype.hasOwnProperty.call(savedPlot, 'linked_panorama_id')
+                        ? savedPlot.linked_panorama_id
+                        : null;
+                    const persisted = (rawPersisted === null || rawPersisted === undefined || String(rawPersisted).trim() === '')
+                        ? null
+                        : Number(rawPersisted);
+                    if (!Number.isFinite(persisted) || Number(persisted) !== Number(requestedLinkedPanoramaId)) {
+                        showToast('Linked panorama was not saved. Run supabase_migration_panorama_links.sql in Supabase.', 'error');
+                    }
+                }
             } catch (error) {
                 showToast('Failed to save plot', 'error');
             }

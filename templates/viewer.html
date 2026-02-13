@@ -888,6 +888,10 @@
                 </div>
             </div>
             <div class="header-right">
+                <button class="share-btn" id="back-btn" type="button" hidden>
+                    <span>←</span>
+                    <span>Back</span>
+                </button>
                 <button class="share-btn" id="share-btn">
                     <span>🔗</span>
                     <span>Share Link</span>
@@ -1040,6 +1044,7 @@
 
         const loading = document.getElementById('loading');
         const shareBtn = document.getElementById('share-btn');
+        const backBtn = document.getElementById('back-btn');
         const shareModal = document.getElementById('share-modal');
         const shareUrl = document.getElementById('share-url');
         const copyBtn = document.getElementById('copy-btn');
@@ -1047,6 +1052,56 @@
 
         // Shared variables and functions (available in both modes)
         let plots = [];
+
+        const NAV_STACK_KEY = 're_customer_nav_stack_v1';
+
+        function readNavStack() {
+            try {
+                const raw = sessionStorage.getItem(NAV_STACK_KEY);
+                const parsed = raw ? JSON.parse(raw) : [];
+                return Array.isArray(parsed) ? parsed : [];
+            } catch (e) {
+                return [];
+            }
+        }
+
+        function writeNavStack(stack) {
+            try {
+                sessionStorage.setItem(NAV_STACK_KEY, JSON.stringify(Array.isArray(stack) ? stack : []));
+            } catch (e) {}
+        }
+
+        function popNavStack() {
+            const stack = readNavStack();
+            const value = stack.length ? String(stack.pop()) : '';
+            writeNavStack(stack);
+            return value;
+        }
+
+        function hasNavStack() {
+            const stack = readNavStack();
+            return stack.length > 0;
+        }
+
+        (function initBackButton() {
+            if (!backBtn) return;
+            const params = new URLSearchParams(window.location.search || '');
+            const fromId = String(params.get('from') || '').trim();
+            const fromMode = String(params.get('from_mode') || '').trim().toLowerCase();
+            const canUseFrom = Boolean(fromId && /^[0-9]+$/.test(fromId));
+            if (!hasNavStack() && !canUseFrom) return;
+            backBtn.hidden = false;
+            backBtn.addEventListener('click', () => {
+                const prevUrl = popNavStack();
+                if (prevUrl) {
+                    window.location.href = prevUrl;
+                    return;
+                }
+                if (!canUseFrom) return;
+                const path = fromMode === '3d' ? `/customer/3d/${encodeURIComponent(fromId)}` : `/customer/${encodeURIComponent(fromId)}`;
+                window.location.href = path;
+            });
+        })();
 
         const statusLabels = { available: 'Available', reserved: 'On Hold', on_hold: 'On Hold', sold: 'Sold' };
         const statusColorMap = {
