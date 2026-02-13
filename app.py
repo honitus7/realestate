@@ -33,6 +33,7 @@ from flask import Flask, render_template, request, jsonify, send_from_directory,
 from werkzeug.utils import secure_filename
 from werkzeug.exceptions import RequestEntityTooLarge
 from PIL import Image, ImageOps
+from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
 try:
     import boto3
     from botocore.config import Config as BotoConfig
@@ -82,6 +83,7 @@ SUPABASE_S3_SECRET_ACCESS_KEY = (
 ).strip()
 SUPABASE_S3_PANORAMA_PREFIX = os.environ.get('SUPABASE_S3_PANORAMA_PREFIX', 'panoramas').strip('/')
 SUPABASE_S3_SIGNED_URL_TTL = max(60, int(os.environ.get('SUPABASE_S3_SIGNED_URL_TTL', '900')))
+SUPABASE_S3_UPLOAD_URL_TTL = max(60, int(os.environ.get('SUPABASE_S3_UPLOAD_URL_TTL', '900')))
 
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
 IMAGE_CONTENT_TYPES = {
@@ -105,6 +107,12 @@ _s3_signed_url_cache = {}
 
 def _use_s3_for_panoramas():
     return bool(SUPABASE_S3_BUCKET)
+
+
+def _panorama_upload_serializer():
+    # Token is short-lived and only used to prevent clients from referencing
+    # arbitrary bucket objects when creating panorama records.
+    return URLSafeTimedSerializer(app.secret_key, salt='panorama-upload')
 
 
 def _get_s3_client():
@@ -586,55 +594,183 @@ def get_panoramas(user_id, role):
     return jsonify(out)
 
 
+@app.route('/api/panoramas/upload-url', methods=['POST'])
+@require_auth
+def create_panorama_upload_url(user_id, role):
+    """Return a pre-signed PUT URL for direct-to-S3 panorama uploads (bypasses dyno RAM/timeouts)."""
+    if not _use_s3_for_panoramas():
+        return jsonify({'error': 'Supabase S3 is not configured'}), 503
+
+    payload = request.get_json(silent=True) or request.form or {}
+    original_filename = str(payload.get('original_filename') or payload.get('filename') or '').strip()
+    if not original_filename:
+        return jsonify({'error': 'original_filename is required'}), 400
+
+    max_bytes = app.config.get('MAX_CONTENT_LENGTH') or 0
+    try:
+        size_bytes = int(payload.get('size_bytes') or payload.get('size') or 0)
+    except Exception:
+        size_bytes = 0
+    if max_bytes and size_bytes and size_bytes > max_bytes:
+        max_mb = max(1, int(max_bytes / (1024 * 1024)))
+        return jsonify({'error': f'Upload too large (max {max_mb}MB)'}), 413
+
+    name = str(payload.get('name') or 'panorama').strip()
+    if len(name) > 120:
+        name = name[:120]
+
+    # Determine extension from filename first; fall back to content-type hint.
+    content_type_hint = str(payload.get('content_type') or '').lower().strip()
+    ext = original_filename.rsplit('.', 1)[-1].lower() if '.' in original_filename else ''
+    if ext not in ALLOWED_EXTENSIONS and content_type_hint:
+        ext = _detect_ext_from_content_type(content_type_hint)
+    if ext not in ALLOWED_EXTENSIONS:
+        return jsonify({'error': 'File type not allowed'}), 400
+
+    safe_project = secure_filename(name) or 'panorama'
+    unique = uuid.uuid4().hex[:10]
+    filename = f"{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}_{safe_project}_{unique}.{ext}"
+    image_content_type = IMAGE_CONTENT_TYPES.get(ext, 'image/jpeg')
+
+    client = _get_s3_client()
+    if not client:
+        return jsonify({'error': 'Supabase S3 is not fully configured'}), 503
+
+    key = _panorama_object_key(filename)
+    try:
+        upload_url = client.generate_presigned_url(
+            ClientMethod='put_object',
+            Params={'Bucket': SUPABASE_S3_BUCKET, 'Key': key, 'ContentType': image_content_type},
+            ExpiresIn=int(SUPABASE_S3_UPLOAD_URL_TTL),
+        )
+    except Exception as e:
+        app.logger.exception('Failed to generate panorama upload URL')
+        return jsonify({'error': str(e)}), 500
+
+    token = _panorama_upload_serializer().dumps({
+        'user_id': str(user_id),
+        'filename': filename,
+        'content_type': image_content_type,
+    })
+    return jsonify({
+        'filename': filename,
+        'upload_url': upload_url,
+        'upload_token': token,
+        'content_type': image_content_type,
+        'max_bytes': max_bytes,
+        'expires_in': int(SUPABASE_S3_UPLOAD_URL_TTL),
+    })
+
+
 @app.route('/api/panoramas', methods=['POST'])
 @require_auth
 def create_panorama(user_id, role):
-    if 'file' not in request.files:
-        return jsonify({'error': 'No file provided'}), 400
-    file = request.files['file']
-    name = request.form.get('name', 'Untitled Panorama')
-    is_360 = request.form.get('is_360', 'false').lower() == 'true'
-    if file.filename == '':
-        return jsonify({'error': 'No file selected'}), 400
-    if not allowed_file(file.filename):
-        return jsonify({'error': 'File type not allowed'}), 400
+    def _coerce_dim(value):
+        try:
+            n = int(str(value).strip())
+            if n < 0:
+                return 0
+            # Hard clamp to keep DB sane if a client sends garbage.
+            return min(n, 200000)
+        except Exception:
+            return 0
+
+    payload = request.form or {}
+    name = payload.get('name', 'Untitled Panorama')
+    is_360 = str(payload.get('is_360', 'false')).lower() == 'true'
+    width = _coerce_dim(payload.get('width'))
+    height = _coerce_dim(payload.get('height'))
 
     sb = get_supabase()
     if not sb:
         return jsonify({'error': 'Database not configured'}), 503
 
-    original_filename = secure_filename(file.filename) or 'upload'
-    ext = original_filename.rsplit('.', 1)[1].lower()
-    safe_project = secure_filename(name) or 'panorama'
-    unique = uuid.uuid4().hex[:10]
-    filename = f"{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}_{safe_project}_{unique}.{ext}"
-
-    width, height = 0, 0
-    try:
-        # Read minimal header to detect dimensions; avoid decoding/transcoding
-        # huge panoramas into memory (can cause Heroku R14).
-        width, height = _probe_image_dimensions(file.stream)
-    except Exception:
-        width, height = 0, 0
-    finally:
-        try:
-            file.stream.seek(0)
-        except Exception:
-            pass
-
-    image_content_type = IMAGE_CONTENT_TYPES.get(ext, 'image/jpeg')
-    local_filepath = None
     stored_ok = False
+    local_filepath = None
+    file = request.files.get('file')
 
+    # ----- Path A: legacy upload through dyno -----
+    if file:
+        if file.filename == '':
+            return jsonify({'error': 'No file selected'}), 400
+        if not allowed_file(file.filename):
+            return jsonify({'error': 'File type not allowed'}), 400
+
+        original_filename = secure_filename(file.filename) or 'upload'
+        ext = original_filename.rsplit('.', 1)[1].lower()
+        safe_project = secure_filename(name) or 'panorama'
+        unique = uuid.uuid4().hex[:10]
+        filename = f"{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}_{safe_project}_{unique}.{ext}"
+        image_content_type = IMAGE_CONTENT_TYPES.get(ext, 'image/jpeg')
+
+        try:
+            if _use_s3_for_panoramas():
+                _upload_panorama_to_s3(filename, file.stream, image_content_type)
+                stored_ok = True
+            else:
+                local_filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+                file.save(local_filepath)
+                stored_ok = True
+        except Exception as e:
+            app.logger.exception('Panorama file storage failed')
+            return jsonify({'error': str(e)}), 500
+
+    # ----- Path B: direct-to-S3 upload finalize (no dyno file upload) -----
+    else:
+        filename = os.path.basename(str(payload.get('filename') or '')).strip()
+        upload_token = str(payload.get('upload_token') or '').strip()
+        if not filename:
+            return jsonify({'error': 'filename is required'}), 400
+        if not upload_token:
+            return jsonify({'error': 'upload_token is required'}), 400
+        if not allowed_file(filename):
+            return jsonify({'error': 'File type not allowed'}), 400
+        if not _use_s3_for_panoramas():
+            return jsonify({'error': 'Supabase S3 is not configured'}), 503
+
+        # Verify token (ties the object key to this user and prevents arbitrary key references).
+        try:
+            signed = _panorama_upload_serializer().loads(
+                upload_token,
+                max_age=int(SUPABASE_S3_UPLOAD_URL_TTL),
+            )
+        except SignatureExpired:
+            return jsonify({'error': 'upload_token expired; request a new upload URL'}), 400
+        except BadSignature:
+            return jsonify({'error': 'Invalid upload_token'}), 400
+
+        if str(signed.get('user_id')) != str(user_id) or str(signed.get('filename')) != filename:
+            return jsonify({'error': 'Invalid upload_token'}), 403
+
+        ext = filename.rsplit('.', 1)[1].lower()
+        image_content_type = str(signed.get('content_type') or IMAGE_CONTENT_TYPES.get(ext, 'image/jpeg'))
+
+        client = _get_s3_client()
+        if not client:
+            return jsonify({'error': 'Supabase S3 is not fully configured'}), 503
+
+        # Ensure the object exists and enforce server-side size limit.
+        try:
+            head = client.head_object(Bucket=SUPABASE_S3_BUCKET, Key=_panorama_object_key(filename))
+            stored_ok = True
+        except Exception:
+            return jsonify({'error': 'Upload not found. Re-upload and try again.'}), 400
+
+        try:
+            size_bytes = int(head.get('ContentLength') or 0)
+        except Exception:
+            size_bytes = 0
+
+        max_bytes = app.config.get('MAX_CONTENT_LENGTH') or 0
+        if max_bytes and size_bytes and size_bytes > max_bytes:
+            _delete_panorama_from_s3(filename)
+            max_mb = max(1, int(max_bytes / (1024 * 1024)))
+            return jsonify({'error': f'Upload too large (max {max_mb}MB)'}), 413
+
+        original_filename = secure_filename(str(payload.get('original_filename') or filename)) or 'upload'
+
+    # ----- DB insert (shared) -----
     try:
-        if _use_s3_for_panoramas():
-            _upload_panorama_to_s3(filename, file.stream, image_content_type)
-            stored_ok = True
-        else:
-            local_filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-            file.save(local_filepath)
-            stored_ok = True
-
         insert_row = {
             'user_id': user_id,
             'name': name,

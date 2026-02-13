@@ -867,11 +867,14 @@
             });
         }
 
-        // State
-        let projects = [];
-        let selectedFile = null;
-        let deleteTargetId = null;
-        let renameTargetId = null;
+	        // State
+	        let projects = [];
+	        let selectedFile = null;
+	        let selectedImageWidth = 0;
+	        let selectedImageHeight = 0;
+	        let previewObjectUrl = '';
+	        let deleteTargetId = null;
+	        let renameTargetId = null;
 
         // DOM Elements
         const uploadZone = document.getElementById('upload-zone');
@@ -933,120 +936,248 @@
             }
         });
 
-        function handleFileSelect(file) {
-            selectedFile = file;
+	        function handleFileSelect(file) {
+	            selectedFile = file;
+	            selectedImageWidth = 0;
+	            selectedImageHeight = 0;
 
-            // Show preview
-            const reader = new FileReader();
-            reader.onload = (e) => {
-                previewImage.src = e.target.result;
+	            // Show preview (avoid base64; large files can freeze some devices).
+	            if (previewObjectUrl) {
+	                try { URL.revokeObjectURL(previewObjectUrl); } catch (e) {}
+	                previewObjectUrl = '';
+	            }
+	            previewSize.textContent = `${formatFileSize(file.size)}`;
+	            previewObjectUrl = URL.createObjectURL(file);
+	            previewImage.onload = () => {
+	                selectedImageWidth = previewImage.naturalWidth || 0;
+	                selectedImageHeight = previewImage.naturalHeight || 0;
+	                if (selectedImageWidth && selectedImageHeight) {
+	                    previewSize.textContent = `${formatFileSize(file.size)} • ${selectedImageWidth} × ${selectedImageHeight}`;
+	                }
+	            };
+	            previewImage.onerror = () => {
+	                selectedImageWidth = 0;
+	                selectedImageHeight = 0;
+	            };
+	            previewImage.src = previewObjectUrl;
 
-                // Get image dimensions
-                const img = new Image();
-                img.onload = () => {
-                    previewSize.textContent = `${formatFileSize(file.size)} • ${img.width} × ${img.height}`;
-                };
-                img.src = e.target.result;
-            };
-            reader.readAsDataURL(file);
+	            previewFilename.textContent = file.name;
+	            projectName.value = file.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ');
 
-            previewFilename.textContent = file.name;
-            projectName.value = file.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ');
-
-            uploadForm.classList.add('visible');
-        }
+	            uploadForm.classList.add('visible');
+	        }
 
         cancelUpload.addEventListener('click', (e) => {
             e.stopPropagation();
             resetUploadForm();
         });
 
-        startUpload.addEventListener('click', async (e) => {
-            e.stopPropagation();
+	        startUpload.addEventListener('click', async (e) => {
+	            e.stopPropagation();
 
-            if (!selectedFile) return;
+	            if (!selectedFile) return;
 
-            const name = projectName.value.trim() || 'Untitled Project';
+	            const name = projectName.value.trim() || 'Untitled Project';
+	            const is360 = document.getElementById('is-360').checked;
 
-            uploadForm.classList.remove('visible');
-            uploadProgress.classList.add('visible');
-            uploadZone.classList.add('uploading');
+	            uploadForm.classList.remove('visible');
+	            uploadProgress.classList.add('visible');
+	            uploadZone.classList.add('uploading');
 
-            const formData = new FormData();
-            formData.append('file', selectedFile);
-            formData.append('name', name);
-            formData.append('is_360', document.getElementById('is-360').checked);
+	            try {
+	                progressFill.style.width = '0%';
+	                progressText.textContent = 'Preparing upload...';
 
-            try {
-                const xhr = new XMLHttpRequest();
+	                const headers = await getAuthHeaders();
+	                if (!headers || !headers.Authorization) {
+	                    window.location.replace('/login');
+	                    return;
+	                }
 
-                xhr.upload.addEventListener('progress', (e) => {
-                    if (e.lengthComputable) {
-                        const percent = Math.round((e.loaded / e.total) * 100);
-                        progressFill.style.width = `${percent}%`;
-                        progressText.textContent = `Uploading... ${percent}%`;
-                    }
-                });
+	                const onCreated = function (project) {
+	                    showToast('Project created successfully!', 'success');
+	                    resetUploadForm();
+	                    loadProjects();
 
-                xhr.addEventListener('load', () => {
-                    if (xhr.status === 201) {
-                        const project = JSON.parse(xhr.responseText);
-                        showToast('Project created successfully!', 'success');
-                        resetUploadForm();
-                        loadProjects();
+	                    // Redirect to editor (check if 360 and route to 3D)
+	                    setTimeout(() => {
+	                        if (project.is_360) {
+	                            window.location.href = `/admin/3d/${project.id}`;
+	                        } else {
+	                            window.location.href = `/admin/${project.id}`;
+	                        }
+	                    }, 500);
+	                };
 
-                        // Redirect to editor (check if 360 and route to 3D)
-                        setTimeout(() => {
-                            if (project.is_360) {
-                                window.location.href = `/admin/3d/${project.id}`;
-                            } else {
-                                window.location.href = `/admin/${project.id}`;
-                            }
-                        }, 500);
-                    } else {
-                        let message = `Upload failed (${xhr.status})`;
-                        try {
-                            const payload = JSON.parse(xhr.responseText || '{}');
-                            if (payload && payload.error) message = String(payload.error);
-                        } catch (e) {}
-                        showToast(message, 'error');
-                        resetUploadForm();
-                    }
-                });
+	                // Try direct-to-S3 upload first (avoids Heroku 30s router timeout + dyno RAM spikes).
+	                let directInfo = null;
+	                try {
+	                    const urlResp = await fetch('/api/panoramas/upload-url', {
+	                        method: 'POST',
+	                        headers: Object.assign({ 'Content-Type': 'application/json' }, headers),
+	                        body: JSON.stringify({
+	                            original_filename: selectedFile.name,
+	                            content_type: selectedFile.type,
+	                            size_bytes: selectedFile.size,
+	                            name: name
+	                        })
+	                    });
+	                    if (urlResp.ok) {
+	                        directInfo = await urlResp.json();
+	                    } else {
+	                        let msg = '';
+	                        try {
+	                            const payload = await urlResp.json().catch(() => null);
+	                            if (payload && payload.error) msg = String(payload.error);
+	                        } catch (e) {}
+	                        if (urlResp.status === 413) {
+	                            showToast(msg || `File too large (${urlResp.status})`, 'error');
+	                            resetUploadForm();
+	                            return;
+	                        }
+	                    }
+	                } catch (e) {
+	                    directInfo = null;
+	                }
 
-                xhr.addEventListener('error', () => {
-                    showToast('Upload failed (network error). Please try again.', 'error');
-                    resetUploadForm();
-                });
+	                if (directInfo && directInfo.upload_url && directInfo.filename && directInfo.upload_token) {
+	                    try {
+	                        const maxBytes = Number(directInfo.max_bytes || 0);
+	                        if (maxBytes && selectedFile.size > maxBytes) {
+	                            const maxMb = Math.max(1, Math.floor(maxBytes / (1024 * 1024)));
+	                            throw new Error(`File too large (max ${maxMb}MB)`);
+	                        }
 
-                xhr.addEventListener('timeout', () => {
-                    showToast('Upload timed out. Please try again.', 'error');
-                    resetUploadForm();
-                });
+	                        await new Promise((resolve, reject) => {
+	                            const putXhr = new XMLHttpRequest();
+	                            putXhr.upload.addEventListener('progress', (e) => {
+	                                if (e.lengthComputable) {
+	                                    const percent = Math.round((e.loaded / e.total) * 100);
+	                                    progressFill.style.width = `${percent}%`;
+	                                    progressText.textContent = `Uploading... ${percent}%`;
+	                                }
+	                            });
+	                            putXhr.addEventListener('load', () => {
+	                                if (putXhr.status >= 200 && putXhr.status < 300) return resolve();
+	                                reject(new Error(`Upload failed (${putXhr.status})`));
+	                            });
+	                            putXhr.addEventListener('error', () => reject(new Error('Upload failed (network error).')));
+	                            putXhr.addEventListener('timeout', () => reject(new Error('Upload timed out.')));
+	                            putXhr.open('PUT', directInfo.upload_url);
+	                            putXhr.timeout = 10 * 60 * 1000;
+	                            if (directInfo.content_type) {
+	                                // Must match the ContentType used when generating the presigned URL.
+	                                putXhr.setRequestHeader('Content-Type', directInfo.content_type);
+	                            }
+	                            putXhr.send(selectedFile);
+	                        });
 
-                getAuthHeaders().then(function (headers) {
-                    xhr.open('POST', '/api/panoramas');
-                    xhr.timeout = 4 * 60 * 1000;
-                    if (headers.Authorization) xhr.setRequestHeader('Authorization', headers.Authorization);
-                    xhr.send(formData);
-                });
+	                        progressFill.style.width = '100%';
+	                        progressText.textContent = 'Finalizing...';
 
-            } catch (error) {
-                showToast('Upload failed. Please try again.', 'error');
-                resetUploadForm();
-            }
-        });
+	                        const finalize = new FormData();
+	                        finalize.append('filename', directInfo.filename);
+	                        finalize.append('upload_token', directInfo.upload_token);
+	                        finalize.append('original_filename', selectedFile.name);
+	                        finalize.append('name', name);
+	                        finalize.append('is_360', String(is360));
+	                        finalize.append('width', String(selectedImageWidth || 0));
+	                        finalize.append('height', String(selectedImageHeight || 0));
 
-        function resetUploadForm() {
-            selectedFile = null;
-            uploadInput.value = '';
-            uploadForm.classList.remove('visible');
-            uploadProgress.classList.remove('visible');
-            uploadZone.classList.remove('uploading');
-            progressFill.style.width = '0%';
-            previewImage.src = '';
-            projectName.value = '';
-        }
+	                        const finResp = await fetch('/api/panoramas', { method: 'POST', headers: headers, body: finalize });
+	                        const finPayload = await finResp.json().catch(() => null);
+	                        if (!finResp.ok || !finPayload) {
+	                            const msg = finPayload && finPayload.error ? String(finPayload.error) : `Upload failed (${finResp.status})`;
+	                            throw new Error(msg);
+	                        }
+	                        onCreated(finPayload);
+	                        return;
+	                    } catch (e) {
+	                        // Fall back to dyno upload if direct upload fails (e.g., CORS not configured).
+	                        try {
+	                            const msg = e && e.message ? String(e.message) : 'Direct upload failed.';
+	                            if (msg.toLowerCase().startsWith('file too large')) {
+	                                showToast(msg, 'error');
+	                                resetUploadForm();
+	                                return;
+	                            }
+	                            console.warn('Direct upload failed; falling back to server upload:', msg);
+	                            progressText.textContent = 'Direct upload failed; retrying via server...';
+	                        } catch (e2) {}
+	                    }
+	                }
+
+	                // Fallback: upload through dyno (can hit Heroku timeout for slow networks).
+	                const formData = new FormData();
+	                formData.append('file', selectedFile);
+	                formData.append('name', name);
+	                formData.append('is_360', String(is360));
+	                formData.append('width', String(selectedImageWidth || 0));
+	                formData.append('height', String(selectedImageHeight || 0));
+
+	                const xhr = new XMLHttpRequest();
+
+	                xhr.upload.addEventListener('progress', (e) => {
+	                    if (e.lengthComputable) {
+	                        const percent = Math.round((e.loaded / e.total) * 100);
+	                        progressFill.style.width = `${percent}%`;
+	                        progressText.textContent = `Uploading... ${percent}%`;
+	                    }
+	                });
+
+	                xhr.addEventListener('load', () => {
+	                    if (xhr.status === 201) {
+	                        const project = JSON.parse(xhr.responseText);
+	                        onCreated(project);
+	                    } else {
+	                        let message = `Upload failed (${xhr.status})`;
+	                        try {
+	                            const payload = JSON.parse(xhr.responseText || '{}');
+	                            if (payload && payload.error) message = String(payload.error);
+	                        } catch (e) {}
+	                        showToast(message, 'error');
+	                        resetUploadForm();
+	                    }
+	                });
+
+	                xhr.addEventListener('error', () => {
+	                    showToast('Upload failed (network error). Please try again.', 'error');
+	                    resetUploadForm();
+	                });
+
+	                xhr.addEventListener('timeout', () => {
+	                    showToast('Upload timed out. Please try again.', 'error');
+	                    resetUploadForm();
+	                });
+
+	                xhr.open('POST', '/api/panoramas');
+	                xhr.timeout = 4 * 60 * 1000;
+	                if (headers.Authorization) xhr.setRequestHeader('Authorization', headers.Authorization);
+	                xhr.send(formData);
+
+	            } catch (error) {
+	                const message = error && error.message ? String(error.message) : 'Upload failed. Please try again.';
+	                showToast(message, 'error');
+	                resetUploadForm();
+	            }
+	        });
+
+	        function resetUploadForm() {
+	            selectedFile = null;
+	            selectedImageWidth = 0;
+	            selectedImageHeight = 0;
+	            uploadInput.value = '';
+	            uploadForm.classList.remove('visible');
+	            uploadProgress.classList.remove('visible');
+	            uploadZone.classList.remove('uploading');
+	            progressFill.style.width = '0%';
+	            previewImage.src = '';
+	            if (previewObjectUrl) {
+	                try { URL.revokeObjectURL(previewObjectUrl); } catch (e) {}
+	                previewObjectUrl = '';
+	            }
+	            projectName.value = '';
+	        }
 
         // Projects (user-scoped; send auth token)
         async function loadProjects() {
