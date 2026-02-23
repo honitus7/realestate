@@ -1,0 +1,1156 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CRM – PropMark</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Syne:wght@400;500;600;700;800&display=swap"
+        rel="stylesheet">
+    <script src="/static/js/supabase.min.js"></script>
+    <script src="/static/js/org_theme.js"></script>
+    <style>
+        :root {
+            --bg: #070708;
+            --bg-elev-1: rgba(18, 18, 20, 0.92);
+            --bg-elev-2: rgba(28, 28, 32, 0.92);
+            --text: rgba(248, 248, 244, 0.96);
+            --muted: rgba(248, 248, 244, 0.62);
+            --muted-2: rgba(248, 248, 244, 0.45);
+            --border: rgba(248, 248, 244, 0.10);
+            --border-strong: rgba(248, 248, 244, 0.16);
+            --accent: #c9a962;
+            --accent-2: #e1d08d;
+            --danger: #ef4444;
+            --success: #4ade80;
+            --warning: #f59e0b;
+            --shadow: 0 18px 45px rgba(0, 0, 0, 0.48);
+            --radius: 14px;
+            --radius-sm: 10px;
+            --font-display: 'Instrument Serif', Georgia, serif;
+            --font-body: 'Syne', sans-serif;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html,
+        body {
+            min-height: 100vh;
+            background: var(--bg);
+            color: var(--text);
+            font-family: var(--font-body);
+        }
+
+        body {
+            background:
+                radial-gradient(900px 600px at 20% 0%, rgba(201, 169, 98, 0.10) 0%, transparent 55%),
+                radial-gradient(900px 600px at 80% 100%, rgba(201, 169, 98, 0.06) 0%, transparent 55%),
+                radial-gradient(700px 450px at 55% 45%, rgba(255, 255, 255, 0.04) 0%, transparent 60%),
+                var(--bg);
+        }
+
+        a {
+            color: inherit;
+        }
+
+        .header {
+            position: sticky;
+            top: 0;
+            z-index: 20;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+            padding: 1.25rem 1.5rem;
+            border-bottom: 1px solid var(--border);
+            background: rgba(7, 7, 8, 0.72);
+            backdrop-filter: blur(14px);
+            -webkit-backdrop-filter: blur(14px);
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 0.9rem;
+            min-width: 0;
+        }
+
+        .logo {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.6rem;
+            text-decoration: none;
+            color: var(--text);
+        }
+
+        .logo img {
+            width: 38px;
+            height: 38px;
+            object-fit: contain;
+            filter: drop-shadow(0 10px 18px rgba(0, 0, 0, 0.35));
+        }
+
+        .page-title {
+            display: grid;
+            gap: 0.12rem;
+            min-width: 0;
+        }
+
+        .page-title h1 {
+            font-family: var(--font-display);
+            font-weight: 400;
+            font-style: italic;
+            letter-spacing: 0.01em;
+            font-size: 1.55rem;
+            line-height: 1.05;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .page-title p {
+            font-size: 0.78rem;
+            color: var(--muted);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .header-actions {
+            display: flex;
+            align-items: center;
+            gap: 0.65rem;
+        }
+
+        .btn {
+            border: 1px solid var(--border);
+            background: rgba(18, 18, 20, 0.72);
+            color: var(--text);
+            border-radius: 999px;
+            padding: 0.56rem 0.9rem;
+            font-weight: 700;
+            font-size: 0.78rem;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            cursor: pointer;
+            transition: transform 0.16s ease, border-color 0.16s ease, background 0.16s ease;
+            box-shadow: 0 10px 22px rgba(0, 0, 0, 0.34);
+        }
+
+        .btn:hover {
+            transform: translateY(-1px);
+            border-color: var(--border-strong);
+            background: rgba(28, 28, 32, 0.78);
+        }
+
+        .btn.primary {
+            border-color: rgba(201, 169, 98, 0.38);
+            background: linear-gradient(135deg, rgba(201, 169, 98, 0.22), rgba(225, 208, 141, 0.14));
+        }
+
+        .btn.primary:hover {
+            border-color: rgba(201, 169, 98, 0.6);
+        }
+
+        .btn.ghost {
+            background: transparent;
+            box-shadow: none;
+        }
+
+        .container {
+            max-width: 1260px;
+            margin: 0 auto;
+            padding: 1.8rem 1.2rem 3rem;
+        }
+
+        .grid-top {
+            display: grid;
+            grid-template-columns: 1.1fr 0.9fr;
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .card {
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            background: var(--bg-elev-1);
+            box-shadow: var(--shadow);
+            overflow: hidden;
+        }
+
+        .card-header {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 1rem;
+            padding: 1rem 1rem 0.85rem;
+            border-bottom: 1px solid rgba(248, 248, 244, 0.08);
+        }
+
+        .card-title {
+            display: grid;
+            gap: 0.1rem;
+        }
+
+        .card-title strong {
+            font-size: 0.78rem;
+            letter-spacing: 0.16em;
+            text-transform: uppercase;
+            color: var(--accent);
+        }
+
+        .card-title span {
+            font-size: 0.86rem;
+            color: var(--muted);
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 0.75rem;
+            padding: 1rem;
+        }
+
+        .stat {
+            border: 1px solid rgba(248, 248, 244, 0.08);
+            border-radius: var(--radius-sm);
+            background: rgba(28, 28, 32, 0.68);
+            padding: 0.9rem 0.9rem 0.85rem;
+            display: grid;
+            gap: 0.3rem;
+        }
+
+        .stat .label {
+            font-size: 0.72rem;
+            letter-spacing: 0.14em;
+            text-transform: uppercase;
+            color: var(--muted-2);
+            font-weight: 700;
+        }
+
+        .stat .value {
+            font-family: var(--font-display);
+            font-size: 1.65rem;
+            letter-spacing: 0.02em;
+            line-height: 1;
+        }
+
+        .stat .hint {
+            font-size: 0.78rem;
+            color: var(--muted);
+        }
+
+        .pipeline {
+            padding: 1rem;
+        }
+
+        .pipe-row {
+            display: grid;
+            grid-template-columns: 1fr auto;
+            gap: 0.8rem;
+            align-items: center;
+            padding: 0.65rem 0;
+            border-bottom: 1px solid rgba(248, 248, 244, 0.06);
+        }
+
+        .pipe-row:last-child {
+            border-bottom: none;
+        }
+
+        .pipe-name {
+            font-size: 0.9rem;
+            font-weight: 700;
+        }
+
+        .pipe-bar {
+            height: 10px;
+            border-radius: 999px;
+            background: rgba(248, 248, 244, 0.08);
+            overflow: hidden;
+            margin-top: 0.4rem;
+            border: 1px solid rgba(248, 248, 244, 0.08);
+        }
+
+        .pipe-fill {
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(90deg, rgba(201, 169, 98, 0.95), rgba(225, 208, 141, 0.85));
+            border-radius: 999px;
+            transition: width 0.35s ease;
+        }
+
+        .pipe-meta {
+            display: flex;
+            align-items: baseline;
+            gap: 0.5rem;
+            justify-content: flex-end;
+            white-space: nowrap;
+        }
+
+        .pipe-count {
+            font-variant-numeric: tabular-nums;
+            font-weight: 800;
+        }
+
+        .pipe-pct {
+            font-size: 0.78rem;
+            color: var(--muted);
+            font-variant-numeric: tabular-nums;
+        }
+
+        .filters {
+            display: grid;
+            grid-template-columns: 1.6fr 0.7fr 0.7fr 1fr auto;
+            gap: 0.65rem;
+            align-items: center;
+            padding: 1rem;
+        }
+
+        .input {
+            width: 100%;
+            height: 44px;
+            border-radius: 999px;
+            border: 1px solid rgba(248, 248, 244, 0.12);
+            background: rgba(7, 7, 8, 0.4);
+            color: var(--text);
+            padding: 0 1rem;
+            outline: none;
+            font-weight: 600;
+        }
+
+        .input::placeholder {
+            color: rgba(248, 248, 244, 0.38);
+        }
+
+        .select {
+            appearance: none;
+            -webkit-appearance: none;
+            background-image:
+                linear-gradient(45deg, transparent 50%, rgba(248, 248, 244, 0.65) 50%),
+                linear-gradient(135deg, rgba(248, 248, 244, 0.65) 50%, transparent 50%);
+            background-position:
+                calc(100% - 18px) 18px,
+                calc(100% - 12px) 18px;
+            background-size: 6px 6px, 6px 6px;
+            background-repeat: no-repeat;
+            padding-right: 2.2rem;
+        }
+
+        .table-wrap {
+            border-top: 1px solid rgba(248, 248, 244, 0.08);
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        thead th {
+            position: sticky;
+            top: 82px;
+            z-index: 10;
+            text-align: left;
+            font-size: 0.72rem;
+            letter-spacing: 0.18em;
+            text-transform: uppercase;
+            color: rgba(248, 248, 244, 0.58);
+            background: rgba(7, 7, 8, 0.84);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            padding: 0.85rem 1rem;
+            border-bottom: 1px solid rgba(248, 248, 244, 0.10);
+        }
+
+        tbody td {
+            padding: 0.95rem 1rem;
+            border-bottom: 1px solid rgba(248, 248, 244, 0.06);
+            vertical-align: top;
+            font-size: 0.92rem;
+        }
+
+        tbody tr {
+            cursor: pointer;
+            transition: background 0.16s ease;
+        }
+
+        tbody tr:hover {
+            background: rgba(201, 169, 98, 0.06);
+        }
+
+        .mono {
+            font-variant-numeric: tabular-nums;
+            font-feature-settings: "tnum";
+        }
+
+        .subtle {
+            color: var(--muted);
+            font-size: 0.82rem;
+            margin-top: 0.22rem;
+        }
+
+        .pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.45rem;
+            padding: 0.28rem 0.6rem;
+            border-radius: 999px;
+            border: 1px solid rgba(248, 248, 244, 0.14);
+            background: rgba(28, 28, 32, 0.65);
+            font-size: 0.75rem;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            font-weight: 800;
+            white-space: nowrap;
+        }
+
+        .dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 999px;
+            background: rgba(248, 248, 244, 0.55);
+        }
+
+        .pill.new .dot { background: var(--accent); }
+        .pill.contacted .dot { background: var(--warning); }
+        .pill.qualified .dot { background: #60a5fa; }
+        .pill.won .dot { background: var(--success); }
+        .pill.lost .dot { background: var(--danger); }
+
+        .empty {
+            padding: 2.2rem 1rem 2.4rem;
+            text-align: center;
+            color: var(--muted);
+        }
+
+        .empty strong {
+            display: block;
+            font-family: var(--font-display);
+            font-size: 2rem;
+            font-weight: 400;
+            font-style: italic;
+            color: var(--text);
+            margin-bottom: 0.3rem;
+        }
+
+        /* Drawer */
+        .drawer-backdrop {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.6);
+            z-index: 40;
+            display: none;
+        }
+
+        .drawer-backdrop.visible {
+            display: block;
+        }
+
+        .drawer {
+            position: fixed;
+            top: 0;
+            right: 0;
+            width: min(520px, 94vw);
+            height: 100vh;
+            background: rgba(10, 10, 11, 0.92);
+            border-left: 1px solid rgba(248, 248, 244, 0.14);
+            box-shadow: -18px 0 60px rgba(0, 0, 0, 0.55);
+            transform: translateX(102%);
+            transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+            z-index: 45;
+            display: grid;
+            grid-template-rows: auto 1fr auto;
+        }
+
+        .drawer.visible {
+            transform: translateX(0);
+        }
+
+        .drawer-head {
+            padding: 1.1rem 1.1rem 0.95rem;
+            border-bottom: 1px solid rgba(248, 248, 244, 0.10);
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+
+        .drawer-head h2 {
+            font-family: var(--font-display);
+            font-weight: 400;
+            font-style: italic;
+            font-size: 1.55rem;
+            line-height: 1.05;
+        }
+
+        .drawer-close {
+            width: 40px;
+            height: 40px;
+            border-radius: 999px;
+            border: 1px solid rgba(248, 248, 244, 0.18);
+            background: rgba(28, 28, 32, 0.6);
+            color: var(--text);
+            font-size: 1.3rem;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .drawer-body {
+            overflow: auto;
+            padding: 1.1rem;
+        }
+
+        .drawer-section {
+            border: 1px solid rgba(248, 248, 244, 0.10);
+            background: rgba(28, 28, 32, 0.55);
+            border-radius: var(--radius);
+            padding: 0.9rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .drawer-section h3 {
+            font-size: 0.76rem;
+            letter-spacing: 0.16em;
+            text-transform: uppercase;
+            color: rgba(248, 248, 244, 0.62);
+            margin-bottom: 0.6rem;
+            font-weight: 800;
+        }
+
+        .kv {
+            display: grid;
+            gap: 0.5rem;
+        }
+
+        .kv-row {
+            display: flex;
+            align-items: baseline;
+            justify-content: space-between;
+            gap: 1rem;
+            border-bottom: 1px dashed rgba(248, 248, 244, 0.10);
+            padding-bottom: 0.45rem;
+        }
+
+        .kv-row:last-child {
+            border-bottom: none;
+            padding-bottom: 0;
+        }
+
+        .kv-row .k {
+            color: rgba(248, 248, 244, 0.58);
+            font-size: 0.86rem;
+        }
+
+        .kv-row .v {
+            font-weight: 700;
+            text-align: right;
+            max-width: 62%;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .drawer-foot {
+            padding: 0.9rem 1.1rem 1.05rem;
+            border-top: 1px solid rgba(248, 248, 244, 0.10);
+            display: flex;
+            gap: 0.65rem;
+            justify-content: flex-end;
+            background: rgba(7, 7, 8, 0.78);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+        }
+
+        .msg {
+            margin-top: 0.6rem;
+            font-size: 0.85rem;
+            color: rgba(248, 248, 244, 0.74);
+        }
+
+        .msg.error {
+            color: #fecaca;
+        }
+
+        @media (max-width: 980px) {
+            .grid-top {
+                grid-template-columns: 1fr;
+            }
+            .stats-grid {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+            thead th {
+                top: 78px;
+            }
+            .filters {
+                grid-template-columns: 1fr 1fr;
+            }
+            .filters .btn {
+                grid-column: 1 / -1;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <script>
+        // Auth guard: must be logged in to view CRM
+        (function () {
+            var url = {{ (supabase_url or '')|tojson }};
+            var key = {{ (supabase_anon_key or '')|tojson }};
+            if (!url || !key || !window.supabase) return;
+            window._supabase = window.supabase.createClient(url, key);
+            var supabase = window._supabase;
+            supabase.auth.getSession().then(function (r) {
+                if (!r.data.session) window.location.replace('/login');
+            });
+        })();
+
+        function getAuthHeaders() {
+            var supabase = window._supabase;
+            if (!supabase) return Promise.resolve({});
+            return supabase.auth.getSession().then(function (r) {
+                var h = {};
+                if (r.data.session && r.data.session.access_token) h['Authorization'] = 'Bearer ' + r.data.session.access_token;
+                return h;
+            });
+        }
+    </script>
+
+    <header class="header">
+        <div class="header-left">
+            <a class="logo" href="/dashboard" aria-label="Back to dashboard">
+                <img src="/static/Logo.png" alt="Logo" loading="eager">
+            </a>
+            <div class="page-title">
+                <h1>Customer Relation</h1>
+                <p id="subtitle">Leads captured from plot carts, scoped to your client projects</p>
+            </div>
+        </div>
+        <div class="header-actions">
+            <button class="btn ghost" id="btn-export" type="button">Export CSV</button>
+            <button class="btn" id="btn-refresh" type="button">Refresh</button>
+            <a class="btn primary" href="/dashboard">Dashboard</a>
+        </div>
+    </header>
+
+    <main class="container">
+        <div class="grid-top">
+            <section class="card">
+                <div class="card-header">
+                    <div class="card-title">
+                        <strong>Overview</strong>
+                        <span>At-a-glance pipeline and totals</span>
+                    </div>
+                </div>
+                <div class="stats-grid" id="stats-grid"></div>
+            </section>
+
+            <section class="card">
+                <div class="card-header">
+                    <div class="card-title">
+                        <strong>Pipeline</strong>
+                        <span>Distribution across stages</span>
+                    </div>
+                </div>
+                <div class="pipeline" id="pipeline"></div>
+            </section>
+        </div>
+
+        <section class="card">
+            <div class="card-header">
+                <div class="card-title">
+                    <strong>Buy Interests</strong>
+                    <span id="results-meta">0 results</span>
+                </div>
+                <div style="display:flex;gap:0.6rem;align-items:center;">
+                    <span class="pill new" id="live-pill" title="Data is loaded from your server API">
+                        <span class="dot"></span>
+                        <span>Live</span>
+                    </span>
+                </div>
+            </div>
+            <div class="filters">
+                <input class="input" id="q" placeholder="Search name, email, phone…" autocomplete="off">
+                <select class="input select" id="status">
+                    <option value="">All Status</option>
+                    <option value="new">New</option>
+                    <option value="contacted">Contacted</option>
+                    <option value="qualified">Qualified</option>
+                    <option value="won">Won</option>
+                    <option value="lost">Lost</option>
+                </select>
+                <select class="input select" id="category">
+                    <option value="">All Categories</option>
+                </select>
+                <select class="input select" id="project">
+                    <option value="">All Projects</option>
+                </select>
+                <button class="btn primary" id="btn-clear" type="button">Clear</button>
+            </div>
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th style="width: 14%;">Created</th>
+                            <th style="width: 20%;">Customer</th>
+                            <th style="width: 18%;">Contact</th>
+                            <th style="width: 14%;">Category</th>
+                            <th style="width: 20%;">Project</th>
+                            <th style="width: 14%;">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tbody"></tbody>
+                </table>
+                <div class="empty" id="empty" style="display:none;">
+                    <strong>No buy interests yet</strong>
+                    <div>Once customers submit the cart checkout from a panorama, leads will appear here.</div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <div class="drawer-backdrop" id="drawer-backdrop"></div>
+    <aside class="drawer" id="drawer" aria-hidden="true">
+        <div class="drawer-head">
+            <div style="min-width:0;">
+                <h2 id="d-title">Lead</h2>
+                <div class="subtle" id="d-subtitle"></div>
+            </div>
+            <button class="drawer-close" id="drawer-close" type="button" aria-label="Close">×</button>
+        </div>
+        <div class="drawer-body">
+            <div class="drawer-section">
+                <h3>Contact</h3>
+                <div class="kv" id="d-contact"></div>
+            </div>
+            <div class="drawer-section">
+                <h3>Interest</h3>
+                <div class="kv" id="d-interest"></div>
+            </div>
+            <div class="drawer-section">
+                <h3>Update</h3>
+                <div style="display:grid;gap:0.65rem;">
+                    <select class="input select" id="d-status">
+                        <option value="new">New</option>
+                        <option value="contacted">Contacted</option>
+                        <option value="qualified">Qualified</option>
+                        <option value="won">Won</option>
+                        <option value="lost">Lost</option>
+                    </select>
+                    <textarea class="input" id="d-notes" rows="5" style="height:auto;border-radius:14px;padding:0.8rem 0.9rem;resize:vertical;" placeholder="Notes (call summary, next steps, objections, etc)"></textarea>
+                    <div class="msg" id="d-msg" style="display:none;"></div>
+                </div>
+            </div>
+        </div>
+        <div class="drawer-foot">
+            <button class="btn" id="btn-contacted" type="button">Mark Contacted</button>
+            <button class="btn primary" id="btn-save" type="button">Save</button>
+        </div>
+    </aside>
+
+    <script>
+        const elStats = document.getElementById('stats-grid');
+        const elPipe = document.getElementById('pipeline');
+        const elTbody = document.getElementById('tbody');
+        const elEmpty = document.getElementById('empty');
+        const elMeta = document.getElementById('results-meta');
+
+        const qEl = document.getElementById('q');
+        const statusEl = document.getElementById('status');
+        const categoryEl = document.getElementById('category');
+        const projectEl = document.getElementById('project');
+        const btnClear = document.getElementById('btn-clear');
+        const btnRefresh = document.getElementById('btn-refresh');
+        const btnExport = document.getElementById('btn-export');
+
+        const drawerBackdrop = document.getElementById('drawer-backdrop');
+        const drawer = document.getElementById('drawer');
+        const drawerClose = document.getElementById('drawer-close');
+
+        const dTitle = document.getElementById('d-title');
+        const dSubtitle = document.getElementById('d-subtitle');
+        const dContact = document.getElementById('d-contact');
+        const dInterest = document.getElementById('d-interest');
+        const dStatus = document.getElementById('d-status');
+        const dNotes = document.getElementById('d-notes');
+        const dMsg = document.getElementById('d-msg');
+        const btnSave = document.getElementById('btn-save');
+        const btnContacted = document.getElementById('btn-contacted');
+
+        let projects = [];
+        let projectById = new Map();
+        let interests = [];
+        let filtered = [];
+        let selected = null;
+
+        function escapeHtml(value) {
+            return String(value || '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/\"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
+        function fmtDate(iso) {
+            try {
+                const d = new Date(iso);
+                if (Number.isNaN(d.getTime())) return String(iso || '—');
+                return d.toLocaleString(undefined, { year: 'numeric', month: 'short', day: '2-digit' });
+            } catch (e) {
+                return String(iso || '—');
+            }
+        }
+
+        function fmtTime(iso) {
+            try {
+                const d = new Date(iso);
+                if (Number.isNaN(d.getTime())) return '';
+                return d.toLocaleString(undefined, { hour: '2-digit', minute: '2-digit' });
+            } catch (e) {
+                return '';
+            }
+        }
+
+        function countByStatus(items) {
+            const counts = { new: 0, contacted: 0, qualified: 0, won: 0, lost: 0, total: 0 };
+            (items || []).forEach((i) => {
+                const s = String(i.status || 'new').toLowerCase();
+                if (counts[s] !== undefined) counts[s] += 1;
+                counts.total += 1;
+            });
+            return counts;
+        }
+
+        function renderStats() {
+            const c = countByStatus(filtered.length ? filtered : interests);
+            const total = Math.max(1, c.total);
+            const winRate = ((c.won / total) * 100);
+            const lossRate = ((c.lost / total) * 100);
+            const qualifyRate = ((c.qualified / total) * 100);
+
+            elStats.innerHTML = [
+                statCard('Total', c.total, 'All captured interests'),
+                statCard('New', c.new, 'Uncontacted leads'),
+                statCard('Qualified', c.qualified, `~${qualifyRate.toFixed(0)}% of total`),
+                statCard('Won / Lost', `${c.won} / ${c.lost}`, `Win ${winRate.toFixed(0)}% • Lost ${lossRate.toFixed(0)}%`),
+            ].join('');
+        }
+
+        function statCard(label, value, hint) {
+            return `
+                <div class="stat">
+                    <div class="label">${escapeHtml(label)}</div>
+                    <div class="value mono">${escapeHtml(value)}</div>
+                    <div class="hint">${escapeHtml(hint)}</div>
+                </div>
+            `;
+        }
+
+        function renderPipeline() {
+            const c = countByStatus(filtered.length ? filtered : interests);
+            const total = Math.max(1, c.total);
+            const rows = [
+                pipeRow('New', c.new, total),
+                pipeRow('Contacted', c.contacted, total),
+                pipeRow('Qualified', c.qualified, total),
+                pipeRow('Won', c.won, total),
+                pipeRow('Lost', c.lost, total),
+            ];
+            elPipe.innerHTML = rows.join('');
+            requestAnimationFrame(() => {
+                document.querySelectorAll('[data-pipe-fill]').forEach((el) => {
+                    el.style.width = (el.getAttribute('data-pipe-fill') || '0') + '%';
+                });
+            });
+        }
+
+        function pipeRow(label, count, total) {
+            const pct = Math.round((count / Math.max(1, total)) * 100);
+            return `
+                <div class="pipe-row">
+                    <div>
+                        <div class="pipe-name">${escapeHtml(label)}</div>
+                        <div class="pipe-bar"><div class="pipe-fill" data-pipe-fill="${pct}"></div></div>
+                    </div>
+                    <div class="pipe-meta">
+                        <div class="pipe-count mono">${count}</div>
+                        <div class="pipe-pct">${pct}%</div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderCategoryOptions() {
+            const values = new Set();
+            interests.forEach((i) => { if (i.category) values.add(String(i.category)); });
+            const current = categoryEl.value;
+            const options = [''].concat(Array.from(values).sort());
+            categoryEl.innerHTML = options.map((v) => `<option value="${escapeHtml(v)}">${v ? escapeHtml(v) : 'All Categories'}</option>`).join('');
+            categoryEl.value = options.includes(current) ? current : '';
+        }
+
+        function renderProjectOptions() {
+            const current = projectEl.value;
+            const opts = [''].concat(projects.map((p) => String(p.id)));
+            projectEl.innerHTML = opts.map((id) => {
+                if (!id) return '<option value="">All Projects</option>';
+                const name = (projectById.get(String(id)) || {}).name || ('Project #' + id);
+                return `<option value="${escapeHtml(id)}">${escapeHtml(name)}</option>`;
+            }).join('');
+            projectEl.value = opts.includes(current) ? current : '';
+        }
+
+        function applyFilters() {
+            const q = String(qEl.value || '').trim().toLowerCase();
+            const status = String(statusEl.value || '').trim().toLowerCase();
+            const category = String(categoryEl.value || '').trim().toLowerCase();
+            const project = String(projectEl.value || '').trim();
+
+            filtered = interests.filter((i) => {
+                if (status && String(i.status || '').toLowerCase() !== status) return false;
+                if (category && String(i.category || '').toLowerCase() !== category) return false;
+                if (project && String(i.panorama_id || '') !== project) return false;
+                if (q) {
+                    const hay = [
+                        i.customer_name,
+                        i.customer_email,
+                        i.customer_phone,
+                        i.category,
+                        (projectById.get(String(i.panorama_id)) || {}).name,
+                        (Array.isArray(i.plots) ? i.plots.map((p) => p && p.name).join(' ') : ''),
+                    ].join(' ').toLowerCase();
+                    if (!hay.includes(q)) return false;
+                }
+                return true;
+            });
+        }
+
+        function renderTable() {
+            const rows = filtered;
+            elMeta.textContent = rows.length + (rows.length === 1 ? ' result' : ' results');
+            elEmpty.style.display = (rows.length === 0) ? '' : 'none';
+
+            elTbody.innerHTML = rows.map((i) => {
+                const project = projectById.get(String(i.panorama_id));
+                const projectName = project && project.name ? project.name : ('Project #' + i.panorama_id);
+                const plots = Array.isArray(i.plots) ? i.plots : [];
+                const plotLabel = plots.length ? (plots.length === 1 ? (plots[0].name || '1 plot') : (plots.length + ' plots')) : '—';
+                const created = fmtDate(i.created_at);
+                const time = fmtTime(i.created_at);
+                const st = String(i.status || 'new').toLowerCase();
+                return `
+                    <tr data-id="${escapeHtml(i.id)}">
+                        <td class="mono">${escapeHtml(created)}<div class="subtle">${escapeHtml(time)}</div></td>
+                        <td><div style="font-weight:800;">${escapeHtml(i.customer_name || '—')}</div><div class="subtle">${escapeHtml(plotLabel)}</div></td>
+                        <td><div>${escapeHtml(i.customer_email || '—')}</div><div class="subtle mono">${escapeHtml(i.customer_phone || '')}</div></td>
+                        <td>${escapeHtml(i.category || '—')}</td>
+                        <td><div style="font-weight:800;">${escapeHtml(projectName)}</div><div class="subtle mono">#${escapeHtml(i.panorama_id)}</div></td>
+                        <td><span class="pill ${escapeHtml(st)}"><span class="dot"></span><span>${escapeHtml(st || 'new')}</span></span></td>
+                    </tr>
+                `;
+            }).join('');
+
+            elTbody.querySelectorAll('tr[data-id]').forEach((tr) => {
+                tr.addEventListener('click', () => {
+                    const id = tr.getAttribute('data-id');
+                    const item = interests.find((x) => String(x.id) === String(id));
+                    if (item) openDrawer(item);
+                });
+            });
+        }
+
+        function showDrawerMsg(text, type) {
+            if (!dMsg) return;
+            dMsg.textContent = text || '';
+            dMsg.className = 'msg' + (type === 'error' ? ' error' : '');
+            dMsg.style.display = text ? '' : 'none';
+        }
+
+        function openDrawer(item) {
+            selected = item;
+            const project = projectById.get(String(item.panorama_id));
+            const projectName = project && project.name ? project.name : ('Project #' + item.panorama_id);
+
+            dTitle.textContent = item.customer_name || 'Lead';
+            dSubtitle.textContent = `${projectName} • ${fmtDate(item.created_at)} ${fmtTime(item.created_at)}`.trim();
+
+            dContact.innerHTML = [
+                kvRow('Email', item.customer_email || '—'),
+                kvRow('Phone', item.customer_phone || '—'),
+            ].join('');
+
+            const plots = Array.isArray(item.plots) ? item.plots : [];
+            const plotNames = plots.map((p) => p && p.name ? p.name : '').filter(Boolean);
+            dInterest.innerHTML = [
+                kvRow('Category', item.category || '—'),
+                kvRow('Project', projectName),
+                kvRow('Plots', plotNames.length ? plotNames.join(', ') : '—'),
+            ].join('');
+
+            dStatus.value = String(item.status || 'new').toLowerCase();
+            dNotes.value = String(item.notes || '');
+            showDrawerMsg('');
+
+            drawerBackdrop.classList.add('visible');
+            drawer.classList.add('visible');
+            drawer.setAttribute('aria-hidden', 'false');
+        }
+
+        function kvRow(k, v) {
+            return `<div class="kv-row"><div class="k">${escapeHtml(k)}</div><div class="v">${escapeHtml(v)}</div></div>`;
+        }
+
+        function closeDrawer() {
+            drawerBackdrop.classList.remove('visible');
+            drawer.classList.remove('visible');
+            drawer.setAttribute('aria-hidden', 'true');
+            selected = null;
+        }
+
+        async function saveSelected(partial) {
+            if (!selected) return;
+            btnSave.disabled = true;
+            btnContacted.disabled = true;
+            showDrawerMsg('');
+            try {
+                const headers = await getAuthHeaders();
+                const r = await fetch('/api/buy-interests/' + encodeURIComponent(String(selected.id)), {
+                    method: 'PATCH',
+                    headers: Object.assign({ 'Content-Type': 'application/json' }, headers || {}),
+                    body: JSON.stringify(partial || {})
+                });
+                const data = await r.json().catch(() => ({}));
+                if (!r.ok) throw new Error((data && data.error) ? data.error : ('Update failed (' + r.status + ')'));
+                showDrawerMsg('Saved.');
+                await loadInterests();
+                const updated = interests.find((x) => String(x.id) === String(selected.id));
+                if (updated) openDrawer(updated);
+            } catch (e) {
+                showDrawerMsg(e.message || 'Failed to save', 'error');
+            } finally {
+                btnSave.disabled = false;
+                btnContacted.disabled = false;
+            }
+        }
+
+        function toCsvValue(value) {
+            const s = String(value || '');
+            if (/[\",\\n]/.test(s)) return '\"' + s.replace(/\"/g, '\"\"') + '\"';
+            return s;
+        }
+
+        function exportCsv() {
+            const rows = filtered;
+            const header = ['created_at', 'status', 'category', 'project_id', 'project_name', 'customer_name', 'customer_email', 'customer_phone', 'plots', 'notes'];
+            const lines = [header.join(',')];
+            rows.forEach((i) => {
+                const project = projectById.get(String(i.panorama_id));
+                const projectName = (project && project.name) ? project.name : '';
+                const plots = Array.isArray(i.plots) ? i.plots.map((p) => (p && p.name) ? p.name : '').filter(Boolean).join('; ') : '';
+                lines.push([
+                    toCsvValue(i.created_at || ''),
+                    toCsvValue(i.status || ''),
+                    toCsvValue(i.category || ''),
+                    toCsvValue(i.panorama_id || ''),
+                    toCsvValue(projectName),
+                    toCsvValue(i.customer_name || ''),
+                    toCsvValue(i.customer_email || ''),
+                    toCsvValue(i.customer_phone || ''),
+                    toCsvValue(plots),
+                    toCsvValue(i.notes || ''),
+                ].join(','));
+            });
+            const blob = new Blob([lines.join('\\n')], { type: 'text/csv;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'buy_interests.csv';
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            setTimeout(() => URL.revokeObjectURL(url), 5000);
+        }
+
+        async function loadProjects() {
+            const headers = await getAuthHeaders();
+            const r = await fetch('/api/panoramas', { headers });
+            if (r.status === 401) { window.location.replace('/login'); return; }
+            if (!r.ok) throw new Error('Failed to load projects');
+            const all = await r.json();
+            projects = (Array.isArray(all) ? all : []).filter((p) => p && (p.access_type === 'owner' || p.access_type === 'client'));
+            projectById = new Map(projects.map((p) => [String(p.id), p]));
+            renderProjectOptions();
+        }
+
+        async function loadInterests() {
+            const headers = await getAuthHeaders();
+            const r = await fetch('/api/buy-interests', { headers });
+            const data = await r.json().catch(() => ([]));
+            if (!r.ok) {
+                const msg = data && data.error ? data.error : ('Failed to load interests (' + r.status + ')');
+                throw new Error(msg);
+            }
+            interests = Array.isArray(data) ? data : [];
+            renderCategoryOptions();
+            applyFilters();
+            renderStats();
+            renderPipeline();
+            renderTable();
+        }
+
+        function resetFilters() {
+            qEl.value = '';
+            statusEl.value = '';
+            categoryEl.value = '';
+            projectEl.value = '';
+            applyFilters();
+            renderStats();
+            renderPipeline();
+            renderTable();
+        }
+
+        qEl.addEventListener('input', () => { applyFilters(); renderStats(); renderPipeline(); renderTable(); });
+        statusEl.addEventListener('change', () => { applyFilters(); renderStats(); renderPipeline(); renderTable(); });
+        categoryEl.addEventListener('change', () => { applyFilters(); renderStats(); renderPipeline(); renderTable(); });
+        projectEl.addEventListener('change', () => { applyFilters(); renderStats(); renderPipeline(); renderTable(); });
+
+        btnClear.addEventListener('click', resetFilters);
+        btnRefresh.addEventListener('click', async () => {
+            btnRefresh.disabled = true;
+            try { await loadProjects(); await loadInterests(); }
+            catch (e) { console.warn(e); }
+            finally { btnRefresh.disabled = false; }
+        });
+        btnExport.addEventListener('click', exportCsv);
+
+        drawerClose.addEventListener('click', closeDrawer);
+        drawerBackdrop.addEventListener('click', closeDrawer);
+        document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeDrawer(); });
+
+        btnContacted.addEventListener('click', () => saveSelected({ status: 'contacted' }));
+        btnSave.addEventListener('click', () => saveSelected({ status: dStatus.value, notes: dNotes.value }));
+
+        (async function init() {
+            try {
+                await loadProjects();
+                await loadInterests();
+                if (interests.length === 0) {
+                    elEmpty.style.display = '';
+                }
+            } catch (e) {
+                elEmpty.style.display = '';
+                elEmpty.innerHTML = '<strong>CRM unavailable</strong><div>' + escapeHtml(e.message || 'Failed to load CRM') + '</div>';
+            }
+        })();
+    </script>
+</body>
+
+</html>

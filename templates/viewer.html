@@ -861,7 +861,6 @@
     var s=window.supabase.createClient(url,key);
     window._supabase=s;
     window.getAuthHeaders=function(){return s.auth.getSession().then(function(r){var h={};if(r.data.session&&r.data.session.access_token)h['Authorization']='Bearer '+r.data.session.access_token;return h;});};
-    s.auth.getSession().then(function(r){if(!r.data.session)window.location.replace('/login');});
     })();
     </script>
     <div class="loading-overlay" id="loading">
@@ -1040,7 +1039,8 @@
 
     <script>
         const PANORAMA_ID = {{ panorama.id }};
-        const IS_360 = 0; // Normal panoramas only (360° images use /customer/3d routes)
+        const IS_360 = 0; // Normal panoramas only (360° images use /customer/<org>/3d routes)
+        const ORG_SLUG = {{ (org_slug or '')|tojson }};
 
         const loading = document.getElementById('loading');
         const shareBtn = document.getElementById('share-btn');
@@ -1098,7 +1098,10 @@
                     return;
                 }
                 if (!canUseFrom) return;
-                const path = fromMode === '3d' ? `/customer/3d/${encodeURIComponent(fromId)}` : `/customer/${encodeURIComponent(fromId)}`;
+                const slug = String(ORG_SLUG || '').trim();
+                const path = fromMode === '3d'
+                    ? (slug ? `/customer/${encodeURIComponent(slug)}/3d/${encodeURIComponent(fromId)}` : `/customer/3d/${encodeURIComponent(fromId)}`)
+                    : (slug ? `/customer/${encodeURIComponent(slug)}/${encodeURIComponent(fromId)}` : `/customer/${encodeURIComponent(fromId)}`);
                 window.location.href = path;
             });
         })();
@@ -1139,6 +1142,77 @@
             return id ? `https://drive.google.com/file/d/${id}/preview` : url;
         }
 
+        function normalizeExternalUrl(rawUrl) {
+            const url = String(rawUrl || '').trim();
+            if (!url) return '';
+            if (/^https?:\/\//i.test(url)) return url;
+            if (url.startsWith('//')) return `https:${url}`;
+            if (/^(www\.|youtu\.be\/|youtube\.com\/|m\.youtube\.com\/|drive\.google\.com\/)/i.test(url)) {
+                return `https://${url}`;
+            }
+            return url;
+        }
+
+        function parseTimeToSeconds(value) {
+            const raw = String(value || '').trim();
+            if (!raw) return 0;
+            if (/^\d+$/.test(raw)) return Math.max(0, parseInt(raw, 10) || 0);
+            if (raw.includes(':')) {
+                const parts = raw.split(':').map((v) => parseInt(v, 10));
+                if (parts.some((n) => Number.isNaN(n))) return 0;
+                return parts.reduce((acc, n) => acc * 60 + n, 0);
+            }
+            const match = raw.match(/^(?:(\d+)h)?(?:(\d+)m)?(?:(\d+)s)?$/i);
+            if (!match) return 0;
+            const h = parseInt(match[1] || '0', 10) || 0;
+            const m = parseInt(match[2] || '0', 10) || 0;
+            const s = parseInt(match[3] || '0', 10) || 0;
+            return Math.max(0, (h * 3600) + (m * 60) + s);
+        }
+
+        function extractYouTubeId(rawUrl) {
+            const normalized = normalizeExternalUrl(rawUrl);
+            if (!normalized) return null;
+            let url = null;
+            try {
+                url = new URL(normalized);
+            } catch (e) {
+                return null;
+            }
+            const host = String(url.hostname || '').replace(/^www\./, '').toLowerCase();
+            const path = String(url.pathname || '');
+            let id = null;
+            if (host === 'youtu.be') {
+                id = path.split('/').filter(Boolean)[0] || null;
+            } else if (host.endsWith('youtube.com') || host.endsWith('youtube-nocookie.com')) {
+                if (path === '/watch') id = url.searchParams.get('v');
+                else if (path.startsWith('/embed/')) id = path.split('/')[2] || null;
+                else if (path.startsWith('/shorts/')) id = path.split('/')[2] || null;
+                else if (path.startsWith('/live/')) id = path.split('/')[2] || null;
+            } else if (host === 'm.youtube.com') {
+                if (path === '/watch') id = url.searchParams.get('v');
+            }
+            if (!id) return null;
+            id = String(id).trim();
+            if (!/^[a-zA-Z0-9_-]{6,20}$/.test(id)) return null;
+            return id;
+        }
+
+        function normalizeYouTubeEmbedUrl(rawUrl) {
+            const normalized = normalizeExternalUrl(rawUrl);
+            const id = extractYouTubeId(normalized);
+            if (!id) return '';
+            let start = 0;
+            try {
+                const url = new URL(normalized);
+                start = parseTimeToSeconds(url.searchParams.get('start') || url.searchParams.get('t') || '');
+            } catch (e) {}
+            const params = [];
+            if (start > 0) params.push(`start=${start}`);
+            params.push('rel=0');
+            return `https://www.youtube-nocookie.com/embed/${id}?${params.join('&')}`;
+        }
+
         function isLikelyVideoFile(url) {
             return /\.(mp4|webm|ogg)(\?.*)?$/.test(url || '');
         }
@@ -1161,7 +1235,7 @@
                 img.style.maxWidth = '100%'; img.style.height = 'auto';
                 try {
                     const headers = await (window.getAuthHeaders ? window.getAuthHeaders() : Promise.resolve({}));
-                    const r = await fetch('/api/plots/' + plot.id + '/image', { headers });
+                    const r = await fetch('/api/public/plots/' + plot.id + '/image', { headers });
                     if (r.ok) { const blob = await r.blob(); img.src = URL.createObjectURL(blob); }
                 } catch (e) { console.warn('Plot image load failed', e); }
                 mediaWrapper.appendChild(img);
@@ -1170,8 +1244,9 @@
                 const mediaWrapper = document.createElement('div');
                 mediaWrapper.className = 'media-wrapper';
                 const iframe = document.createElement('iframe');
-                iframe.src = normalizeDriveVideoUrl(photoUrl);
-                iframe.allow = 'autoplay';
+                const ytEmbed = normalizeYouTubeEmbedUrl(photoUrl);
+                iframe.src = ytEmbed || normalizeDriveVideoUrl(photoUrl);
+                iframe.allow = 'autoplay; encrypted-media';
                 iframe.allowFullscreen = true;
                 iframe.loading = 'lazy';
                 iframe.title = `${plot.name || 'Plot'} photo`;
@@ -1180,13 +1255,14 @@
             }
 
             if (videoUrl) {
+                const ytEmbed = normalizeYouTubeEmbedUrl(videoUrl);
                 const driveId = extractDriveId(videoUrl);
                 const wrapper = document.createElement('div');
                 wrapper.className = 'media-wrapper';
 
-                if (driveId || !isLikelyVideoFile(videoUrl)) {
+                if (ytEmbed || driveId || !isLikelyVideoFile(videoUrl)) {
                     const iframe = document.createElement('iframe');
-                    iframe.src = normalizeDriveVideoUrl(videoUrl);
+                    iframe.src = ytEmbed || normalizeDriveVideoUrl(videoUrl);
                     iframe.allow = 'autoplay; encrypted-media';
                     iframe.allowFullscreen = true;
                     iframe.loading = 'lazy';
@@ -1214,8 +1290,9 @@
         async function loadPlots() {
             try {
                 const headers = await (window.getAuthHeaders ? window.getAuthHeaders() : Promise.resolve({}));
-                const response = await fetch(`/api/panoramas/${PANORAMA_ID}/plots`, { headers });
-                plots = await response.json();
+                const response = await fetch(`/api/public/panoramas/${PANORAMA_ID}/plots`, { headers });
+                const data = await response.json();
+                plots = Array.isArray(data) ? data : [];
                 {% if not panorama.is_360 %}
                 renderPlots();
                 {% endif %}
@@ -1297,8 +1374,9 @@
         async function loadPlots() {
             try {
                 const headers = await (window.getAuthHeaders ? window.getAuthHeaders() : Promise.resolve({}));
-                const response = await fetch(`/api/panoramas/${PANORAMA_ID}/plots`, { headers });
-                plots = await response.json();
+                const response = await fetch(`/api/public/panoramas/${PANORAMA_ID}/plots`, { headers });
+                const data = await response.json();
+                plots = Array.isArray(data) ? data : [];
                 renderPlots();
             } catch (error) {
                 console.error('Failed to load plots:', error);
@@ -1423,7 +1501,65 @@
             return `rgba(${parts[0]}, ${parts[1]}, ${parts[2]}, ${alpha})`;
         }
 
+        function pointOnSegment(px, py, ax, ay, bx, by) {
+            const cross = (px - ax) * (by - ay) - (py - ay) * (bx - ax);
+            if (Math.abs(cross) > 1e-6) return false;
+            const dot = (px - ax) * (bx - ax) + (py - ay) * (by - ay);
+            if (dot < -1e-6) return false;
+            const lenSq = (bx - ax) * (bx - ax) + (by - ay) * (by - ay);
+            if (dot - lenSq > 1e-6) return false;
+            return true;
+        }
+
+        function pointInPolygon(pt, poly) {
+            const x = Number(pt && pt.x);
+            const y = Number(pt && pt.y);
+            if (!Number.isFinite(x) || !Number.isFinite(y) || !Array.isArray(poly) || poly.length < 3) return false;
+
+            for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+                const a = poly[j];
+                const b = poly[i];
+                if (pointOnSegment(x, y, a.x, a.y, b.x, b.y)) return true;
+            }
+
+            let inside = false;
+            for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+                const xi = poly[i].x, yi = poly[i].y;
+                const xj = poly[j].x, yj = poly[j].y;
+                const intersect = ((yi > y) !== (yj > y)) && (x < ((xj - xi) * (y - yi)) / (yj - yi) + xi);
+                if (intersect) inside = !inside;
+            }
+            return inside;
+        }
+
+        function polygonAreaCentroid(points) {
+            if (!Array.isArray(points) || points.length < 3) return null;
+            let area = 0;
+            let cx = 0;
+            let cy = 0;
+            for (let i = 0, j = points.length - 1; i < points.length; j = i++) {
+                const p1 = points[j];
+                const p2 = points[i];
+                const cross = (p1.x * p2.y) - (p2.x * p1.y);
+                area += cross;
+                cx += (p1.x + p2.x) * cross;
+                cy += (p1.y + p2.y) * cross;
+            }
+            area *= 0.5;
+            if (Math.abs(area) < 1e-7) return null;
+            cx /= (6 * area);
+            cy /= (6 * area);
+            if (!Number.isFinite(cx) || !Number.isFinite(cy)) return null;
+            return { x: cx, y: cy };
+        }
+
         function getCentroid(points) {
+            if (!Array.isArray(points) || points.length === 0) return null;
+
+            const c = polygonAreaCentroid(points);
+            if (c && pointInPolygon(c, points)) return c;
+
+            // Backward-compatible fallback (previous behavior).
             let x = 0, y = 0;
             points.forEach(p => { x += p.x; y += p.y; });
             return { x: x / points.length, y: y / points.length };
@@ -1431,13 +1567,15 @@
 
         // Share button handlers (available in both modes)
         shareBtn.addEventListener('click', () => {
-            const viewUrl = `${window.location.origin}/customer/${PANORAMA_ID}`;
+            const slug = String(ORG_SLUG || '').trim();
+            const viewUrl = `${window.location.origin}${slug ? `/customer/${encodeURIComponent(slug)}/${PANORAMA_ID}` : `/customer/${PANORAMA_ID}`}`;
             shareUrl.textContent = viewUrl;
             shareModal.classList.add('visible');
         });
 
         copyBtn.addEventListener('click', () => {
-            const viewUrl = `${window.location.origin}/customer/${PANORAMA_ID}`;
+            const slug = String(ORG_SLUG || '').trim();
+            const viewUrl = `${window.location.origin}${slug ? `/customer/${encodeURIComponent(slug)}/${PANORAMA_ID}` : `/customer/${PANORAMA_ID}`}`;
             navigator.clipboard.writeText(viewUrl).then(() => {
                 copyBtn.textContent = 'Copied!';
                 setTimeout(() => {

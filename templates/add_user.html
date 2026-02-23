@@ -11,6 +11,7 @@
         href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Syne:wght@400;500;600;700&display=swap"
         rel="stylesheet">
     <script src="/static/js/supabase.min.js"></script>
+    <script src="/static/js/org_theme.js"></script>
     <style>
         :root {
             --color-bg: #0a0a0b;
@@ -211,12 +212,14 @@
             return;
         }
         var supabase = window.supabase.createClient(supabaseUrl, supabaseAnonKey);
+        window._supabase = supabase;
         var form = document.getElementById('form-add-user');
         var guestMsg = document.getElementById('guest-msg');
 
         supabase.auth.getSession().then(function (_ref) {
             var session = _ref.data.session;
             if (session) {
+                try { if (window.applyOrgTheme) window.applyOrgTheme(); } catch (e) { }
                 form.style.display = 'block';
             } else {
                 window.location.replace('/login');

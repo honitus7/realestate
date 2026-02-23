@@ -2178,6 +2178,29 @@
             border: 1px solid rgba(255, 255, 255, 0.14);
         }
 
+        .marker-media-preview {
+            margin: 0.2rem 0 0.65rem;
+            display: none;
+        }
+
+        .marker-media-preview iframe,
+        .marker-media-preview video {
+            width: 100%;
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.14);
+            background: rgba(0, 0, 0, 0.35);
+        }
+
+        .marker-media-preview iframe {
+            height: 180px;
+        }
+
+        .marker-media-helper {
+            margin: -0.3rem 0 0.65rem;
+            color: var(--color-muted);
+            font-size: 0.74rem;
+        }
+
         .marker-modal-actions {
             display: flex;
             gap: 0.6rem;
@@ -2405,6 +2428,7 @@
         }
     </style>
     <script src="/static/js/supabase.min.js"></script>
+    <script src="/static/js/org_theme.js"></script>
 </head>
 
 <body>
@@ -2509,10 +2533,10 @@
                 <div class="form-helper">Upload an image (stored in cloud storage) or add a share link.</div>
             </div>
             <div class="form-group">
-                <label class="form-label">Video Link (Google Drive)</label>
+                <label class="form-label">Video Link (YouTube / Google Drive)</label>
                 <input type="text" class="form-input" id="plot-media-video"
-                    placeholder="https://drive.google.com/file/d/...">
-                <div class="form-helper">Optional. Add a share link for a plot video.</div>
+                    placeholder="https://youtu.be/... or https://drive.google.com/file/d/...">
+                <div class="form-helper">Optional. Paste a YouTube or Google Drive share link for a plot video.</div>
             </div>
             <div class="form-group">
                 <label class="form-label">Plot Color</label>
@@ -2610,6 +2634,8 @@
             <input id="marker-name" class="marker-form-input" type="text" maxlength="120">
             <label class="marker-form-label" for="marker-description">Description</label>
             <textarea id="marker-description" class="marker-form-textarea" maxlength="2000"></textarea>
+            <div class="marker-media-preview" id="marker-media-preview"></div>
+            <div class="marker-media-helper">Tip: paste a YouTube or Google Drive link in the description to embed it.</div>
             <label class="marker-form-label" for="marker-style">Marker Type</label>
             <select id="marker-style" class="marker-form-select"></select>
             <label class="marker-form-label" for="marker-icon-search">Marker Icon</label>
@@ -2645,6 +2671,7 @@
     <script>
         const PANORAMA_ID = {{ panorama.id }};
         const IS_360 = 1; // Always 360 for 3D routes
+        const ORG_SLUG = {{ (org_slug or '')|tojson }};
 
         const loading = document.getElementById('loading');
         const editToggle = document.getElementById('edit-toggle');
@@ -2899,8 +2926,87 @@
             return id ? `https://drive.google.com/file/d/${id}/preview` : url;
         }
 
+        function normalizeExternalUrl(rawUrl) {
+            const url = String(rawUrl || '').trim();
+            if (!url) return '';
+            if (/^https?:\/\//i.test(url)) return url;
+            if (url.startsWith('//')) return `https:${url}`;
+            if (/^(www\.|youtu\.be\/|youtube\.com\/|m\.youtube\.com\/|drive\.google\.com\/)/i.test(url)) {
+                return `https://${url}`;
+            }
+            return url;
+        }
+
+        function parseTimeToSeconds(value) {
+            const raw = String(value || '').trim();
+            if (!raw) return 0;
+            if (/^\d+$/.test(raw)) return Math.max(0, parseInt(raw, 10) || 0);
+            if (raw.includes(':')) {
+                const parts = raw.split(':').map((v) => parseInt(v, 10));
+                if (parts.some((n) => Number.isNaN(n))) return 0;
+                return parts.reduce((acc, n) => acc * 60 + n, 0);
+            }
+            const match = raw.match(/^(?:(\d+)h)?(?:(\d+)m)?(?:(\d+)s)?$/i);
+            if (!match) return 0;
+            const h = parseInt(match[1] || '0', 10) || 0;
+            const m = parseInt(match[2] || '0', 10) || 0;
+            const s = parseInt(match[3] || '0', 10) || 0;
+            return Math.max(0, (h * 3600) + (m * 60) + s);
+        }
+
+        function extractYouTubeId(rawUrl) {
+            const normalized = normalizeExternalUrl(rawUrl);
+            if (!normalized) return null;
+            let url = null;
+            try {
+                url = new URL(normalized);
+            } catch (e) {
+                return null;
+            }
+            const host = String(url.hostname || '').replace(/^www\./, '').toLowerCase();
+            const path = String(url.pathname || '');
+            let id = null;
+            if (host === 'youtu.be') {
+                id = path.split('/').filter(Boolean)[0] || null;
+            } else if (host.endsWith('youtube.com') || host.endsWith('youtube-nocookie.com')) {
+                if (path === '/watch') id = url.searchParams.get('v');
+                else if (path.startsWith('/embed/')) id = path.split('/')[2] || null;
+                else if (path.startsWith('/shorts/')) id = path.split('/')[2] || null;
+                else if (path.startsWith('/live/')) id = path.split('/')[2] || null;
+            } else if (host === 'm.youtube.com') {
+                if (path === '/watch') id = url.searchParams.get('v');
+            }
+            if (!id) return null;
+            id = String(id).trim();
+            // Most YouTube ids are 11 chars; keep permissive but sanity-check characters.
+            if (!/^[a-zA-Z0-9_-]{6,20}$/.test(id)) return null;
+            return id;
+        }
+
+        function normalizeYouTubeEmbedUrl(rawUrl) {
+            const normalized = normalizeExternalUrl(rawUrl);
+            const id = extractYouTubeId(normalized);
+            if (!id) return '';
+            let start = 0;
+            try {
+                const url = new URL(normalized);
+                start = parseTimeToSeconds(url.searchParams.get('start') || url.searchParams.get('t') || '');
+            } catch (e) {}
+            const params = [];
+            if (start > 0) params.push(`start=${start}`);
+            params.push('rel=0');
+            return `https://www.youtube-nocookie.com/embed/${id}?${params.join('&')}`;
+        }
+
         function isLikelyVideoFile(url) {
             return /\.(mp4|webm|ogg)(\?.*)?$/.test(url || '');
+        }
+
+        function extractFirstUrl(text) {
+            const raw = String(text || '');
+            const match = raw.match(/(https?:\/\/[^\s<>"']+|www\.[^\s<>"']+)/i);
+            if (!match) return '';
+            return String(match[1] || '').replace(/[)\].,;!]+$/g, '');
         }
 
         async function renderPlotMedia(plot) {
@@ -2930,8 +3036,9 @@
                 const mediaWrapper = document.createElement('div');
                 mediaWrapper.className = 'media-wrapper';
                 const iframe = document.createElement('iframe');
-                iframe.src = normalizeDriveVideoUrl(photoUrl);
-                iframe.allow = 'autoplay';
+                const ytEmbed = normalizeYouTubeEmbedUrl(photoUrl);
+                iframe.src = ytEmbed || normalizeDriveVideoUrl(photoUrl);
+                iframe.allow = 'autoplay; encrypted-media';
                 iframe.allowFullscreen = true;
                 iframe.loading = 'lazy';
                 iframe.title = `${plot.name || 'Plot'} photo`;
@@ -2940,13 +3047,14 @@
             }
 
             if (videoUrl) {
+                const ytEmbed = normalizeYouTubeEmbedUrl(videoUrl);
                 const driveId = extractDriveId(videoUrl);
                 const wrapper = document.createElement('div');
                 wrapper.className = 'media-wrapper';
 
-                if (driveId || !isLikelyVideoFile(videoUrl)) {
+                if (ytEmbed || driveId || !isLikelyVideoFile(videoUrl)) {
                     const iframe = document.createElement('iframe');
-                    iframe.src = normalizeDriveVideoUrl(videoUrl);
+                    iframe.src = ytEmbed || normalizeDriveVideoUrl(videoUrl);
                     iframe.allow = 'autoplay; encrypted-media';
                     iframe.allowFullscreen = true;
                     iframe.loading = 'lazy';
@@ -3010,6 +3118,7 @@
                     formBackdrop: document.getElementById('marker-form-modal'),
                     nameInput: document.getElementById('marker-name'),
                     descriptionInput: document.getElementById('marker-description'),
+                    mediaPreview: document.getElementById('marker-media-preview'),
                     styleSelect: document.getElementById('marker-style'),
                     iconInput: document.getElementById('marker-icon'),
                     iconSelect: document.getElementById('marker-icon-select'),
@@ -3049,6 +3158,9 @@
                 }
                 if (d.imageInput) {
                     d.imageInput.addEventListener('change', () => this.previewSelectedImage());
+                }
+                if (d.descriptionInput) {
+                    d.descriptionInput.addEventListener('input', () => this.updateMediaPreviewFromDescription(d.descriptionInput.value));
                 }
                 if (!this.iconDropdownBound) {
                     if (d.iconTrigger) {
@@ -3369,6 +3481,35 @@
                 }
             }
 
+            updateMediaPreviewFromDescription(descriptionText) {
+                const d = this.dom;
+                if (!d.mediaPreview) return;
+                const url = extractFirstUrl(descriptionText);
+                const ytEmbed = normalizeYouTubeEmbedUrl(url);
+                const driveId = extractDriveId(url);
+
+                if (ytEmbed) {
+                    d.mediaPreview.innerHTML = `<iframe src="${this.escapeAttr(ytEmbed)}" title="YouTube preview" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen loading="lazy"></iframe>`;
+                    d.mediaPreview.style.display = 'block';
+                    return;
+                }
+                if (driveId) {
+                    const src = normalizeDriveVideoUrl(url);
+                    d.mediaPreview.innerHTML = `<iframe src="${this.escapeAttr(src)}" title="Drive preview" allow="autoplay; encrypted-media" allowfullscreen loading="lazy"></iframe>`;
+                    d.mediaPreview.style.display = 'block';
+                    return;
+                }
+                if (isLikelyVideoFile(url)) {
+                    const src = normalizeExternalUrl(url);
+                    d.mediaPreview.innerHTML = `<video src="${this.escapeAttr(src)}" controls playsinline></video>`;
+                    d.mediaPreview.style.display = 'block';
+                    return;
+                }
+
+                d.mediaPreview.innerHTML = '';
+                d.mediaPreview.style.display = 'none';
+            }
+
             openEditModal(markerId) {
                 const marker = this.markerMap.get(String(markerId));
                 if (!marker) return;
@@ -3377,6 +3518,7 @@
                 this.currentImageUrl = marker.image_object_url || '';
                 if (d.nameInput) d.nameInput.value = marker.name || '';
                 if (d.descriptionInput) d.descriptionInput.value = marker.description || '';
+                this.updateMediaPreviewFromDescription(marker.description || '');
                 if (d.styleSelect) d.styleSelect.value = this.normalizeMarkerStyle(marker.marker_style);
                 this.setIconValue(this.normalizeMarkerIcon(marker.marker_icon), { closePanel: true, rerender: true });
                 if (d.colorInput) d.colorInput.value = this.normalizeMarkerColor(marker.marker_color);
@@ -3400,6 +3542,7 @@
                 this.setIconValue(DEFAULT_MARKER_ICON, { closePanel: true, rerender: true });
                 if (this.dom.colorInput) this.dom.colorInput.value = DEFAULT_MARKER_COLOR;
                 this.currentImageUrl = '';
+                this.updateMediaPreviewFromDescription('');
                 if (this.previewObjectUrl) {
                     try { URL.revokeObjectURL(this.previewObjectUrl); } catch (e) {}
                     this.previewObjectUrl = '';
@@ -3553,41 +3696,57 @@
             async uploadMarkerImage(markerId, file) {
                 if (!file) return '';
                 const headers = await (window.getAuthHeaders ? window.getAuthHeaders() : Promise.resolve({}));
-                const urlResp = await fetch(`/api/markers/${encodeURIComponent(String(markerId))}/image/upload-url`, {
-                    method: 'POST',
-                    headers: Object.assign({ 'Content-Type': 'application/json' }, headers),
-                    body: JSON.stringify({
-                        original_filename: file.name,
-                        content_type: file.type,
-                        size_bytes: file.size
-                    })
-                });
-                if (!urlResp.ok) {
-                    const err = await urlResp.json().catch(() => ({}));
-                    throw new Error(err.error || 'Marker image upload failed');
+                try {
+                    const urlResp = await fetch(`/api/markers/${encodeURIComponent(String(markerId))}/image/upload-url`, {
+                        method: 'POST',
+                        headers: Object.assign({ 'Content-Type': 'application/json' }, headers),
+                        body: JSON.stringify({
+                            original_filename: file.name,
+                            content_type: file.type,
+                            size_bytes: file.size
+                        })
+                    });
+                    if (!urlResp.ok) {
+                        const err = await urlResp.json().catch(() => ({}));
+                        throw new Error(err.error || 'Marker image upload failed');
+                    }
+                    const info = await urlResp.json();
+                    const putResp = await fetch(info.upload_url, {
+                        method: 'PUT',
+                        headers: info.content_type ? { 'Content-Type': info.content_type } : {},
+                        body: file
+                    });
+                    if (!putResp.ok) {
+                        throw new Error('Marker image upload failed');
+                    }
+                    const finalize = new FormData();
+                    finalize.append('filename', info.filename);
+                    finalize.append('upload_token', info.upload_token);
+                    const finalizeResp = await fetch(`/api/markers/${encodeURIComponent(String(markerId))}/image`, {
+                        method: 'POST',
+                        headers,
+                        body: finalize
+                    });
+                    if (!finalizeResp.ok) {
+                        const err = await finalizeResp.json().catch(() => ({}));
+                        throw new Error(err.error || 'Marker image finalize failed');
+                    }
+                    return info.filename || '';
+                } catch (e) {
+                    // Fallback: send file to backend, which uploads to S3 (avoids browser CORS issues).
+                    const fd = new FormData();
+                    fd.append('file', file);
+                    const directResp = await fetch(`/api/markers/${encodeURIComponent(String(markerId))}/image`, {
+                        method: 'POST',
+                        headers,
+                        body: fd
+                    });
+                    const directData = await directResp.json().catch(() => ({}));
+                    if (!directResp.ok) {
+                        throw new Error((directData && directData.error) ? directData.error : (e && e.message ? e.message : 'Marker image upload failed'));
+                    }
+                    return (directData && directData.filename) ? String(directData.filename) : '';
                 }
-                const info = await urlResp.json();
-                const putResp = await fetch(info.upload_url, {
-                    method: 'PUT',
-                    headers: info.content_type ? { 'Content-Type': info.content_type } : {},
-                    body: file
-                });
-                if (!putResp.ok) {
-                    throw new Error('Marker image upload failed');
-                }
-                const finalize = new FormData();
-                finalize.append('filename', info.filename);
-                finalize.append('upload_token', info.upload_token);
-                const finalizeResp = await fetch(`/api/markers/${encodeURIComponent(String(markerId))}/image`, {
-                    method: 'POST',
-                    headers,
-                    body: finalize
-                });
-                if (!finalizeResp.ok) {
-                    const err = await finalizeResp.json().catch(() => ({}));
-                    throw new Error(err.error || 'Marker image finalize failed');
-                }
-                return info.filename || '';
             }
 
             async ensureMarkerImage(markerId) {
@@ -3878,8 +4037,65 @@
             return colorGradients[statusColor] || colorGradients.green;
         }
 
+        function pointOnSegment(px, py, ax, ay, bx, by) {
+            const cross = (px - ax) * (by - ay) - (py - ay) * (bx - ax);
+            if (Math.abs(cross) > 1e-6) return false;
+            const dot = (px - ax) * (bx - ax) + (py - ay) * (by - ay);
+            if (dot < -1e-6) return false;
+            const lenSq = (bx - ax) * (bx - ax) + (by - ay) * (by - ay);
+            if (dot - lenSq > 1e-6) return false;
+            return true;
+        }
+
+        function pointInPolygon(pt, poly) {
+            const x = Number(pt && pt.x);
+            const y = Number(pt && pt.y);
+            if (!Number.isFinite(x) || !Number.isFinite(y) || !Array.isArray(poly) || poly.length < 3) return false;
+
+            for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+                const a = poly[j];
+                const b = poly[i];
+                if (pointOnSegment(x, y, a.x, a.y, b.x, b.y)) return true;
+            }
+
+            let inside = false;
+            for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+                const xi = poly[i].x, yi = poly[i].y;
+                const xj = poly[j].x, yj = poly[j].y;
+                const intersect = ((yi > y) !== (yj > y)) && (x < ((xj - xi) * (y - yi)) / (yj - yi) + xi);
+                if (intersect) inside = !inside;
+            }
+            return inside;
+        }
+
+        function polygonAreaCentroid(points) {
+            if (!Array.isArray(points) || points.length < 3) return null;
+            let area = 0;
+            let cx = 0;
+            let cy = 0;
+            for (let i = 0, j = points.length - 1; i < points.length; j = i++) {
+                const p1 = points[j];
+                const p2 = points[i];
+                const cross = (p1.x * p2.y) - (p2.x * p1.y);
+                area += cross;
+                cx += (p1.x + p2.x) * cross;
+                cy += (p1.y + p2.y) * cross;
+            }
+            area *= 0.5;
+            if (Math.abs(area) < 1e-7) return null;
+            cx /= (6 * area);
+            cy /= (6 * area);
+            if (!Number.isFinite(cx) || !Number.isFinite(cy)) return null;
+            return { x: cx, y: cy };
+        }
+
         function getCentroid(points) {
-            if (!points || points.length === 0) return null;
+            if (!Array.isArray(points) || points.length === 0) return null;
+
+            const c = polygonAreaCentroid(points);
+            if (c && pointInPolygon(c, points)) return c;
+
+            // Backward-compatible fallback (previous behavior).
             let x = 0, y = 0;
             points.forEach(p => { x += p.x; y += p.y; });
             return { x: x / points.length, y: y / points.length };
@@ -3987,40 +4203,58 @@
                 if (plotImageFileInput && plotImageFileInput.files && plotImageFileInput.files[0]) {
                     const imgFile = plotImageFileInput.files[0];
                     const upHeaders = await (window.getAuthHeaders ? window.getAuthHeaders() : Promise.resolve({}));
-                    const urlResp = await fetch('/api/plots/' + editingPlotId + '/image/upload-url', {
-                        method: 'POST',
-                        headers: Object.assign({ 'Content-Type': 'application/json' }, upHeaders),
-                        body: JSON.stringify({
-                            original_filename: imgFile.name,
-                            content_type: imgFile.type,
-                            size_bytes: imgFile.size
-                        })
-                    });
-                    if (!urlResp.ok) {
-                        const err = await urlResp.json().catch(() => ({}));
-                        throw new Error(err.error || 'Plot image upload failed');
-                    }
-                    const info = await urlResp.json();
-                    await fetch(info.upload_url, {
-                        method: 'PUT',
-                        headers: info.content_type ? { 'Content-Type': info.content_type } : {},
-                        body: imgFile
-                    });
-                    const finalize = new FormData();
-                    finalize.append('filename', info.filename);
-                    finalize.append('upload_token', info.upload_token);
-                    const imgRes = await fetch('/api/plots/' + editingPlotId + '/image', { method: 'POST', headers: upHeaders, body: finalize });
-                    plotImageFileInput.value = '';
-                    if (!imgRes.ok) {
-                        const err = await imgRes.json().catch(() => ({}));
-                        showToast(err.error || 'Plot image upload failed', 'error');
+                    try {
+                        try {
+                            const urlResp = await fetch('/api/plots/' + editingPlotId + '/image/upload-url', {
+                                method: 'POST',
+                                headers: Object.assign({ 'Content-Type': 'application/json' }, upHeaders),
+                                body: JSON.stringify({
+                                    original_filename: imgFile.name,
+                                    content_type: imgFile.type,
+                                    size_bytes: imgFile.size
+                                })
+                            });
+                            if (!urlResp.ok) {
+                                const err = await urlResp.json().catch(() => ({}));
+                                throw new Error((err && err.error) ? err.error : 'Plot image upload failed');
+                            }
+                            const info = await urlResp.json();
+                            const putResp = await fetch(info.upload_url, {
+                                method: 'PUT',
+                                headers: info.content_type ? { 'Content-Type': info.content_type } : {},
+                                body: imgFile
+                            });
+                            if (!putResp.ok) throw new Error('Plot image upload failed');
+
+                            const finalize = new FormData();
+                            finalize.append('filename', info.filename);
+                            finalize.append('upload_token', info.upload_token);
+                            const imgRes = await fetch('/api/plots/' + editingPlotId + '/image', { method: 'POST', headers: upHeaders, body: finalize });
+                            if (!imgRes.ok) {
+                                const err = await imgRes.json().catch(() => ({}));
+                                throw new Error((err && err.error) ? err.error : 'Plot image upload failed');
+                            }
+                        } catch (e) {
+                            // Fallback: send file to backend, which uploads to S3 (avoids browser CORS issues).
+                            const fd = new FormData();
+                            fd.append('file', imgFile);
+                            const directRes = await fetch('/api/plots/' + editingPlotId + '/image', { method: 'POST', headers: upHeaders, body: fd });
+                            const err = await directRes.json().catch(() => ({}));
+                            if (!directRes.ok) {
+                                throw new Error((err && err.error) ? err.error : (e && e.message ? e.message : 'Plot image upload failed'));
+                            }
+                        }
+                    } catch (e) {
+                        showToast(e && e.message ? e.message : 'Plot image upload failed', 'error');
+                    } finally {
+                        plotImageFileInput.value = '';
                     }
                 }
                 showToast('Plot updated successfully!');
                 closePlotForm();
                 loadPlots();
             } catch (error) {
-                showToast('Failed to save plot', 'error');
+                showToast((error && error.message) ? error.message : 'Failed to save plot', 'error');
             }
         });
 
@@ -4032,7 +4266,8 @@
 
         if (shareBtn) {
             shareBtn.addEventListener('click', () => {
-                const customerUrl = `${window.location.origin}/customer/3d/${PANORAMA_ID}`;
+                const slug = String(ORG_SLUG || '').trim();
+                const customerUrl = `${window.location.origin}${slug ? `/customer/${encodeURIComponent(slug)}/3d/${PANORAMA_ID}` : `/customer/3d/${PANORAMA_ID}`}`;
                 customerShareUrl.textContent = customerUrl;
                 shareModal.classList.add('visible');
             });
@@ -4052,7 +4287,8 @@
             }
 
             copyCustomerBtn.addEventListener('click', () => {
-                const customerUrl = `${window.location.origin}/customer/3d/${PANORAMA_ID}`;
+                const slug = String(ORG_SLUG || '').trim();
+                const customerUrl = `${window.location.origin}${slug ? `/customer/${encodeURIComponent(slug)}/3d/${PANORAMA_ID}` : `/customer/3d/${PANORAMA_ID}`}`;
                 copyToClipboard(customerUrl, copyCustomerBtn);
             });
 

@@ -11,6 +11,7 @@
         href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Syne:wght@400;500;600;700;800&display=swap"
         rel="stylesheet">
     <script src="/static/js/supabase.min.js"></script>
+    <script src="/static/js/org_theme.js"></script>
     <style>
         :root {
             --color-bg: #0a0a0b;
@@ -92,9 +93,129 @@
 
         /* Main Container */
         .container {
-            max-width: 1200px;
+            max-width: 1360px;
             margin: 0 auto;
             padding: 3rem 2rem;
+        }
+
+        .dashboard-layout {
+            display: grid;
+            grid-template-columns: minmax(260px, 320px) minmax(0, 1fr);
+            gap: 1.5rem;
+            align-items: start;
+        }
+
+        .dashboard-main {
+            min-width: 0;
+        }
+
+        .workspace-panel {
+            position: sticky;
+            top: 1.25rem;
+            background: linear-gradient(180deg, rgba(26, 26, 28, 0.98), rgba(15, 15, 16, 0.94));
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius);
+            padding: 1rem;
+            box-shadow: 0 18px 40px rgba(0, 0, 0, 0.24);
+        }
+
+        .workspace-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.85rem;
+        }
+
+        .workspace-title {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.18em;
+            color: var(--color-accent);
+            font-weight: 700;
+        }
+
+        .workspace-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .workspace-item {
+            position: relative;
+            width: 100%;
+            text-align: left;
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-sm);
+            background: rgba(255, 255, 255, 0.01);
+            color: var(--color-text);
+            padding: 0.72rem 0.7rem;
+            cursor: pointer;
+            transition: border-color 0.2s ease, background 0.2s ease, transform 0.2s ease;
+        }
+
+        .workspace-item:hover {
+            border-color: rgba(201, 169, 98, 0.45);
+            transform: translateY(-1px);
+        }
+
+        .workspace-item.active {
+            background: rgba(201, 169, 98, 0.09);
+            border-color: rgba(201, 169, 98, 0.55);
+        }
+
+        .workspace-item.drop-target {
+            border-color: var(--color-success);
+            background: rgba(74, 222, 128, 0.12);
+        }
+
+        .workspace-label {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.4rem;
+            font-size: 0.84rem;
+            font-weight: 600;
+        }
+
+        .workspace-count {
+            font-size: 0.7rem;
+            color: var(--color-text-dim);
+        }
+
+        .workspace-meta {
+            margin-top: 0.35rem;
+            font-size: 0.68rem;
+            color: var(--color-text-dim);
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+        }
+
+        .workspace-actions {
+            margin-top: 0.45rem;
+            display: flex;
+            gap: 0.45rem;
+            flex-wrap: wrap;
+        }
+
+        .workspace-action {
+            border: 1px solid var(--color-border);
+            border-radius: 999px;
+            background: transparent;
+            color: var(--color-text-dim);
+            font-size: 0.66rem;
+            padding: 0.25rem 0.6rem;
+            cursor: pointer;
+            transition: border-color 0.2s ease, color 0.2s ease;
+        }
+
+        .workspace-action:hover {
+            border-color: var(--color-accent-dim);
+            color: var(--color-accent);
+        }
+
+        .workspace-action.delete:hover {
+            border-color: rgba(239, 68, 68, 0.5);
+            color: var(--color-danger);
         }
 
         /* Hero Section */
@@ -126,7 +247,7 @@
 
         /* Upload Section */
         .upload-section {
-            margin-bottom: 4rem;
+            margin-bottom: 2.6rem;
         }
 
         .section-header {
@@ -355,7 +476,7 @@
 
         /* Projects Grid */
         .projects-section {
-            margin-bottom: 4rem;
+            margin-bottom: 3rem;
         }
 
         .projects-grid {
@@ -371,6 +492,15 @@
             border: 1px solid var(--color-border);
             transition: all 0.3s ease;
             cursor: pointer;
+        }
+
+        .project-card.owner-draggable {
+            cursor: grab;
+        }
+
+        .project-card.owner-draggable.is-dragging {
+            opacity: 0.48;
+            transform: scale(0.99);
         }
 
         .project-card:hover {
@@ -616,6 +746,14 @@
                 padding: 2rem 1.5rem;
             }
 
+            .dashboard-layout {
+                grid-template-columns: 1fr;
+            }
+
+            .workspace-panel {
+                position: static;
+            }
+
             .upload-preview {
                 flex-direction: column;
                 text-align: center;
@@ -639,7 +777,9 @@
 <body>
     <header class="header">
         <nav class="header-nav" id="header-nav">
-            <a href="/users" id="nav-users">Add user</a>
+            <a href="/users" id="nav-users" style="display:none;">Add user</a>
+            <a href="/crm" id="nav-crm" style="display:none;">Customer Relation</a>
+            <a href="/organizations" id="nav-orgs" style="display:none;">Organizations</a>
             <a href="#" id="nav-change-password">Change password</a>
             <a href="/login" id="nav-logout">Sign out</a>
         </nav>
@@ -651,81 +791,95 @@
     <main class="container">
         <!-- Hero -->
         <section class="hero">
-            <h1 class="hero-title">Interactive <span>Plot Marker</span></h1>
+            <h1 class="hero-title"><span id="org-name">PropMark</span> Plot Marker</h1>
             <p class="hero-subtitle">Upload panoramic images and create interactive plot mappings for your real estate
                 properties</p>
         </section>
 
-        <!-- Upload Section -->
-        <section class="upload-section">
-            <div class="section-header">
-                <h2 class="section-title">Create New Project</h2>
-            </div>
+        <div class="dashboard-layout">
+            <aside class="workspace-panel">
+                <div class="workspace-header">
+                    <div class="workspace-title">Workspaces</div>
+                    <button class="btn btn-primary" id="create-workspace-btn" style="padding:0.45rem 0.75rem; font-size:0.72rem;">New Folder</button>
+                </div>
+                <div class="workspace-list" id="workspace-list">
+                    <div class="loading"><div class="spinner"></div></div>
+                </div>
+            </aside>
 
-            <div class="upload-zone" id="upload-zone">
-                <div class="upload-icon">📷</div>
-                <div class="upload-text">Drag & drop your panorama image here</div>
-                <div class="upload-hint">or click to browse • JPG, PNG, WebP up to 50MB</div>
-                <input type="file" class="upload-input" id="upload-input" accept="image/*">
-
-                <div class="upload-form" id="upload-form">
-                    <div class="upload-preview">
-                        <img src="" alt="Preview" class="preview-image" id="preview-image">
-                        <div class="preview-info">
-                            <div class="preview-filename" id="preview-filename">filename.jpg</div>
-                            <div class="preview-size" id="preview-size">2.5 MB • 8064 × 4536</div>
-                        </div>
+            <div class="dashboard-main">
+                <!-- Upload Section -->
+                <section class="upload-section">
+                    <div class="section-header">
+                        <h2 class="section-title">Create New Project</h2>
                     </div>
 
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label class="form-label">Project Name</label>
-                            <input type="text" class="form-input" id="project-name"
-                                placeholder="e.g., Sunset Valley Estate">
-                        </div>
-                    </div>
+                    <div class="upload-zone" id="upload-zone">
+                        <div class="upload-icon">📷</div>
+                        <div class="upload-text">Drag & drop your panorama image here</div>
+                        <div class="upload-hint">or click to browse • JPG, PNG, WebP up to 50MB</div>
+                        <input type="file" class="upload-input" id="upload-input" accept="image/*">
 
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
-                                <input type="checkbox" id="is-360" style="width: auto; cursor: pointer;">
-                                <span style="font-size: 0.85rem; color: var(--color-text);">360° Equirectangular
-                                    Image</span>
-                            </label>
-                            <div
-                                style="font-size: 0.7rem; color: var(--color-text-dim); margin-top: 0.25rem; margin-left: 1.75rem;">
-                                Enable for full 360-degree spherical panoramas
+                        <div class="upload-form" id="upload-form">
+                            <div class="upload-preview">
+                                <img src="" alt="Preview" class="preview-image" id="preview-image">
+                                <div class="preview-info">
+                                    <div class="preview-filename" id="preview-filename">filename.jpg</div>
+                                    <div class="preview-size" id="preview-size">2.5 MB • 8064 × 4536</div>
+                                </div>
+                            </div>
+
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label class="form-label">Project Name</label>
+                                    <input type="text" class="form-input" id="project-name"
+                                        placeholder="e.g., Sunset Valley Estate">
+                                </div>
+                            </div>
+
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                                        <input type="checkbox" id="is-360" style="width: auto; cursor: pointer;">
+                                        <span style="font-size: 0.85rem; color: var(--color-text);">360° Equirectangular
+                                            Image</span>
+                                    </label>
+                                    <div
+                                        style="font-size: 0.7rem; color: var(--color-text-dim); margin-top: 0.25rem; margin-left: 1.75rem;">
+                                        Enable for full 360-degree spherical panoramas
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="form-actions">
+                                <button class="btn btn-secondary" id="cancel-upload">Cancel</button>
+                                <button class="btn btn-primary" id="start-upload">Create Project</button>
                             </div>
                         </div>
+
+                        <div class="upload-progress" id="upload-progress">
+                            <div class="progress-bar">
+                                <div class="progress-fill" id="progress-fill" style="width: 0%"></div>
+                            </div>
+                            <div class="progress-text" id="progress-text">Uploading...</div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Projects Section -->
+                <section class="projects-section">
+                    <div class="section-header">
+                        <h2 class="section-title">Your Projects</h2>
                     </div>
 
-                    <div class="form-actions">
-                        <button class="btn btn-secondary" id="cancel-upload">Cancel</button>
-                        <button class="btn btn-primary" id="start-upload">Create Project</button>
+                    <div id="projects-container">
+                        <div class="loading">
+                            <div class="spinner"></div>
+                        </div>
                     </div>
-                </div>
-
-                <div class="upload-progress" id="upload-progress">
-                    <div class="progress-bar">
-                        <div class="progress-fill" id="progress-fill" style="width: 0%"></div>
-                    </div>
-                    <div class="progress-text" id="progress-text">Uploading...</div>
-                </div>
+                </section>
             </div>
-        </section>
-
-        <!-- Projects Section -->
-        <section class="projects-section">
-            <div class="section-header">
-                <h2 class="section-title">Your Projects</h2>
-            </div>
-
-            <div id="projects-container">
-                <div class="loading">
-                    <div class="spinner"></div>
-                </div>
-            </div>
-        </section>
+        </div>
     </main>
 
     <!-- Delete Confirmation Modal -->
@@ -755,6 +909,53 @@
             <div class="modal-actions">
                 <button class="btn btn-secondary" id="cancel-rename">Cancel</button>
                 <button class="btn btn-primary" id="confirm-rename">Rename</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Create Workspace Modal -->
+    <div class="modal-backdrop" id="create-workspace-modal">
+        <div class="modal">
+            <div class="modal-title">Create Folder</div>
+            <div class="modal-text" style="margin-bottom: 1rem;">Create a new workspace folder to organize panoramas.</div>
+            <div class="form-group" style="margin-bottom: 1rem;">
+                <label class="form-label" for="workspace-name-input">Folder name</label>
+                <input type="text" id="workspace-name-input" class="form-input" maxlength="120" placeholder="Folder name">
+            </div>
+            <div id="workspace-create-error" class="msg error" style="display:none; margin-bottom: 1rem;"></div>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" id="cancel-create-workspace">Cancel</button>
+                <button class="btn btn-primary" id="confirm-create-workspace">Create</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Rename Workspace Modal -->
+    <div class="modal-backdrop" id="rename-workspace-modal">
+        <div class="modal">
+            <div class="modal-title">Rename Folder</div>
+            <div class="modal-text" style="margin-bottom: 1rem;">Enter a new workspace folder name.</div>
+            <div class="form-group" style="margin-bottom: 1rem;">
+                <label class="form-label" for="workspace-rename-input">Folder name</label>
+                <input type="text" id="workspace-rename-input" class="form-input" maxlength="120" placeholder="Folder name">
+            </div>
+            <div id="workspace-rename-error" class="msg error" style="display:none; margin-bottom: 1rem;"></div>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" id="cancel-rename-workspace">Cancel</button>
+                <button class="btn btn-primary" id="confirm-rename-workspace">Rename</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Delete Workspace Modal -->
+    <div class="modal-backdrop" id="delete-workspace-modal">
+        <div class="modal">
+            <div class="modal-title">Delete Folder?</div>
+            <div class="modal-text">This removes the folder only. Panoramas inside it will remain and move to Unfiled.</div>
+            <div id="workspace-delete-error" class="msg error" style="display:none; margin-bottom: 1rem;"></div>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" id="cancel-delete-workspace">Cancel</button>
+                <button class="btn btn-danger" id="confirm-delete-workspace">Delete</button>
             </div>
         </div>
     </div>
@@ -799,6 +1000,24 @@
                 window.location.replace('/login');
                 return;
             }
+            // Apply org theme + toggle superadmin/admin navigation
+            try { if (window.applyOrgTheme) window.applyOrgTheme(); } catch (e) { }
+            try {
+                fetch('/api/org/me', { headers: { 'Authorization': 'Bearer ' + r.data.session.access_token } })
+                    .then(function (res) { return res.ok ? res.json() : null; })
+                    .then(function (data) {
+                        var profile = data && data.profile ? data.profile : null;
+                        var role = profile && profile.role ? String(profile.role).toLowerCase() : '';
+                        var orgNameEl = document.getElementById('org-name');
+                        var orgName = data && data.org && data.org.name ? String(data.org.name) : '';
+                        if (orgNameEl && orgName) orgNameEl.textContent = orgName;
+                        var usersEl = document.getElementById('nav-users');
+                        var orgsEl = document.getElementById('nav-orgs');
+                        if (usersEl) usersEl.style.display = (role === 'admin' || role === 'superadmin') ? '' : 'none';
+                        if (orgsEl) orgsEl.style.display = (role === 'superadmin') ? '' : 'none';
+                    })
+                    .catch(function () { });
+            } catch (e) { }
             var logoutEl = document.getElementById('nav-logout');
             if (logoutEl) {
                 logoutEl.addEventListener('click', function (e) {
@@ -867,14 +1086,20 @@
             });
         }
 
-	        // State
-	        let projects = [];
-	        let selectedFile = null;
-	        let selectedImageWidth = 0;
-	        let selectedImageHeight = 0;
-	        let previewObjectUrl = '';
-	        let deleteTargetId = null;
-	        let renameTargetId = null;
+        // State
+        let projects = [];
+        let workspaces = [];
+        let selectedWorkspaceKey = 'all';
+        let selectedFile = null;
+        let selectedImageWidth = 0;
+        let selectedImageHeight = 0;
+        let previewObjectUrl = '';
+        let deleteTargetId = null;
+        let renameTargetId = null;
+        let renameWorkspaceTargetId = null;
+        let deleteWorkspaceTargetId = null;
+        let draggingPanoramaId = null;
+        let workspaceFeatureReady = true;
 
         // DOM Elements
         const uploadZone = document.getElementById('upload-zone');
@@ -890,6 +1115,8 @@
         const progressFill = document.getElementById('progress-fill');
         const progressText = document.getElementById('progress-text');
         const projectsContainer = document.getElementById('projects-container');
+        const workspaceList = document.getElementById('workspace-list');
+        const createWorkspaceBtn = document.getElementById('create-workspace-btn');
         const deleteModal = document.getElementById('delete-modal');
         const cancelDelete = document.getElementById('cancel-delete');
         const confirmDelete = document.getElementById('confirm-delete');
@@ -898,10 +1125,214 @@
         const confirmRename = document.getElementById('confirm-rename');
         const renameProjectInput = document.getElementById('rename-project-input');
         const renameProjectError = document.getElementById('rename-project-error');
+        const createWorkspaceModal = document.getElementById('create-workspace-modal');
+        const workspaceNameInput = document.getElementById('workspace-name-input');
+        const workspaceCreateError = document.getElementById('workspace-create-error');
+        const cancelCreateWorkspace = document.getElementById('cancel-create-workspace');
+        const confirmCreateWorkspace = document.getElementById('confirm-create-workspace');
+        const renameWorkspaceModal = document.getElementById('rename-workspace-modal');
+        const workspaceRenameInput = document.getElementById('workspace-rename-input');
+        const workspaceRenameError = document.getElementById('workspace-rename-error');
+        const cancelRenameWorkspace = document.getElementById('cancel-rename-workspace');
+        const confirmRenameWorkspace = document.getElementById('confirm-rename-workspace');
+        const deleteWorkspaceModal = document.getElementById('delete-workspace-modal');
+        const workspaceDeleteError = document.getElementById('workspace-delete-error');
+        const cancelDeleteWorkspace = document.getElementById('cancel-delete-workspace');
+        const confirmDeleteWorkspace = document.getElementById('confirm-delete-workspace');
         const toastContainer = document.getElementById('toast-container');
 
-        // Initialize
-        loadProjects();
+        initializeDashboard();
+
+        function setCrmNavVisible(visible) {
+            var el = document.getElementById('nav-crm');
+            if (!el) return;
+            el.style.display = visible ? '' : 'none';
+        }
+
+        function getWorkspaceById(workspaceId) {
+            if (!workspaceId) return null;
+            return workspaces.find(function (w) { return String(w.id) === String(workspaceId); }) || null;
+        }
+
+        function getSelectedOwnedWorkspaceId() {
+            if (!selectedWorkspaceKey || selectedWorkspaceKey.indexOf('ws:') !== 0) return null;
+            var workspaceId = selectedWorkspaceKey.slice(3);
+            var ws = getWorkspaceById(workspaceId);
+            if (!ws) return null;
+            return (ws.access_type === 'owner') ? workspaceId : null;
+        }
+
+        function getVisibleProjects() {
+            if (selectedWorkspaceKey === 'all') return projects.slice();
+            if (selectedWorkspaceKey === 'unfiled') {
+                return projects.filter(function (p) { return !p.workspace_id; });
+            }
+            if (selectedWorkspaceKey.indexOf('ws:') === 0) {
+                var workspaceId = selectedWorkspaceKey.slice(3);
+                return projects.filter(function (p) { return String(p.workspace_id || '') === String(workspaceId); });
+            }
+            return projects.slice();
+        }
+
+        function setWorkspaceSelection(key) {
+            selectedWorkspaceKey = key || 'all';
+            renderWorkspaces();
+            renderProjects();
+        }
+
+        function renderWorkspaces() {
+            if (!workspaceList) return;
+            if (!workspaceFeatureReady) {
+                workspaceList.innerHTML = '<div class="empty-state" style="padding:0.8rem;"><div class="empty-text">Workspace migration required</div><div class="empty-hint">Run supabase_migration_workspaces.sql</div></div>';
+                return;
+            }
+
+            var unfiledCount = projects.filter(function (p) { return !p.workspace_id; }).length;
+            var countByWorkspace = {};
+            projects.forEach(function (p) {
+                if (!p.workspace_id) return;
+                var key = String(p.workspace_id);
+                countByWorkspace[key] = (countByWorkspace[key] || 0) + 1;
+            });
+
+            var items = '';
+            items += '<div class="workspace-item ' + (selectedWorkspaceKey === 'all' ? 'active' : '') + '" onclick="setWorkspaceSelection(\'all\')" ondragover="onWorkspaceDragOver(event)" ondragleave="onWorkspaceDragLeave(event)" ondrop="onWorkspaceDrop(event,\'all\')">';
+            items += '<div class="workspace-label"><span>All Projects</span><span class="workspace-count">' + projects.length + '</span></div>';
+            items += '<div class="workspace-meta">Everything</div>';
+            items += '</div>';
+
+            items += '<div class="workspace-item ' + (selectedWorkspaceKey === 'unfiled' ? 'active' : '') + '" onclick="setWorkspaceSelection(\'unfiled\')" ondragover="onWorkspaceDragOver(event)" ondragleave="onWorkspaceDragLeave(event)" ondrop="onWorkspaceDrop(event,\'unfiled\')">';
+            items += '<div class="workspace-label"><span>Unfiled</span><span class="workspace-count">' + unfiledCount + '</span></div>';
+            items += '<div class="workspace-meta">No folder assigned</div>';
+            items += '</div>';
+
+            workspaces.forEach(function (ws) {
+                var workspaceId = String(ws.id);
+                var wsKey = 'ws:' + workspaceId;
+                var isOwner = String(ws.access_type || 'owner') === 'owner';
+                var count = countByWorkspace[workspaceId] || 0;
+                items += '<div class="workspace-item ' + (selectedWorkspaceKey === wsKey ? 'active' : '') + '" onclick="setWorkspaceSelection(\'' + wsKey + '\')" ondragover="onWorkspaceDragOver(event)" ondragleave="onWorkspaceDragLeave(event)" ondrop="onWorkspaceDrop(event,\'' + wsKey + '\')">';
+                items += '<div class="workspace-label"><span>' + escapeHtml(ws.name || 'Workspace') + '</span><span class="workspace-count">' + count + '</span></div>';
+                items += '<div class="workspace-meta">' + (isOwner ? 'Owned folder' : ('Shared: ' + escapeHtml(ws.access_type || 'viewer'))) + '</div>';
+                if (isOwner) {
+                    items += '<div class="workspace-actions">';
+                    items += '<button class="workspace-action" onclick="event.stopPropagation(); window.location.href=\'/workspace/' + workspaceId + '/access\'">Manage access</button>';
+                    items += '<button class="workspace-action" onclick="event.stopPropagation(); showRenameWorkspaceModal(\'' + workspaceId + '\')">Rename</button>';
+                    items += '<button class="workspace-action delete" onclick="event.stopPropagation(); showDeleteWorkspaceModal(\'' + workspaceId + '\')">Delete</button>';
+                    items += '</div>';
+                }
+                items += '</div>';
+            });
+
+            workspaceList.innerHTML = items;
+        }
+
+        function showWorkspaceCreateError(message) {
+            if (!workspaceCreateError) return;
+            workspaceCreateError.textContent = message || '';
+            workspaceCreateError.style.display = message ? 'block' : 'none';
+        }
+
+        function showWorkspaceRenameError(message) {
+            if (!workspaceRenameError) return;
+            workspaceRenameError.textContent = message || '';
+            workspaceRenameError.style.display = message ? 'block' : 'none';
+        }
+
+        function showWorkspaceDeleteError(message) {
+            if (!workspaceDeleteError) return;
+            workspaceDeleteError.textContent = message || '';
+            workspaceDeleteError.style.display = message ? 'block' : 'none';
+        }
+
+        function openCreateWorkspaceModal() {
+            if (!createWorkspaceModal) return;
+            if (workspaceNameInput) workspaceNameInput.value = '';
+            showWorkspaceCreateError('');
+            createWorkspaceModal.classList.add('visible');
+            if (workspaceNameInput) workspaceNameInput.focus();
+        }
+
+        function closeCreateWorkspaceModal() {
+            if (!createWorkspaceModal) return;
+            createWorkspaceModal.classList.remove('visible');
+            showWorkspaceCreateError('');
+        }
+
+        function showRenameWorkspaceModal(workspaceId) {
+            renameWorkspaceTargetId = workspaceId;
+            var ws = getWorkspaceById(workspaceId);
+            if (workspaceRenameInput) {
+                workspaceRenameInput.value = ws && ws.name ? ws.name : '';
+                workspaceRenameInput.focus();
+                workspaceRenameInput.select();
+            }
+            showWorkspaceRenameError('');
+            if (renameWorkspaceModal) renameWorkspaceModal.classList.add('visible');
+        }
+
+        function closeRenameWorkspaceModal() {
+            if (!renameWorkspaceModal) return;
+            renameWorkspaceModal.classList.remove('visible');
+            renameWorkspaceTargetId = null;
+            if (workspaceRenameInput) workspaceRenameInput.value = '';
+            showWorkspaceRenameError('');
+        }
+
+        function showDeleteWorkspaceModal(workspaceId) {
+            deleteWorkspaceTargetId = workspaceId;
+            showWorkspaceDeleteError('');
+            if (deleteWorkspaceModal) deleteWorkspaceModal.classList.add('visible');
+        }
+
+        function closeDeleteWorkspaceModal() {
+            if (!deleteWorkspaceModal) return;
+            deleteWorkspaceModal.classList.remove('visible');
+            deleteWorkspaceTargetId = null;
+            showWorkspaceDeleteError('');
+        }
+
+        async function loadWorkspaces() {
+            if (!workspaceList) return;
+            try {
+                const headers = await getAuthHeaders();
+                const response = await fetch('/api/workspaces', { headers });
+                if (response.status === 401) {
+                    window.location.replace('/login');
+                    return;
+                }
+                if (!response.ok) {
+                    if (response.status === 503 || response.status === 404) {
+                        workspaceFeatureReady = false;
+                        if (createWorkspaceBtn) createWorkspaceBtn.style.display = 'none';
+                        workspaces = [];
+                        renderWorkspaces();
+                        return;
+                    }
+                    throw new Error('Failed to load folders');
+                }
+                workspaceFeatureReady = true;
+                if (createWorkspaceBtn) createWorkspaceBtn.style.display = '';
+                workspaces = await response.json();
+                if (selectedWorkspaceKey.indexOf('ws:') === 0) {
+                    var existing = getWorkspaceById(selectedWorkspaceKey.slice(3));
+                    if (!existing) selectedWorkspaceKey = 'all';
+                }
+                renderWorkspaces();
+                renderProjects();
+            } catch (error) {
+                workspaceFeatureReady = false;
+                if (createWorkspaceBtn) createWorkspaceBtn.style.display = 'none';
+                workspaces = [];
+                renderWorkspaces();
+                renderProjects();
+            }
+        }
+
+        async function initializeDashboard() {
+            await Promise.all([loadProjects(), loadWorkspaces()]);
+            renderProjects();
+        }
 
         // File Upload Handlers
         uploadZone.addEventListener('click', (e) => {
@@ -931,264 +1362,243 @@
 
         uploadInput.addEventListener('change', (e) => {
             const file = e.target.files[0];
-            if (file) {
-                handleFileSelect(file);
-            }
+            if (file) handleFileSelect(file);
         });
 
-	        function handleFileSelect(file) {
-	            selectedFile = file;
-	            selectedImageWidth = 0;
-	            selectedImageHeight = 0;
+        function handleFileSelect(file) {
+            selectedFile = file;
+            selectedImageWidth = 0;
+            selectedImageHeight = 0;
 
-	            // Show preview (avoid heavy in-memory encoding; large files can freeze some devices).
-	            if (previewObjectUrl) {
-	                try { URL.revokeObjectURL(previewObjectUrl); } catch (e) {}
-	                previewObjectUrl = '';
-	            }
-	            previewSize.textContent = `${formatFileSize(file.size)}`;
-	            previewObjectUrl = URL.createObjectURL(file);
-	            previewImage.onload = () => {
-	                selectedImageWidth = previewImage.naturalWidth || 0;
-	                selectedImageHeight = previewImage.naturalHeight || 0;
-	                if (selectedImageWidth && selectedImageHeight) {
-	                    previewSize.textContent = `${formatFileSize(file.size)} • ${selectedImageWidth} × ${selectedImageHeight}`;
-	                }
-	            };
-	            previewImage.onerror = () => {
-	                selectedImageWidth = 0;
-	                selectedImageHeight = 0;
-	            };
-	            previewImage.src = previewObjectUrl;
+            if (previewObjectUrl) {
+                try { URL.revokeObjectURL(previewObjectUrl); } catch (e) { }
+                previewObjectUrl = '';
+            }
+            previewSize.textContent = `${formatFileSize(file.size)}`;
+            previewObjectUrl = URL.createObjectURL(file);
+            previewImage.onload = () => {
+                selectedImageWidth = previewImage.naturalWidth || 0;
+                selectedImageHeight = previewImage.naturalHeight || 0;
+                if (selectedImageWidth && selectedImageHeight) {
+                    previewSize.textContent = `${formatFileSize(file.size)} • ${selectedImageWidth} × ${selectedImageHeight}`;
+                }
+            };
+            previewImage.onerror = () => {
+                selectedImageWidth = 0;
+                selectedImageHeight = 0;
+            };
+            previewImage.src = previewObjectUrl;
 
-	            previewFilename.textContent = file.name;
-	            projectName.value = file.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ');
+            previewFilename.textContent = file.name;
+            projectName.value = file.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ');
 
-	            uploadForm.classList.add('visible');
-	        }
+            uploadForm.classList.add('visible');
+        }
 
         cancelUpload.addEventListener('click', (e) => {
             e.stopPropagation();
             resetUploadForm();
         });
 
-	        startUpload.addEventListener('click', async (e) => {
-	            e.stopPropagation();
+        startUpload.addEventListener('click', async (e) => {
+            e.stopPropagation();
+            if (!selectedFile) return;
 
-	            if (!selectedFile) return;
+            const name = projectName.value.trim() || 'Untitled Project';
+            const is360 = document.getElementById('is-360').checked;
+            const workspaceId = getSelectedOwnedWorkspaceId();
 
-	            const name = projectName.value.trim() || 'Untitled Project';
-	            const is360 = document.getElementById('is-360').checked;
+            uploadForm.classList.remove('visible');
+            uploadProgress.classList.add('visible');
+            uploadZone.classList.add('uploading');
 
-	            uploadForm.classList.remove('visible');
-	            uploadProgress.classList.add('visible');
-	            uploadZone.classList.add('uploading');
+            try {
+                progressFill.style.width = '0%';
+                progressText.textContent = 'Preparing upload...';
 
-	            try {
-	                progressFill.style.width = '0%';
-	                progressText.textContent = 'Preparing upload...';
+                const headers = await getAuthHeaders();
+                if (!headers || !headers.Authorization) {
+                    window.location.replace('/login');
+                    return;
+                }
 
-	                const headers = await getAuthHeaders();
-	                if (!headers || !headers.Authorization) {
-	                    window.location.replace('/login');
-	                    return;
-	                }
+                const onCreated = function (project) {
+                    showToast('Project created successfully!', 'success');
+                    resetUploadForm();
+                    Promise.all([loadProjects(), loadWorkspaces()]);
+                    setTimeout(() => {
+                        if (project.is_360) window.location.href = `/admin/3d/${project.id}`;
+                        else window.location.href = `/admin/${project.id}`;
+                    }, 500);
+                };
 
-	                const onCreated = function (project) {
-	                    showToast('Project created successfully!', 'success');
-	                    resetUploadForm();
-	                    loadProjects();
+                let directInfo = null;
+                let allowDynoFallback = false;
+                try {
+                    const urlResp = await fetch('/api/panoramas/upload-url', {
+                        method: 'POST',
+                        headers: Object.assign({ 'Content-Type': 'application/json' }, headers),
+                        body: JSON.stringify({
+                            original_filename: selectedFile.name,
+                            content_type: selectedFile.type,
+                            size_bytes: selectedFile.size,
+                            name: name
+                        })
+                    });
+                    if (urlResp.ok) {
+                        directInfo = await urlResp.json();
+                    } else {
+                        let msg = '';
+                        try {
+                            const payload = await urlResp.json().catch(() => null);
+                            if (payload && payload.error) msg = String(payload.error);
+                        } catch (e) { }
+                        if (urlResp.status === 413) {
+                            showToast(msg || `File too large (${urlResp.status})`, 'error');
+                            resetUploadForm();
+                            return;
+                        }
+                        if (urlResp.status === 503) {
+                            allowDynoFallback = true;
+                        } else {
+                            showToast(msg || `Upload setup failed (${urlResp.status})`, 'error');
+                            resetUploadForm();
+                            return;
+                        }
+                    }
+                } catch (e) {
+                    allowDynoFallback = true;
+                }
 
-	                    // Redirect to editor (check if 360 and route to 3D)
-	                    setTimeout(() => {
-	                        if (project.is_360) {
-	                            window.location.href = `/admin/3d/${project.id}`;
-	                        } else {
-	                            window.location.href = `/admin/${project.id}`;
-	                        }
-	                    }, 500);
-	                };
+                if (directInfo && directInfo.upload_url && directInfo.filename && directInfo.upload_token) {
+                    try {
+                        const maxBytes = Number(directInfo.max_bytes || 0);
+                        if (maxBytes && selectedFile.size > maxBytes) {
+                            const maxMb = Math.max(1, Math.floor(maxBytes / (1024 * 1024)));
+                            throw new Error(`File too large (max ${maxMb}MB)`);
+                        }
 
-	                // Try direct-to-S3 upload first (avoids Heroku 30s router timeout + dyno RAM spikes).
-	                let directInfo = null;
-	                let allowDynoFallback = false;
-	                try {
-	                    const urlResp = await fetch('/api/panoramas/upload-url', {
-	                        method: 'POST',
-	                        headers: Object.assign({ 'Content-Type': 'application/json' }, headers),
-	                        body: JSON.stringify({
-	                            original_filename: selectedFile.name,
-	                            content_type: selectedFile.type,
-	                            size_bytes: selectedFile.size,
-	                            name: name
-	                        })
-	                    });
-	                    if (urlResp.ok) {
-	                        directInfo = await urlResp.json();
-	                    } else {
-	                        let msg = '';
-	                        try {
-	                            const payload = await urlResp.json().catch(() => null);
-	                            if (payload && payload.error) msg = String(payload.error);
-	                        } catch (e) {}
-	                        if (urlResp.status === 413) {
-	                            showToast(msg || `File too large (${urlResp.status})`, 'error');
-	                            resetUploadForm();
-	                            return;
-	                        }
-	                        if (urlResp.status === 503) {
-	                            allowDynoFallback = true;
-	                        } else {
-	                            showToast(msg || `Upload setup failed (${urlResp.status})`, 'error');
-	                            resetUploadForm();
-	                            return;
-	                        }
-	                    }
-	                } catch (e) {
-	                    allowDynoFallback = true;
-	                }
+                        await new Promise((resolve, reject) => {
+                            const putXhr = new XMLHttpRequest();
+                            putXhr.upload.addEventListener('progress', (ev) => {
+                                if (ev.lengthComputable) {
+                                    const percent = Math.round((ev.loaded / ev.total) * 100);
+                                    progressFill.style.width = `${percent}%`;
+                                    progressText.textContent = `Uploading... ${percent}%`;
+                                }
+                            });
+                            putXhr.addEventListener('load', () => {
+                                if (putXhr.status >= 200 && putXhr.status < 300) return resolve();
+                                reject(new Error(`Upload failed (${putXhr.status})`));
+                            });
+                            putXhr.addEventListener('error', () => reject(new Error('Upload failed (network error).')));
+                            putXhr.addEventListener('timeout', () => reject(new Error('Upload timed out.')));
+                            putXhr.open('PUT', directInfo.upload_url);
+                            putXhr.timeout = 10 * 60 * 1000;
+                            if (directInfo.content_type) putXhr.setRequestHeader('Content-Type', directInfo.content_type);
+                            putXhr.send(selectedFile);
+                        });
 
-	                if (directInfo && directInfo.upload_url && directInfo.filename && directInfo.upload_token) {
-	                    try {
-	                        const maxBytes = Number(directInfo.max_bytes || 0);
-	                        if (maxBytes && selectedFile.size > maxBytes) {
-	                            const maxMb = Math.max(1, Math.floor(maxBytes / (1024 * 1024)));
-	                            throw new Error(`File too large (max ${maxMb}MB)`);
-	                        }
+                        progressFill.style.width = '100%';
+                        progressText.textContent = 'Finalizing...';
 
-	                        await new Promise((resolve, reject) => {
-	                            const putXhr = new XMLHttpRequest();
-	                            putXhr.upload.addEventListener('progress', (e) => {
-	                                if (e.lengthComputable) {
-	                                    const percent = Math.round((e.loaded / e.total) * 100);
-	                                    progressFill.style.width = `${percent}%`;
-	                                    progressText.textContent = `Uploading... ${percent}%`;
-	                                }
-	                            });
-	                            putXhr.addEventListener('load', () => {
-	                                if (putXhr.status >= 200 && putXhr.status < 300) return resolve();
-	                                reject(new Error(`Upload failed (${putXhr.status})`));
-	                            });
-	                            putXhr.addEventListener('error', () => reject(new Error('Upload failed (network error).')));
-	                            putXhr.addEventListener('timeout', () => reject(new Error('Upload timed out.')));
-	                            putXhr.open('PUT', directInfo.upload_url);
-	                            putXhr.timeout = 10 * 60 * 1000;
-	                            if (directInfo.content_type) {
-	                                // Must match the ContentType used when generating the presigned URL.
-	                                putXhr.setRequestHeader('Content-Type', directInfo.content_type);
-	                            }
-	                            putXhr.send(selectedFile);
-	                        });
+                        const finalize = new FormData();
+                        finalize.append('filename', directInfo.filename);
+                        finalize.append('upload_token', directInfo.upload_token);
+                        finalize.append('original_filename', selectedFile.name);
+                        finalize.append('name', name);
+                        finalize.append('is_360', String(is360));
+                        finalize.append('width', String(selectedImageWidth || 0));
+                        finalize.append('height', String(selectedImageHeight || 0));
+                        if (workspaceId) finalize.append('workspace_id', workspaceId);
 
-	                        progressFill.style.width = '100%';
-	                        progressText.textContent = 'Finalizing...';
+                        const finResp = await fetch('/api/panoramas', { method: 'POST', headers: headers, body: finalize });
+                        const finPayload = await finResp.json().catch(() => null);
+                        if (!finResp.ok || !finPayload) {
+                            const msg = finPayload && finPayload.error ? String(finPayload.error) : `Upload failed (${finResp.status})`;
+                            throw new Error(msg);
+                        }
+                        onCreated(finPayload);
+                        return;
+                    } catch (err) {
+                        const msg = err && err.message ? String(err.message) : 'Direct upload failed.';
+                        showToast(msg, 'error');
+                        resetUploadForm();
+                        return;
+                    }
+                }
 
-	                        const finalize = new FormData();
-	                        finalize.append('filename', directInfo.filename);
-	                        finalize.append('upload_token', directInfo.upload_token);
-	                        finalize.append('original_filename', selectedFile.name);
-	                        finalize.append('name', name);
-	                        finalize.append('is_360', String(is360));
-	                        finalize.append('width', String(selectedImageWidth || 0));
-	                        finalize.append('height', String(selectedImageHeight || 0));
+                if (!allowDynoFallback) {
+                    showToast('Direct upload is required; server upload is disabled.', 'error');
+                    resetUploadForm();
+                    return;
+                }
 
-	                        const finResp = await fetch('/api/panoramas', { method: 'POST', headers: headers, body: finalize });
-	                        const finPayload = await finResp.json().catch(() => null);
-	                        if (!finResp.ok || !finPayload) {
-	                            const msg = finPayload && finPayload.error ? String(finPayload.error) : `Upload failed (${finResp.status})`;
-	                            throw new Error(msg);
-	                        }
-	                        onCreated(finPayload);
-	                        return;
-	                    } catch (e) {
-	                        const msg = e && e.message ? String(e.message) : 'Direct upload failed.';
-	                        if (msg.toLowerCase().startsWith('file too large')) {
-	                            showToast(msg, 'error');
-	                        } else {
-	                            showToast(msg, 'error');
-	                        }
-	                        resetUploadForm();
-	                        return;
-	                    }
-	                }
+                const formData = new FormData();
+                formData.append('file', selectedFile);
+                formData.append('name', name);
+                formData.append('is_360', String(is360));
+                formData.append('width', String(selectedImageWidth || 0));
+                formData.append('height', String(selectedImageHeight || 0));
+                if (workspaceId) formData.append('workspace_id', workspaceId);
 
-	                if (!allowDynoFallback) {
-	                    showToast('Direct upload is required; server upload is disabled.', 'error');
-	                    resetUploadForm();
-	                    return;
-	                }
+                const xhr = new XMLHttpRequest();
+                xhr.upload.addEventListener('progress', (ev) => {
+                    if (ev.lengthComputable) {
+                        const percent = Math.round((ev.loaded / ev.total) * 100);
+                        progressFill.style.width = `${percent}%`;
+                        progressText.textContent = `Uploading... ${percent}%`;
+                    }
+                });
+                xhr.addEventListener('load', () => {
+                    if (xhr.status === 201) {
+                        const project = JSON.parse(xhr.responseText);
+                        onCreated(project);
+                    } else {
+                        let message = `Upload failed (${xhr.status})`;
+                        try {
+                            const payload = JSON.parse(xhr.responseText || '{}');
+                            if (payload && payload.error) message = String(payload.error);
+                        } catch (e) { }
+                        showToast(message, 'error');
+                        resetUploadForm();
+                    }
+                });
+                xhr.addEventListener('error', () => {
+                    showToast('Upload failed (network error). Please try again.', 'error');
+                    resetUploadForm();
+                });
+                xhr.addEventListener('timeout', () => {
+                    showToast('Upload timed out. Please try again.', 'error');
+                    resetUploadForm();
+                });
+                xhr.open('POST', '/api/panoramas');
+                xhr.timeout = 4 * 60 * 1000;
+                if (headers.Authorization) xhr.setRequestHeader('Authorization', headers.Authorization);
+                xhr.send(formData);
+            } catch (error) {
+                const message = error && error.message ? String(error.message) : 'Upload failed. Please try again.';
+                showToast(message, 'error');
+                resetUploadForm();
+            }
+        });
 
-	                // Fallback: upload through dyno (can hit Heroku timeout for slow networks).
-	                const formData = new FormData();
-	                formData.append('file', selectedFile);
-	                formData.append('name', name);
-	                formData.append('is_360', String(is360));
-	                formData.append('width', String(selectedImageWidth || 0));
-	                formData.append('height', String(selectedImageHeight || 0));
-
-	                const xhr = new XMLHttpRequest();
-
-	                xhr.upload.addEventListener('progress', (e) => {
-	                    if (e.lengthComputable) {
-	                        const percent = Math.round((e.loaded / e.total) * 100);
-	                        progressFill.style.width = `${percent}%`;
-	                        progressText.textContent = `Uploading... ${percent}%`;
-	                    }
-	                });
-
-	                xhr.addEventListener('load', () => {
-	                    if (xhr.status === 201) {
-	                        const project = JSON.parse(xhr.responseText);
-	                        onCreated(project);
-	                    } else {
-	                        let message = `Upload failed (${xhr.status})`;
-	                        try {
-	                            const payload = JSON.parse(xhr.responseText || '{}');
-	                            if (payload && payload.error) message = String(payload.error);
-	                        } catch (e) {}
-	                        showToast(message, 'error');
-	                        resetUploadForm();
-	                    }
-	                });
-
-	                xhr.addEventListener('error', () => {
-	                    showToast('Upload failed (network error). Please try again.', 'error');
-	                    resetUploadForm();
-	                });
-
-	                xhr.addEventListener('timeout', () => {
-	                    showToast('Upload timed out. Please try again.', 'error');
-	                    resetUploadForm();
-	                });
-
-	                xhr.open('POST', '/api/panoramas');
-	                xhr.timeout = 4 * 60 * 1000;
-	                if (headers.Authorization) xhr.setRequestHeader('Authorization', headers.Authorization);
-	                xhr.send(formData);
-
-	            } catch (error) {
-	                const message = error && error.message ? String(error.message) : 'Upload failed. Please try again.';
-	                showToast(message, 'error');
-	                resetUploadForm();
-	            }
-	        });
-
-	        function resetUploadForm() {
-	            selectedFile = null;
-	            selectedImageWidth = 0;
-	            selectedImageHeight = 0;
-	            uploadInput.value = '';
-	            uploadForm.classList.remove('visible');
-	            uploadProgress.classList.remove('visible');
-	            uploadZone.classList.remove('uploading');
-	            progressFill.style.width = '0%';
-	            previewImage.src = '';
-	            if (previewObjectUrl) {
-	                try { URL.revokeObjectURL(previewObjectUrl); } catch (e) {}
-	                previewObjectUrl = '';
-	            }
-	            projectName.value = '';
-	        }
+        function resetUploadForm() {
+            selectedFile = null;
+            selectedImageWidth = 0;
+            selectedImageHeight = 0;
+            uploadInput.value = '';
+            uploadForm.classList.remove('visible');
+            uploadProgress.classList.remove('visible');
+            uploadZone.classList.remove('uploading');
+            progressFill.style.width = '0%';
+            previewImage.src = '';
+            if (previewObjectUrl) {
+                try { URL.revokeObjectURL(previewObjectUrl); } catch (e) { }
+                previewObjectUrl = '';
+            }
+            projectName.value = '';
+        }
 
         // Projects (user-scoped; send auth token)
         async function loadProjects() {
@@ -1201,24 +1611,28 @@
                 }
                 if (!response.ok) {
                     let detail = '';
-                    try { detail = await response.text(); } catch (e) {}
+                    try { detail = await response.text(); } catch (e) { }
                     console.warn('Projects load failed', response.status, detail.slice(0, 200));
                     throw new Error(`Failed to load projects (${response.status})`);
                 }
                 projects = await response.json();
+                setCrmNavVisible(projects.some((p) => (p.access_type === 'owner' || p.access_type === 'client')));
                 renderProjects();
+                renderWorkspaces();
             } catch (error) {
+                setCrmNavVisible(false);
                 projectsContainer.innerHTML = '<div class="empty-state"><div class="empty-text">Failed to load projects</div></div>';
             }
         }
 
         function renderProjects() {
-            if (projects.length === 0) {
+            const visibleProjects = getVisibleProjects();
+            if (visibleProjects.length === 0) {
                 projectsContainer.innerHTML = `
                     <div class="empty-state">
                         <div class="empty-icon">🗺️</div>
-                        <div class="empty-text">No projects yet</div>
-                        <div class="empty-hint">Upload a panorama image to get started</div>
+                        <div class="empty-text">No projects in this view</div>
+                        <div class="empty-hint">Upload a panorama or drag an existing one into this folder</div>
                     </div>
                 `;
                 return;
@@ -1226,11 +1640,10 @@
             var accessType = function (p) { return p.access_type || 'owner'; };
             projectsContainer.innerHTML = `
                 <div class="projects-grid">
-                    ${projects.map(project => {
+                    ${visibleProjects.map(project => {
                 var at = accessType(project);
                 var isOwner = at === 'owner';
                 var isClient = at === 'client';
-                var isViewer = at === 'viewer';
                 var openLabel = isOwner ? 'Open Editor' : (isClient ? 'Open as Client' : 'View');
                 var actions = '<button class="project-btn edit" onclick="openEditor(' + project.id + ')">' + openLabel + '</button>';
                 if (isOwner) {
@@ -1238,8 +1651,15 @@
                     actions += '<button class="project-btn rename" onclick="showRenameModal(' + project.id + ', event)">Rename</button>';
                     actions += '<button class="project-btn delete" onclick="showDeleteModal(' + project.id + ', event)">Delete</button>';
                 }
+                var workspaceName = '';
+                if (project.workspace_id) {
+                    var ws = getWorkspaceById(project.workspace_id);
+                    workspaceName = ws && ws.name ? ws.name : 'Workspace';
+                }
+                var dragAttr = isOwner ? 'draggable=\"true\" ondragstart=\"onProjectDragStart(event,' + project.id + ')\" ondragend=\"onProjectDragEnd(event)\"' : '';
+                var dragClass = isOwner ? ' owner-draggable' : '';
                 return `
-                        <div class="project-card" data-id="${project.id}">
+                        <div class="project-card${dragClass}" data-id="${project.id}" ${dragAttr}>
                             <img src="/uploads/${project.filename}" alt="${project.name}" class="project-image" loading="lazy">
                             <div class="project-content">
                                 <div class="project-name">${escapeHtml(project.name)}</div>
@@ -1251,6 +1671,7 @@
                                     <span class="project-date">${formatDate(project.updated_at)}</span>
                                     ${isOwner ? '' : '<span style="font-size:0.7rem;color:var(--color-text-dim);">(' + at + ')</span>'}
                                 </div>
+                                ${workspaceName ? '<div style="margin-top:0.45rem; font-size:0.72rem; color:var(--color-text-dim);">Folder: ' + escapeHtml(workspaceName) + '</div>' : ''}
                             </div>
                             <div class="project-actions">${actions}</div>
                         </div>
@@ -1260,20 +1681,82 @@
             `;
         }
 
-        function openEditor(id) {
-            var project = projects.find(function (p) { return p.id === id; });
-            var at = project && (project.access_type || 'owner');
-            var is360 = project && project.is_360;
-            var base = (at === 'owner') ? 'admin' : (at === 'client') ? 'client' : 'customer';
-            if (is360) {
-                window.location.href = '/' + base + '/3d/' + id;
-            } else {
-                window.location.href = '/' + base + '/' + id;
+        async function movePanoramaWorkspace(panoramaId, targetKey) {
+            const project = projects.find(function (p) { return String(p.id) === String(panoramaId); });
+            if (!project || String(project.access_type || 'owner') !== 'owner') {
+                showToast('Only owner can move projects', 'error');
+                return;
+            }
+            let workspaceId = null;
+            if (targetKey && targetKey.indexOf('ws:') === 0) workspaceId = targetKey.slice(3);
+            if (targetKey === 'all') {
+                showToast('Drop into a folder or Unfiled', 'error');
+                return;
+            }
+            try {
+                const headers = await getAuthHeaders();
+                headers['Content-Type'] = 'application/json';
+                const response = await fetch('/api/panoramas/' + panoramaId + '/workspace', {
+                    method: 'PATCH',
+                    headers,
+                    body: JSON.stringify({ workspace_id: workspaceId })
+                });
+                if (!response.ok) {
+                    const err = await response.json().catch(() => null);
+                    throw new Error((err && err.error) || 'Failed to move project');
+                }
+                showToast('Project moved', 'success');
+                await Promise.all([loadProjects(), loadWorkspaces()]);
+            } catch (err) {
+                showToast(err.message || 'Failed to move project', 'error');
             }
         }
 
+        function onProjectDragStart(event, panoramaId) {
+            draggingPanoramaId = panoramaId;
+            if (event.dataTransfer) {
+                event.dataTransfer.setData('text/plain', String(panoramaId));
+                event.dataTransfer.effectAllowed = 'move';
+            }
+            if (event.currentTarget) event.currentTarget.classList.add('is-dragging');
+        }
+
+        function onProjectDragEnd(event) {
+            draggingPanoramaId = null;
+            if (event.currentTarget) event.currentTarget.classList.remove('is-dragging');
+            document.querySelectorAll('.workspace-item.drop-target').forEach(function (el) { el.classList.remove('drop-target'); });
+        }
+
+        function onWorkspaceDragOver(event) {
+            if (!draggingPanoramaId) return;
+            event.preventDefault();
+            if (event.currentTarget) event.currentTarget.classList.add('drop-target');
+        }
+
+        function onWorkspaceDragLeave(event) {
+            if (event.currentTarget) event.currentTarget.classList.remove('drop-target');
+        }
+
+        function onWorkspaceDrop(event, targetKey) {
+            event.preventDefault();
+            const raw = (event.dataTransfer && event.dataTransfer.getData('text/plain')) || '';
+            const panoramaId = draggingPanoramaId || Number(raw || 0);
+            if (event.currentTarget) event.currentTarget.classList.remove('drop-target');
+            if (!panoramaId) return;
+            movePanoramaWorkspace(panoramaId, targetKey);
+        }
+
+        function openEditor(id) {
+            var project = projects.find(function (p) { return String(p.id) === String(id); });
+            var at = project && (project.access_type || 'owner');
+            var is360 = project && project.is_360;
+            var base = (at === 'owner') ? 'admin' : (at === 'client') ? 'client' : 'customer';
+            if (is360) window.location.href = '/' + base + '/3d/' + id;
+            else window.location.href = '/' + base + '/' + id;
+        }
+
         function showDeleteModal(id, event) {
-            event.stopPropagation();
+            if (event) event.stopPropagation();
             deleteTargetId = id;
             deleteModal.classList.add('visible');
         }
@@ -1314,35 +1797,24 @@
             if (!deleteTargetId) return;
             try {
                 const headers = await getAuthHeaders();
-                const response = await fetch(`/api/panoramas/${deleteTargetId}`, {
-                    method: 'DELETE',
-                    headers
-                });
-
-                if (response.ok) {
-                    showToast('Project deleted', 'success');
-                    deleteModal.classList.remove('visible');
-                    loadProjects();
-                } else {
-                    throw new Error('Delete failed');
-                }
+                const response = await fetch(`/api/panoramas/${deleteTargetId}`, { method: 'DELETE', headers });
+                if (!response.ok) throw new Error('Delete failed');
+                showToast('Project deleted', 'success');
+                deleteModal.classList.remove('visible');
+                deleteTargetId = null;
+                await Promise.all([loadProjects(), loadWorkspaces()]);
             } catch (error) {
                 showToast('Failed to delete project', 'error');
             }
-
-            deleteTargetId = null;
         });
 
-        if (cancelRename) {
-            cancelRename.addEventListener('click', closeRenameModal);
-        }
+        if (cancelRename) cancelRename.addEventListener('click', closeRenameModal);
 
         if (confirmRename) {
             confirmRename.addEventListener('click', async () => {
                 if (!renameTargetId) return;
                 const nextName = (renameProjectInput ? renameProjectInput.value : '').trim();
                 showRenameProjectError('');
-
                 if (!nextName) {
                     showRenameProjectError('Project name is required.');
                     if (renameProjectInput) renameProjectInput.focus();
@@ -1363,7 +1835,6 @@
                         headers,
                         body: JSON.stringify({ name: nextName }),
                     });
-
                     if (!response.ok) {
                         let errorText = 'Failed to rename project';
                         try {
@@ -1372,10 +1843,9 @@
                         } catch (_) { }
                         throw new Error(errorText);
                     }
-
                     showToast('Project renamed successfully!', 'success');
                     closeRenameModal();
-                    loadProjects();
+                    await loadProjects();
                 } catch (error) {
                     showRenameProjectError(error.message || 'Failed to rename project');
                 } finally {
@@ -1389,6 +1859,121 @@
                 if (event.key === 'Enter') {
                     event.preventDefault();
                     if (confirmRename) confirmRename.click();
+                }
+            });
+        }
+
+        if (createWorkspaceBtn) createWorkspaceBtn.addEventListener('click', openCreateWorkspaceModal);
+        if (cancelCreateWorkspace) cancelCreateWorkspace.addEventListener('click', closeCreateWorkspaceModal);
+
+        if (confirmCreateWorkspace) {
+            confirmCreateWorkspace.addEventListener('click', async () => {
+                const name = (workspaceNameInput ? workspaceNameInput.value : '').trim();
+                showWorkspaceCreateError('');
+                if (!name) {
+                    showWorkspaceCreateError('Folder name is required');
+                    return;
+                }
+                confirmCreateWorkspace.disabled = true;
+                try {
+                    const headers = await getAuthHeaders();
+                    headers['Content-Type'] = 'application/json';
+                    const response = await fetch('/api/workspaces', {
+                        method: 'POST',
+                        headers,
+                        body: JSON.stringify({ name: name }),
+                    });
+                    if (!response.ok) {
+                        const err = await response.json().catch(() => null);
+                        throw new Error((err && err.error) || 'Failed to create folder');
+                    }
+                    closeCreateWorkspaceModal();
+                    showToast('Folder created', 'success');
+                    await loadWorkspaces();
+                } catch (error) {
+                    showWorkspaceCreateError(error.message || 'Failed to create folder');
+                } finally {
+                    confirmCreateWorkspace.disabled = false;
+                }
+            });
+        }
+
+        if (cancelRenameWorkspace) cancelRenameWorkspace.addEventListener('click', closeRenameWorkspaceModal);
+        if (confirmRenameWorkspace) {
+            confirmRenameWorkspace.addEventListener('click', async () => {
+                if (!renameWorkspaceTargetId) return;
+                const name = (workspaceRenameInput ? workspaceRenameInput.value : '').trim();
+                showWorkspaceRenameError('');
+                if (!name) {
+                    showWorkspaceRenameError('Folder name is required');
+                    return;
+                }
+                confirmRenameWorkspace.disabled = true;
+                try {
+                    const headers = await getAuthHeaders();
+                    headers['Content-Type'] = 'application/json';
+                    const response = await fetch('/api/workspaces/' + renameWorkspaceTargetId, {
+                        method: 'PATCH',
+                        headers,
+                        body: JSON.stringify({ name: name }),
+                    });
+                    if (!response.ok) {
+                        const err = await response.json().catch(() => null);
+                        throw new Error((err && err.error) || 'Failed to rename folder');
+                    }
+                    closeRenameWorkspaceModal();
+                    showToast('Folder renamed', 'success');
+                    await loadWorkspaces();
+                } catch (error) {
+                    showWorkspaceRenameError(error.message || 'Failed to rename folder');
+                } finally {
+                    confirmRenameWorkspace.disabled = false;
+                }
+            });
+        }
+
+        if (cancelDeleteWorkspace) cancelDeleteWorkspace.addEventListener('click', closeDeleteWorkspaceModal);
+        if (confirmDeleteWorkspace) {
+            confirmDeleteWorkspace.addEventListener('click', async () => {
+                if (!deleteWorkspaceTargetId) return;
+                showWorkspaceDeleteError('');
+                confirmDeleteWorkspace.disabled = true;
+                try {
+                    const headers = await getAuthHeaders();
+                    const response = await fetch('/api/workspaces/' + deleteWorkspaceTargetId, {
+                        method: 'DELETE',
+                        headers,
+                    });
+                    if (!response.ok) {
+                        const err = await response.json().catch(() => null);
+                        throw new Error((err && err.error) || 'Failed to delete folder');
+                    }
+                    closeDeleteWorkspaceModal();
+                    showToast('Folder deleted', 'success');
+                    if (selectedWorkspaceKey === 'ws:' + deleteWorkspaceTargetId) selectedWorkspaceKey = 'all';
+                    await Promise.all([loadProjects(), loadWorkspaces()]);
+                } catch (error) {
+                    showWorkspaceDeleteError(error.message || 'Failed to delete folder');
+                } finally {
+                    confirmDeleteWorkspace.disabled = false;
+                }
+            });
+        }
+
+        if (workspaceNameInput) {
+            workspaceNameInput.addEventListener('keydown', (event) => {
+                if (event.key === 'Enter') {
+                    event.preventDefault();
+                    if (confirmCreateWorkspace) confirmCreateWorkspace.click();
+                }
+            });
+        }
+
+        if (workspaceRenameInput) {
+            workspaceRenameInput.addEventListener('keydown', (event) => {
+                if (event.key === 'Enter') {
+                    event.preventDefault();
+                    if (confirmRenameWorkspace) confirmRenameWorkspace.click();
                 }
             });
         }
@@ -1444,6 +2029,24 @@
         if (renameModal) {
             renameModal.addEventListener('click', (e) => {
                 if (e.target === renameModal) closeRenameModal();
+            });
+        }
+
+        if (createWorkspaceModal) {
+            createWorkspaceModal.addEventListener('click', (e) => {
+                if (e.target === createWorkspaceModal) closeCreateWorkspaceModal();
+            });
+        }
+
+        if (renameWorkspaceModal) {
+            renameWorkspaceModal.addEventListener('click', (e) => {
+                if (e.target === renameWorkspaceModal) closeRenameWorkspaceModal();
+            });
+        }
+
+        if (deleteWorkspaceModal) {
+            deleteWorkspaceModal.addEventListener('click', (e) => {
+                if (e.target === deleteWorkspaceModal) closeDeleteWorkspaceModal();
             });
         }
     </script>

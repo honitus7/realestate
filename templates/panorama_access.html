@@ -11,6 +11,7 @@
         href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Syne:wght@400;500;600;700&display=swap"
         rel="stylesheet">
     <script src="/static/js/supabase.min.js"></script>
+    <script src="/static/js/org_theme.js"></script>
     <style>
         :root {
             --color-bg: #0a0a0b;
@@ -216,6 +217,8 @@
             return;
         }
         var supabase = window.supabase.createClient(supabaseUrl, supabaseAnonKey);
+        window._supabase = supabase;
+        try { if (window.applyOrgTheme) window.applyOrgTheme(); } catch (e) { }
 
         function getToken() {
             return new Promise(function (resolve) {

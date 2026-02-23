@@ -139,7 +139,20 @@ def require_admin(f):
         user_id, role = get_current_user()
         if not user_id:
             return jsonify({'error': 'Unauthorized'}), 401
-        if role != 'admin':
+        if role not in ('admin', 'superadmin'):
+            return jsonify({'error': 'Forbidden'}), 403
+        return f(user_id, role, *args, **kwargs)
+    return wrapped
+
+
+def require_superadmin(f):
+    """Decorator: require auth and role superadmin."""
+    @wraps(f)
+    def wrapped(*args, **kwargs):
+        user_id, role = get_current_user()
+        if not user_id:
+            return jsonify({'error': 'Unauthorized'}), 401
+        if role != 'superadmin':
             return jsonify({'error': 'Forbidden'}), 403
         return f(user_id, role, *args, **kwargs)
     return wrapped
@@ -160,13 +173,36 @@ def get_panorama_with_access(sb, panorama_id, user_id):
         acc = sb.table('panorama_access').select('access_type').eq('panorama_id', panorama_id).eq('user_id', user_id).limit(1).execute()
         if acc.data and len(acc.data) > 0:
             return p, acc.data[0].get('access_type', 'viewer')
+
+        # Folder share: if this panorama belongs to a workspace, check workspace_access.
+        ws_id = None
+        try:
+            ws_id = p.get('workspace_id')
+        except Exception:
+            ws_id = None
+        if ws_id:
+            try:
+                wacc = (
+                    sb.table('workspace_access')
+                    .select('access_type')
+                    .eq('workspace_id', ws_id)
+                    .eq('user_id', user_id)
+                    .limit(1)
+                    .execute()
+                )
+                if wacc.data and len(wacc.data) > 0:
+                    return p, wacc.data[0].get('access_type', 'viewer')
+            except Exception:
+                # Backward-compatible when workspace_access table doesn't exist yet.
+                pass
         return None, None
     except Exception:
         return None, None
 
 
 # Columns for panorama list/detail (exclude image_data blob)
-_PANORAMA_FIELDS = 'id, user_id, name, filename, original_filename, width, height, is_360, created_at, updated_at'
+_PANORAMA_FIELDS_BASE = 'id, user_id, name, filename, original_filename, width, height, is_360, created_at, updated_at'
+_PANORAMA_FIELDS_WITH_WORKSPACE = _PANORAMA_FIELDS_BASE + ', workspace_id'
 
 
 def list_panoramas_for_user(sb, user_id):
@@ -174,26 +210,104 @@ def list_panoramas_for_user(sb, user_id):
     Return list of panoramas the user can see, each with access_type ('owner'|'client'|'viewer') and plot_count.
     """
     try:
+        def select_panorama_fields():
+            # Backward-compatible: workspace_id may not exist yet.
+            return _PANORAMA_FIELDS_WITH_WORKSPACE
+
         # Owned
-        owned = sb.table('panoramas').select(_PANORAMA_FIELDS).eq('user_id', user_id).order('updated_at', desc=True).execute()
+        try:
+            owned = sb.table('panoramas').select(select_panorama_fields()).eq('user_id', user_id).order('updated_at', desc=True).execute()
+        except Exception as e:
+            if 'workspace_id' in str(e).lower():
+                owned = sb.table('panoramas').select(_PANORAMA_FIELDS_BASE).eq('user_id', user_id).order('updated_at', desc=True).execute()
+            else:
+                raise
         # Shared via panorama_access
         shared = sb.table('panorama_access').select('panorama_id, access_type').eq('user_id', user_id).execute()
         shared_ids = {row['panorama_id']: row['access_type'] for row in (shared.data or [])}
+
+        # Shared via workspace_access (folder share)
+        try:
+            workspace_access = sb.table('workspace_access').select('workspace_id, access_type').eq('user_id', user_id).execute()
+            workspace_access_rows = workspace_access.data or []
+        except Exception:
+            # Backward-compatible when workspace_access table doesn't exist yet.
+            workspace_access_rows = []
+
+        workspace_to_access = {str(row.get('workspace_id')): row.get('access_type') for row in workspace_access_rows if row.get('workspace_id')}
+        workspace_ids = list(workspace_to_access.keys())
+
+        workspace_panos = []
+        if workspace_ids:
+            try:
+                try:
+                    rwp = sb.table('panoramas').select(select_panorama_fields()).in_('workspace_id', workspace_ids).execute()
+                except Exception as e:
+                    if 'workspace_id' in str(e).lower():
+                        rwp = sb.table('panoramas').select(_PANORAMA_FIELDS_BASE).in_('workspace_id', workspace_ids).execute()
+                    else:
+                        raise
+                workspace_panos = rwp.data or []
+            except Exception:
+                workspace_panos = []
+
+        def access_rank(a):
+            if a == 'owner':
+                return 3
+            if a == 'client':
+                return 2
+            return 1
+
         seen = set()
         result = []
         for p in (owned.data or []):
             seen.add(p['id'])
             plot_count = _count_plots(sb, p['id'])
             result.append({**p, 'access_type': 'owner', 'plot_count': plot_count})
+
+        # Direct shares
         for pid, acc_type in shared_ids.items():
             if pid in seen:
                 continue
-            r = sb.table('panoramas').select(_PANORAMA_FIELDS).eq('id', pid).limit(1).execute()
+            try:
+                try:
+                    r = sb.table('panoramas').select(select_panorama_fields()).eq('id', pid).limit(1).execute()
+                except Exception as e:
+                    if 'workspace_id' in str(e).lower():
+                        r = sb.table('panoramas').select(_PANORAMA_FIELDS_BASE).eq('id', pid).limit(1).execute()
+                    else:
+                        raise
+            except Exception:
+                continue
             if r.data and len(r.data) > 0:
                 p = r.data[0]
                 seen.add(pid)
                 plot_count = _count_plots(sb, pid)
                 result.append({**p, 'access_type': acc_type, 'plot_count': plot_count})
+
+        # Workspace shares
+        for p in (workspace_panos or []):
+            pid = p.get('id')
+            if pid is None:
+                continue
+            ws_id = p.get('workspace_id')
+            acc_type = workspace_to_access.get(str(ws_id)) if ws_id else None
+            if not acc_type:
+                continue
+
+            if pid in seen:
+                # If also shared directly, keep the strongest access_type.
+                for i in range(len(result)):
+                    if result[i].get('id') == pid:
+                        current = result[i].get('access_type') or 'viewer'
+                        if access_rank(acc_type) > access_rank(current):
+                            result[i]['access_type'] = acc_type
+                        break
+                continue
+
+            seen.add(pid)
+            plot_count = _count_plots(sb, pid)
+            result.append({**p, 'access_type': acc_type, 'plot_count': plot_count})
         result.sort(key=lambda x: x.get('updated_at') or '', reverse=True)
         return result
     except Exception:

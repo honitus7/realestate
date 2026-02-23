@@ -439,6 +439,34 @@
             transform: translateY(-1px);
         }
 
+        .viewer-action-btn.cart {
+            border-color: rgba(191, 140, 74, 0.34);
+            background: linear-gradient(135deg, rgba(191, 140, 74, 0.16) 0%, rgba(255, 255, 255, 0.92) 100%);
+            color: #1a2e4d;
+        }
+
+        .viewer-action-btn.cart:hover {
+            border-color: rgba(191, 140, 74, 0.55);
+            background: linear-gradient(135deg, rgba(191, 140, 74, 0.22) 0%, rgba(255, 255, 255, 0.98) 100%);
+        }
+
+        .cart-badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 22px;
+            height: 18px;
+            padding: 0 0.35rem;
+            margin-left: 0.4rem;
+            border-radius: 999px;
+            background: rgba(10, 10, 11, 0.85);
+            color: rgba(255, 255, 255, 0.94);
+            font-size: 0.7rem;
+            letter-spacing: 0.02em;
+            font-variant-numeric: tabular-nums;
+            box-shadow: 0 10px 18px rgba(0, 0, 0, 0.18);
+        }
+
         .legend-head {
             display: flex;
             align-items: center;
@@ -1180,6 +1208,25 @@
             height: 300px;
         }
 
+        .modal-btn.primary {
+            background: linear-gradient(135deg, var(--color-accent) 0%, #b8944f 100%);
+            color: #162338;
+            box-shadow: 0 8px 24px rgba(191, 140, 74, 0.26);
+        }
+
+        .modal-btn.primary:hover {
+            background: linear-gradient(135deg, #d4b06e 0%, var(--color-accent) 100%);
+            transform: translateY(-2px);
+            box-shadow: 0 12px 30px rgba(191, 140, 74, 0.34);
+        }
+
+        .modal-btn:disabled {
+            cursor: not-allowed;
+            opacity: 0.66;
+            transform: none;
+            box-shadow: none;
+        }
+
         .modal-btn.secondary {
             background: rgba(255, 255, 255, 0.05);
             border: 1px solid rgba(255, 255, 255, 0.15);
@@ -1402,6 +1449,251 @@
             background: rgba(240, 246, 255, 0.94);
             border: 1px solid rgba(24, 47, 80, 0.22);
             color: #1b3558;
+        }
+
+        #plot-details-modal .modal-actions {
+            justify-content: flex-end;
+            flex-wrap: wrap;
+        }
+
+        #plot-details-modal .modal-btn {
+            margin-left: 0;
+        }
+
+        #plot-details-modal #add-to-cart-btn {
+            margin-right: auto;
+        }
+
+        /* Cart / Checkout */
+        .cart-modal.modal-backdrop {
+            background: linear-gradient(180deg, rgba(12, 24, 43, 0.34) 0%, rgba(12, 24, 43, 0.52) 100%);
+            backdrop-filter: blur(10px) saturate(140%);
+        }
+
+        .cart-modal .modal {
+            max-width: 980px;
+            width: min(94vw, 980px);
+            max-height: min(92vh, 860px);
+            background: linear-gradient(160deg, rgba(246, 250, 255, 0.97) 0%, rgba(238, 246, 255, 0.97) 100%);
+            border: 1px solid rgba(23, 47, 84, 0.16);
+            box-shadow: 0 24px 48px rgba(7, 23, 45, 0.3), 0 2px 8px rgba(7, 23, 45, 0.16);
+            color: #1d3558;
+        }
+
+        .cart-modal .cart-header {
+            padding: 1.6rem 1.8rem 1.2rem;
+            border-bottom: 1px solid rgba(27, 53, 89, 0.14);
+            background: linear-gradient(180deg, rgba(255, 255, 255, 0.68) 0%, rgba(255, 255, 255, 0) 100%);
+        }
+
+        .cart-modal .cart-kicker {
+            font-size: 0.62rem;
+            letter-spacing: 0.18em;
+            text-transform: uppercase;
+            font-weight: 800;
+            color: rgba(27, 53, 89, 0.68);
+        }
+
+        .cart-modal .cart-title {
+            font-family: var(--font-display);
+            font-size: 1.7rem;
+            letter-spacing: 0.01em;
+            color: #173256;
+            margin-top: 0.3rem;
+        }
+
+        .cart-modal .cart-subtitle {
+            margin-top: 0.35rem;
+            font-size: 0.9rem;
+            color: #334f74;
+        }
+
+        .cart-modal .cart-grid {
+            display: grid;
+            grid-template-columns: 1.08fr 0.92fr;
+            gap: 1rem;
+            padding: 1.35rem 1.8rem 1.35rem;
+            overflow: auto;
+        }
+
+        .cart-panel {
+            border: 1px solid rgba(27, 53, 89, 0.12);
+            background: rgba(255, 255, 255, 0.82);
+            border-radius: 14px;
+            box-shadow: 0 3px 10px rgba(20, 41, 73, 0.08);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            min-height: 260px;
+        }
+
+        .cart-panel-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.75rem;
+            padding: 0.9rem 0.95rem;
+            border-bottom: 1px solid rgba(27, 53, 89, 0.12);
+            background: rgba(234, 241, 251, 0.9);
+        }
+
+        .cart-panel-head strong {
+            font-size: 0.72rem;
+            letter-spacing: 0.16em;
+            text-transform: uppercase;
+            color: #1b3558;
+        }
+
+        .cart-link-btn {
+            border: 1px solid rgba(27, 53, 89, 0.22);
+            background: rgba(255, 255, 255, 0.75);
+            color: #183254;
+            font-weight: 800;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            font-size: 0.68rem;
+            border-radius: 999px;
+            padding: 0.38rem 0.65rem;
+            cursor: pointer;
+            transition: background 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
+        }
+
+        .cart-link-btn:hover {
+            transform: translateY(-1px);
+            background: rgba(255, 255, 255, 0.92);
+            border-color: rgba(27, 53, 89, 0.34);
+        }
+
+        .cart-items {
+            padding: 0.9rem 0.95rem;
+            display: grid;
+            gap: 0.65rem;
+        }
+
+        .cart-item {
+            border: 1px solid rgba(27, 53, 89, 0.14);
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.86);
+            padding: 0.75rem 0.8rem;
+            display: grid;
+            grid-template-columns: 1fr auto;
+            gap: 0.6rem;
+            align-items: start;
+        }
+
+        .cart-item-title {
+            font-weight: 900;
+            color: #173256;
+            letter-spacing: 0.01em;
+        }
+
+        .cart-item-meta {
+            margin-top: 0.22rem;
+            font-size: 0.82rem;
+            color: #47658f;
+            line-height: 1.35;
+        }
+
+        .cart-remove {
+            width: 34px;
+            height: 34px;
+            border-radius: 999px;
+            border: 1px solid rgba(27, 53, 89, 0.22);
+            background: rgba(17, 40, 72, 0.06);
+            color: #183254;
+            cursor: pointer;
+            transition: background 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
+        }
+
+        .cart-remove:hover {
+            transform: scale(1.06);
+            background: rgba(17, 40, 72, 0.12);
+            border-color: rgba(27, 53, 89, 0.36);
+        }
+
+        .cart-empty {
+            padding: 1rem 0.95rem;
+            color: rgba(51, 79, 116, 0.9);
+            font-size: 0.92rem;
+        }
+
+        .cart-form {
+            padding: 0.9rem 0.95rem 1rem;
+            display: grid;
+            gap: 0.75rem;
+        }
+
+        .cart-field label {
+            display: block;
+            font-size: 0.65rem;
+            letter-spacing: 0.16em;
+            text-transform: uppercase;
+            font-weight: 900;
+            color: rgba(27, 53, 89, 0.72);
+            margin-bottom: 0.32rem;
+        }
+
+        .cart-field input,
+        .cart-field select {
+            width: 100%;
+            height: 44px;
+            border-radius: 12px;
+            border: 1px solid rgba(27, 53, 89, 0.18);
+            background: rgba(255, 255, 255, 0.92);
+            padding: 0 0.85rem;
+            outline: none;
+            font-family: var(--font-body);
+            font-weight: 700;
+            color: #173256;
+        }
+
+        .cart-field input:focus,
+        .cart-field select:focus {
+            border-color: rgba(191, 140, 74, 0.58);
+            box-shadow: 0 10px 22px rgba(191, 140, 74, 0.14);
+        }
+
+        .cart-message {
+            margin-top: 0.1rem;
+            font-size: 0.88rem;
+            color: #334f74;
+        }
+
+        .cart-message.error {
+            color: #b42318;
+        }
+
+        .cart-modal .modal-actions {
+            padding: 1.1rem 1.8rem 1.35rem;
+            border-top: 1px solid rgba(27, 53, 89, 0.14);
+            background: linear-gradient(180deg, rgba(255, 255, 255, 0) 0%, rgba(226, 236, 250, 0.42) 100%);
+            display: flex;
+            gap: 0.8rem;
+            justify-content: flex-end;
+        }
+
+        .cart-modal .modal-btn {
+            flex: 0 0 auto;
+            min-width: 160px;
+            padding: 0.72rem 1.25rem;
+            border-radius: 10px;
+            font-size: 0.76rem;
+        }
+
+        .cart-modal .modal-btn::before {
+            display: none;
+        }
+
+        @media (max-width: 860px) {
+            .cart-modal .cart-grid {
+                grid-template-columns: 1fr;
+                padding: 1.1rem 1rem 1.1rem;
+            }
+            .cart-modal .cart-header,
+            .cart-modal .modal-actions {
+                padding-left: 1rem;
+                padding-right: 1rem;
+            }
         }
 
         .details-modal .modal-close:hover,
@@ -2069,7 +2361,6 @@
     var s=window.supabase.createClient(url,key);
     window._supabase=s;
     window.getAuthHeaders=function(){return s.auth.getSession().then(function(r){var h={};if(r.data.session&&r.data.session.access_token)h['Authorization']='Bearer '+r.data.session.access_token;return h;});};
-    s.auth.getSession().then(function(r){if(!r.data.session)window.location.replace('/login');});
     })();
     </script>
     <div class="loading-overlay" id="loading">
@@ -2083,6 +2374,7 @@
 
     <div class="viewer-actions">
         <button id="back-btn" class="viewer-action-btn" type="button" hidden>Back</button>
+        <button id="view-cart-btn" class="viewer-action-btn cart" type="button">View Cart <span class="cart-badge" id="cart-count">0</span></button>
         <button id="toggle-overlays-btn" class="viewer-action-btn" type="button">Hide All</button>
         <button id="fullscreen-btn" class="viewer-action-btn" type="button">Fullscreen</button>
     </div>
@@ -2184,8 +2476,66 @@
                 </div>
             </div>
             <div class="modal-actions">
-                <button class="modal-btn primary" id="enter-plot-panorama" type="button" style="display:none;">Enter Panorama</button>
+                <button class="modal-btn primary" id="add-to-cart-btn" type="button">Add to Cart</button>
+                <button class="modal-btn secondary" id="enter-plot-panorama" type="button" style="display:none;">Enter Panorama</button>
                 <button class="modal-btn secondary" id="close-details">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-backdrop cart-modal" id="cart-modal">
+        <div class="modal">
+            <button class="modal-close" id="close-cart-icon" type="button" aria-label="Close cart">×</button>
+            <div class="cart-header">
+                <div class="cart-kicker">Checkout</div>
+                <div class="cart-title">Your Plot Cart</div>
+                <div class="cart-subtitle" id="cart-subtitle">0 plots selected</div>
+            </div>
+            <div class="cart-grid">
+                <div class="cart-panel">
+                    <div class="cart-panel-head">
+                        <strong>Selected Plots</strong>
+                        <button class="cart-link-btn" id="cart-clear-btn" type="button">Clear</button>
+                    </div>
+                    <div class="cart-items" id="cart-items"></div>
+                    <div class="cart-empty" id="cart-empty" style="display:none;">No plots added yet. Open a plot and click “Add to Cart”.</div>
+                </div>
+                <div class="cart-panel">
+                    <div class="cart-panel-head">
+                        <strong>Your Details</strong>
+                        <span class="subtle" style="margin:0;">Send a buy interest to the project CRM.</span>
+                    </div>
+                    <div class="cart-form">
+                        <div class="cart-field">
+                            <label for="checkout-name">Name</label>
+                            <input id="checkout-name" type="text" placeholder="Full name" autocomplete="name">
+                        </div>
+                        <div class="cart-field">
+                            <label for="checkout-email">Email Id</label>
+                            <input id="checkout-email" type="email" placeholder="you@example.com" autocomplete="email">
+                        </div>
+                        <div class="cart-field">
+                            <label for="checkout-phone">Contact Number</label>
+                            <input id="checkout-phone" type="tel" placeholder="Phone number" autocomplete="tel">
+                        </div>
+                        <div class="cart-field">
+                            <label for="checkout-category">Category</label>
+                            <select id="checkout-category">
+                                <option value="">Select</option>
+                                <option value="Residential">Residential</option>
+                                <option value="Commercial">Commercial</option>
+                                <option value="Investment">Investment</option>
+                                <option value="NRI">NRI</option>
+                                <option value="Other">Other</option>
+                            </select>
+                        </div>
+                        <div class="cart-message" id="cart-message" aria-live="polite"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button class="modal-btn primary" id="send-buy-interest-btn" type="button">Send Buy Interest</button>
+                <button class="modal-btn secondary" id="close-cart-btn" type="button">Close</button>
             </div>
         </div>
     </div>
@@ -2241,6 +2591,7 @@
     <script>
         const PANORAMA_ID = {{ panorama.id }};
         const IS_360 = 1; // Always 360 for 3D routes
+        const ORG_SLUG = {{ (org_slug or '')|tojson }};
 
         const loading = document.getElementById('loading');
         const shareBtn = document.getElementById('share-btn');
@@ -2248,6 +2599,22 @@
         const shareUrl = document.getElementById('share-url');
         const copyBtn = document.getElementById('copy-btn');
         const plotDetailsModal = document.getElementById('plot-details-modal');
+        const addToCartBtn = document.getElementById('add-to-cart-btn');
+        const viewCartBtn = document.getElementById('view-cart-btn');
+        const cartCountEl = document.getElementById('cart-count');
+        const cartModal = document.getElementById('cart-modal');
+        const cartItemsEl = document.getElementById('cart-items');
+        const cartEmptyEl = document.getElementById('cart-empty');
+        const cartSubtitleEl = document.getElementById('cart-subtitle');
+        const cartClearBtn = document.getElementById('cart-clear-btn');
+        const closeCartBtn = document.getElementById('close-cart-btn');
+        const closeCartIconBtn = document.getElementById('close-cart-icon');
+        const sendBuyInterestBtn = document.getElementById('send-buy-interest-btn');
+        const checkoutNameEl = document.getElementById('checkout-name');
+        const checkoutEmailEl = document.getElementById('checkout-email');
+        const checkoutPhoneEl = document.getElementById('checkout-phone');
+        const checkoutCategoryEl = document.getElementById('checkout-category');
+        const cartMessageEl = document.getElementById('cart-message');
         const plotSearchInput = document.getElementById('plot-search-input');
         const plotSearchShell = document.getElementById('plot-search-shell');
         const plotSearchDropdown = document.getElementById('plot-search-dropdown');
@@ -2267,6 +2634,8 @@
 
         // Shared variables and functions (available in both modes)
         let plots = [];
+        let activePlotId = null;
+        let cart = [];
 
         let panoramaIndexCache = null;
         let panoramaIndexById = new Map();
@@ -2278,10 +2647,15 @@
             panoramaIndexPromise = (async () => {
                 try {
                     const headers = await (window.getAuthHeaders ? window.getAuthHeaders() : Promise.resolve({}));
-                    const response = await fetch('/api/panoramas', { headers });
-                    if (!response.ok) throw new Error('Failed to load panoramas');
-                    const data = await response.json();
-                    panoramaIndexCache = Array.isArray(data) ? data : [];
+                    const authHeader = headers && (headers.Authorization || headers.authorization);
+                    if (!authHeader) {
+                        panoramaIndexCache = [];
+                    } else {
+                        const response = await fetch('/api/panoramas', { headers });
+                        if (!response.ok) throw new Error('Failed to load panoramas');
+                        const data = await response.json();
+                        panoramaIndexCache = Array.isArray(data) ? data : [];
+                    }
                 } catch (error) {
                     panoramaIndexCache = [];
                 }
@@ -2297,6 +2671,23 @@
 
         function getPanoramaMeta(panoramaId) {
             return panoramaIndexById ? panoramaIndexById.get(String(panoramaId)) : null;
+        }
+
+        async function ensurePanoramaMeta(panoramaId) {
+            const id = String(panoramaId || '').trim();
+            if (!id || !/^[0-9]+$/.test(id)) return null;
+            const cached = getPanoramaMeta(id);
+            if (cached) return cached;
+            try {
+                const response = await fetch(`/api/public/panoramas/${encodeURIComponent(id)}`);
+                if (!response.ok) return null;
+                const data = await response.json();
+                if (data && typeof data.id !== 'undefined') {
+                    panoramaIndexById.set(String(data.id), data);
+                    return data;
+                }
+            } catch (e) {}
+            return null;
         }
 
         const NAV_STACK_KEY = 're_customer_nav_stack_v1';
@@ -2346,10 +2737,16 @@
             stopAutoRotate();
             pushNavStack(`${window.location.pathname}${window.location.search || ''}`);
 
-            const go = () => {
-                const meta = getPanoramaMeta(targetId);
+            const go = async () => {
+                let meta = getPanoramaMeta(targetId);
+                if (!meta) {
+                    meta = await ensurePanoramaMeta(targetId);
+                }
                 const is360 = meta ? Boolean(meta.is_360) : true;
-                const basePath = is360 ? `/customer/3d/${encodeURIComponent(targetId)}` : `/customer/${encodeURIComponent(targetId)}`;
+                const slug = String(ORG_SLUG || '').trim();
+                const basePath = is360
+                    ? (slug ? `/customer/${encodeURIComponent(slug)}/3d/${encodeURIComponent(targetId)}` : `/customer/3d/${encodeURIComponent(targetId)}`)
+                    : (slug ? `/customer/${encodeURIComponent(slug)}/${encodeURIComponent(targetId)}` : `/customer/${encodeURIComponent(targetId)}`);
                 const params = new URLSearchParams();
                 params.set('from', String(PANORAMA_ID));
                 params.set('from_mode', '3d');
@@ -2358,7 +2755,7 @@
 
             // If the index isn't loaded yet, try to load it first so we can route 2D vs 360 correctly.
             if (!panoramaIndexCache) {
-                loadPanoramaIndex().catch(() => {}).finally(go);
+                loadPanoramaIndex().catch(() => {}).finally(() => { go(); });
             } else {
                 go();
             }
@@ -2386,7 +2783,10 @@
                     return;
                 }
                 if (!canUseFrom) return;
-                const path = fromMode === '2d' ? `/customer/${encodeURIComponent(fromId)}` : `/customer/3d/${encodeURIComponent(fromId)}`;
+                const slug = String(ORG_SLUG || '').trim();
+                const path = fromMode === '2d'
+                    ? (slug ? `/customer/${encodeURIComponent(slug)}/${encodeURIComponent(fromId)}` : `/customer/${encodeURIComponent(fromId)}`)
+                    : (slug ? `/customer/${encodeURIComponent(slug)}/3d/${encodeURIComponent(fromId)}` : `/customer/3d/${encodeURIComponent(fromId)}`);
                 window.location.href = path;
             });
         })();
@@ -2580,8 +2980,86 @@
             return id ? `https://drive.google.com/file/d/${id}/preview` : url;
         }
 
+        function normalizeExternalUrl(rawUrl) {
+            const url = String(rawUrl || '').trim();
+            if (!url) return '';
+            if (/^https?:\/\//i.test(url)) return url;
+            if (url.startsWith('//')) return `https:${url}`;
+            if (/^(www\.|youtu\.be\/|youtube\.com\/|m\.youtube\.com\/|drive\.google\.com\/)/i.test(url)) {
+                return `https://${url}`;
+            }
+            return url;
+        }
+
+        function parseTimeToSeconds(value) {
+            const raw = String(value || '').trim();
+            if (!raw) return 0;
+            if (/^\d+$/.test(raw)) return Math.max(0, parseInt(raw, 10) || 0);
+            if (raw.includes(':')) {
+                const parts = raw.split(':').map((v) => parseInt(v, 10));
+                if (parts.some((n) => Number.isNaN(n))) return 0;
+                return parts.reduce((acc, n) => acc * 60 + n, 0);
+            }
+            const match = raw.match(/^(?:(\d+)h)?(?:(\d+)m)?(?:(\d+)s)?$/i);
+            if (!match) return 0;
+            const h = parseInt(match[1] || '0', 10) || 0;
+            const m = parseInt(match[2] || '0', 10) || 0;
+            const s = parseInt(match[3] || '0', 10) || 0;
+            return Math.max(0, (h * 3600) + (m * 60) + s);
+        }
+
+        function extractYouTubeId(rawUrl) {
+            const normalized = normalizeExternalUrl(rawUrl);
+            if (!normalized) return null;
+            let url = null;
+            try {
+                url = new URL(normalized);
+            } catch (e) {
+                return null;
+            }
+            const host = String(url.hostname || '').replace(/^www\./, '').toLowerCase();
+            const path = String(url.pathname || '');
+            let id = null;
+            if (host === 'youtu.be') {
+                id = path.split('/').filter(Boolean)[0] || null;
+            } else if (host.endsWith('youtube.com') || host.endsWith('youtube-nocookie.com')) {
+                if (path === '/watch') id = url.searchParams.get('v');
+                else if (path.startsWith('/embed/')) id = path.split('/')[2] || null;
+                else if (path.startsWith('/shorts/')) id = path.split('/')[2] || null;
+                else if (path.startsWith('/live/')) id = path.split('/')[2] || null;
+            } else if (host === 'm.youtube.com') {
+                if (path === '/watch') id = url.searchParams.get('v');
+            }
+            if (!id) return null;
+            id = String(id).trim();
+            if (!/^[a-zA-Z0-9_-]{6,20}$/.test(id)) return null;
+            return id;
+        }
+
+        function normalizeYouTubeEmbedUrl(rawUrl) {
+            const normalized = normalizeExternalUrl(rawUrl);
+            const id = extractYouTubeId(normalized);
+            if (!id) return '';
+            let start = 0;
+            try {
+                const url = new URL(normalized);
+                start = parseTimeToSeconds(url.searchParams.get('start') || url.searchParams.get('t') || '');
+            } catch (e) {}
+            const params = [];
+            if (start > 0) params.push(`start=${start}`);
+            params.push('rel=0');
+            return `https://www.youtube-nocookie.com/embed/${id}?${params.join('&')}`;
+        }
+
         function isLikelyVideoFile(url) {
             return /\.(mp4|webm|ogg)(\?.*)?$/.test(url || '');
+        }
+
+        function extractFirstUrl(text) {
+            const raw = String(text || '');
+            const match = raw.match(/(https?:\/\/[^\s<>"']+|www\.[^\s<>"']+)/i);
+            if (!match) return '';
+            return String(match[1] || '').replace(/[)\].,;!]+$/g, '');
         }
 
         async function renderPlotMedia(plot) {
@@ -2595,25 +3073,26 @@
             const videoUrl = (plot.media_video || '').trim();
             const mediaElements = [];
 
-            if (plot.has_image && plot.id) {
-                const mediaWrapper = document.createElement('div');
-                mediaWrapper.className = 'media-wrapper';
-                const img = document.createElement('img');
-                img.alt = (plot.name || 'Plot') + ' photo';
-                img.style.maxWidth = '100%'; img.style.height = 'auto';
-                try {
-                    const headers = await (window.getAuthHeaders ? window.getAuthHeaders() : Promise.resolve({}));
-                    const r = await fetch('/api/plots/' + plot.id + '/image', { headers });
-                    if (r.ok) { const blob = await r.blob(); img.src = URL.createObjectURL(blob); }
-                } catch (e) { console.warn('Plot image load failed', e); }
-                mediaWrapper.appendChild(img);
-                mediaElements.push(mediaWrapper);
-            } else if (photoUrl) {
+                if (plot.has_image && plot.id) {
+                    const mediaWrapper = document.createElement('div');
+                    mediaWrapper.className = 'media-wrapper';
+                    const img = document.createElement('img');
+                    img.alt = (plot.name || 'Plot') + ' photo';
+                    img.style.maxWidth = '100%'; img.style.height = 'auto';
+                    try {
+                        const headers = await (window.getAuthHeaders ? window.getAuthHeaders() : Promise.resolve({}));
+                        const r = await fetch('/api/public/plots/' + plot.id + '/image', { headers });
+                        if (r.ok) { const blob = await r.blob(); img.src = URL.createObjectURL(blob); }
+                    } catch (e) { console.warn('Plot image load failed', e); }
+                    mediaWrapper.appendChild(img);
+                    mediaElements.push(mediaWrapper);
+                } else if (photoUrl) {
                 const mediaWrapper = document.createElement('div');
                 mediaWrapper.className = 'media-wrapper';
                 const iframe = document.createElement('iframe');
-                iframe.src = normalizeDriveVideoUrl(photoUrl);
-                iframe.allow = 'autoplay';
+                const ytEmbed = normalizeYouTubeEmbedUrl(photoUrl);
+                iframe.src = ytEmbed || normalizeDriveVideoUrl(photoUrl);
+                iframe.allow = 'autoplay; encrypted-media';
                 iframe.allowFullscreen = true;
                 iframe.loading = 'lazy';
                 iframe.title = `${plot.name || 'Plot'} photo`;
@@ -2622,13 +3101,14 @@
             }
 
             if (videoUrl) {
+                const ytEmbed = normalizeYouTubeEmbedUrl(videoUrl);
                 const driveId = extractDriveId(videoUrl);
                 const wrapper = document.createElement('div');
                 wrapper.className = 'media-wrapper';
 
-                if (driveId || !isLikelyVideoFile(videoUrl)) {
+                if (ytEmbed || driveId || !isLikelyVideoFile(videoUrl)) {
                     const iframe = document.createElement('iframe');
-                    iframe.src = normalizeDriveVideoUrl(videoUrl);
+                    iframe.src = ytEmbed || normalizeDriveVideoUrl(videoUrl);
                     iframe.allow = 'autoplay; encrypted-media';
                     iframe.allowFullscreen = true;
                     iframe.loading = 'lazy';
@@ -2684,7 +3164,7 @@
         async function loadPlots() {
             try {
                 const headers = await (window.getAuthHeaders ? window.getAuthHeaders() : Promise.resolve({}));
-                const response = await fetch(`/api/panoramas/${PANORAMA_ID}/plots`, { headers });
+                const response = await fetch(`/api/public/panoramas/${PANORAMA_ID}/plots`, { headers });
                 const data = await response.json();
                 plots = Array.isArray(data) ? data : [];
                 updateStatusLegend();
@@ -2697,6 +3177,7 @@
 
         function showPlotDetails(plot) {
             stopAutoRotate();
+            activePlotId = plot ? plot.id : null;
             const colors = getStatusColors(plot.status);
             document.getElementById('details-color').style.background = `linear-gradient(135deg, ${colors.start}, ${colors.end})`;
             document.getElementById('details-title').textContent = plot.name;
@@ -2722,8 +3203,234 @@
                     if (enterPlotPanoramaBtn.dataset) delete enterPlotPanoramaBtn.dataset.panoramaId;
                 }
             }
+            updateAddToCartButton(plot);
             plotDetailsModal.classList.add('visible');
         }
+
+        function cartStorageKey() {
+            return `plot-cart-${PANORAMA_ID}`;
+        }
+
+        function normalizeCartItem(value) {
+            if (!value || typeof value !== 'object') return null;
+            const pid = Object.prototype.hasOwnProperty.call(value, 'plot_id') ? value.plot_id : value.id;
+            if (pid === null || pid === undefined || String(pid).trim() === '') return null;
+            return {
+                plot_id: Number(pid),
+                name: String(value.name || value.plot_name || '').trim(),
+                area: String(value.area || '').trim(),
+                price: String(value.price || '').trim(),
+                status: String(value.status || '').trim(),
+            };
+        }
+
+        function loadCartFromStorage() {
+            try {
+                const raw = (window.localStorage ? localStorage.getItem(cartStorageKey()) : null);
+                if (!raw) return [];
+                const parsed = JSON.parse(raw);
+                if (!Array.isArray(parsed)) return [];
+                return parsed.map((x) => normalizeCartItem(x)).filter((x) => x && x.plot_id);
+            } catch (e) {
+                return [];
+            }
+        }
+
+        function saveCartToStorage(items) {
+            try {
+                cart = Array.isArray(items) ? items : [];
+                if (window.localStorage) localStorage.setItem(cartStorageKey(), JSON.stringify(cart));
+            } catch (e) {}
+        }
+
+        function isPlotInCart(plotId) {
+            return cart.some((item) => String(item.plot_id) === String(plotId));
+        }
+
+        function syncCartBadge() {
+            const n = Array.isArray(cart) ? cart.length : 0;
+            if (cartCountEl) cartCountEl.textContent = String(n);
+            if (cartSubtitleEl) cartSubtitleEl.textContent = `${n} ${n === 1 ? 'plot' : 'plots'} selected`;
+        }
+
+        function setCartMessage(message, type) {
+            if (!cartMessageEl) return;
+            cartMessageEl.textContent = message || '';
+            cartMessageEl.classList.toggle('error', type === 'error');
+        }
+
+        function updateAddToCartButton(plot) {
+            if (!addToCartBtn) return;
+            if (!plot || !plot.id) {
+                addToCartBtn.disabled = true;
+                addToCartBtn.textContent = 'Add to Cart';
+                if (addToCartBtn.dataset) delete addToCartBtn.dataset.plotId;
+                return;
+            }
+            addToCartBtn.dataset.plotId = String(plot.id);
+            const statusKey = getStatusKey(plot.status);
+            if (statusKey === 'sold') {
+                addToCartBtn.disabled = true;
+                addToCartBtn.textContent = 'Sold';
+                return;
+            }
+            if (isPlotInCart(plot.id)) {
+                addToCartBtn.disabled = true;
+                addToCartBtn.textContent = 'Added';
+                return;
+            }
+            addToCartBtn.disabled = false;
+            addToCartBtn.textContent = 'Add to Cart';
+        }
+
+        function renderCartItems() {
+            if (!cartItemsEl || !cartEmptyEl) return;
+            if (!cart || cart.length === 0) {
+                cartItemsEl.innerHTML = '';
+                cartEmptyEl.style.display = '';
+                return;
+            }
+            cartEmptyEl.style.display = 'none';
+            cartItemsEl.innerHTML = cart.map((item) => {
+                const statusKey = getStatusKey(item.status);
+                const statusLabel = statusLabels[item.status] || statusLabels[statusKey] || (item.status || '—');
+                const metaBits = [
+                    item.area ? `Area: ${escapeHtml(item.area)}` : '',
+                    item.price ? `Price: ${escapeHtml(item.price)}` : '',
+                    statusLabel ? `Status: ${escapeHtml(statusLabel)}` : ''
+                ].filter(Boolean).join(' • ');
+                return `
+                    <div class="cart-item" data-plot-id="${escapeHtml(item.plot_id)}">
+                        <div>
+                            <div class="cart-item-title">${escapeHtml(item.name || ('Plot #' + item.plot_id))}</div>
+                            <div class="cart-item-meta">${metaBits || '—'}</div>
+                        </div>
+                        <button class="cart-remove" type="button" aria-label="Remove from cart" data-remove="${escapeHtml(item.plot_id)}">×</button>
+                    </div>
+                `;
+            }).join('');
+
+            cartItemsEl.querySelectorAll('button[data-remove]').forEach((btn) => {
+                btn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    const pid = btn.getAttribute('data-remove');
+                    removeFromCart(pid);
+                });
+            });
+        }
+
+        function openCart() {
+            if (!cartModal) return;
+            stopAutoRotate();
+            setCartMessage('');
+            cartModal.classList.add('visible');
+            renderCartItems();
+            syncCartBadge();
+        }
+
+        function closeCart() {
+            if (!cartModal) return;
+            cartModal.classList.remove('visible');
+            setCartMessage('');
+            scheduleAutoRotateResume(850);
+        }
+
+        function addPlotToCart(plot) {
+            if (!plot || !plot.id) return;
+            if (getStatusKey(plot.status) === 'sold') return;
+            if (isPlotInCart(plot.id)) return;
+            const next = cart.concat([{
+                plot_id: Number(plot.id),
+                name: String(plot.name || '').trim(),
+                area: String(plot.area || '').trim(),
+                price: String(plot.price || '').trim(),
+                status: String(plot.status || '').trim(),
+            }]);
+            saveCartToStorage(next);
+            syncCartBadge();
+            renderCartItems();
+            updateAddToCartButton(plot);
+        }
+
+        function removeFromCart(plotId) {
+            const pid = String(plotId || '').trim();
+            if (!pid) return;
+            const next = cart.filter((x) => String(x.plot_id) !== pid);
+            saveCartToStorage(next);
+            syncCartBadge();
+            renderCartItems();
+            const activePlot = plots.find((p) => String(p.id) === String(activePlotId));
+            updateAddToCartButton(activePlot || null);
+        }
+
+        function clearCart() {
+            saveCartToStorage([]);
+            syncCartBadge();
+            renderCartItems();
+            const activePlot = plots.find((p) => String(p.id) === String(activePlotId));
+            updateAddToCartButton(activePlot || null);
+        }
+
+        function validateCheckout() {
+            const name = String(checkoutNameEl ? checkoutNameEl.value : '').trim();
+            const email = String(checkoutEmailEl ? checkoutEmailEl.value : '').trim();
+            const phone = String(checkoutPhoneEl ? checkoutPhoneEl.value : '').trim();
+            const category = String(checkoutCategoryEl ? checkoutCategoryEl.value : '').trim();
+
+            if (!cart || cart.length === 0) return { ok: false, error: 'Your cart is empty.' };
+            if (!name) return { ok: false, error: 'Name is required.' };
+            if (!email || !email.includes('@')) return { ok: false, error: 'Valid email is required.' };
+            if (!phone) return { ok: false, error: 'Contact number is required.' };
+            if (!category) return { ok: false, error: 'Category is required.' };
+            return { ok: true, payload: { name, email, phone, category } };
+        }
+
+        async function sendBuyInterest() {
+            if (!sendBuyInterestBtn) return;
+            setCartMessage('');
+            const v = validateCheckout();
+            if (!v.ok) {
+                setCartMessage(v.error, 'error');
+                return;
+            }
+
+            sendBuyInterestBtn.disabled = true;
+            try {
+                const headers = await (window.getAuthHeaders ? window.getAuthHeaders() : Promise.resolve({}));
+                const body = {
+                    panorama_id: PANORAMA_ID,
+                    customer_name: v.payload.name,
+                    customer_email: v.payload.email,
+                    customer_phone: v.payload.phone,
+                    category: v.payload.category,
+                    items: cart.map((x) => x.plot_id),
+                };
+                const r = await fetch('/api/public/buy-interests', {
+                    method: 'POST',
+                    headers: Object.assign({ 'Content-Type': 'application/json' }, headers || {}),
+                    body: JSON.stringify(body),
+                });
+                const data = await r.json().catch(() => ({}));
+                if (!r.ok) {
+                    const msg = (data && data.error) ? data.error : `Failed to send (${r.status})`;
+                    throw new Error(msg);
+                }
+                setCartMessage('Buy interest sent. Our team will contact you shortly.');
+                clearCart();
+                if (checkoutNameEl) checkoutNameEl.value = '';
+                if (checkoutEmailEl) checkoutEmailEl.value = '';
+                if (checkoutPhoneEl) checkoutPhoneEl.value = '';
+                if (checkoutCategoryEl) checkoutCategoryEl.value = '';
+                window.setTimeout(() => closeCart(), 750);
+            } catch (e) {
+                setCartMessage(e.message || 'Failed to send buy interest', 'error');
+            } finally {
+                sendBuyInterestBtn.disabled = false;
+            }
+        }
+
+        cart = loadCartFromStorage();
+        syncCartBadge();
 
         function isMarkerPhotoLightboxVisible() {
             return Boolean(markerPhotoLightbox && markerPhotoLightbox.classList.contains('visible'));
@@ -3112,8 +3819,26 @@
             renderMedia(marker, imageUrl) {
                 if (!this.dom.media || !this.dom.mediaCol || !this.dom.modal) return;
                 this.dom.media.innerHTML = '';
+                const parts = [];
                 if (imageUrl) {
-                    this.dom.media.innerHTML = `<img src="${this.escapeAttr(imageUrl)}" alt="${this.escapeAttr(marker.name || 'Marker')}" style="max-width:100%;height:auto;">`;
+                    parts.push(`<img src="${this.escapeAttr(imageUrl)}" alt="${this.escapeAttr(marker.name || 'Marker')}" style="max-width:100%;height:auto;">`);
+                }
+
+                const url = extractFirstUrl(marker && marker.description ? marker.description : '');
+                const ytEmbed = normalizeYouTubeEmbedUrl(url);
+                const driveId = extractDriveId(url);
+                if (ytEmbed) {
+                    parts.push(`<div class="media-wrapper" style="margin-top:0.75rem;"><iframe src="${this.escapeAttr(ytEmbed)}" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen loading="lazy" title="${this.escapeAttr(marker.name || 'Marker')} video" style="width:100%;height:220px;border:0;border-radius:12px;background:#000;"></iframe></div>`);
+                } else if (driveId) {
+                    const src = normalizeDriveVideoUrl(url);
+                    parts.push(`<div class="media-wrapper" style="margin-top:0.75rem;"><iframe src="${this.escapeAttr(src)}" allow="autoplay; encrypted-media" allowfullscreen loading="lazy" title="${this.escapeAttr(marker.name || 'Marker')} media" style="width:100%;height:220px;border:0;border-radius:12px;background:#000;"></iframe></div>`);
+                } else if (isLikelyVideoFile(url)) {
+                    const src = normalizeExternalUrl(url);
+                    parts.push(`<div class="media-wrapper" style="margin-top:0.75rem;"><video src="${this.escapeAttr(src)}" controls playsinline style="width:100%;border-radius:12px;border:1px solid rgba(27, 53, 89, 0.16);background:#000;"></video></div>`);
+                }
+
+                if (parts.length) {
+                    this.dom.media.innerHTML = parts.join('');
                     this.dom.mediaCol.style.display = 'block';
                     this.dom.modal.classList.remove('no-media');
                 } else {
@@ -3130,7 +3855,7 @@
                 marker.image_loading = true;
                 try {
                     const headers = await (window.getAuthHeaders ? window.getAuthHeaders() : Promise.resolve({}));
-                    const response = await fetch(`/api/markers/${encodeURIComponent(String(markerId))}/image`, { headers });
+                    const response = await fetch(`/api/public/markers/${encodeURIComponent(String(markerId))}/image`, { headers });
                     if (response.ok) {
                         const blob = await response.blob();
                         marker.image_object_url = URL.createObjectURL(blob);
@@ -3168,53 +3893,16 @@
             }
 
             async fetchMarkers(plotId) {
-                const supabase = this.getSupabaseClient();
-                const baseCols = [
-                    'id', 'plot_id', 'name', 'description', 'image_filename',
-                    'longitude', 'latitude', 'status', 'created_at'
-                ];
-                const styleCols = ['marker_style', 'marker_icon', 'marker_color'];
-                const linkCols = ['linked_panorama_id'];
-
-                const buildColumns = () => {
-                    const cols = [...baseCols];
-                    if (this.linkColumnsSupported) cols.push(...linkCols);
-                    if (this.styleColumnsSupported) cols.push(...styleCols);
-                    if (this.imageColumnsSupported === false) {
-                        const idx = cols.indexOf('image_filename');
-                        if (idx !== -1) cols.splice(idx, 1);
-                    }
-                    return cols.join(', ');
-                };
-
-                let result = null;
-                for (let attempt = 0; attempt < 3; attempt += 1) {
-                    result = await supabase
-                        .from('plot_markers')
-                        .select(buildColumns())
-                        .eq('plot_id', String(plotId))
-                        .order('created_at', { ascending: true });
-
-                    if (!result.error) break;
-
-                    let changed = false;
-                    if (this.styleColumnsSupported && this.isStyleColumnError(result.error)) {
-                        this.styleColumnsSupported = false;
-                        changed = true;
-                    }
-                    if (this.linkColumnsSupported && this.isLinkColumnError(result.error)) {
-                        this.linkColumnsSupported = false;
-                        changed = true;
-                    }
-                    if (this.imageColumnsSupported && this.isImageColumnError(result.error)) {
-                        this.imageColumnsSupported = false;
-                        changed = true;
-                    }
-                    if (!changed) break;
+                const pid = String(plotId || '').trim();
+                if (!pid || !/^[0-9]+$/.test(pid)) return [];
+                try {
+                    const response = await fetch(`/api/public/panoramas/${encodeURIComponent(pid)}/markers`);
+                    if (!response.ok) return [];
+                    const data = await response.json();
+                    return Array.isArray(data) ? data : [];
+                } catch (e) {
+                    return [];
                 }
-
-                if (result && result.error) throw result.error;
-                return (result && result.data) ? result.data : [];
             }
 
             getSupabaseClient() {
@@ -3312,10 +4000,13 @@
             if (plotDetailsModal && plotDetailsModal.classList.contains('visible')) {
                 closePlotDetails();
             }
-            const markerModal = document.getElementById('marker-readonly-modal');
-            if (markerModal && markerModal.classList.contains('visible')) {
-                markerManager.closeReadonly();
+            if (cartModal && cartModal.classList.contains('visible')) {
+                closeCart();
             }
+                const markerModal = document.getElementById('marker-readonly-modal');
+                if (markerModal && markerModal.classList.contains('visible')) {
+                    markerManager.closeReadonly();
+                }
             if (isMarkerPhotoLightboxVisible()) {
                 closeMarkerPhotoLightbox();
             }
@@ -3634,8 +4325,65 @@
             hideSearchDropdown();
         });
 
+        function pointOnSegment(px, py, ax, ay, bx, by) {
+            const cross = (px - ax) * (by - ay) - (py - ay) * (bx - ax);
+            if (Math.abs(cross) > 1e-6) return false;
+            const dot = (px - ax) * (bx - ax) + (py - ay) * (by - ay);
+            if (dot < -1e-6) return false;
+            const lenSq = (bx - ax) * (bx - ax) + (by - ay) * (by - ay);
+            if (dot - lenSq > 1e-6) return false;
+            return true;
+        }
+
+        function pointInPolygon(pt, poly) {
+            const x = Number(pt && pt.x);
+            const y = Number(pt && pt.y);
+            if (!Number.isFinite(x) || !Number.isFinite(y) || !Array.isArray(poly) || poly.length < 3) return false;
+
+            for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+                const a = poly[j];
+                const b = poly[i];
+                if (pointOnSegment(x, y, a.x, a.y, b.x, b.y)) return true;
+            }
+
+            let inside = false;
+            for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+                const xi = poly[i].x, yi = poly[i].y;
+                const xj = poly[j].x, yj = poly[j].y;
+                const intersect = ((yi > y) !== (yj > y)) && (x < ((xj - xi) * (y - yi)) / (yj - yi) + xi);
+                if (intersect) inside = !inside;
+            }
+            return inside;
+        }
+
+        function polygonAreaCentroid(points) {
+            if (!Array.isArray(points) || points.length < 3) return null;
+            let area = 0;
+            let cx = 0;
+            let cy = 0;
+            for (let i = 0, j = points.length - 1; i < points.length; j = i++) {
+                const p1 = points[j];
+                const p2 = points[i];
+                const cross = (p1.x * p2.y) - (p2.x * p1.y);
+                area += cross;
+                cx += (p1.x + p2.x) * cross;
+                cy += (p1.y + p2.y) * cross;
+            }
+            area *= 0.5;
+            if (Math.abs(area) < 1e-7) return null;
+            cx /= (6 * area);
+            cy /= (6 * area);
+            if (!Number.isFinite(cx) || !Number.isFinite(cy)) return null;
+            return { x: cx, y: cy };
+        }
+
         function getCentroid(points) {
-            if (!points || points.length === 0) return null;
+            if (!Array.isArray(points) || points.length === 0) return null;
+
+            const c = polygonAreaCentroid(points);
+            if (c && pointInPolygon(c, points)) return c;
+
+            // Backward-compatible fallback (previous behavior).
             let x = 0, y = 0;
             points.forEach(p => { x += p.x; y += p.y; });
             return { x: x / points.length, y: y / points.length };
@@ -3649,6 +4397,32 @@
         }
         plotDetailsModal.addEventListener('click', (e) => { if (e.target === plotDetailsModal) closePlotDetails(); });
 
+        if (addToCartBtn) {
+            addToCartBtn.addEventListener('click', () => {
+                const plot = plots.find((p) => String(p.id) === String(activePlotId));
+                if (plot) addPlotToCart(plot);
+            });
+        }
+
+        if (viewCartBtn) {
+            viewCartBtn.addEventListener('click', openCart);
+        }
+        if (cartClearBtn) {
+            cartClearBtn.addEventListener('click', clearCart);
+        }
+        if (closeCartBtn) {
+            closeCartBtn.addEventListener('click', closeCart);
+        }
+        if (closeCartIconBtn) {
+            closeCartIconBtn.addEventListener('click', closeCart);
+        }
+        if (sendBuyInterestBtn) {
+            sendBuyInterestBtn.addEventListener('click', sendBuyInterest);
+        }
+        if (cartModal) {
+            cartModal.addEventListener('click', (e) => { if (e.target === cartModal) closeCart(); });
+        }
+
         let viewer = null;
         let markersPlugin = null;
         const psvContainer = document.getElementById('psv-container');
@@ -3659,6 +4433,7 @@
         function isModalVisible() {
             return Boolean(
                 (plotDetailsModal && plotDetailsModal.classList.contains('visible')) ||
+                (cartModal && cartModal.classList.contains('visible')) ||
                 (shareModal && shareModal.classList.contains('visible')) ||
                 (document.getElementById('marker-readonly-modal') && document.getElementById('marker-readonly-modal').classList.contains('visible')) ||
                 isMarkerPhotoLightboxVisible()
@@ -3693,6 +4468,8 @@
         function closePlotDetails() {
             if (!plotDetailsModal) return;
             plotDetailsModal.classList.remove('visible');
+            activePlotId = null;
+            updateAddToCartButton(null);
             if (enterPlotPanoramaBtn) {
                 enterPlotPanoramaBtn.style.display = 'none';
                 if (enterPlotPanoramaBtn.dataset) delete enterPlotPanoramaBtn.dataset.panoramaId;
@@ -3838,14 +4615,16 @@
         if (shareBtn) {
             shareBtn.addEventListener('click', () => {
                 stopAutoRotate();
-                const viewUrl = `${window.location.origin}/customer/3d/${PANORAMA_ID}`;
+                const slug = String(ORG_SLUG || '').trim();
+                const viewUrl = `${window.location.origin}${slug ? `/customer/${encodeURIComponent(slug)}/3d/${PANORAMA_ID}` : `/customer/3d/${PANORAMA_ID}`}`;
                 shareUrl.textContent = viewUrl;
                 shareModal.classList.add('visible');
             });
 
             if (copyBtn) {
                 copyBtn.addEventListener('click', () => {
-                    const viewUrl = `${window.location.origin}/customer/3d/${PANORAMA_ID}`;
+                    const slug = String(ORG_SLUG || '').trim();
+                    const viewUrl = `${window.location.origin}${slug ? `/customer/${encodeURIComponent(slug)}/3d/${PANORAMA_ID}` : `/customer/3d/${PANORAMA_ID}`}`;
                     navigator.clipboard.writeText(viewUrl).then(() => {
                         copyBtn.textContent = 'Copied!';
                         setTimeout(() => {
@@ -3881,6 +4660,7 @@
             if (e.key === 'Escape') {
                 if (isMarkerPhotoLightboxVisible()) closeMarkerPhotoLightbox();
                 if (plotDetailsModal && plotDetailsModal.classList.contains('visible')) closePlotDetails();
+                if (cartModal && cartModal.classList.contains('visible')) closeCart();
                 if (document.getElementById('marker-readonly-modal') && document.getElementById('marker-readonly-modal').classList.contains('visible')) markerManager.closeReadonly();
                 if (shareModal && shareModal.classList.contains('visible')) {
                     shareModal.classList.remove('visible');
