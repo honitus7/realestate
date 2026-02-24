@@ -1759,6 +1759,10 @@
                     <span>🔗</span>
                     <span>Share</span>
                 </button>
+                <button class="share-btn" id="export-plots-btn" type="button">
+                    <span>⬇️</span>
+                    <span>Export Plots</span>
+                </button>
                 <button class="edit-toggle" id="edit-toggle">
                     <span>✏️</span>
                     <span id="edit-toggle-text">Edit Mode</span>
@@ -1976,6 +1980,7 @@
 
     <script>
         const PANORAMA_ID = {{ panorama.id }};
+        const PANORAMA_NAME = {{ (panorama.name or '')|tojson }};
         const IS_360 = {{ 1 if panorama.is_360 else 0 }};
         const ORG_SLUG = {{ (org_slug or '')|tojson }};
 
@@ -2337,6 +2342,127 @@
             toast.textContent = message;
             toastContainer.appendChild(toast);
             setTimeout(() => toast.remove(), 3000);
+        }
+
+        function toCsvValue(value) {
+            let s = String(value == null ? '' : value);
+            if (/^[=\-+@]/.test(s)) s = "'" + s;
+            if (/[",\r\n]/.test(s)) return '"' + s.replace(/"/g, '""') + '"';
+            return s;
+        }
+
+        function toExportDateTime(iso) {
+            try {
+                const d = new Date(iso);
+                if (Number.isNaN(d.getTime())) return String(iso || '');
+                const pad = (n) => String(n).padStart(2, '0');
+                return [
+                    d.getFullYear(),
+                    '-',
+                    pad(d.getMonth() + 1),
+                    '-',
+                    pad(d.getDate()),
+                    ' ',
+                    pad(d.getHours()),
+                    ':',
+                    pad(d.getMinutes()),
+                ].join('');
+            } catch (e) {
+                return String(iso || '');
+            }
+        }
+
+        function toStatusLabel(status) {
+            const normalized = normalizeStatus(String(status || '').trim().toLowerCase());
+            return statusLabels[normalized] || (normalized ? normalized.charAt(0).toUpperCase() + normalized.slice(1) : '');
+        }
+
+        function sanitizeCsvFilePart(value) {
+            const cleaned = String(value || '')
+                .trim()
+                .toLowerCase()
+                .replace(/[^a-z0-9]+/g, '_')
+                .replace(/^_+|_+$/g, '');
+            return cleaned || 'panorama';
+        }
+
+        function downloadCsv(filename, text) {
+            const csvWithBom = '\ufeff' + String(text || '');
+            const blob = new Blob([csvWithBom], { type: 'text/csv;charset=utf-8;' });
+            if (window.navigator && typeof window.navigator.msSaveOrOpenBlob === 'function') {
+                window.navigator.msSaveOrOpenBlob(blob, filename);
+                return;
+            }
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            a.style.display = 'none';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            setTimeout(() => URL.revokeObjectURL(url), 5000);
+        }
+
+        function exportPlotsCsv() {
+            if (!Array.isArray(plots) || plots.length === 0) {
+                showToast('No plots available to export', 'error');
+                return;
+            }
+            const header = [
+                'Panorama ID',
+                'Panorama Name',
+                'Plot ID',
+                'Plot Name',
+                'Area',
+                'Price',
+                'Status',
+                'Color',
+                'Description',
+                'Has Image',
+                'Media Photo',
+                'Media Video',
+                'Linked Panorama ID',
+                'Point Count',
+                'Points JSON',
+                'Created At',
+                'Updated At'
+            ];
+            const lines = ['sep=,', header.join(',')];
+            plots.forEach((plot) => {
+                const item = plot || {};
+                const points = Array.isArray(item.points) ? item.points : [];
+                let pointsJson = '';
+                try {
+                    pointsJson = points.length ? JSON.stringify(points) : '';
+                } catch (e) {
+                    pointsJson = '';
+                }
+                lines.push([
+                    toCsvValue(PANORAMA_ID),
+                    toCsvValue(PANORAMA_NAME),
+                    toCsvValue(item.id || ''),
+                    toCsvValue(item.name || ''),
+                    toCsvValue(item.area || ''),
+                    toCsvValue(item.price || ''),
+                    toCsvValue(toStatusLabel(item.status || '')),
+                    toCsvValue(item.color || ''),
+                    toCsvValue(item.description || ''),
+                    toCsvValue(item.has_image ? 'Yes' : 'No'),
+                    toCsvValue(item.media_photo || ''),
+                    toCsvValue(item.media_video || ''),
+                    toCsvValue(item.linked_panorama_id || ''),
+                    toCsvValue(points.length),
+                    toCsvValue(pointsJson),
+                    toCsvValue(toExportDateTime(item.created_at || '')),
+                    toCsvValue(toExportDateTime(item.updated_at || '')),
+                ].join(','));
+            });
+
+            const stamp = new Date().toISOString().slice(0, 10);
+            const filename = `plots_${sanitizeCsvFilePart(PANORAMA_NAME)}_${stamp}.csv`;
+            downloadCsv(filename, lines.join('\r\n') + '\r\n');
+            showToast('Plots export downloaded');
         }
 
         let imageContainer, imageWrapper, panoramaImage, drawingCanvas, plotsOverlay, ctx;
@@ -2946,10 +3072,15 @@
         plotDetailsModal.addEventListener('click', (e) => { if (e.target === plotDetailsModal) plotDetailsModal.classList.remove('visible'); });
 
         const shareBtn = document.getElementById('share-btn');
+        const exportPlotsBtn = document.getElementById('export-plots-btn');
         const shareModal = document.getElementById('share-modal');
         const customerShareUrl = document.getElementById('customer-share-url');
         const copyCustomerBtn = document.getElementById('copy-customer-btn');
         const closeShare = document.getElementById('close-share');
+
+        if (exportPlotsBtn) {
+            exportPlotsBtn.addEventListener('click', exportPlotsCsv);
+        }
 
         if (shareBtn) {
             shareBtn.addEventListener('click', () => {

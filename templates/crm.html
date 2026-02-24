@@ -606,19 +606,53 @@
             var key = {{ (supabase_anon_key or '')|tojson }};
             if (!url || !key || !window.supabase) return;
             window._supabase = window.supabase.createClient(url, key);
-            var supabase = window._supabase;
-            supabase.auth.getSession().then(function (r) {
-                if (!r.data.session) window.location.replace('/login');
+            waitForAuthSession(4, 120).then(function (session) {
+                if (!session) window.location.replace('/login');
+            }).catch(function () {
+                window.location.replace('/login');
             });
         })();
 
-        function getAuthHeaders() {
+        function waitForAuthSession(maxAttempts, delayMs) {
             var supabase = window._supabase;
-            if (!supabase) return Promise.resolve({});
-            return supabase.auth.getSession().then(function (r) {
+            if (!supabase || !supabase.auth || typeof supabase.auth.getSession !== 'function') {
+                return Promise.resolve(null);
+            }
+            var remaining = Number(maxAttempts || 0);
+            function readSession() {
+                return supabase.auth.getSession()
+                    .then(function (r) {
+                        return (r && r.data && r.data.session) ? r.data.session : null;
+                    })
+                    .catch(function () { return null; });
+            }
+            function step() {
+                return readSession().then(function (session) {
+                    if (session || remaining <= 0) return session;
+                    remaining -= 1;
+                    return new Promise(function (resolve) {
+                        setTimeout(function () { resolve(step()); }, Number(delayMs || 120));
+                    });
+                });
+            }
+            return step();
+        }
+
+        function getAuthHeaders() {
+            return waitForAuthSession(4, 120).then(function (session) {
                 var h = {};
-                if (r.data.session && r.data.session.access_token) h['Authorization'] = 'Bearer ' + r.data.session.access_token;
+                if (session && session.access_token) h['Authorization'] = 'Bearer ' + session.access_token;
                 return h;
+            });
+        }
+
+        function ensureAuthenticated() {
+            return getAuthHeaders().then(function (headers) {
+                if (!headers || !headers.Authorization) {
+                    window.location.replace('/login');
+                    throw new Error('Not authenticated');
+                }
+                return headers;
             });
         }
     </script>
@@ -1021,7 +1055,7 @@
             btnContacted.disabled = true;
             showDrawerMsg('');
             try {
-                const headers = await getAuthHeaders();
+                const headers = await ensureAuthenticated();
                 const r = await fetch('/api/buy-interests/' + encodeURIComponent(String(selected.id)), {
                     method: 'PATCH',
                     headers: Object.assign({ 'Content-Type': 'application/json' }, headers || {}),
@@ -1042,45 +1076,89 @@
         }
 
         function toCsvValue(value) {
-            const s = String(value || '');
-            if (/[\",\\n]/.test(s)) return '\"' + s.replace(/\"/g, '\"\"') + '\"';
+            let s = String(value == null ? '' : value);
+            // Prevent Excel from auto-evaluating cells as formulas.
+            if (/^[=\-+@]/.test(s)) s = "'" + s;
+            if (/[",\r\n]/.test(s)) return '"' + s.replace(/"/g, '""') + '"';
             return s;
+        }
+
+        function toExportDateTime(iso) {
+            try {
+                const d = new Date(iso);
+                if (Number.isNaN(d.getTime())) return String(iso || '');
+                const pad = (n) => String(n).padStart(2, '0');
+                return [
+                    d.getFullYear(),
+                    '-',
+                    pad(d.getMonth() + 1),
+                    '-',
+                    pad(d.getDate()),
+                    ' ',
+                    pad(d.getHours()),
+                    ':',
+                    pad(d.getMinutes()),
+                ].join('');
+            } catch (e) {
+                return String(iso || '');
+            }
+        }
+
+        function toStatusLabel(status) {
+            const raw = String(status || '').trim().toLowerCase();
+            if (!raw) return '';
+            return raw.charAt(0).toUpperCase() + raw.slice(1);
+        }
+
+        function downloadCsv(filename, text) {
+            const csvWithBom = '\ufeff' + String(text || '');
+            const blob = new Blob([csvWithBom], { type: 'text/csv;charset=utf-8;' });
+            if (window.navigator && typeof window.navigator.msSaveOrOpenBlob === 'function') {
+                window.navigator.msSaveOrOpenBlob(blob, filename);
+                return;
+            }
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            a.style.display = 'none';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            setTimeout(() => URL.revokeObjectURL(url), 5000);
         }
 
         function exportCsv() {
             const rows = filtered;
-            const header = ['created_at', 'status', 'category', 'project_id', 'project_name', 'customer_name', 'customer_email', 'customer_phone', 'plots', 'notes'];
-            const lines = [header.join(',')];
+            if (!rows.length) return;
+            const header = ['Created At', 'Status', 'Category', 'Project ID', 'Project Name', 'Customer Name', 'Customer Email', 'Customer Phone', 'Plot Count', 'Plots', 'Notes'];
+            // Excel (especially on non-US locale settings) may ignore comma delimiters unless this preamble is present.
+            const lines = ['sep=,', header.join(',')];
             rows.forEach((i) => {
                 const project = projectById.get(String(i.panorama_id));
                 const projectName = (project && project.name) ? project.name : '';
-                const plots = Array.isArray(i.plots) ? i.plots.map((p) => (p && p.name) ? p.name : '').filter(Boolean).join('; ') : '';
+                const plotNames = Array.isArray(i.plots) ? i.plots.map((p) => (p && p.name) ? p.name : '').filter(Boolean) : [];
+                const plots = plotNames.join('; ');
                 lines.push([
-                    toCsvValue(i.created_at || ''),
-                    toCsvValue(i.status || ''),
+                    toCsvValue(toExportDateTime(i.created_at || '')),
+                    toCsvValue(toStatusLabel(i.status || '')),
                     toCsvValue(i.category || ''),
                     toCsvValue(i.panorama_id || ''),
                     toCsvValue(projectName),
                     toCsvValue(i.customer_name || ''),
                     toCsvValue(i.customer_email || ''),
                     toCsvValue(i.customer_phone || ''),
+                    toCsvValue(plotNames.length),
                     toCsvValue(plots),
                     toCsvValue(i.notes || ''),
                 ].join(','));
             });
-            const blob = new Blob([lines.join('\\n')], { type: 'text/csv;charset=utf-8' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = 'buy_interests.csv';
-            document.body.appendChild(a);
-            a.click();
-            a.remove();
-            setTimeout(() => URL.revokeObjectURL(url), 5000);
+            const stamp = new Date().toISOString().slice(0, 10);
+            downloadCsv('buy_interests_' + stamp + '.csv', lines.join('\r\n') + '\r\n');
         }
 
         async function loadProjects() {
-            const headers = await getAuthHeaders();
+            const headers = await ensureAuthenticated();
             const r = await fetch('/api/panoramas', { headers });
             if (r.status === 401) { window.location.replace('/login'); return; }
             if (!r.ok) throw new Error('Failed to load projects');
@@ -1091,7 +1169,7 @@
         }
 
         async function loadInterests() {
-            const headers = await getAuthHeaders();
+            const headers = await ensureAuthenticated();
             const r = await fetch('/api/buy-interests', { headers });
             const data = await r.json().catch(() => ([]));
             if (!r.ok) {
@@ -1140,6 +1218,7 @@
 
         (async function init() {
             try {
+                await ensureAuthenticated();
                 await loadProjects();
                 await loadInterests();
                 if (interests.length === 0) {

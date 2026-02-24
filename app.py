@@ -86,6 +86,7 @@ SUPABASE_S3_SIGNED_URL_TTL = max(60, int(os.environ.get('SUPABASE_S3_SIGNED_URL_
 SUPABASE_S3_UPLOAD_URL_TTL = max(60, int(os.environ.get('SUPABASE_S3_UPLOAD_URL_TTL', '900')))
 SUPABASE_S3_PLOT_PREFIX = os.environ.get('SUPABASE_S3_PLOT_PREFIX', 'plot-images').strip('/')
 SUPABASE_S3_MARKER_PREFIX = os.environ.get('SUPABASE_S3_MARKER_PREFIX', 'marker-images').strip('/')
+PAGE_ACCESS_TOKEN_TTL = max(60, int(os.environ.get('PAGE_ACCESS_TOKEN_TTL', '900')))
 
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
 IMAGE_CONTENT_TYPES = {
@@ -123,6 +124,19 @@ def _plot_upload_serializer():
 
 def _marker_upload_serializer():
     return URLSafeTimedSerializer(app.secret_key, salt='marker-image-upload')
+
+
+def _page_access_serializer():
+    # Short-lived route token used to gate protected editor/client page renders.
+    return URLSafeTimedSerializer(app.secret_key, salt='page-access')
+
+
+def _issue_page_access_token(user_id, panorama_id, mode):
+    return _page_access_serializer().dumps({
+        'uid': str(user_id),
+        'pid': int(panorama_id),
+        'mode': str(mode or '').strip().lower(),
+    })
 
 
 def _get_s3_client():
@@ -470,6 +484,57 @@ def _can_manage_workspace(sb, workspace, user_id, role):
     return bool(caller_org and workspace_org and str(caller_org) == str(workspace_org))
 
 
+def _load_panorama_for_page_mode(panorama_id, mode):
+    """
+    Validate short-lived page token (query param `pt`) and ensure the token owner
+    still has required DB access for the requested panorama/mode.
+    """
+    sb = get_supabase()
+    if not sb:
+        return None, None, ("Database not configured", 503)
+
+    token = str(request.args.get('pt') or '').strip()
+    if not token:
+        return None, None, ("Forbidden", 403)
+
+    try:
+        payload = _page_access_serializer().loads(token, max_age=int(PAGE_ACCESS_TOKEN_TTL))
+    except SignatureExpired:
+        return None, None, ("Page access token expired", 403)
+    except BadSignature:
+        return None, None, ("Invalid page access token", 403)
+
+    token_mode = str(payload.get('mode') or '').strip().lower()
+    if token_mode != str(mode or '').strip().lower():
+        return None, None, ("Invalid page access token", 403)
+
+    try:
+        token_panorama_id = int(payload.get('pid'))
+    except Exception:
+        token_panorama_id = None
+    if token_panorama_id != int(panorama_id):
+        return None, None, ("Invalid page access token", 403)
+
+    token_user_id = str(payload.get('uid') or '').strip()
+    if not token_user_id:
+        return None, None, ("Invalid page access token", 403)
+
+    panorama, access_type = get_panorama_with_access(sb, panorama_id, token_user_id)
+    if not panorama:
+        return None, None, ("Panorama not found", 404)
+
+    if token_mode == 'admin':
+        if access_type != 'owner':
+            return None, None, ("Forbidden", 403)
+    elif token_mode == 'client':
+        if access_type not in ('owner', 'client'):
+            return None, None, ("Forbidden", 403)
+    else:
+        return None, None, ("Invalid page mode", 400)
+
+    return sb, panorama, None
+
+
 # ----- Public routes -----
 @app.route('/')
 def index():
@@ -522,12 +587,9 @@ def workspace_access_page(workspace_id):
 
 @app.route('/admin/<int:panorama_id>')
 def admin(panorama_id):
-    sb = get_supabase()
-    if not sb:
-        return "Database not configured", 503
-    panorama = get_panorama_by_id(sb, panorama_id)
-    if not panorama:
-        return "Panorama not found", 404
+    sb, panorama, err = _load_panorama_for_page_mode(panorama_id, 'admin')
+    if err:
+        return err
     org_name, org_slug = _get_org_name_and_slug_for_panorama(sb, panorama)
     return render_template('editor.html', panorama=panorama, mode='admin', org_name=org_name, org_slug=org_slug, **auth_ctx())
 
@@ -571,36 +633,27 @@ def customer_with_org(org_slug, panorama_id):
 
 @app.route('/client/<int:panorama_id>')
 def client(panorama_id):
-    sb = get_supabase()
-    if not sb:
-        return "Database not configured", 503
-    panorama = get_panorama_by_id(sb, panorama_id)
-    if not panorama:
-        return "Panorama not found", 404
+    sb, panorama, err = _load_panorama_for_page_mode(panorama_id, 'client')
+    if err:
+        return err
     org_name, org_slug = _get_org_name_and_slug_for_panorama(sb, panorama)
     return render_template('client.html', panorama=panorama, mode='client', org_name=org_name, org_slug=org_slug, **auth_ctx())
 
 
 @app.route('/admin/3d/<int:panorama_id>')
 def admin_3d(panorama_id):
-    sb = get_supabase()
-    if not sb:
-        return "Database not configured", 503
-    panorama = get_panorama_by_id(sb, panorama_id)
-    if not panorama:
-        return "Panorama not found", 404
+    sb, panorama, err = _load_panorama_for_page_mode(panorama_id, 'admin')
+    if err:
+        return err
     org_name, org_slug = _get_org_name_and_slug_for_panorama(sb, panorama)
     return render_template('admin_3d.html', panorama=panorama, org_name=org_name, org_slug=org_slug, **auth_ctx())
 
 
 @app.route('/client/3d/<int:panorama_id>')
 def client_3d(panorama_id):
-    sb = get_supabase()
-    if not sb:
-        return "Database not configured", 503
-    panorama = get_panorama_by_id(sb, panorama_id)
-    if not panorama:
-        return "Panorama not found", 404
+    sb, panorama, err = _load_panorama_for_page_mode(panorama_id, 'client')
+    if err:
+        return err
     org_name, org_slug = _get_org_name_and_slug_for_panorama(sb, panorama)
     return render_template('client_3d.html', panorama=panorama, org_name=org_name, org_slug=org_slug, **auth_ctx())
 
@@ -1045,6 +1098,39 @@ def get_panoramas(user_id, role):
     return jsonify(out)
 
 
+@app.route('/api/panoramas/<int:panorama_id>/page-token', methods=['POST'])
+@require_auth
+def create_panorama_page_token(user_id, role, panorama_id):
+    """Issue a short-lived token for opening protected admin/client pages."""
+    sb = get_supabase()
+    if not sb:
+        return jsonify({'error': 'Database not configured'}), 503
+
+    payload = request.get_json(silent=True) or {}
+    mode = str(payload.get('mode') or '').strip().lower()
+    if mode not in ('admin', 'client'):
+        return jsonify({'error': 'mode must be admin or client'}), 400
+
+    panorama, access_type = get_panorama_with_access(sb, panorama_id, user_id)
+    if not panorama:
+        return jsonify({'error': 'Panorama not found'}), 404
+
+    if mode == 'admin':
+        if access_type != 'owner':
+            return jsonify({'error': 'Only owner can open admin mode'}), 403
+    else:
+        if access_type not in ('owner', 'client'):
+            return jsonify({'error': 'Only owner or client can open client mode'}), 403
+
+    token = _issue_page_access_token(user_id, panorama_id, mode)
+    return jsonify({
+        'token': token,
+        'mode': mode,
+        'panorama_id': int(panorama_id),
+        'expires_in': int(PAGE_ACCESS_TOKEN_TTL),
+    })
+
+
 @app.route('/api/workspaces', methods=['GET'])
 @require_auth
 def list_workspaces(user_id, role):
@@ -1108,23 +1194,25 @@ def list_workspaces(user_id, role):
                 return _workspace_schema_error_response()
             return jsonify({'error': str(e)}), 500
 
-    workspace_ids = [row.get('id') for row in out if row.get('id')]
+    # Count only panoramas this user can access to avoid exposing folder inventory
+    # beyond granted scope.
     counts = {}
-    if workspace_ids:
-        try:
-            panos = sb.table('panoramas').select('id, workspace_id').in_('workspace_id', workspace_ids).execute()
-            for row in (panos.data or []):
-                wsid = row.get('workspace_id')
-                if not wsid:
-                    continue
-                key = str(wsid)
-                counts[key] = int(counts.get(key, 0)) + 1
-        except Exception as e:
-            if _is_workspace_schema_missing(e):
-                return _workspace_schema_error_response()
-            return jsonify({'error': str(e)}), 500
+    for pano in (list_panoramas_for_user(sb, user_id) or []):
+        wsid = pano.get('workspace_id') if isinstance(pano, dict) else None
+        if not wsid:
+            continue
+        key = str(wsid)
+        counts[key] = int(counts.get(key, 0)) + 1
     for row in out:
         row['panorama_count'] = int(counts.get(str(row.get('id')), 0))
+
+    # For shared folders, only return folders that currently expose at least one panorama.
+    # This avoids showing stale/empty shared folders to client accounts.
+    out = [
+        row for row in out
+        if str(row.get('access_type') or 'viewer') == 'owner'
+        or int(row.get('panorama_count') or 0) > 0
+    ]
 
     out.sort(key=lambda x: ((x.get('access_type') != 'owner'), str(x.get('name') or '').lower()))
     return jsonify(out)
@@ -3023,7 +3111,8 @@ def set_profile_role(admin_id, role, user_id):
 def _crm_panorama_ids(sb, user_id):
     """
     Panoramas this user can manage for CRM purposes.
-    Owner panoramas + panoramas where user has 'client' access (not 'viewer').
+    Owner panoramas + panoramas where user has 'client' access (not 'viewer'),
+    including folder-level client shares.
     """
     ids = set()
     try:
@@ -3044,6 +3133,36 @@ def _crm_panorama_ids(sb, user_id):
                 pass
     except Exception:
         pass
+    try:
+        ws = (
+            sb.table('workspace_access')
+            .select('workspace_id')
+            .eq('user_id', user_id)
+            .eq('access_type', 'client')
+            .execute()
+        )
+        workspace_ids = []
+        for row in (ws.data or []):
+            wsid = row.get('workspace_id')
+            if wsid:
+                workspace_ids.append(str(wsid))
+        workspace_ids = list(dict.fromkeys(workspace_ids))
+    except Exception:
+        workspace_ids = []
+
+    if workspace_ids:
+        chunk_size = 100
+        for i in range(0, len(workspace_ids), chunk_size):
+            chunk = workspace_ids[i:i + chunk_size]
+            try:
+                panos = sb.table('panoramas').select('id').in_('workspace_id', chunk).execute()
+            except Exception:
+                continue
+            for row in (panos.data or []):
+                try:
+                    ids.add(int(row.get('id')))
+                except Exception:
+                    pass
     return sorted(ids)
 
 

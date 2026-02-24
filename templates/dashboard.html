@@ -1072,16 +1072,43 @@
                     }).catch(function (err) { showChangePwError(err.message || 'Failed to update password'); }).finally(function () { confirmChangePw.disabled = false; });
                 });
             }
+            startDashboardOnce();
+        }).catch(function () {
+            window.location.replace('/login');
         });
         }) ();
 
-        function getAuthHeaders() {
+        let dashboardInitStarted = false;
+
+        function waitForAuthSession(maxAttempts, delayMs) {
             var supabase = window._supabase;
-            if (!supabase) return Promise.resolve({});
-            return supabase.auth.getSession().then(function (r) {
+            if (!supabase || !supabase.auth || typeof supabase.auth.getSession !== 'function') {
+                return Promise.resolve(null);
+            }
+            var remaining = Number(maxAttempts || 0);
+            function readSession() {
+                return supabase.auth.getSession()
+                    .then(function (r) {
+                        return (r && r.data && r.data.session) ? r.data.session : null;
+                    })
+                    .catch(function () { return null; });
+            }
+            function step() {
+                return readSession().then(function (session) {
+                    if (session || remaining <= 0) return session;
+                    remaining -= 1;
+                    return new Promise(function (resolve) {
+                        setTimeout(function () { resolve(step()); }, Number(delayMs || 120));
+                    });
+                });
+            }
+            return step();
+        }
+
+        function getAuthHeaders() {
+            return waitForAuthSession(4, 120).then(function (session) {
                 var h = {};
-                if (r.data.session && r.data.session.access_token)
-                    h['Authorization'] = 'Bearer ' + r.data.session.access_token;
+                if (session && session.access_token) h['Authorization'] = 'Bearer ' + session.access_token;
                 return h;
             });
         }
@@ -1140,8 +1167,6 @@
         const cancelDeleteWorkspace = document.getElementById('cancel-delete-workspace');
         const confirmDeleteWorkspace = document.getElementById('confirm-delete-workspace');
         const toastContainer = document.getElementById('toast-container');
-
-        initializeDashboard();
 
         function setCrmNavVisible(visible) {
             var el = document.getElementById('nav-crm');
@@ -1211,6 +1236,7 @@
                 var wsKey = 'ws:' + workspaceId;
                 var isOwner = String(ws.access_type || 'owner') === 'owner';
                 var count = countByWorkspace[workspaceId] || 0;
+                if (!isOwner && count === 0) return;
                 items += '<div class="workspace-item ' + (selectedWorkspaceKey === wsKey ? 'active' : '') + '" onclick="setWorkspaceSelection(\'' + wsKey + '\')" ondragover="onWorkspaceDragOver(event)" ondragleave="onWorkspaceDragLeave(event)" ondrop="onWorkspaceDrop(event,\'' + wsKey + '\')">';
                 items += '<div class="workspace-label"><span>' + escapeHtml(ws.name || 'Workspace') + '</span><span class="workspace-count">' + count + '</span></div>';
                 items += '<div class="workspace-meta">' + (isOwner ? 'Owned folder' : ('Shared: ' + escapeHtml(ws.access_type || 'viewer'))) + '</div>';
@@ -1334,6 +1360,12 @@
             renderProjects();
         }
 
+        function startDashboardOnce() {
+            if (dashboardInitStarted) return;
+            dashboardInitStarted = true;
+            initializeDashboard();
+        }
+
         // File Upload Handlers
         uploadZone.addEventListener('click', (e) => {
             if (e.target === uploadZone || e.target.classList.contains('upload-icon') ||
@@ -1427,8 +1459,7 @@
                     resetUploadForm();
                     Promise.all([loadProjects(), loadWorkspaces()]);
                     setTimeout(() => {
-                        if (project.is_360) window.location.href = `/admin/3d/${project.id}`;
-                        else window.location.href = `/admin/${project.id}`;
+                        openProjectWithAccessToken('admin', project.id, !!project.is_360);
                     }, 500);
                 };
 
@@ -1746,13 +1777,44 @@
             movePanoramaWorkspace(panoramaId, targetKey);
         }
 
-        function openEditor(id) {
+        function projectEditorPath(base, id, is360) {
+            return is360 ? ('/' + base + '/3d/' + id) : ('/' + base + '/' + id);
+        }
+
+        async function openProjectWithAccessToken(base, id, is360) {
+            const path = projectEditorPath(base, id, !!is360);
+            if (base === 'customer') {
+                window.location.href = path;
+                return;
+            }
+            try {
+                const headers = await getAuthHeaders();
+                if (!headers || !headers.Authorization) {
+                    window.location.replace('/login');
+                    return;
+                }
+                const response = await fetch('/api/panoramas/' + id + '/page-token', {
+                    method: 'POST',
+                    headers: Object.assign({ 'Content-Type': 'application/json' }, headers),
+                    body: JSON.stringify({ mode: base })
+                });
+                const data = await response.json().catch(() => null);
+                if (!response.ok || !data || !data.token) {
+                    const msg = (data && data.error) ? data.error : ('Access denied (' + response.status + ')');
+                    throw new Error(msg);
+                }
+                window.location.href = path + '?pt=' + encodeURIComponent(data.token);
+            } catch (error) {
+                showToast((error && error.message) ? error.message : 'Failed to open project', 'error');
+            }
+        }
+
+        async function openEditor(id) {
             var project = projects.find(function (p) { return String(p.id) === String(id); });
             var at = project && (project.access_type || 'owner');
             var is360 = project && project.is_360;
             var base = (at === 'owner') ? 'admin' : (at === 'client') ? 'client' : 'customer';
-            if (is360) window.location.href = '/' + base + '/3d/' + id;
-            else window.location.href = '/' + base + '/' + id;
+            await openProjectWithAccessToken(base, id, !!is360);
         }
 
         function showDeleteModal(id, event) {

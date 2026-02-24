@@ -205,109 +205,212 @@ _PANORAMA_FIELDS_BASE = 'id, user_id, name, filename, original_filename, width, 
 _PANORAMA_FIELDS_WITH_WORKSPACE = _PANORAMA_FIELDS_BASE + ', workspace_id'
 
 
+def _access_rank(access_type):
+    at = str(access_type or 'viewer').lower()
+    if at == 'owner':
+        return 3
+    if at == 'client':
+        return 2
+    return 1
+
+
+def _normalize_access_type(access_type):
+    at = str(access_type or 'viewer').lower().strip()
+    return at if at in ('owner', 'client', 'viewer') else 'viewer'
+
+
+def _select_panorama_rows(sb, selector, values):
+    if not values:
+        return []
+
+    def _run(fields):
+        return (
+            sb.table('panoramas')
+            .select(fields)
+            .in_(selector, values)
+            .execute()
+        )
+
+    try:
+        r = _run(_PANORAMA_FIELDS_WITH_WORKSPACE)
+    except Exception as e:
+        if 'workspace_id' in str(e).lower():
+            r = _run(_PANORAMA_FIELDS_BASE)
+        else:
+            raise
+    return r.data or []
+
+
+def _plot_counts_for_panoramas(sb, panorama_ids):
+    ids = []
+    seen = set()
+    for pid in (panorama_ids or []):
+        if pid is None:
+            continue
+        if pid in seen:
+            continue
+        seen.add(pid)
+        ids.append(pid)
+
+    if not ids:
+        return {}
+
+    counts = {pid: 0 for pid in ids}
+    chunk_size = 150
+    try:
+        for i in range(0, len(ids), chunk_size):
+            chunk = ids[i:i + chunk_size]
+            r = (
+                sb.table('plots')
+                .select('panorama_id')
+                .in_('panorama_id', chunk)
+                .limit(50000)
+                .execute()
+            )
+            for row in (r.data or []):
+                pid = row.get('panorama_id')
+                key = pid
+                if key not in counts:
+                    try:
+                        key = int(pid)
+                    except Exception:
+                        key = pid
+                if key in counts:
+                    counts[key] = int(counts.get(key, 0)) + 1
+    except Exception:
+        # Fallback to per-panorama counting if bulk query fails for any reason.
+        for pid in ids:
+            counts[pid] = _count_plots(sb, pid)
+    return counts
+
+
 def list_panoramas_for_user(sb, user_id):
     """
     Return list of panoramas the user can see, each with access_type ('owner'|'client'|'viewer') and plot_count.
     """
     try:
-        def select_panorama_fields():
-            # Backward-compatible: workspace_id may not exist yet.
-            return _PANORAMA_FIELDS_WITH_WORKSPACE
+        def _normalize_panorama_id(value):
+            try:
+                return int(value)
+            except Exception:
+                return value
 
-        # Owned
+        # Owned panoramas
         try:
-            owned = sb.table('panoramas').select(select_panorama_fields()).eq('user_id', user_id).order('updated_at', desc=True).execute()
+            owned = (
+                sb.table('panoramas')
+                .select(_PANORAMA_FIELDS_WITH_WORKSPACE)
+                .eq('user_id', user_id)
+                .order('updated_at', desc=True)
+                .execute()
+            )
         except Exception as e:
             if 'workspace_id' in str(e).lower():
-                owned = sb.table('panoramas').select(_PANORAMA_FIELDS_BASE).eq('user_id', user_id).order('updated_at', desc=True).execute()
+                owned = (
+                    sb.table('panoramas')
+                    .select(_PANORAMA_FIELDS_BASE)
+                    .eq('user_id', user_id)
+                    .order('updated_at', desc=True)
+                    .execute()
+                )
             else:
                 raise
-        # Shared via panorama_access
-        shared = sb.table('panorama_access').select('panorama_id, access_type').eq('user_id', user_id).execute()
-        shared_ids = {row['panorama_id']: row['access_type'] for row in (shared.data or [])}
 
-        # Shared via workspace_access (folder share)
+        # Direct panorama shares.
+        shared = (
+            sb.table('panorama_access')
+            .select('panorama_id, access_type')
+            .eq('user_id', user_id)
+            .execute()
+        )
+        shared_access = {}
+        for row in (shared.data or []):
+            pid = _normalize_panorama_id(row.get('panorama_id'))
+            if pid is None:
+                continue
+            at = _normalize_access_type(row.get('access_type'))
+            current = shared_access.get(pid)
+            if current is None or _access_rank(at) > _access_rank(current):
+                shared_access[pid] = at
+
+        # Folder shares.
         try:
-            workspace_access = sb.table('workspace_access').select('workspace_id, access_type').eq('user_id', user_id).execute()
+            workspace_access = (
+                sb.table('workspace_access')
+                .select('workspace_id, access_type')
+                .eq('user_id', user_id)
+                .execute()
+            )
             workspace_access_rows = workspace_access.data or []
         except Exception:
-            # Backward-compatible when workspace_access table doesn't exist yet.
             workspace_access_rows = []
 
-        workspace_to_access = {str(row.get('workspace_id')): row.get('access_type') for row in workspace_access_rows if row.get('workspace_id')}
+        workspace_to_access = {}
+        for row in workspace_access_rows:
+            wsid = row.get('workspace_id')
+            if not wsid:
+                continue
+            key = str(wsid)
+            at = _normalize_access_type(row.get('access_type'))
+            current = workspace_to_access.get(key)
+            if current is None or _access_rank(at) > _access_rank(current):
+                workspace_to_access[key] = at
+
+        shared_ids = list(shared_access.keys())
         workspace_ids = list(workspace_to_access.keys())
+
+        shared_panos = []
+        if shared_ids:
+            try:
+                shared_panos = _select_panorama_rows(sb, 'id', shared_ids)
+            except Exception:
+                shared_panos = []
 
         workspace_panos = []
         if workspace_ids:
             try:
-                try:
-                    rwp = sb.table('panoramas').select(select_panorama_fields()).in_('workspace_id', workspace_ids).execute()
-                except Exception as e:
-                    if 'workspace_id' in str(e).lower():
-                        rwp = sb.table('panoramas').select(_PANORAMA_FIELDS_BASE).in_('workspace_id', workspace_ids).execute()
-                    else:
-                        raise
-                workspace_panos = rwp.data or []
+                workspace_panos = _select_panorama_rows(sb, 'workspace_id', workspace_ids)
             except Exception:
                 workspace_panos = []
 
-        def access_rank(a):
-            if a == 'owner':
-                return 3
-            if a == 'client':
-                return 2
-            return 1
+        by_id = {}
+        access_by_id = {}
 
-        seen = set()
-        result = []
-        for p in (owned.data or []):
-            seen.add(p['id'])
-            plot_count = _count_plots(sb, p['id'])
-            result.append({**p, 'access_type': 'owner', 'plot_count': plot_count})
-
-        # Direct shares
-        for pid, acc_type in shared_ids.items():
-            if pid in seen:
-                continue
-            try:
-                try:
-                    r = sb.table('panoramas').select(select_panorama_fields()).eq('id', pid).limit(1).execute()
-                except Exception as e:
-                    if 'workspace_id' in str(e).lower():
-                        r = sb.table('panoramas').select(_PANORAMA_FIELDS_BASE).eq('id', pid).limit(1).execute()
-                    else:
-                        raise
-            except Exception:
-                continue
-            if r.data and len(r.data) > 0:
-                p = r.data[0]
-                seen.add(pid)
-                plot_count = _count_plots(sb, pid)
-                result.append({**p, 'access_type': acc_type, 'plot_count': plot_count})
-
-        # Workspace shares
-        for p in (workspace_panos or []):
-            pid = p.get('id')
+        def _upsert(row, access_type):
+            pid = _normalize_panorama_id(row.get('id')) if isinstance(row, dict) else None
             if pid is None:
-                continue
-            ws_id = p.get('workspace_id')
-            acc_type = workspace_to_access.get(str(ws_id)) if ws_id else None
-            if not acc_type:
-                continue
+                return
+            existing_access = access_by_id.get(pid)
+            new_access = _normalize_access_type(access_type)
+            if existing_access is None or _access_rank(new_access) > _access_rank(existing_access):
+                access_by_id[pid] = new_access
+            if pid not in by_id:
+                by_id[pid] = dict(row)
 
-            if pid in seen:
-                # If also shared directly, keep the strongest access_type.
-                for i in range(len(result)):
-                    if result[i].get('id') == pid:
-                        current = result[i].get('access_type') or 'viewer'
-                        if access_rank(acc_type) > access_rank(current):
-                            result[i]['access_type'] = acc_type
-                        break
-                continue
+        for row in (owned.data or []):
+            _upsert(row, 'owner')
 
-            seen.add(pid)
-            plot_count = _count_plots(sb, pid)
-            result.append({**p, 'access_type': acc_type, 'plot_count': plot_count})
+        for row in (shared_panos or []):
+            pid = row.get('id') if isinstance(row, dict) else None
+            _upsert(row, shared_access.get(pid, 'viewer'))
+
+        for row in (workspace_panos or []):
+            wsid = row.get('workspace_id') if isinstance(row, dict) else None
+            access_type = workspace_to_access.get(str(wsid)) if wsid else None
+            if not access_type:
+                continue
+            _upsert(row, access_type)
+
+        panorama_ids = list(by_id.keys())
+        plot_counts = _plot_counts_for_panoramas(sb, panorama_ids)
+
+        result = []
+        for pid, row in by_id.items():
+            out = dict(row)
+            out['access_type'] = access_by_id.get(pid, 'viewer')
+            out['plot_count'] = int(plot_counts.get(pid, 0))
+            result.append(out)
+
         result.sort(key=lambda x: x.get('updated_at') or '', reverse=True)
         return result
     except Exception:

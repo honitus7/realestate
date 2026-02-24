@@ -416,6 +416,164 @@
             pointer-events: auto;
         }
 
+        .panorama-nav-shell {
+            position: fixed;
+            top: 112px;
+            left: 14px;
+            z-index: 21;
+            width: min(340px, calc(100vw - 28px));
+            pointer-events: auto;
+            display: flex;
+            align-items: flex-start;
+            gap: 0.55rem;
+        }
+
+        .panorama-nav-toggle {
+            flex-shrink: 0;
+            min-height: 38px;
+            padding: 0.5rem 0.72rem;
+            border: 1px solid rgba(18, 36, 67, 0.3);
+            background: rgba(246, 248, 252, 0.96);
+            color: #23395f;
+            box-shadow: 0 8px 18px rgba(7, 25, 50, 0.15);
+            border-radius: 0;
+            font-size: 0.68rem;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            font-weight: 800;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.45rem;
+            cursor: pointer;
+            transition: background 0.2s ease, border-color 0.2s ease;
+        }
+
+        .panorama-nav-toggle:hover {
+            background: #ffffff;
+            border-color: rgba(18, 36, 67, 0.45);
+        }
+
+        .panorama-nav-toggle-icon {
+            width: 16px;
+            text-align: center;
+            font-size: 0.86rem;
+            line-height: 1;
+        }
+
+        .panorama-nav-panel {
+            width: 100%;
+            border: 1px solid rgba(238, 245, 255, 0.22);
+            background: rgba(10, 18, 32, 0.72);
+            box-shadow: 0 12px 30px rgba(4, 15, 30, 0.3);
+            backdrop-filter: blur(14px);
+            -webkit-backdrop-filter: blur(14px);
+            color: rgba(242, 248, 255, 0.96);
+            transition: opacity 0.22s ease, transform 0.22s ease, visibility 0.22s ease;
+            transform-origin: left top;
+        }
+
+        .panorama-nav-shell.is-collapsed .panorama-nav-panel {
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none;
+            transform: translateX(-8px) scale(0.985);
+        }
+
+        .panorama-nav-head {
+            padding: 0.72rem 0.82rem 0.58rem;
+            border-bottom: 1px solid rgba(219, 234, 255, 0.15);
+            background: linear-gradient(180deg, rgba(227, 237, 250, 0.08) 0%, rgba(227, 237, 250, 0.01) 100%);
+        }
+
+        .panorama-nav-title {
+            font-size: 0.7rem;
+            letter-spacing: 0.14em;
+            text-transform: uppercase;
+            font-weight: 800;
+            color: rgba(246, 251, 255, 0.96);
+        }
+
+        .panorama-nav-subtitle {
+            margin-top: 0.2rem;
+            font-size: 0.62rem;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: rgba(214, 230, 250, 0.78);
+        }
+
+        .panorama-nav-list {
+            max-height: min(58vh, 420px);
+            overflow-y: auto;
+            overscroll-behavior: contain;
+            padding: 0.35rem;
+        }
+
+        .panorama-nav-list::-webkit-scrollbar {
+            width: 9px;
+        }
+
+        .panorama-nav-list::-webkit-scrollbar-track {
+            background: rgba(15, 27, 44, 0.44);
+        }
+
+        .panorama-nav-list::-webkit-scrollbar-thumb {
+            background: rgba(194, 214, 239, 0.4);
+            border: 2px solid transparent;
+            background-clip: padding-box;
+        }
+
+        .panorama-nav-item {
+            width: 100%;
+            border: 0;
+            background: transparent;
+            text-align: left;
+            cursor: pointer;
+            padding: 0.56rem 0.62rem;
+            border-radius: 0;
+            color: rgba(237, 246, 255, 0.93);
+            border-bottom: 1px solid rgba(216, 231, 250, 0.14);
+            transition: background 0.18s ease;
+            font-family: var(--font-body);
+            display: flex;
+            flex-direction: column;
+            gap: 0.18rem;
+        }
+
+        .panorama-nav-item:last-child {
+            border-bottom: 0;
+        }
+
+        .panorama-nav-item:hover {
+            background: rgba(232, 241, 251, 0.12);
+        }
+
+        .panorama-nav-item.active {
+            cursor: default;
+            background: rgba(240, 247, 255, 0.18);
+        }
+
+        .panorama-nav-item-name {
+            font-size: 0.79rem;
+            line-height: 1.34;
+            letter-spacing: 0.03em;
+            font-weight: 700;
+        }
+
+        .panorama-nav-item-meta {
+            font-size: 0.58rem;
+            text-transform: uppercase;
+            letter-spacing: 0.12em;
+            color: rgba(197, 218, 242, 0.75);
+        }
+
+        .panorama-nav-empty {
+            padding: 0.75rem 0.62rem;
+            font-size: 0.66rem;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: rgba(197, 218, 242, 0.74);
+        }
+
         .viewer-action-btn {
             border: 1px solid rgba(18, 36, 67, 0.22);
             background: rgba(246, 248, 252, 0.94);
@@ -2302,6 +2460,31 @@
                 transform: none;
             }
 
+            .panorama-nav-shell {
+                top: 132px;
+                left: 10px;
+                width: min(82vw, 300px);
+                gap: 0.45rem;
+            }
+
+            .panorama-nav-toggle {
+                min-height: 34px;
+                padding: 0.45rem 0.6rem;
+                font-size: 0.62rem;
+            }
+
+            .panorama-nav-panel {
+                width: 100%;
+            }
+
+            .panorama-nav-list {
+                max-height: min(50vh, 320px);
+            }
+
+            .panorama-nav-item-name {
+                font-size: 0.74rem;
+            }
+
             .viewer-actions {
                 right: 10px;
                 bottom: 10px;
@@ -2417,6 +2600,19 @@
                 <div class="compass-card" aria-hidden="true"></div>
             </div>
         </header>
+        <div class="panorama-nav-shell is-collapsed" id="panorama-nav-shell">
+            <button id="panorama-nav-toggle" class="panorama-nav-toggle" type="button" aria-expanded="false" aria-controls="panorama-nav-panel">
+                <span class="panorama-nav-toggle-icon" id="panorama-nav-toggle-icon">☰</span>
+                <span>Panorama List</span>
+            </button>
+            <aside class="panorama-nav-panel" id="panorama-nav-panel">
+                <div class="panorama-nav-head">
+                    <div class="panorama-nav-title">Panorama List</div>
+                    <div class="panorama-nav-subtitle" id="panorama-nav-subtitle">Linked 360 views</div>
+                </div>
+                <div class="panorama-nav-list" id="panorama-nav-list"></div>
+            </aside>
+        </div>
         <div class="status-legend" id="status-legend">
             <div class="legend-head">
                 <span>Plot Range</span>
@@ -2590,6 +2786,7 @@
 
     <script>
         const PANORAMA_ID = {{ panorama.id }};
+        const CURRENT_PANORAMA_NAME = {{ (panorama.name or '')|tojson }};
         const IS_360 = 1; // Always 360 for 3D routes
         const ORG_SLUG = {{ (org_slug or '')|tojson }};
 
@@ -2623,6 +2820,11 @@
         const backBtn = document.getElementById('back-btn');
         const toggleOverlaysBtn = document.getElementById('toggle-overlays-btn');
         const fullscreenBtn = document.getElementById('fullscreen-btn');
+        const panoramaNavShell = document.getElementById('panorama-nav-shell');
+        const panoramaNavToggle = document.getElementById('panorama-nav-toggle');
+        const panoramaNavToggleIcon = document.getElementById('panorama-nav-toggle-icon');
+        const panoramaNavList = document.getElementById('panorama-nav-list');
+        const panoramaNavSubtitle = document.getElementById('panorama-nav-subtitle');
         const enterPlotPanoramaBtn = document.getElementById('enter-plot-panorama');
         const enterMarkerPanoramaBtn = document.getElementById('enter-marker-panorama');
         const customerGuide = document.getElementById('customer-guide');
@@ -2640,6 +2842,10 @@
         let panoramaIndexCache = null;
         let panoramaIndexById = new Map();
         let panoramaIndexPromise = null;
+        let panoramaMenuRefreshToken = 0;
+        let panoramaMenuOpen = false;
+        let markerManager = null;
+        const PANORAMA_MENU_PREF_KEY = 'customer_panorama_menu_open_v1';
 
         async function loadPanoramaIndex() {
             if (panoramaIndexCache) return panoramaIndexCache;
@@ -2760,6 +2966,176 @@
                 go();
             }
         }
+
+        function normalizePanoramaId(rawId) {
+            const value = String(rawId == null ? '' : rawId).trim();
+            if (!value || !/^[0-9]+$/.test(value)) return '';
+            return value;
+        }
+
+        function getPanoramaMenuName(panoramaId) {
+            const id = normalizePanoramaId(panoramaId);
+            if (!id) return '';
+            if (id === String(PANORAMA_ID)) {
+                return String(CURRENT_PANORAMA_NAME || '').trim() || `Panorama #${id}`;
+            }
+            const meta = getPanoramaMeta(id);
+            if (meta && meta.name) {
+                const value = String(meta.name).trim();
+                if (value) return value;
+            }
+            return `Panorama #${id}`;
+        }
+
+        function buildPanoramaMenuEntries() {
+            const currentId = String(PANORAMA_ID);
+            const map = new Map();
+            map.set(currentId, { id: currentId, sources: new Set(['current']) });
+
+            const add = (rawId, source) => {
+                const id = normalizePanoramaId(rawId);
+                if (!id || id === currentId) return;
+                let entry = map.get(id);
+                if (!entry) {
+                    entry = { id: id, sources: new Set() };
+                    map.set(id, entry);
+                }
+                if (source) entry.sources.add(source);
+            };
+
+            (plots || []).forEach((plot) => {
+                const raw = plot && Object.prototype.hasOwnProperty.call(plot, 'linked_panorama_id')
+                    ? plot.linked_panorama_id
+                    : null;
+                add(raw, 'plot');
+            });
+
+            if (markerManager && markerManager.markerMap) {
+                markerManager.markerMap.forEach((marker) => {
+                    const raw = marker && Object.prototype.hasOwnProperty.call(marker, 'linked_panorama_id')
+                        ? marker.linked_panorama_id
+                        : null;
+                    add(raw, 'marker');
+                });
+            }
+
+            if (Array.isArray(panoramaIndexCache)) {
+                panoramaIndexCache.forEach((row) => {
+                    if (!row || !row.id) return;
+                    if (!Boolean(row.is_360)) return;
+                    add(row.id, 'index');
+                });
+            }
+
+            return map;
+        }
+
+        function panoramaMenuSourceLabel(entry) {
+            if (!entry || !entry.sources) return 'Linked panorama';
+            if (entry.sources.has('current')) return 'Current View';
+            const fromPlot = entry.sources.has('plot');
+            const fromMarker = entry.sources.has('marker');
+            if (fromPlot && fromMarker) return 'Linked from Plot + Marker';
+            if (fromPlot) return 'Linked from Plot';
+            if (fromMarker) return 'Linked from Marker';
+            return 'Panorama';
+        }
+
+        function renderPanoramaMenu(entriesMap) {
+            if (!panoramaNavList) return;
+            const currentId = String(PANORAMA_ID);
+            const map = entriesMap instanceof Map ? entriesMap : buildPanoramaMenuEntries();
+            const current = map.get(currentId) || { id: currentId, sources: new Set(['current']) };
+            const others = Array.from(map.values()).filter((entry) => entry && String(entry.id) !== currentId);
+
+            others.sort((a, b) => {
+                return getPanoramaMenuName(a.id).localeCompare(getPanoramaMenuName(b.id));
+            });
+
+            if (panoramaNavSubtitle) {
+                const linkedCount = others.length;
+                panoramaNavSubtitle.textContent = linkedCount
+                    ? `${linkedCount} linked view${linkedCount === 1 ? '' : 's'}`
+                    : 'No linked views yet';
+            }
+
+            const currentHtml = `
+                <div class="panorama-nav-item active" aria-current="page">
+                    <span class="panorama-nav-item-name">${escapeHtml(getPanoramaMenuName(current.id))}</span>
+                    <span class="panorama-nav-item-meta">${escapeHtml(panoramaMenuSourceLabel(current))}</span>
+                </div>
+            `;
+
+            const linkedHtml = others.map((entry) => `
+                <button class="panorama-nav-item" type="button" data-panorama-id="${escapeHtml(entry.id)}">
+                    <span class="panorama-nav-item-name">${escapeHtml(getPanoramaMenuName(entry.id))}</span>
+                    <span class="panorama-nav-item-meta">${escapeHtml(panoramaMenuSourceLabel(entry))}</span>
+                </button>
+            `).join('');
+
+            panoramaNavList.innerHTML = currentHtml + linkedHtml + (
+                others.length ? '' : '<div class="panorama-nav-empty">No linked panoramas available yet.</div>'
+            );
+
+            panoramaNavList.querySelectorAll('button[data-panorama-id]').forEach((btn) => {
+                btn.addEventListener('click', () => {
+                    const targetId = btn.getAttribute('data-panorama-id');
+                    if (!targetId) return;
+                    if (window.matchMedia && window.matchMedia('(max-width: 768px)').matches) {
+                        setPanoramaMenuOpen(false, false);
+                    }
+                    navigateToPanorama(targetId);
+                });
+            });
+        }
+
+        async function refreshPanoramaMenu() {
+            const baseEntries = buildPanoramaMenuEntries();
+            renderPanoramaMenu(baseEntries);
+
+            const idsToResolve = Array.from(baseEntries.keys()).filter((id) => {
+                return String(id) !== String(PANORAMA_ID) && !getPanoramaMeta(id);
+            });
+            if (!idsToResolve.length) return;
+
+            const token = ++panoramaMenuRefreshToken;
+            await Promise.all(idsToResolve.map((id) => ensurePanoramaMeta(id)));
+            if (token !== panoramaMenuRefreshToken) return;
+            renderPanoramaMenu(buildPanoramaMenuEntries());
+        }
+
+        function getInitialPanoramaMenuOpen() {
+            let preferred = null;
+            try {
+                if (window.localStorage) {
+                    const raw = localStorage.getItem(PANORAMA_MENU_PREF_KEY);
+                    if (raw === '1') preferred = true;
+                    if (raw === '0') preferred = false;
+                }
+            } catch (e) {}
+            if (preferred !== null) return preferred;
+            return !(window.matchMedia && window.matchMedia('(max-width: 768px)').matches);
+        }
+
+        function setPanoramaMenuOpen(nextOpen, persist = true) {
+            panoramaMenuOpen = Boolean(nextOpen);
+            if (panoramaNavShell) panoramaNavShell.classList.toggle('is-collapsed', !panoramaMenuOpen);
+            if (panoramaNavToggle) panoramaNavToggle.setAttribute('aria-expanded', panoramaMenuOpen ? 'true' : 'false');
+            if (panoramaNavToggleIcon) panoramaNavToggleIcon.textContent = panoramaMenuOpen ? '✕' : '☰';
+            if (!persist) return;
+            try {
+                if (window.localStorage) localStorage.setItem(PANORAMA_MENU_PREF_KEY, panoramaMenuOpen ? '1' : '0');
+            } catch (e) {}
+        }
+
+        (function initPanoramaMenu() {
+            if (!panoramaNavShell || !panoramaNavToggle) return;
+            setPanoramaMenuOpen(getInitialPanoramaMenuOpen(), false);
+            panoramaNavToggle.addEventListener('click', () => {
+                setPanoramaMenuOpen(!panoramaMenuOpen, true);
+            });
+            refreshPanoramaMenu().catch(() => {});
+        })();
 
         if (enterPlotPanoramaBtn) {
             enterPlotPanoramaBtn.addEventListener('click', () => {
@@ -3170,6 +3546,7 @@
                 updateStatusLegend();
                 renderPlots();
                 updateSearchDropdown(plotSearchInput ? plotSearchInput.value : '');
+                refreshPanoramaMenu().catch(() => {});
             } catch (error) {
                 console.error('Failed to load plots:', error);
             }
@@ -3541,6 +3918,7 @@
                         this.markerMap.set(String(row.id), this.normalizeMarker(row));
                     });
                     this.syncViewerMarkers();
+                    refreshPanoramaMenu().catch(() => {});
                 } catch (error) {
                     console.error('Marker load failed', error);
                 }
@@ -3985,7 +4363,7 @@
             }
         }
 
-        const markerManager = new CustomerMarkerManager();
+        markerManager = new CustomerMarkerManager();
         let overlaysHidden = false;
 
         function setOverlaysHidden(hidden) {
@@ -4558,6 +4936,7 @@
                     .catch(() => {});
                 Promise.all([indexPromise, plotsPromise, markersPromise])
                     .then(() => {
+                        refreshPanoramaMenu().catch(() => {});
                         const runPrefetch = () => prefetchLinkedPanoramas().catch(() => {});
                         if (typeof requestIdleCallback === 'function') {
                             requestIdleCallback(runPrefetch, { timeout: 2500 });
