@@ -515,15 +515,69 @@
         }
 
         var supabase = window.supabase.createClient(supabaseUrl, supabaseAnonKey);
+        var PENDING_SIGNUP_PROFILE_KEY = 'pending_signup_profile_v1';
+
+        function loadPendingSignupProfile() {
+            try {
+                var raw = window.localStorage.getItem(PENDING_SIGNUP_PROFILE_KEY);
+                if (!raw) return null;
+                var parsed = JSON.parse(raw);
+                if (!parsed || typeof parsed !== 'object') return null;
+                return parsed;
+            } catch (e) {
+                return null;
+            }
+        }
+
+        function savePendingSignupProfile(name, email) {
+            try {
+                var payload = {
+                    display_name: String(name || '').trim(),
+                    email: String(email || '').trim(),
+                    ts: Date.now(),
+                };
+                window.localStorage.setItem(PENDING_SIGNUP_PROFILE_KEY, JSON.stringify(payload));
+            } catch (e) { }
+        }
+
+        function clearPendingSignupProfile() {
+            try { window.localStorage.removeItem(PENDING_SIGNUP_PROFILE_KEY); } catch (e) { }
+        }
+
+        function applyPendingSignupProfile(session) {
+            if (!session || !session.access_token || !session.user) return Promise.resolve();
+            var pending = loadPendingSignupProfile();
+            if (!pending || !pending.display_name) return Promise.resolve();
+            var pendingEmail = String(pending.email || '').trim().toLowerCase();
+            var sessionEmail = String(session.user.email || '').trim().toLowerCase();
+            if (pendingEmail && sessionEmail && pendingEmail !== sessionEmail) return Promise.resolve();
+            return fetch('/api/profile/me', {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer ' + session.access_token
+                },
+                body: JSON.stringify({
+                    display_name: pending.display_name,
+                    email: session.user.email || pending.email || ''
+                })
+            }).then(function (r) {
+                if (r.ok) clearPendingSignupProfile();
+            }).catch(function () { });
+        }
 
         supabase.auth.getSession().then(function (r) {
             var session = r.data.session;
             if (session && session.user && session.user.id) {
-                window.location.replace('/dashboard/' + encodeURIComponent(session.user.id));
+                applyPendingSignupProfile(session).finally(function () {
+                    window.location.replace('/dashboard/' + encodeURIComponent(session.user.id));
+                });
                 return;
             }
             if (session) {
-                window.location.replace('/dashboard');
+                applyPendingSignupProfile(session).finally(function () {
+                    window.location.replace('/dashboard');
+                });
                 return;
             }
             showAuthUI();
@@ -584,8 +638,11 @@
             supabase.auth.signInWithPassword({ email: email, password: password })
                 .then(function (res) {
                     if (res.error) throw res.error;
+                    var session = res.data.session;
                     var uid = res.data.user && res.data.user.id ? res.data.user.id : '';
-                    window.location.href = uid ? '/dashboard/' + encodeURIComponent(uid) : '/dashboard';
+                    return applyPendingSignupProfile(session).finally(function () {
+                        window.location.href = uid ? '/dashboard/' + encodeURIComponent(uid) : '/dashboard';
+                    });
                 })
                 .catch(function (err) {
                     setError(errEl, err.message || 'Sign in failed');
@@ -603,28 +660,26 @@
             var email = document.getElementById('signup-email').value.trim();
             var password = document.getElementById('signup-password').value;
             var redirectTo = window.location.origin + '/auth/callback';
-            supabase.auth.signUp({ email: email, password: password }, { emailRedirectTo: redirectTo })
+            supabase.auth.signUp({
+                email: email,
+                password: password,
+                options: {
+                    emailRedirectTo: redirectTo,
+                    data: { display_name: name }
+                }
+            })
                 .then(function (res) {
                     if (res.error) throw res.error;
+                    if (name) savePendingSignupProfile(name, email);
                     if (res.data.user && !res.data.session) {
                         setError(errEl, 'Check your email to confirm your account.');
                         return;
                     }
                     var session = res.data.session;
-                    var token = session ? session.access_token : null;
-                    if (token && name) {
-                        return fetch('/api/profile/me', {
-                            method: 'PUT',
-                            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
-                            body: JSON.stringify({ display_name: name, email: email })
-                        }).then(function (r) {
-                            if (!r.ok) return Promise.reject(new Error('Could not save profile'));
-                            var uid = res.data.user && res.data.user.id ? res.data.user.id : '';
-                            window.location.href = uid ? '/dashboard/' + encodeURIComponent(uid) : '/dashboard';
-                        });
-                    }
                     var uid = res.data.user && res.data.user.id ? res.data.user.id : '';
-                    window.location.href = uid ? '/dashboard/' + encodeURIComponent(uid) : '/dashboard';
+                    return applyPendingSignupProfile(session).finally(function () {
+                        window.location.href = uid ? '/dashboard/' + encodeURIComponent(uid) : '/dashboard';
+                    });
                 })
                 .catch(function (err) {
                     setError(errEl, err.message || 'Sign up failed');

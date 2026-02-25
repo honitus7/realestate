@@ -1159,11 +1159,11 @@
 
         async function loadProjects() {
             const headers = await ensureAuthenticated();
-            const r = await fetch('/api/panoramas', { headers });
+            const r = await fetch('/api/crm/panoramas', { headers });
             if (r.status === 401) { window.location.replace('/login'); return; }
             if (!r.ok) throw new Error('Failed to load projects');
             const all = await r.json();
-            projects = (Array.isArray(all) ? all : []).filter((p) => p && (p.access_type === 'owner' || p.access_type === 'client'));
+            projects = Array.isArray(all) ? all : [];
             projectById = new Map(projects.map((p) => [String(p.id), p]));
             renderProjectOptions();
         }

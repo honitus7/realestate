@@ -3108,12 +3108,74 @@ def set_profile_role(admin_id, role, user_id):
         return jsonify({'error': msg}), 500
 
 
-def _crm_panorama_ids(sb, user_id):
+def _fetch_panorama_ids(sb, query_builder=None):
+    """
+    Fetch panorama ids with basic pagination to avoid PostgREST row limits.
+    `query_builder` receives a base panoramas select query and should return it
+    with any filters applied.
+    """
+    ids = set()
+    page_size = 500
+    start = 0
+
+    while True:
+        q = sb.table('panoramas').select('id')
+        if callable(query_builder):
+            q = query_builder(q)
+        if q is None:
+            break
+
+        rows = []
+        try:
+            r = q.range(start, start + page_size - 1).execute()
+            rows = r.data or []
+        except Exception:
+            # Fallback when range() is unavailable in older clients.
+            if start > 0:
+                break
+            r = q.execute()
+            rows = r.data or []
+
+        for row in rows:
+            try:
+                ids.add(int(row.get('id')))
+            except Exception:
+                pass
+
+        if len(rows) < page_size:
+            break
+        start += page_size
+
+    return sorted(ids)
+
+
+def _crm_panorama_ids(sb, user_id, role='user'):
     """
     Panoramas this user can manage for CRM purposes.
-    Owner panoramas + panoramas where user has 'client' access (not 'viewer'),
-    including folder-level client shares.
+    - superadmin: all panoramas
+    - admin: all panoramas in the caller's org
+    - user: owner panoramas + panoramas where user has 'client' access (not
+      'viewer'), including folder-level client shares
     """
+    normalized_role = str(role or 'user').strip().lower()
+
+    # Org-wide/admin-wide CRM visibility.
+    if normalized_role in ('admin', 'superadmin'):
+        try:
+            if normalized_role == 'superadmin':
+                return _fetch_panorama_ids(sb)
+            if normalized_role == 'admin':
+                caller = get_profile(sb, user_id) or {}
+                caller_org = caller.get('org_id')
+                if caller_org:
+                    return _fetch_panorama_ids(sb, lambda q: q.eq('org_id', caller_org))
+                # If org is not set, fall back to direct owner/client scope below.
+                # This keeps legacy/non-migrated accounts functional.
+        except Exception:
+            # Backward-compatible fallback below for partially migrated schemas.
+            pass
+
+    # Per-user CRM visibility (owner/client only).
     ids = set()
     try:
         owned = sb.table('panoramas').select('id').eq('user_id', user_id).execute()
@@ -3164,6 +3226,52 @@ def _crm_panorama_ids(sb, user_id):
                 except Exception:
                     pass
     return sorted(ids)
+
+
+@app.route('/api/crm/panoramas', methods=['GET'])
+@require_auth
+def list_crm_panoramas(user_id, role):
+    """CRM project list: panoramas visible to this user in CRM scope."""
+    sb = get_supabase()
+    if not sb:
+        return jsonify({'error': 'Database not configured'}), 503
+
+    panorama_ids = _crm_panorama_ids(sb, user_id, role)
+    if not panorama_ids:
+        return jsonify([])
+
+    out_by_id = {}
+    chunk_size = 100
+    try:
+        for i in range(0, len(panorama_ids), chunk_size):
+            chunk = panorama_ids[i:i + chunk_size]
+            r = (
+                sb.table('panoramas')
+                .select('id, name, created_at, updated_at')
+                .in_('id', chunk)
+                .execute()
+            )
+            for row in (r.data or []):
+                try:
+                    pid = int(row.get('id'))
+                except Exception:
+                    continue
+                item = {
+                    'id': pid,
+                    'name': str(row.get('name') or f'Project #{pid}'),
+                    'created_at': str(row.get('created_at') or ''),
+                    'updated_at': str(row.get('updated_at') or ''),
+                }
+                out_by_id[pid] = item
+    except Exception as e:
+        msg = str(e)
+        if 'panoramas' in msg and ('does not exist' in msg.lower() or 'relation' in msg.lower()):
+            return jsonify({'error': 'panoramas table not found'}), 503
+        return jsonify({'error': msg}), 500
+
+    out = list(out_by_id.values())
+    out.sort(key=lambda x: (x.get('updated_at') or '', x.get('name') or ''), reverse=True)
+    return jsonify(out)
 
 
 @app.route('/api/buy-interests', methods=['POST'])
@@ -3281,12 +3389,12 @@ def create_buy_interest(user_id, role):
 @app.route('/api/buy-interests', methods=['GET'])
 @require_auth
 def list_buy_interests(user_id, role):
-    """CRM list: interests for panoramas where user is owner or has client access."""
+    """CRM list: interests for panoramas visible in this user's CRM scope."""
     sb = get_supabase()
     if not sb:
         return jsonify({'error': 'Database not configured'}), 503
 
-    panorama_ids = _crm_panorama_ids(sb, user_id)
+    panorama_ids = _crm_panorama_ids(sb, user_id, role)
     if not panorama_ids:
         return jsonify([])
 
@@ -3333,12 +3441,12 @@ def list_buy_interests(user_id, role):
 @app.route('/api/buy-interests/<interest_id>', methods=['PUT', 'PATCH'])
 @require_auth
 def update_buy_interest(user_id, role, interest_id):
-    """CRM update: status/notes (only for owner or client panoramas)."""
+    """CRM update: status/notes for panoramas in this user's CRM scope."""
     sb = get_supabase()
     if not sb:
         return jsonify({'error': 'Database not configured'}), 503
 
-    panorama_ids = _crm_panorama_ids(sb, user_id)
+    panorama_ids = _crm_panorama_ids(sb, user_id, role)
     if not panorama_ids:
         return jsonify({'error': 'Forbidden'}), 403
 

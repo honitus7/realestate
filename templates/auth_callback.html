@@ -29,6 +29,46 @@
     <script>
         (function () {
             var msg = document.getElementById('msg');
+            var PENDING_SIGNUP_PROFILE_KEY = 'pending_signup_profile_v1';
+
+            function loadPendingSignupProfile() {
+                try {
+                    var raw = window.localStorage.getItem(PENDING_SIGNUP_PROFILE_KEY);
+                    if (!raw) return null;
+                    var parsed = JSON.parse(raw);
+                    if (!parsed || typeof parsed !== 'object') return null;
+                    return parsed;
+                } catch (e) {
+                    return null;
+                }
+            }
+
+            function clearPendingSignupProfile() {
+                try { window.localStorage.removeItem(PENDING_SIGNUP_PROFILE_KEY); } catch (e) { }
+            }
+
+            function applyPendingSignupProfile(session) {
+                if (!session || !session.access_token || !session.user) return Promise.resolve();
+                var pending = loadPendingSignupProfile();
+                if (!pending || !pending.display_name) return Promise.resolve();
+                var pendingEmail = String(pending.email || '').trim().toLowerCase();
+                var sessionEmail = String(session.user.email || '').trim().toLowerCase();
+                if (pendingEmail && sessionEmail && pendingEmail !== sessionEmail) return Promise.resolve();
+                return fetch('/api/profile/me', {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer ' + session.access_token
+                    },
+                    body: JSON.stringify({
+                        display_name: pending.display_name,
+                        email: session.user.email || pending.email || ''
+                    })
+                }).then(function (r) {
+                    if (r.ok) clearPendingSignupProfile();
+                }).catch(function () { });
+            }
+
             // Handle Supabase redirect errors (e.g. otp_expired, access_denied) in hash
             var hash = window.location.hash.slice(1) || '';
             var params = {};
@@ -52,9 +92,12 @@
             }
             var supabase = window.supabase.createClient(supabaseUrl, supabaseAnonKey);
             supabase.auth.getSession().then(function (r) {
-                msg.textContent = 'Done. Redirecting…';
-                var uid = r.data.session && r.data.session.user && r.data.session.user.id;
-                window.location.replace(uid ? '/dashboard/' + encodeURIComponent(uid) : '/dashboard');
+                var session = r.data.session || null;
+                return applyPendingSignupProfile(session).finally(function () {
+                    msg.textContent = 'Done. Redirecting…';
+                    var uid = session && session.user && session.user.id;
+                    window.location.replace(uid ? '/dashboard/' + encodeURIComponent(uid) : '/dashboard');
+                });
             }).catch(function () {
                 msg.textContent = 'Done. Redirecting…';
                 window.location.replace('/dashboard');

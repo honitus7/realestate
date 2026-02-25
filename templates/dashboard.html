@@ -1008,6 +1008,7 @@
                     .then(function (data) {
                         var profile = data && data.profile ? data.profile : null;
                         var role = profile && profile.role ? String(profile.role).toLowerCase() : '';
+                        currentUserRole = role;
                         var orgNameEl = document.getElementById('org-name');
                         var orgName = data && data.org && data.org.name ? String(data.org.name) : '';
                         if (orgNameEl && orgName) orgNameEl.textContent = orgName;
@@ -1015,6 +1016,7 @@
                         var orgsEl = document.getElementById('nav-orgs');
                         if (usersEl) usersEl.style.display = (role === 'admin' || role === 'superadmin') ? '' : 'none';
                         if (orgsEl) orgsEl.style.display = (role === 'superadmin') ? '' : 'none';
+                        updateCrmNavVisibility();
                     })
                     .catch(function () { });
             } catch (e) { }
@@ -1127,6 +1129,7 @@
         let deleteWorkspaceTargetId = null;
         let draggingPanoramaId = null;
         let workspaceFeatureReady = true;
+        let currentUserRole = '';
 
         // DOM Elements
         const uploadZone = document.getElementById('upload-zone');
@@ -1172,6 +1175,15 @@
             var el = document.getElementById('nav-crm');
             if (!el) return;
             el.style.display = visible ? '' : 'none';
+        }
+
+        function updateCrmNavVisibility() {
+            var roleAllows = currentUserRole === 'admin' || currentUserRole === 'superadmin';
+            var projectAllows = projects.some(function (p) {
+                var at = String((p && p.access_type) || 'owner');
+                return at === 'owner' || at === 'client';
+            });
+            setCrmNavVisible(roleAllows || projectAllows);
         }
 
         function getWorkspaceById(workspaceId) {
@@ -1647,11 +1659,12 @@
                     throw new Error(`Failed to load projects (${response.status})`);
                 }
                 projects = await response.json();
-                setCrmNavVisible(projects.some((p) => (p.access_type === 'owner' || p.access_type === 'client')));
+                updateCrmNavVisibility();
                 renderProjects();
                 renderWorkspaces();
             } catch (error) {
-                setCrmNavVisible(false);
+                projects = [];
+                updateCrmNavVisibility();
                 projectsContainer.innerHTML = '<div class="empty-state"><div class="empty-text">Failed to load projects</div></div>';
             }
         }
