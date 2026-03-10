@@ -36,23 +36,35 @@
         .project-info { min-width: 200px; padding: 0.7rem 1rem; border: 1px solid rgba(16,36,68,0.12); background: rgba(246,248,252,0.93); box-shadow: 0 6px 20px rgba(7,25,52,0.14); }
         .project-name { font-size: 1.5rem; font-weight: 700; color: #b5772d; }
         .project-subtitle { font-size: 0.65rem; color: #2d3f5f; margin-top: 0.2rem; text-transform: uppercase; letter-spacing: 0.08em; }
-        .panorama-nav-shell { position: fixed; top: 100px; left: 14px; z-index: 21; width: min(320px, calc(100vw - 28px)); pointer-events: auto; display: flex; align-items: flex-start; gap: 0.5rem; }
-        .panorama-nav-toggle { min-height: 38px; padding: 0.5rem 0.7rem; border: 1px solid rgba(18,36,67,0.3); background: rgba(246,248,252,0.96); color: #23395f; font-size: 0.68rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em; cursor: pointer; display: inline-flex; align-items: center; gap: 0.4rem; }
-        .panorama-nav-panel { width: 100%; border: 1px solid rgba(238,245,255,0.22); background: rgba(10,18,32,0.72); backdrop-filter: blur(14px); color: rgba(242,248,255,0.96); }
-        .panorama-nav-shell.is-collapsed .panorama-nav-panel { display: none; }
-        .panorama-nav-head { padding: 0.6rem 0.8rem; border-bottom: 1px solid rgba(219,234,255,0.15); }
-        .panorama-nav-title { font-size: 0.7rem; letter-spacing: 0.12em; text-transform: uppercase; font-weight: 800; }
-        .panorama-nav-subtitle { font-size: 0.6rem; color: rgba(214,230,250,0.78); margin-top: 0.15rem; }
-        .panorama-nav-list { max-height: min(50vh, 380px); overflow-y: auto; padding: 0.35rem; }
-        .panorama-nav-item { width: 100%; border: 0; background: transparent; text-align: left; cursor: pointer; padding: 0.5rem 0.6rem; color: rgba(237,246,255,0.93); border-bottom: 1px solid rgba(216,231,250,0.14); font-family: var(--font-body); display: flex; flex-direction: column; gap: 0.1rem; }
+        .panorama-nav-shell { position: fixed; top: 100px; left: 14px; z-index: 21; width: min(340px, calc(100vw - 28px)); pointer-events: auto; display: flex; align-items: flex-start; gap: 0.55rem; }
+        .panorama-nav-toggle { flex-shrink: 0; min-height: 38px; padding: 0.5rem 0.72rem; border: 1px solid rgba(18,36,67,0.3); background: rgba(246,248,252,0.96); color: #23395f; box-shadow: 0 8px 18px rgba(7,25,50,0.15); border-radius: 0; font-size: 0.68rem; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 800; display: inline-flex; align-items: center; gap: 0.45rem; cursor: pointer; transition: background 0.2s ease, border-color 0.2s ease; font-family: var(--font-body); }
+        .panorama-nav-toggle:hover { background: #fff; border-color: rgba(18,36,67,0.45); }
+        .panorama-nav-toggle-icon { width: 16px; text-align: center; font-size: 0.86rem; line-height: 1; }
+        .panorama-nav-panel { width: 100%; border: 1px solid rgba(238,245,255,0.22); background: rgba(10,18,32,0.72); box-shadow: 0 12px 30px rgba(4,15,30,0.3); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); color: rgba(242,248,255,0.96); transition: opacity 0.22s ease, transform 0.22s ease, visibility 0.22s ease; transform-origin: left top; }
+        .panorama-nav-shell.is-collapsed .panorama-nav-panel { opacity: 0; visibility: hidden; pointer-events: none; transform: translateX(-8px) scale(0.985); }
+        .panorama-nav-head { padding: 0.72rem 0.82rem 0.58rem; border-bottom: 1px solid rgba(219,234,255,0.15); background: linear-gradient(180deg, rgba(227,237,250,0.08) 0%, rgba(227,237,250,0.01) 100%); }
+        .panorama-nav-title { font-size: 0.7rem; letter-spacing: 0.14em; text-transform: uppercase; font-weight: 800; color: rgba(246,251,255,0.96); }
+        .panorama-nav-subtitle { margin-top: 0.2rem; font-size: 0.62rem; letter-spacing: 0.08em; text-transform: uppercase; color: rgba(214,230,250,0.78); }
+        .panorama-nav-list { max-height: min(58vh, 420px); overflow-y: auto; overscroll-behavior: contain; padding: 0.35rem; }
+        .panorama-nav-list::-webkit-scrollbar { width: 9px; }
+        .panorama-nav-list::-webkit-scrollbar-track { background: rgba(15,27,44,0.44); }
+        .panorama-nav-list::-webkit-scrollbar-thumb { background: rgba(194,214,239,0.4); border: 2px solid transparent; background-clip: padding-box; }
+        .panorama-nav-item { width: 100%; border: 0; background: transparent; text-align: left; cursor: pointer; padding: 0.56rem 0.62rem; border-radius: 0; color: rgba(237,246,255,0.93); border-bottom: 1px solid rgba(216,231,250,0.14); transition: background 0.18s ease; font-family: var(--font-body); display: flex; flex-direction: column; gap: 0.18rem; }
+        .panorama-nav-item:last-child { border-bottom: 0; }
         .panorama-nav-item:hover { background: rgba(232,241,251,0.12); }
-        .panorama-nav-item.active { background: rgba(240,247,255,0.18); cursor: default; }
-        .panorama-nav-item-name { font-size: 0.78rem; font-weight: 700; }
-        .panorama-nav-item-meta { font-size: 0.56rem; text-transform: uppercase; color: rgba(197,218,242,0.75); }
+        .panorama-nav-item.active { cursor: default; background: rgba(240,247,255,0.18); }
+        .panorama-nav-item-name { font-size: 0.79rem; line-height: 1.34; letter-spacing: 0.03em; font-weight: 700; }
+        .panorama-nav-item-meta { font-size: 0.58rem; text-transform: uppercase; letter-spacing: 0.12em; color: rgba(197,218,242,0.75); }
+        .panorama-nav-empty { padding: 0.75rem 0.62rem; font-size: 0.66rem; letter-spacing: 0.08em; text-transform: uppercase; color: rgba(197,218,242,0.74); }
         .status-legend { position: fixed; top: 50%; right: 14px; transform: translateY(-50%); width: 160px; background: rgba(247,249,253,0.94); border: 1px solid rgba(18,36,67,0.12); padding: 0.7rem; pointer-events: auto; }
         .legend-head { font-size: 0.72rem; font-weight: 700; margin-bottom: 0.5rem; }
-        .legend-grid { display: grid; gap: 0.4rem; }
-        .status-pill { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 0.4rem; padding: 0.35rem; font-size: 0.68rem; }
+        .legend-grid { display: grid; gap: 0.52rem; grid-template-columns: 1fr; }
+        .status-pill { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 0.48rem; border-radius: 0; border: 1px solid rgba(24,42,72,0.1); background: rgba(236,241,249,0.92); padding: 0.38rem 0.44rem; font-size: 0.7rem; color: #253a5d; }
+        .status-dot { width: 11px; height: 20px; border-radius: 0; box-shadow: none; }
+        .status-pill.available .status-dot { background: #d6d489; }
+        .status-pill.hold .status-dot { background: #97c89e; }
+        .status-pill.sold .status-dot { background: #e38f8b; }
+        .status-pill strong { font-size: 0.78rem; color: #273f67; font-variant-numeric: tabular-nums; }
         .modal-backdrop { position: fixed; inset: 0; z-index: 1000; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; padding: 1rem; pointer-events: auto; opacity: 0; visibility: hidden; transition: opacity 0.2s, visibility 0.2s; }
         .modal-backdrop.visible { opacity: 1; visibility: visible; }
         .modal { background: #fff; border-radius: 8px; max-width: 90vw; max-height: 85vh; overflow: auto; position: relative; padding: 1rem; }
@@ -66,7 +78,13 @@
         .modal-actions { margin-top: 1rem; display: flex; gap: 0.5rem; }
         .modal-btn { padding: 0.5rem 1rem; border-radius: 4px; font-weight: 600; cursor: pointer; border: 1px solid #ccc; background: #f5f5f5; }
         .modal-btn.primary { background: #162338; color: #fff; border-color: #162338; }
-        .psv-plot-label { display: inline-flex; align-items: center; padding: 0.3rem 0.5rem; border-radius: 999px; background: rgba(8,9,11,0.82); color: #fff; font-size: 0.7rem; font-weight: 700; pointer-events: none; }
+        .psv-plot-label { display: inline-flex; align-items: center; gap: 0.38rem; padding: 0.34rem 0.66rem; border-radius: 999px; background: rgba(8,9,11,0.82); border: 1px solid rgba(255,255,255,0.22); color: #fff; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.08em; text-shadow: 0 2px 7px rgba(0,0,0,0.55); box-shadow: 0 12px 24px rgba(0,0,0,0.36); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); pointer-events: none; white-space: nowrap; }
+        .psv-plot-label::before { content: ''; width: 7px; height: 7px; border-radius: 999px; background: rgba(74,222,128,0.95); box-shadow: 0 0 0 3px rgba(74,222,128,0.24); }
+        .psv-plot-label.psv-plot-label--hold::before { background: rgba(249,115,22,0.95); box-shadow: 0 0 0 3px rgba(249,115,22,0.24); }
+        .psv-plot-label.psv-plot-label--sold::before { background: rgba(239,68,68,0.95); box-shadow: 0 0 0 3px rgba(239,68,68,0.24); }
+        .psv-glass-marker { position: relative; border: none; background: transparent; padding: 0; cursor: pointer; outline: none; pointer-events: auto; }
+        .psv-glass-marker .marker-tag { display: inline-block; padding: 0.4rem 0.7rem; border-radius: 999px; background: rgba(17,31,54,0.94); color: rgba(245,248,255,0.98); font-size: 0.78rem; font-weight: 700; letter-spacing: 0.01em; box-shadow: 0 8px 20px rgba(0,0,0,0.35); border: 1px solid rgba(255,255,255,0.18); white-space: nowrap; max-width: 220px; overflow: hidden; text-overflow: ellipsis; transition: transform 0.2s ease, background 0.2s ease; }
+        .psv-glass-marker:hover .marker-tag { background: rgba(22,41,72,0.96); transform: scale(1.04); }
     </style>
 </head>
 <body>
@@ -92,8 +110,8 @@
             </div>
         </header>
         <div class="panorama-nav-shell" id="panorama-nav-shell">
-            <button id="panorama-nav-toggle" type="button" aria-expanded="true"><span id="panorama-nav-toggle-icon">✕</span> Panorama List</button>
-            <aside class="panorama-nav-panel">
+            <button id="panorama-nav-toggle" class="panorama-nav-toggle" type="button" aria-expanded="true" aria-controls="panorama-nav-panel"><span class="panorama-nav-toggle-icon" id="panorama-nav-toggle-icon">✕</span><span>Panorama List</span></button>
+            <aside class="panorama-nav-panel" id="panorama-nav-panel">
                 <div class="panorama-nav-head">
                     <div class="panorama-nav-title">Panoramas</div>
                     <div class="panorama-nav-subtitle" id="panorama-nav-subtitle">Switch between connected views</div>
@@ -104,9 +122,9 @@
         <div class="status-legend" id="status-legend">
             <div class="legend-head"><span>Plots</span><span id="status-count-total">0</span></div>
             <div class="legend-grid">
-                <div class="status-pill available"><span></span><span>Available</span><strong id="status-count-available">0</strong></div>
-                <div class="status-pill hold"><span></span><span>On Hold</span><strong id="status-count-hold">0</strong></div>
-                <div class="status-pill sold"><span></span><span>Sold</span><strong id="status-count-sold">0</strong></div>
+                <div class="status-pill available"><span class="status-dot"></span><span>Available</span><strong id="status-count-available">0</strong></div>
+                <div class="status-pill hold"><span class="status-dot"></span><span>On Hold</span><strong id="status-count-hold">0</strong></div>
+                <div class="status-pill sold"><span class="status-dot"></span><span>Sold</span><strong id="status-count-sold">0</strong></div>
             </div>
         </div>
     </div>

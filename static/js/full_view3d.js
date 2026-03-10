@@ -113,7 +113,7 @@
                 var p = getWorkspacePanoramaById(id);
                 headerName.textContent = p && p.name ? p.name : 'Full View';
             }
-        }).catch(function () {});
+        }).catch(function () { });
     }
 
     function loadPlots(panoramaId) {

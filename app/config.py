@@ -1,0 +1,55 @@
+"""
+Application configuration from environment.
+"""
+import os
+
+# Flask
+SECRET_KEY = os.environ.get('FLASK_SECRET_KEY', '')
+UPLOAD_FOLDER = 'uploads'
+MAX_CONTENT_LENGTH = int(os.environ.get('MAX_UPLOAD_BYTES', str(50 * 1024 * 1024)))  # 50MB
+
+# Supabase
+SUPABASE_URL = os.environ.get('SUPABASE_URL', '').rstrip('/')
+SUPABASE_ANON_KEY = os.environ.get('SUPABASE_ANON_KEY', '')
+SUPABASE_SERVICE_ROLE_KEY = os.environ.get('SUPABASE_SERVICE_ROLE_KEY', '')
+SUPABASE_JWT_SECRET = os.environ.get('SUPABASE_JWT_SECRET', '')
+
+# Supabase S3
+SUPABASE_S3_ENDPOINT = os.environ.get(
+    'SUPABASE_S3_ENDPOINT',
+    'https://qavugigprqbnslywkmri.storage.supabase.co/storage/v1/s3',
+).rstrip('/')
+SUPABASE_S3_REGION = os.environ.get('SUPABASE_S3_REGION', 'ap-south-1')
+SUPABASE_S3_BUCKET = os.environ.get('SUPABASE_S3_BUCKET', '').strip()
+SUPABASE_S3_ACCESS_KEY_ID = (
+    os.environ.get('SUPABASE_S3_ACCESS_KEY_ID') or os.environ.get('AWS_ACCESS_KEY_ID', '')
+).strip()
+SUPABASE_S3_SECRET_ACCESS_KEY = (
+    os.environ.get('SUPABASE_S3_SECRET_ACCESS_KEY') or os.environ.get('AWS_SECRET_ACCESS_KEY', '')
+).strip()
+SUPABASE_S3_PANORAMA_PREFIX = os.environ.get('SUPABASE_S3_PANORAMA_PREFIX', 'panoramas').strip('/')
+SUPABASE_S3_SIGNED_URL_TTL = max(60, int(os.environ.get('SUPABASE_S3_SIGNED_URL_TTL', '900')))
+SUPABASE_S3_UPLOAD_URL_TTL = max(60, int(os.environ.get('SUPABASE_S3_UPLOAD_URL_TTL', '900')))
+SUPABASE_S3_PLOT_PREFIX = os.environ.get('SUPABASE_S3_PLOT_PREFIX', 'plot-images').strip('/')
+SUPABASE_S3_MARKER_PREFIX = os.environ.get('SUPABASE_S3_MARKER_PREFIX', 'marker-images').strip('/')
+SUPABASE_S3_VOICEOVER_PREFIX = os.environ.get('SUPABASE_S3_VOICEOVER_PREFIX', 'marker-voiceovers').strip('/')
+
+PAGE_ACCESS_TOKEN_TTL = max(60, int(os.environ.get('PAGE_ACCESS_TOKEN_TTL', '900')))
+
+# Allowed file types
+ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
+ALLOWED_AUDIO_EXTENSIONS = {'mp3', 'wav', 'm4a', 'ogg', 'webm'}
+AUDIO_CONTENT_TYPES = {
+    'mp3': 'audio/mpeg', 'wav': 'audio/wav', 'm4a': 'audio/mp4',
+    'ogg': 'audio/ogg', 'webm': 'audio/webm',
+}
+IMAGE_CONTENT_TYPES = {
+    'png': 'image/png', 'jpg': 'image/jpeg', 'jpeg': 'image/jpeg',
+    'gif': 'image/gif', 'webp': 'image/webp',
+}
+CONTENT_TYPE_TO_EXT = {
+    'image/png': 'png',
+    'image/jpeg': 'jpg',
+    'image/gif': 'gif',
+    'image/webp': 'webp',
+}
