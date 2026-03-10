@@ -14,7 +14,10 @@
         :root {
             --color-bg: #b8c8d9;
             --color-text: #162338;
+            --color-accent: #bf8c4a;
+            --color-muted: #58677b;
             --font-body: system-ui, -apple-system, sans-serif;
+            --font-display: Georgia, 'Times New Roman', serif;
         }
         * { margin: 0; padding: 0; box-sizing: border-box; }
         html, body { height: 100%; overflow: hidden; font-family: var(--font-body); background: var(--color-bg); color: var(--color-text); touch-action: none; }
@@ -65,19 +68,119 @@
         .status-pill.hold .status-dot { background: #97c89e; }
         .status-pill.sold .status-dot { background: #e38f8b; }
         .status-pill strong { font-size: 0.78rem; color: #273f67; font-variant-numeric: tabular-nums; }
-        .modal-backdrop { position: fixed; inset: 0; z-index: 1000; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; padding: 1rem; pointer-events: auto; opacity: 0; visibility: hidden; transition: opacity 0.2s, visibility 0.2s; }
-        .modal-backdrop.visible { opacity: 1; visibility: visible; }
-        .modal { background: #fff; border-radius: 8px; max-width: 90vw; max-height: 85vh; overflow: auto; position: relative; padding: 1rem; }
-        .modal-close { position: absolute; top: 0.5rem; right: 0.5rem; background: none; border: none; font-size: 1.5rem; cursor: pointer; color: #333; }
-        .details-header { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.75rem; }
-        .details-color { width: 12px; height: 12px; border-radius: 2px; }
-        .details-title { font-weight: 700; font-size: 1.1rem; }
-        .detail-item { margin-bottom: 0.5rem; }
-        .detail-label { font-size: 0.65rem; text-transform: uppercase; color: #666; }
-        .detail-value { font-size: 0.9rem; }
-        .modal-actions { margin-top: 1rem; display: flex; gap: 0.5rem; }
-        .modal-btn { padding: 0.5rem 1rem; border-radius: 4px; font-weight: 600; cursor: pointer; border: 1px solid #ccc; background: #f5f5f5; }
-        .modal-btn.primary { background: #162338; color: #fff; border-color: #162338; }
+        .modal-backdrop { position: fixed; inset: 0; z-index: 1000; background: rgba(0,0,0,0.85); display: none; align-items: center; justify-content: center; padding: 1rem; backdrop-filter: blur(12px) saturate(180%); animation: modalFadeIn 0.3s ease-out; }
+        .modal-backdrop.visible { display: flex; }
+        @keyframes modalFadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes modalSlideUp { from { opacity: 0; transform: translateY(20px) scale(0.95); } to { opacity: 1; transform: translateY(0) scale(1); } }
+        .modal { background: linear-gradient(135deg, rgba(26,26,27,0.95) 0%, rgba(20,20,21,0.98) 100%); border-radius: 24px; max-width: 1200px; width: 95%; max-height: 90vh; overflow: hidden; padding: 0; border: 1px solid rgba(201,169,98,0.2); box-shadow: 0 25px 60px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.05) inset; display: flex; flex-direction: column; position: relative; animation: modalSlideUp 0.4s cubic-bezier(0.16,1,0.3,1); }
+        .modal::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 1px; background: linear-gradient(90deg, transparent 0%, rgba(201,169,98,0.3) 50%, transparent 100%); }
+        .modal > *:not(.marker-modal-close):not(.modal-close) { padding: 2.5rem; }
+        .modal > *:not(.marker-modal-close):not(.modal-close):first-child { padding-top: 2.5rem; }
+        .modal > *:not(.marker-modal-close):not(.modal-close):last-child { padding-bottom: 2.5rem; }
+        .modal-close { position: absolute; top: 1rem; right: 1rem; width: 34px; height: 34px; border-radius: 999px; border: 1px solid rgba(255,255,255,0.2); background: rgba(10,10,11,0.72); color: #fff; font-size: 1.18rem; line-height: 1; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; transition: transform 0.15s ease, background 0.15s ease; z-index: 4; }
+        .modal-close:hover { transform: scale(1.06); background: rgba(20,20,22,0.95); border-color: rgba(201,169,98,0.4); }
+        .details-header { display: flex; align-items: center; gap: 1.25rem; margin-bottom: 0; padding-bottom: 2rem; border-bottom: 1px solid rgba(255,255,255,0.08); background: linear-gradient(135deg, rgba(201,169,98,0.05) 0%, transparent 100%); }
+        .details-color { width: 56px; height: 56px; border-radius: 14px; box-shadow: 0 8px 24px rgba(0,0,0,0.3), 0 0 0 2px rgba(255,255,255,0.1) inset; transition: transform 0.3s ease, box-shadow 0.3s ease; }
+        .details-color:hover { transform: scale(1.05); box-shadow: 0 12px 32px rgba(0,0,0,0.4), 0 0 0 2px rgba(255,255,255,0.15) inset; }
+        .details-title { font-family: var(--font-display); font-size: 2rem; font-style: italic; color: var(--color-text); font-weight: 500; letter-spacing: -0.02em; text-shadow: 0 2px 8px rgba(0,0,0,0.3); }
+        .details-grid { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: 2.5rem; align-items: start; padding: 2.5rem; overflow-y: auto; flex: 1; min-height: 0; }
+        .details-modal .modal-actions { flex-shrink: 0; }
+        .detail-item { background: linear-gradient(135deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0.03) 100%); padding: 1.5rem; border-radius: 16px; border: 1px solid rgba(255,255,255,0.08); backdrop-filter: blur(10px); transition: all 0.3s ease; box-shadow: 0 4px 12px rgba(0,0,0,0.2); }
+        .detail-item:hover { background: linear-gradient(135deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.05) 100%); border-color: rgba(201,169,98,0.3); transform: translateY(-2px); box-shadow: 0 8px 20px rgba(0,0,0,0.3); }
+        .detail-item.full-width { grid-column: 1 / -1; }
+        .detail-label { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.12em; color: var(--color-muted); margin-bottom: 0.75rem; font-weight: 600; opacity: 0.8; }
+        .detail-value { font-size: 1.15rem; color: var(--color-text); line-height: 1.5; }
+        .detail-value.price { color: var(--color-accent); font-family: var(--font-display); font-size: 2.25rem; font-weight: 500; text-shadow: 0 2px 12px rgba(201,169,98,0.3); letter-spacing: -0.02em; }
+        .detail-value.description { font-size: 0.95rem; line-height: 1.6; color: var(--color-muted); white-space: pre-wrap; }
+        .details-media-column { grid-column: 1; grid-row: 1 / span 4; min-width: 0; overflow: hidden; }
+        .details-info-column { grid-column: 2; display: flex; flex-direction: column; gap: 1rem; }
+        .details-media { display: grid; gap: 1rem; width: 100%; min-width: 0; }
+        .media-wrapper { position: relative; width: 100%; max-width: 100%; aspect-ratio: 16/10; min-height: 220px; background: linear-gradient(135deg, rgba(0,0,0,0.4) 0%, rgba(0,0,0,0.2) 100%); border-radius: 16px; overflow: hidden; border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 8px 24px rgba(0,0,0,0.4); display: flex; align-items: center; justify-content: center; }
+        .media-wrapper iframe, .media-wrapper video, .media-wrapper img { position: absolute; width: 100%; height: 100%; object-fit: cover; border: none; }
+        .marker-media-loading { width: 100%; min-height: 140px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.12); background: linear-gradient(120deg, rgba(255,255,255,0.03) 20%, rgba(255,255,255,0.09) 38%, rgba(255,255,255,0.03) 56%); background-size: 240% 100%; animation: shimmer 1.15s ease-in-out infinite; }
+        @keyframes shimmer { 0% { background-position: 120% 0; } 100% { background-position: -120% 0; } }
+        .modal-actions { display: flex; gap: 1rem; margin-top: 0; padding-top: 2rem; border-top: 1px solid rgba(255,255,255,0.08); background: linear-gradient(180deg, transparent 0%, rgba(0,0,0,0.2) 100%); }
+        .modal-btn { flex: 1; padding: 1rem 1.5rem; border-radius: 12px; font-size: 0.9rem; font-family: var(--font-body); font-weight: 600; cursor: pointer; transition: all 0.3s cubic-bezier(0.4,0,0.2,1); text-transform: uppercase; letter-spacing: 0.08em; border: none; position: relative; overflow: hidden; }
+        .modal-btn::before { content: ''; position: absolute; top: 50%; left: 50%; width: 0; height: 0; border-radius: 50%; background: rgba(255,255,255,0.2); transform: translate(-50%,-50%); transition: width 0.6s, height 0.6s; }
+        .modal-btn:hover::before { width: 300px; height: 300px; }
+        .modal-btn.primary { background: linear-gradient(135deg, var(--color-accent) 0%, #b8944f 100%); color: #162338; box-shadow: 0 8px 24px rgba(191,140,74,0.26); }
+        .modal-btn.primary:hover { background: linear-gradient(135deg, #d4b06e 0%, var(--color-accent) 100%); transform: translateY(-2px); box-shadow: 0 12px 30px rgba(191,140,74,0.34); }
+        .modal-btn:disabled { cursor: not-allowed; opacity: 0.66; transform: none; box-shadow: none; }
+        .modal-btn.secondary { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.15); color: var(--color-text); backdrop-filter: blur(10px); }
+        .modal-btn.secondary:hover { background: rgba(255,255,255,0.1); border-color: rgba(201,169,98,0.5); color: var(--color-text); transform: translateY(-2px); box-shadow: 0 4px 16px rgba(0,0,0,0.3); }
+        .details-modal .modal { max-width: 760px; width: min(94vw, 760px); max-height: min(90vh, 820px); display: flex; flex-direction: column; overflow: hidden; background: linear-gradient(160deg, rgba(246,250,255,0.97) 0%, rgba(238,246,255,0.97) 100%); border: 1px solid rgba(23,47,84,0.16); box-shadow: 0 24px 48px rgba(7,23,45,0.3), 0 2px 8px rgba(7,23,45,0.16); }
+        .details-modal .modal::before { background: linear-gradient(90deg, transparent 0%, rgba(201,169,98,0.2) 50%, transparent 100%); }
+        .details-modal .modal > *:not(.marker-modal-close):not(.modal-close) { padding: 1.8rem 2rem; }
+        .details-modal .details-header { padding-bottom: 1.5rem; }
+        .details-modal .details-color { width: 48px; height: 48px; border-radius: 12px; }
+        .details-modal .details-title { font-size: 1.6rem; font-style: normal; color: #173256; text-shadow: none; letter-spacing: 0.01em; }
+        .details-modal .details-grid { gap: 1.2rem; padding: 1.45rem 1.8rem 1.35rem; }
+        .details-modal .details-info-column { gap: 0.72rem; }
+        .details-modal .detail-item { background: rgba(255,255,255,0.8); border: 1px solid rgba(27,53,89,0.12); border-radius: 12px; padding: 0.92rem 1rem; box-shadow: 0 3px 10px rgba(20,41,73,0.08); }
+        .details-modal .detail-item:hover { transform: none; background: rgba(255,255,255,0.9); border-color: rgba(27,53,89,0.2); }
+        .details-modal .detail-label { font-size: 0.64rem; color: #44608a; margin-bottom: 0.36rem; opacity: 1; }
+        .details-modal .detail-value { font-size: 1rem; color: #1d3558; line-height: 1.5; }
+        .details-modal .detail-value.price { color: #b5772d; font-size: 1.56rem; letter-spacing: 0; text-shadow: none; }
+        .details-modal .detail-value.description { font-size: 0.92rem; color: #334f74; line-height: 1.58; }
+        .details-modal .media-wrapper { border: 1px solid rgba(27,53,89,0.16); border-radius: 12px; min-height: 210px; background: #eaf1fb; }
+        .details-modal .marker-media-loading { border: 1px solid rgba(27,53,89,0.14); background: linear-gradient(120deg, rgba(171,194,227,0.12) 20%, rgba(212,225,243,0.65) 40%, rgba(171,194,227,0.12) 58%); background-size: 240% 100%; }
+        .details-modal .modal-actions { padding-top: 1.1rem; border-top: 1px solid rgba(27,53,89,0.14); background: linear-gradient(180deg, rgba(255,255,255,0) 0%, rgba(226,236,250,0.42) 100%); }
+        .details-modal .modal-btn { flex: 0 0 auto; min-width: 136px; margin-left: auto; padding: 0.72rem 1.25rem; border-radius: 10px; font-size: 0.76rem; }
+        .details-modal .modal-btn::before { display: none; }
+        .details-modal .modal-btn.secondary { background: rgba(17,40,72,0.08); border: 1px solid rgba(17,40,72,0.22); color: #183254; backdrop-filter: none; }
+        .details-modal .modal-btn.secondary:hover { background: rgba(17,40,72,0.14); border-color: rgba(17,40,72,0.34); color: #142844; transform: translateY(-1px); box-shadow: none; }
+        .details-modal .modal-close, .details-modal .marker-modal-close { top: 0.85rem; right: 0.85rem; width: 32px; height: 32px; background: rgba(240,246,255,0.94); border: 1px solid rgba(24,47,80,0.22); color: #1b3558; }
+        .details-modal .modal-close:hover, .details-modal .marker-modal-close:hover { background: rgba(255,255,255,0.96); border-color: rgba(24,47,80,0.38); transform: scale(1.04); }
+        #plot-details-modal .modal-actions { justify-content: flex-end; flex-wrap: wrap; }
+        #plot-details-modal .modal-btn { margin-left: 0; }
+        #plot-details-modal #add-to-cart-btn { margin-right: auto; }
+        .cart-modal.modal-backdrop { background: linear-gradient(180deg, rgba(12,24,43,0.34) 0%, rgba(12,24,43,0.52) 100%); backdrop-filter: blur(10px) saturate(140%); }
+        .cart-modal .modal { max-width: 980px; width: min(94vw, 980px); max-height: min(92vh, 860px); background: linear-gradient(160deg, rgba(246,250,255,0.97) 0%, rgba(238,246,255,0.97) 100%); border: 1px solid rgba(23,47,84,0.16); box-shadow: 0 24px 48px rgba(7,23,45,0.3), 0 2px 8px rgba(7,23,45,0.16); color: #1d3558; }
+        .cart-modal .cart-header { padding: 1.6rem 1.8rem 1.2rem; border-bottom: 1px solid rgba(27,53,89,0.14); background: linear-gradient(180deg, rgba(255,255,255,0.68) 0%, rgba(255,255,255,0) 100%); }
+        .cart-modal .cart-kicker { font-size: 0.62rem; letter-spacing: 0.18em; text-transform: uppercase; font-weight: 800; color: rgba(27,53,89,0.68); }
+        .cart-modal .cart-title { font-family: var(--font-display); font-size: 1.7rem; letter-spacing: 0.01em; color: #173256; margin-top: 0.3rem; }
+        .cart-modal .cart-subtitle { margin-top: 0.35rem; font-size: 0.9rem; color: #334f74; }
+        .cart-modal .cart-grid { display: grid; grid-template-columns: 1.08fr 0.92fr; gap: 1rem; padding: 1.35rem 1.8rem 1.35rem; overflow: auto; }
+        .cart-panel { border: 1px solid rgba(27,53,89,0.12); background: rgba(255,255,255,0.82); border-radius: 14px; box-shadow: 0 3px 10px rgba(20,41,73,0.08); overflow: hidden; display: flex; flex-direction: column; min-height: 260px; }
+        .cart-panel-head { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; padding: 0.9rem 0.95rem; border-bottom: 1px solid rgba(27,53,89,0.12); background: rgba(234,241,251,0.9); }
+        .cart-panel-head strong { font-size: 0.72rem; letter-spacing: 0.16em; text-transform: uppercase; color: #1b3558; }
+        .cart-link-btn { border: 1px solid rgba(27,53,89,0.22); background: rgba(255,255,255,0.75); color: #183254; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; font-size: 0.68rem; border-radius: 999px; padding: 0.38rem 0.65rem; cursor: pointer; transition: background 0.15s ease, border-color 0.15s ease, transform 0.15s ease; }
+        .cart-link-btn:hover { transform: translateY(-1px); background: rgba(255,255,255,0.92); border-color: rgba(27,53,89,0.34); }
+        .cart-items { padding: 0.9rem 0.95rem; display: grid; gap: 0.65rem; }
+        .cart-item { border: 1px solid rgba(27,53,89,0.14); border-radius: 12px; background: rgba(255,255,255,0.86); padding: 0.75rem 0.8rem; display: grid; grid-template-columns: 1fr auto; gap: 0.6rem; align-items: start; }
+        .cart-item-title { font-weight: 900; color: #173256; letter-spacing: 0.01em; }
+        .cart-item-meta { margin-top: 0.22rem; font-size: 0.82rem; color: #47658f; line-height: 1.35; }
+        .cart-remove { width: 34px; height: 34px; border-radius: 999px; border: 1px solid rgba(27,53,89,0.22); background: rgba(17,40,72,0.06); color: #183254; cursor: pointer; transition: background 0.15s ease, border-color 0.15s ease, transform 0.15s ease; }
+        .cart-remove:hover { transform: scale(1.06); background: rgba(17,40,72,0.12); border-color: rgba(27,53,89,0.36); }
+        .cart-empty { padding: 1rem 0.95rem; color: rgba(51,79,116,0.9); font-size: 0.92rem; }
+        .cart-form { padding: 0.9rem 0.95rem 1rem; display: grid; gap: 0.75rem; }
+        .cart-field label { display: block; font-size: 0.65rem; letter-spacing: 0.16em; text-transform: uppercase; font-weight: 900; color: rgba(27,53,89,0.72); margin-bottom: 0.32rem; }
+        .cart-field input, .cart-field select { width: 100%; height: 44px; border-radius: 12px; border: 1px solid rgba(27,53,89,0.18); background: rgba(255,255,255,0.92); padding: 0 0.85rem; outline: none; font-family: var(--font-body); font-weight: 700; color: #173256; }
+        .cart-field input:focus, .cart-field select:focus { border-color: rgba(191,140,74,0.58); box-shadow: 0 10px 22px rgba(191,140,74,0.14); }
+        .cart-message { margin-top: 0.1rem; font-size: 0.88rem; color: #334f74; }
+        .cart-message.error { color: #b42318; }
+        .cart-modal .modal-actions { padding: 1.1rem 1.8rem 1.35rem; border-top: 1px solid rgba(27,53,89,0.14); background: linear-gradient(180deg, rgba(255,255,255,0) 0%, rgba(226,236,250,0.42) 100%); display: flex; gap: 0.8rem; justify-content: flex-end; }
+        .cart-modal .modal-btn { flex: 0 0 auto; min-width: 160px; padding: 0.72rem 1.25rem; border-radius: 10px; font-size: 0.76rem; }
+        .cart-modal .modal-btn::before { display: none; }
+        .share-modal .modal { max-width: 500px; }
+        .share-url-container { background: rgba(255,255,255,0.05); border-radius: 8px; padding: 1rem; margin: 1rem 0; }
+        .share-modal-title { font-family: var(--font-display); font-size: 1.55rem; font-style: italic; color: var(--color-accent); margin-bottom: 0.45rem; }
+        .share-modal-subtitle { color: rgba(245,245,240,0.76); margin-bottom: 0.9rem; line-height: 1.55; font-size: 0.9rem; }
+        .share-modal-content { display: flex; flex-direction: column; }
+        .share-url { font-family: monospace; font-size: 0.85rem; color: var(--color-accent); word-break: break-all; }
+        .copy-btn { background: var(--color-accent); color: var(--color-bg); padding: 0.5rem 1rem; border-radius: 6px; border: none; cursor: pointer; font-family: var(--font-body); font-size: 0.8rem; margin-top: 0.75rem; transition: background 0.2s; }
+        .copy-btn:hover { background: #d4b06e; }
+        .marker-readonly-modal { position: relative; max-width: 640px; width: min(94vw, 640px); }
+        .marker-modal-close { position: absolute; top: 0.9rem; right: 0.9rem; width: 34px; height: 34px; border-radius: 999px; border: 1px solid rgba(255,255,255,0.18); background: rgba(10,10,11,0.64); color: #fff; font-size: 1.25rem; line-height: 1; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; transition: transform 0.15s ease, background 0.15s ease; z-index: 5; }
+        .marker-modal-close:hover { background: rgba(22,22,24,0.9); transform: scale(1.06); }
+        .marker-readonly-modal.no-media .details-grid { grid-template-columns: 1fr; gap: 0; }
+        .marker-readonly-modal.no-media .details-info-column { grid-column: 1; }
+        .marker-photo-lightbox { position: fixed; inset: 0; z-index: 170; display: none; place-items: center; background: rgba(7,17,31,0.86); backdrop-filter: blur(5px) saturate(115%); padding: 2rem; cursor: zoom-out; }
+        .marker-photo-lightbox.visible { display: grid; }
+        .marker-photo-lightbox-image { max-width: min(94vw, 1500px); max-height: 90vh; border-radius: 18px; border: 1px solid rgba(255,255,255,0.26); box-shadow: 0 18px 40px rgba(0,0,0,0.48); transform: scale(0.62); opacity: 0; transition: transform 0.34s cubic-bezier(0.16,1,0.3,1), opacity 0.24s ease; }
+        .marker-photo-lightbox.visible.is-zoomed .marker-photo-lightbox-image { transform: scale(1); opacity: 1; }
+        @media (max-width: 768px) { .details-grid { grid-template-columns: 1fr; } .details-media-column { grid-column: 1; grid-row: auto; } .details-info-column { grid-column: 1; } .media-wrapper { min-height: 180px; } }
+        @media (max-width: 860px) { .cart-modal .cart-grid { grid-template-columns: 1fr; padding: 1.1rem 1rem; } .cart-modal .cart-header, .cart-modal .modal-actions { padding-left: 1rem; padding-right: 1rem; } }
         .psv-plot-label { display: inline-flex; align-items: center; gap: 0.38rem; padding: 0.34rem 0.66rem; border-radius: 999px; background: rgba(8,9,11,0.82); border: 1px solid rgba(255,255,255,0.22); color: #fff; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.08em; text-shadow: 0 2px 7px rgba(0,0,0,0.55); box-shadow: 0 12px 24px rgba(0,0,0,0.36); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); pointer-events: none; white-space: nowrap; }
         .psv-plot-label::before { content: ''; width: 7px; height: 7px; border-radius: 999px; background: rgba(74,222,128,0.95); box-shadow: 0 0 0 3px rgba(74,222,128,0.24); }
         .psv-plot-label.psv-plot-label--hold::before { background: rgba(249,115,22,0.95); box-shadow: 0 0 0 3px rgba(249,115,22,0.24); }
@@ -130,36 +233,147 @@
     </div>
     <div class="modal-backdrop details-modal" id="plot-details-modal">
         <div class="modal">
-            <button class="modal-close" id="close-details-icon" type="button">×</button>
-            <div class="details-header"><div class="details-color" id="details-color"></div><div class="details-title" id="details-title">Plot</div></div>
-            <div class="detail-item"><div class="detail-label">Price</div><div class="detail-value" id="details-price">—</div></div>
-            <div class="detail-item"><div class="detail-label">Area</div><div class="detail-value" id="details-area">—</div></div>
-            <div class="detail-item"><div class="detail-label">Status</div><div class="detail-value" id="details-status">—</div></div>
+            <button class="modal-close" id="close-details-icon" type="button" aria-label="Close plot details">×</button>
+            <div class="details-header">
+                <div class="details-color" id="details-color"></div>
+                <div class="details-title" id="details-title">Plot Name</div>
+            </div>
+            <div class="details-grid">
+                <div class="details-media-column" id="details-media-container" style="display: none;">
+                    <div class="details-media" id="details-media"></div>
+                </div>
+                <div class="details-info-column">
+                    <div class="detail-item">
+                        <div class="detail-label">Price</div>
+                        <div class="detail-value price" id="details-price">—</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Area</div>
+                        <div class="detail-value" id="details-area">—</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Status</div>
+                        <div class="detail-value" id="details-status">—</div>
+                    </div>
+                    <div class="detail-item" id="details-description-container">
+                        <div class="detail-label">Description</div>
+                        <div class="detail-value description" id="details-description">—</div>
+                    </div>
+                </div>
+            </div>
             <div class="modal-actions">
                 <button class="modal-btn primary" id="add-to-cart-btn" type="button">Add to Cart</button>
-                <button class="modal-btn" id="enter-plot-panorama" type="button" style="display:none;">Enter Panorama</button>
-                <button class="modal-btn" id="close-details">Close</button>
+                <button class="modal-btn secondary" id="enter-plot-panorama" type="button" style="display:none;">Enter Panorama</button>
+                <button class="modal-btn secondary" id="close-details">Close</button>
             </div>
         </div>
     </div>
-    <div class="modal-backdrop" id="marker-readonly-modal">
+
+    <div class="modal-backdrop cart-modal" id="cart-modal">
         <div class="modal">
-            <button class="modal-close" id="close-marker-readonly" type="button">×</button>
-            <div class="details-header"><div class="details-color" id="marker-readonly-color"></div><div class="details-title" id="marker-readonly-name">Marker</div></div>
-            <div class="detail-item"><div class="detail-label">Description</div><div class="detail-value" id="marker-readonly-description">—</div></div>
+            <button class="modal-close" id="close-cart-btn" type="button" aria-label="Close cart">×</button>
+            <div class="cart-header">
+                <div class="cart-kicker">Checkout</div>
+                <div class="cart-title">Your Plot Cart</div>
+                <div class="cart-subtitle" id="cart-subtitle">0 plots selected</div>
+            </div>
+            <div class="cart-grid">
+                <div class="cart-panel">
+                    <div class="cart-panel-head">
+                        <strong>Selected Plots</strong>
+                        <button class="cart-link-btn" id="cart-clear-btn" type="button">Clear</button>
+                    </div>
+                    <div class="cart-items" id="cart-items"></div>
+                    <div class="cart-empty" id="cart-empty" style="display:none;">No plots added yet. Open a plot and click “Add to Cart”.</div>
+                </div>
+                <div class="cart-panel">
+                    <div class="cart-panel-head">
+                        <strong>Your Details</strong>
+                        <span class="subtle" style="margin:0;">Send a buy interest to the project CRM.</span>
+                    </div>
+                    <div class="cart-form">
+                        <div class="cart-field">
+                            <label for="checkout-name">Name</label>
+                            <input id="checkout-name" type="text" placeholder="Full name" autocomplete="name">
+                        </div>
+                        <div class="cart-field">
+                            <label for="checkout-email">Email Id</label>
+                            <input id="checkout-email" type="email" placeholder="you@example.com" autocomplete="email">
+                        </div>
+                        <div class="cart-field">
+                            <label for="checkout-phone">Contact Number</label>
+                            <input id="checkout-phone" type="tel" placeholder="Phone number" autocomplete="tel">
+                        </div>
+                        <div class="cart-field">
+                            <label for="checkout-category">Category</label>
+                            <select id="checkout-category">
+                                <option value="">Select</option>
+                                <option value="Residential">Residential</option>
+                                <option value="Commercial">Commercial</option>
+                                <option value="Investment">Investment</option>
+                                <option value="NRI">NRI</option>
+                                <option value="Other">Other</option>
+                            </select>
+                        </div>
+                        <div class="cart-message" id="cart-message" aria-live="polite"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button class="modal-btn primary" id="send-buy-interest-btn" type="button">Send Buy Interest</button>
+                <button class="modal-btn secondary" id="close-cart" type="button">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-backdrop share-modal" id="share-modal">
+        <div class="modal">
+            <button class="modal-close" id="close-share-icon" type="button" aria-label="Close share modal">×</button>
+            <div class="share-modal-content">
+                <div class="share-modal-title">Share This View</div>
+                <div class="share-modal-subtitle">Share this link with clients to give them view-only access to this interactive panorama.</div>
+                <div class="share-url-container">
+                    <div class="share-url" id="share-url"></div>
+                </div>
+                <button class="copy-btn" id="copy-btn" type="button">Copy Link</button>
+            </div>
+            <div class="modal-actions">
+                <button class="modal-btn secondary" id="close-share" type="button">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-backdrop details-modal" id="marker-readonly-modal">
+        <div class="modal marker-readonly-modal">
+            <button class="marker-modal-close" id="close-marker-readonly" type="button" aria-label="Close marker details">×</button>
+            <div class="details-header">
+                <div class="details-color" id="marker-readonly-color"></div>
+                <div class="details-title" id="marker-readonly-name">Marker</div>
+            </div>
+            <div class="details-grid">
+                <div class="details-media-column" id="marker-readonly-media-col" style="display:none;">
+                    <div class="details-media" id="marker-readonly-media"></div>
+                </div>
+                <div class="details-info-column">
+                    <div class="detail-item">
+                        <div class="detail-label">Description</div>
+                        <div class="detail-value description" id="marker-readonly-description">—</div>
+                    </div>
+                    <div class="detail-item marker-readonly-voiceover-wrap" id="marker-readonly-voiceover-wrap" style="display:none;">
+                        <div class="detail-label">Voice-over</div>
+                        <button type="button" class="modal-btn primary" id="play-marker-voiceover" aria-label="Play voice-over">Play voice-over</button>
+                    </div>
+                </div>
+            </div>
             <div class="modal-actions">
                 <button class="modal-btn primary" id="enter-marker-panorama" type="button" style="display:none;">Enter Panorama</button>
-                <button class="modal-btn" id="close-marker-readonly-btn">Close</button>
+                <button class="modal-btn secondary" id="close-marker-readonly-btn" type="button">Close</button>
             </div>
         </div>
     </div>
-    <div class="modal-backdrop" id="cart-modal">
-        <div class="modal" style="max-width: 480px;">
-            <button class="modal-close" id="close-cart-btn" type="button">×</button>
-            <div class="details-title">Your Cart</div>
-            <div id="cart-items"></div>
-            <div class="modal-actions"><button class="modal-btn" id="close-cart">Close</button></div>
-        </div>
+
+    <div class="marker-photo-lightbox" id="marker-photo-lightbox" aria-hidden="true">
+        <img class="marker-photo-lightbox-image" id="marker-photo-lightbox-image" alt="Marker photo">
     </div>
     <script>
         window.FULL_VIEW_CONFIG = {

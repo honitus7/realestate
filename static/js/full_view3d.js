@@ -22,6 +22,226 @@
     var plots = [];
     var markerMap = new Map();
     var cart = [];
+    var activePlotId = null;
+
+    var statusLabels = { available: 'Available', reserved: 'On Hold', on_hold: 'On Hold', sold: 'Sold' };
+
+    function cartStorageKey() {
+        var firstId = WORKSPACE_PANORAMAS[0] && WORKSPACE_PANORAMAS[0].id != null ? String(WORKSPACE_PANORAMAS[0].id) : 'fullview';
+        return 'full_view_plot_cart_' + firstId;
+    }
+
+    function normalizeCartItem(value) {
+        if (!value || typeof value !== 'object') return null;
+        var pid = Object.prototype.hasOwnProperty.call(value, 'plot_id') ? value.plot_id : value.id;
+        if (pid === null || pid === undefined || String(pid).trim() === '') return null;
+        return {
+            plot_id: Number(pid),
+            name: String(value.name || value.plot_name || '').trim(),
+            area: String(value.area || '').trim(),
+            price: String(value.price || '').trim(),
+            status: String(value.status || '').trim()
+        };
+    }
+
+    function loadCartFromStorage() {
+        try {
+            var raw = (window.localStorage ? localStorage.getItem(cartStorageKey()) : null);
+            if (!raw) return [];
+            var parsed = JSON.parse(raw);
+            if (!Array.isArray(parsed)) return [];
+            return parsed.map(function (x) { return normalizeCartItem(x); }).filter(function (x) { return x && x.plot_id; });
+        } catch (e) {
+            return [];
+        }
+    }
+
+    function saveCartToStorage(items) {
+        try {
+            cart = Array.isArray(items) ? items : [];
+            if (window.localStorage) localStorage.setItem(cartStorageKey(), JSON.stringify(cart));
+        } catch (e) {}
+    }
+
+    function isPlotInCart(plotId) {
+        return cart.some(function (item) { return String(item.plot_id) === String(plotId); });
+    }
+
+    function syncCartBadge() {
+        var n = Array.isArray(cart) ? cart.length : 0;
+        var cartCountEl = document.getElementById('cart-count');
+        var cartSubtitleEl = document.getElementById('cart-subtitle');
+        if (cartCountEl) cartCountEl.textContent = String(n);
+        if (cartSubtitleEl) cartSubtitleEl.textContent = n + ' ' + (n === 1 ? 'plot' : 'plots') + ' selected';
+    }
+
+    function setCartMessage(message, type) {
+        var cartMessageEl = document.getElementById('cart-message');
+        if (!cartMessageEl) return;
+        cartMessageEl.textContent = message || '';
+        cartMessageEl.classList.toggle('error', type === 'error');
+    }
+
+    function updateAddToCartButton(plot) {
+        var addToCartBtn = document.getElementById('add-to-cart-btn');
+        if (!addToCartBtn) return;
+        if (!plot || !plot.id) {
+            addToCartBtn.disabled = true;
+            addToCartBtn.textContent = 'Add to Cart';
+            if (addToCartBtn.dataset) delete addToCartBtn.dataset.plotId;
+            return;
+        }
+        addToCartBtn.dataset.plotId = String(plot.id);
+        if (getStatusKey(plot.status) === 'sold') {
+            addToCartBtn.disabled = true;
+            addToCartBtn.textContent = 'Sold';
+            return;
+        }
+        if (isPlotInCart(plot.id)) {
+            addToCartBtn.disabled = true;
+            addToCartBtn.textContent = 'Added';
+            return;
+        }
+        addToCartBtn.disabled = false;
+        addToCartBtn.textContent = 'Add to Cart';
+    }
+
+    function renderCartItems() {
+        var cartItemsEl = document.getElementById('cart-items');
+        var cartEmptyEl = document.getElementById('cart-empty');
+        if (!cartItemsEl || !cartEmptyEl) return;
+        if (!cart || cart.length === 0) {
+            cartItemsEl.innerHTML = '';
+            cartEmptyEl.style.display = '';
+            return;
+        }
+        cartEmptyEl.style.display = 'none';
+        cartItemsEl.innerHTML = cart.map(function (item) {
+            var statusKey = getStatusKey(item.status);
+            var statusLabel = statusLabels[item.status] || statusLabels[statusKey] || (item.status || '—');
+            var metaBits = [
+                item.area ? 'Area: ' + escapeHtml(item.area) : '',
+                item.price ? 'Price: ' + escapeHtml(item.price) : '',
+                statusLabel ? 'Status: ' + escapeHtml(statusLabel) : ''
+            ].filter(Boolean).join(' • ');
+            return '<div class="cart-item" data-plot-id="' + escapeHtml(String(item.plot_id)) + '">' +
+                '<div><div class="cart-item-title">' + escapeHtml(item.name || ('Plot #' + item.plot_id)) + '</div>' +
+                '<div class="cart-item-meta">' + (metaBits || '—') + '</div></div>' +
+                '<button class="cart-remove" type="button" aria-label="Remove from cart" data-remove="' + escapeHtml(String(item.plot_id)) + '">×</button></div>';
+        }).join('');
+        cartItemsEl.querySelectorAll('button[data-remove]').forEach(function (btn) {
+            btn.addEventListener('click', function (e) {
+                e.preventDefault();
+                removeFromCart(btn.getAttribute('data-remove'));
+            });
+        });
+    }
+
+    function addPlotToCart(plot) {
+        if (!plot || !plot.id) return;
+        if (getStatusKey(plot.status) === 'sold') return;
+        if (isPlotInCart(plot.id)) return;
+        var next = cart.concat([{
+            plot_id: Number(plot.id),
+            name: String(plot.name || '').trim(),
+            area: String(plot.area || '').trim(),
+            price: String(plot.price || '').trim(),
+            status: String(plot.status || '').trim()
+        }]);
+        saveCartToStorage(next);
+        syncCartBadge();
+        renderCartItems();
+        updateAddToCartButton(plot);
+    }
+
+    function removeFromCart(plotId) {
+        var pid = String(plotId || '').trim();
+        if (!pid) return;
+        var next = cart.filter(function (x) { return String(x.plot_id) !== pid; });
+        saveCartToStorage(next);
+        syncCartBadge();
+        renderCartItems();
+        var activePlot = plots.find(function (p) { return String(p.id) === String(activePlotId); });
+        updateAddToCartButton(activePlot || null);
+    }
+
+    function clearCart() {
+        saveCartToStorage([]);
+        syncCartBadge();
+        renderCartItems();
+        var activePlot = plots.find(function (p) { return String(p.id) === String(activePlotId); });
+        updateAddToCartButton(activePlot || null);
+    }
+
+    function validateCheckout() {
+        var checkoutNameEl = document.getElementById('checkout-name');
+        var checkoutEmailEl = document.getElementById('checkout-email');
+        var checkoutPhoneEl = document.getElementById('checkout-phone');
+        var checkoutCategoryEl = document.getElementById('checkout-category');
+        var name = String(checkoutNameEl ? checkoutNameEl.value : '').trim();
+        var email = String(checkoutEmailEl ? checkoutEmailEl.value : '').trim();
+        var phone = String(checkoutPhoneEl ? checkoutPhoneEl.value : '').trim();
+        var category = String(checkoutCategoryEl ? checkoutCategoryEl.value : '').trim();
+        if (!cart || cart.length === 0) return { ok: false, error: 'Your cart is empty.' };
+        if (!name) return { ok: false, error: 'Name is required.' };
+        if (!email || !email.includes('@')) return { ok: false, error: 'Valid email is required.' };
+        if (!phone) return { ok: false, error: 'Contact number is required.' };
+        if (!category) return { ok: false, error: 'Category is required.' };
+        return { ok: true, payload: { name: name, email: email, phone: phone, category: category } };
+    }
+
+    function sendBuyInterest() {
+        var sendBuyInterestBtn = document.getElementById('send-buy-interest-btn');
+        if (!sendBuyInterestBtn) return;
+        setCartMessage('');
+        var v = validateCheckout();
+        if (!v.ok) {
+            setCartMessage(v.error, 'error');
+            return;
+        }
+        sendBuyInterestBtn.disabled = true;
+        var headersPromise = window.getAuthHeaders ? window.getAuthHeaders() : Promise.resolve({});
+        headersPromise.then(function (h) {
+            var body = {
+                panorama_id: currentPanoramaId,
+                customer_name: v.payload.name,
+                customer_email: v.payload.email,
+                customer_phone: v.payload.phone,
+                category: v.payload.category,
+                items: cart.map(function (x) { return x.plot_id; })
+            };
+            return fetch('/api/public/buy-interests', {
+                method: 'POST',
+                headers: Object.assign({ 'Content-Type': 'application/json' }, h || {}),
+                body: JSON.stringify(body)
+            });
+        }).then(function (r) {
+            return r.json().catch(function () { return {}; }).then(function (data) {
+                if (!r.ok) {
+                    var msg = (data && data.error) ? data.error : ('Failed to send (' + r.status + ')');
+                    throw new Error(msg);
+                }
+                setCartMessage('Buy interest sent. Our team will contact you shortly.');
+                clearCart();
+                var checkoutNameEl = document.getElementById('checkout-name');
+                var checkoutEmailEl = document.getElementById('checkout-email');
+                var checkoutPhoneEl = document.getElementById('checkout-phone');
+                var checkoutCategoryEl = document.getElementById('checkout-category');
+                if (checkoutNameEl) checkoutNameEl.value = '';
+                if (checkoutEmailEl) checkoutEmailEl.value = '';
+                if (checkoutPhoneEl) checkoutPhoneEl.value = '';
+                if (checkoutCategoryEl) checkoutCategoryEl.value = '';
+                window.setTimeout(function () {
+                    var cartModalEl = document.getElementById('cart-modal');
+                    if (cartModalEl) cartModalEl.classList.remove('visible');
+                }, 750);
+            });
+        }).catch(function (e) {
+            setCartMessage(e.message || 'Failed to send buy interest', 'error');
+        }).finally(function () {
+            sendBuyInterestBtn.disabled = false;
+        });
+    }
 
     var loading = document.getElementById('loading');
     var psvContainer = document.getElementById('psv-container');
@@ -335,10 +555,18 @@
                 if (marker && marker.config && marker.config.data && marker.config.data.label) {
                     var plot = getPlotFromMarker(marker);
                     if (plot && plotDetailsModal) {
+                        activePlotId = plot.id;
                         document.getElementById('details-title').textContent = plot.name || 'Plot';
                         document.getElementById('details-price').textContent = plot.price || '—';
                         document.getElementById('details-area').textContent = plot.area || '—';
-                        document.getElementById('details-status').textContent = (plot.status || '—').toLowerCase().replace('_', ' ');
+                        var statusKey = getStatusKey(plot.status);
+                        document.getElementById('details-status').textContent = statusLabels[plot.status] || statusLabels[statusKey] || (plot.status || '—');
+                        var descEl = document.getElementById('details-description');
+                        if (descEl) descEl.textContent = plot.description || '—';
+                        var colorEl = document.getElementById('details-color');
+                        if (colorEl) {
+                            colorEl.style.backgroundColor = (plot.color && plot.color.trim()) ? plot.color.trim() : '#c6d97f';
+                        }
                         if (enterPlotPanoramaBtn) {
                             if (plot.linked_panorama_id) {
                                 enterPlotPanoramaBtn.style.display = '';
@@ -347,6 +575,7 @@
                                 enterPlotPanoramaBtn.style.display = 'none';
                             }
                         }
+                        updateAddToCartButton(plot);
                         plotDetailsModal.classList.add('visible');
                     }
                     return;
@@ -412,13 +641,43 @@
     if (closeMarkerBtn) closeMarkerBtn.addEventListener('click', function () { if (markerModal) markerModal.classList.remove('visible'); });
     if (closeMarkerIcon) closeMarkerIcon.addEventListener('click', function () { if (markerModal) markerModal.classList.remove('visible'); });
 
+    var shareModal = document.getElementById('share-modal');
+    var closeShareIcon = document.getElementById('close-share-icon');
+    var closeShare = document.getElementById('close-share');
+    if (closeShareIcon) closeShareIcon.addEventListener('click', function () { if (shareModal) shareModal.classList.remove('visible'); });
+    if (closeShare) closeShare.addEventListener('click', function () { if (shareModal) shareModal.classList.remove('visible'); });
+    if (shareModal) shareModal.addEventListener('click', function (e) { if (e.target === shareModal) shareModal.classList.remove('visible'); });
+
     var viewCartBtn = document.getElementById('view-cart-btn');
     var cartModal = document.getElementById('cart-modal');
     var closeCartBtn = document.getElementById('close-cart-btn');
     var closeCart = document.getElementById('close-cart');
-    if (viewCartBtn) viewCartBtn.addEventListener('click', function () { if (cartModal) cartModal.classList.add('visible'); });
+    if (viewCartBtn) viewCartBtn.addEventListener('click', function () {
+        if (cartModal) {
+            setCartMessage('');
+            cartModal.classList.add('visible');
+            renderCartItems();
+            syncCartBadge();
+        }
+    });
     if (closeCartBtn) closeCartBtn.addEventListener('click', function () { if (cartModal) cartModal.classList.remove('visible'); });
     if (closeCart) closeCart.addEventListener('click', function () { if (cartModal) cartModal.classList.remove('visible'); });
+    if (cartModal) cartModal.addEventListener('click', function (e) { if (e.target === cartModal) cartModal.classList.remove('visible'); });
+
+    var addToCartBtn = document.getElementById('add-to-cart-btn');
+    if (addToCartBtn) addToCartBtn.addEventListener('click', function () {
+        var plot = plots.find(function (p) { return String(p.id) === String(activePlotId); });
+        if (plot) addPlotToCart(plot);
+    });
+
+    var cartClearBtn = document.getElementById('cart-clear-btn');
+    if (cartClearBtn) cartClearBtn.addEventListener('click', clearCart);
+
+    var sendBuyInterestBtn = document.getElementById('send-buy-interest-btn');
+    if (sendBuyInterestBtn) sendBuyInterestBtn.addEventListener('click', sendBuyInterest);
+
+    cart = loadCartFromStorage();
+    syncCartBadge();
 
     var exportBtn = document.getElementById('export-plots-btn');
     if (exportBtn) {
