@@ -545,6 +545,19 @@
             color: var(--color-text);
         }
 
+        .project-main-badge {
+            display: inline-block;
+            font-size: 0.65rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            padding: 0.15rem 0.4rem;
+            margin-left: 0.35rem;
+            border-radius: 4px;
+            background: var(--color-accent);
+            color: var(--color-bg);
+        }
+
         .project-meta {
             display: flex;
             justify-content: space-between;
@@ -1194,6 +1207,7 @@
         let workspaceFeatureReady = true;
         let projectsLoadFailed = false;
         let currentUserRole = '';
+        let orgSlug = '';
 
         // DOM Elements
         const uploadZone = document.getElementById('upload-zone');
@@ -1253,6 +1267,60 @@
         function getWorkspaceById(workspaceId) {
             if (!workspaceId) return null;
             return workspaces.find(function (w) { return String(w.id) === String(workspaceId); }) || null;
+        }
+
+        function getMainPanoramaIdForWorkspace(workspaceId) {
+            var ws = getWorkspaceById(workspaceId);
+            if (ws && ws.main_panorama_id) return parseInt(ws.main_panorama_id, 10);
+            var inWorkspace = projects.filter(function (p) { return String(p.workspace_id || '') === String(workspaceId); });
+            var first360 = inWorkspace.find(function (p) { return Boolean(p.is_360); });
+            return first360 ? parseInt(first360.id, 10) : null;
+        }
+
+        async function shareFullView(workspaceId) {
+            var mainId = getMainPanoramaIdForWorkspace(workspaceId);
+            if (!mainId) {
+                showToast('No 360° panorama in this folder. Add one or set a main panorama.');
+                return;
+            }
+            var slug = orgSlug || 'propmark';
+            var url = window.location.origin + '/customer/' + encodeURIComponent(slug) + '/full-view/' + mainId;
+            try {
+                await navigator.clipboard.writeText(url);
+                showToast('Full View link copied to clipboard');
+            } catch (e) {
+                showToast('Could not copy. Open: ' + url);
+            }
+        }
+
+        async function setAsMain(projectId, event) {
+            if (event) event.stopPropagation();
+            var workspaceId = getSelectedOwnedWorkspaceId();
+            if (!workspaceId) return;
+            try {
+                var headers = await getAuthHeaders();
+                headers['Content-Type'] = 'application/json';
+                var res = await fetch('/api/workspaces/' + encodeURIComponent(workspaceId), {
+                    method: 'PATCH',
+                    headers: headers,
+                    body: JSON.stringify({ main_panorama_id: parseInt(projectId, 10) })
+                });
+                if (!res.ok) {
+                    var err = await res.json().catch(function () { return {}; });
+                    showToast(err.error || 'Failed to set main');
+                    return;
+                }
+                var data = await res.json();
+                if (data.workspace) {
+                    var idx = workspaces.findIndex(function (w) { return String(w.id) === String(workspaceId); });
+                    if (idx >= 0) workspaces[idx] = data.workspace;
+                }
+                renderWorkspaces();
+                renderProjects();
+                showToast('Main panorama updated');
+            } catch (e) {
+                showToast('Failed to set main');
+            }
         }
 
         function getSelectedOwnedWorkspaceId() {
@@ -1318,6 +1386,7 @@
                 items += '<div class="workspace-meta">' + (isOwner ? 'Owned folder' : ('Shared: ' + escapeHtml(ws.access_type || 'viewer'))) + '</div>';
                 if (isOwner) {
                     items += '<div class="workspace-actions">';
+                    items += '<button class="workspace-action" onclick="event.stopPropagation(); shareFullView(\'' + workspaceId + '\')">Share Full View</button>';
                     items += '<button class="workspace-action" onclick="event.stopPropagation(); window.location.href=\'/workspace/' + workspaceId + '/access\'">Manage access</button>';
                     items += '<button class="workspace-action" onclick="event.stopPropagation(); showRenameWorkspaceModal(\'' + workspaceId + '\')">Rename</button>';
                     items += '<button class="workspace-action delete" onclick="event.stopPropagation(); showDeleteWorkspaceModal(\'' + workspaceId + '\')">Delete</button>';
@@ -1426,9 +1495,21 @@
             }
         }
 
+        async function loadOrgSlug() {
+            try {
+                var headers = await getAuthHeaders();
+                var res = await fetch('/api/org/me', { headers });
+                if (res.ok) {
+                    var data = await res.json();
+                    if (data.org && data.org.slug) orgSlug = data.org.slug;
+                    else if (data.org && data.org.name) orgSlug = String(data.org.name).toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '') || 'propmark';
+                }
+            } catch (e) {}
+        }
+
         async function initializeDashboard() {
             try {
-                await Promise.all([loadProjects(), loadWorkspaces()]);
+                await Promise.all([loadProjects(), loadWorkspaces(), loadOrgSlug()]);
             } catch (e) {
                 // State already set by loadProjects/loadWorkspaces; single render below.
             }
@@ -1752,6 +1833,9 @@
                 return;
             }
             var accessType = function (p) { return p.access_type || 'owner'; };
+            var selectedWsId = getSelectedOwnedWorkspaceId();
+            var currentWs = selectedWsId ? getWorkspaceById(selectedWsId) : null;
+            var mainPanoramaId = (currentWs && currentWs.main_panorama_id != null) ? String(currentWs.main_panorama_id) : null;
             projectsContainer.innerHTML = `
                 <div class="projects-grid">
                     ${visibleProjects.map(project => {
@@ -1761,6 +1845,7 @@
                 var openLabel = isOwner ? 'Open Editor' : (isClient ? 'Open as Client' : 'View');
                 var actions = '<button class="project-btn edit" onclick="openEditor(' + project.id + ')">' + openLabel + '</button>';
                 if (isOwner) {
+                    if (selectedWsId && Boolean(project.is_360)) actions += '<button class="project-btn set-main" onclick="setAsMain(' + project.id + ', event)">Set as main</button>';
                     actions += '<button class="project-btn" onclick="window.location.href=\'/panorama/' + project.id + '/access\'">Manage access</button>';
                     actions += '<button class="project-btn rename" onclick="showRenameModal(' + project.id + ', event)">Rename</button>';
                     actions += '<button class="project-btn delete" onclick="showDeleteModal(' + project.id + ', event)">Delete</button>';
@@ -1770,13 +1855,15 @@
                     var ws = getWorkspaceById(project.workspace_id);
                     workspaceName = ws && ws.name ? ws.name : 'Workspace';
                 }
+                var isMain = mainPanoramaId && String(project.id) === mainPanoramaId;
+                var mainBadge = isMain ? '<span class="project-main-badge">Main</span>' : '';
                 var dragAttr = isOwner ? 'draggable=\"true\" ondragstart=\"onProjectDragStart(event,' + project.id + ')\" ondragend=\"onProjectDragEnd(event)\"' : '';
                 var dragClass = isOwner ? ' owner-draggable' : '';
                 return `
                         <div class="project-card${dragClass}" data-id="${project.id}" ${dragAttr}>
                             <img src="/uploads/${project.filename}?size=thumb" alt="${escapeHtml(project.name)}" class="project-image loading-placeholder" loading="lazy" decoding="async" onload="this.classList.remove('loading-placeholder')">
                             <div class="project-content">
-                                <div class="project-name">${escapeHtml(project.name)}</div>
+                                <div class="project-name">${escapeHtml(project.name)} ${mainBadge}</div>
                                 <div class="project-meta">
                                     <span class="project-plots">
                                         <span>📍</span>

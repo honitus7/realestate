@@ -141,12 +141,15 @@ create table if not exists public.panorama_access (
 create index if not exists idx_panorama_access_panorama_id on public.panorama_access(panorama_id);
 create index if not exists idx_panorama_access_user_id on public.panorama_access(user_id);
 
--- 7) Trigger: create profile with role 'user' when a new auth user is created
+-- 7) Trigger: create profile with role 'user' when a new auth user is created (copies display_name and email from auth)
 create or replace function public.handle_new_user()
 returns trigger as $$
+declare
+  dn text;
 begin
-  insert into public.profiles (user_id, role)
-  values (new.id, 'user')
+  dn := nullif(trim(coalesce(new.raw_user_meta_data->>'display_name', '')), '');
+  insert into public.profiles (user_id, role, display_name, email)
+  values (new.id, 'user', dn, new.email)
   on conflict (user_id) do nothing;
   return new;
 end;

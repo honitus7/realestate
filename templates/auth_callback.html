@@ -50,20 +50,22 @@
             function applyPendingSignupProfile(session) {
                 if (!session || !session.access_token || !session.user) return Promise.resolve();
                 var pending = loadPendingSignupProfile();
-                if (!pending || !pending.display_name) return Promise.resolve();
-                var pendingEmail = String(pending.email || '').trim().toLowerCase();
+                var displayName = (pending && pending.display_name) ? String(pending.display_name).trim() : '';
+                if (!displayName && session.user.user_metadata && session.user.user_metadata.display_name)
+                    displayName = String(session.user.user_metadata.display_name || '').trim();
+                if (!displayName) return Promise.resolve();
+                var pendingEmail = (pending && pending.email) ? String(pending.email).trim().toLowerCase() : '';
                 var sessionEmail = String(session.user.email || '').trim().toLowerCase();
                 if (pendingEmail && sessionEmail && pendingEmail !== sessionEmail) return Promise.resolve();
+                var body = { display_name: displayName };
+                if (session.user.email) body.email = session.user.email; else if (pending && pending.email) body.email = pending.email;
                 return fetch('/api/profile/me', {
                     method: 'PUT',
                     headers: {
                         'Content-Type': 'application/json',
                         'Authorization': 'Bearer ' + session.access_token
                     },
-                    body: JSON.stringify({
-                        display_name: pending.display_name,
-                        email: session.user.email || pending.email || ''
-                    })
+                    body: JSON.stringify(body)
                 }).then(function (r) {
                     if (r.ok) clearPendingSignupProfile();
                 }).catch(function () { });
@@ -84,58 +86,59 @@
                 setTimeout(function () { window.location.replace('/login'); }, 2500);
                 return;
             }
-            var supabaseUrl = {{ (supabase_url or '')|tojson }};
-            var supabaseAnonKey = {{ (supabase_anon_key or '')|tojson }};
-            if (!supabaseUrl || !supabaseAnonKey) {
-                msg.textContent = 'Supabase not configured.';
+            var supabaseUrl = {{ (supabase_url or '')| tojson
+        }};
+        var supabaseAnonKey = {{ (supabase_anon_key or '')| tojson }};
+        if (!supabaseUrl || !supabaseAnonKey) {
+            msg.textContent = 'Supabase not configured.';
+            return;
+        }
+        var supabase = window.supabase.createClient(supabaseUrl, supabaseAnonKey);
+        function normalizeHex(hex) {
+            var v = String(hex || '').trim();
+            if (!v) return '';
+            if (v.indexOf('#') !== 0) v = '#' + v;
+            if (v.length === 4) v = '#' + v[1] + v[1] + v[2] + v[2] + v[3] + v[3];
+            return /^#[0-9a-fA-F]{6}$/.test(v) ? v.toLowerCase() : '';
+        }
+
+        function setOrgThemeCookieThenRedirect(session) {
+            var uid = session && session.user && session.user.id;
+            var target = uid ? '/dashboard/' + encodeURIComponent(uid) : '/dashboard';
+            var token = session && session.access_token;
+            if (!token) {
+                msg.textContent = 'Done. Redirecting…';
+                window.location.replace(target);
                 return;
             }
-            var supabase = window.supabase.createClient(supabaseUrl, supabaseAnonKey);
-            function normalizeHex(hex) {
-                var v = String(hex || '').trim();
-                if (!v) return '';
-                if (v.indexOf('#') !== 0) v = '#' + v;
-                if (v.length === 4) v = '#' + v[1] + v[1] + v[2] + v[2] + v[3] + v[3];
-                return /^#[0-9a-fA-F]{6}$/.test(v) ? v.toLowerCase() : '';
-            }
-
-            function setOrgThemeCookieThenRedirect(session) {
-                var uid = session && session.user && session.user.id;
-                var target = uid ? '/dashboard/' + encodeURIComponent(uid) : '/dashboard';
-                var token = session && session.access_token;
-                if (!token) {
+            msg.textContent = 'Loading…';
+            fetch('/api/org/me', { headers: { 'Authorization': 'Bearer ' + token } })
+                .then(function (r) { return r.ok ? r.json() : null; })
+                .then(function (data) {
+                    var accent = (data && data.org && data.org.accent_color) ? normalizeHex(data.org.accent_color) : '';
+                    if (accent) {
+                        try {
+                            document.cookie = 'org_accent=' + encodeURIComponent(accent) + '; path=/; max-age=86400; SameSite=Lax';
+                        } catch (e) { }
+                    }
+                })
+                .catch(function () { })
+                .finally(function () {
                     msg.textContent = 'Done. Redirecting…';
                     window.location.replace(target);
-                    return;
-                }
-                msg.textContent = 'Loading…';
-                fetch('/api/org/me', { headers: { 'Authorization': 'Bearer ' + token } })
-                    .then(function (r) { return r.ok ? r.json() : null; })
-                    .then(function (data) {
-                        var accent = (data && data.org && data.org.accent_color) ? normalizeHex(data.org.accent_color) : '';
-                        if (accent) {
-                            try {
-                                document.cookie = 'org_accent=' + encodeURIComponent(accent) + '; path=/; max-age=86400; SameSite=Lax';
-                            } catch (e) { }
-                        }
-                    })
-                    .catch(function () { })
-                    .finally(function () {
-                        msg.textContent = 'Done. Redirecting…';
-                        window.location.replace(target);
-                    });
-            }
-
-            supabase.auth.getSession().then(function (r) {
-                var session = r.data.session || null;
-                return applyPendingSignupProfile(session).then(function () {
-                    setOrgThemeCookieThenRedirect(session);
                 });
-            }).catch(function () {
-                msg.textContent = 'Done. Redirecting…';
-                window.location.replace('/dashboard');
+        }
+
+        supabase.auth.getSession().then(function (r) {
+            var session = r.data.session || null;
+            return applyPendingSignupProfile(session).then(function () {
+                setOrgThemeCookieThenRedirect(session);
             });
-        })();
+        }).catch(function () {
+            msg.textContent = 'Done. Redirecting…';
+            window.location.replace('/dashboard');
+        });
+        }) ();
     </script>
 </body>
 

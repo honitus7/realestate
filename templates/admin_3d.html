@@ -10,13 +10,13 @@
     <link
         href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Syne:wght@400;500;600;700&display=swap"
         rel="stylesheet">
-    <link rel="stylesheet" href="https://unpkg.com/photo-sphere-viewer@4.8.1/dist/photo-sphere-viewer.css">
-    <link rel="stylesheet" href="https://unpkg.com/photo-sphere-viewer@4.8.1/dist/plugins/markers.css">
-    <script src="https://unpkg.com/uevent@2.1.1/browser.js" onload="window.UEVENT_LOADED = true"></script>
-    <script src="https://unpkg.com/three@0.147.0/build/three.min.js" onload="window.THREE_LOADED = true"></script>
-    <script src="https://unpkg.com/photo-sphere-viewer@4.8.1/dist/photo-sphere-viewer.js"
+    <link rel="stylesheet" href="/static/vendor/photo-sphere-viewer/photo-sphere-viewer.css">
+    <link rel="stylesheet" href="/static/vendor/photo-sphere-viewer/plugins/markers.css">
+    <script src="/static/vendor/uevent/browser.js" onload="window.UEVENT_LOADED = true"></script>
+    <script src="/static/vendor/three/three.min.js" onload="window.THREE_LOADED = true"></script>
+    <script src="/static/vendor/photo-sphere-viewer/photo-sphere-viewer.js"
         onload="window.PSV_LOADED = true"></script>
-    <script src="https://unpkg.com/photo-sphere-viewer@4.8.1/dist/plugins/markers.js"
+    <script src="/static/vendor/photo-sphere-viewer/plugins/markers.js"
         onload="window.PSV_MARKERS_LOADED = true"></script>
     <script src="https://code.iconify.design/iconify-icon/1.0.8/iconify-icon.min.js"></script>
     <style>
@@ -102,7 +102,8 @@
             box-shadow: 0 12px 24px rgba(0, 0, 0, 0.36);
             backdrop-filter: blur(8px);
             -webkit-backdrop-filter: blur(8px);
-            pointer-events: none;
+            pointer-events: auto;
+            cursor: move;
             white-space: nowrap;
         }
 
@@ -123,6 +124,10 @@
         .psv-plot-label.psv-plot-label--sold::before {
             background: rgba(239, 68, 68, 0.95);
             box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.24);
+        }
+        .psv-plot-label.dragging {
+            cursor: grabbing;
+            opacity: 0.92;
         }
 
         .image-container {
@@ -3359,11 +3364,41 @@
             try {
                 const headers = await (window.getAuthHeaders ? window.getAuthHeaders() : Promise.resolve({}));
                 const response = await fetch(`/api/panoramas/${PANORAMA_ID}/plots`, { headers });
-                plots = await response.json();
+                const data = await response.json().catch(() => null);
+                if (!response.ok) {
+                    plots = [];
+                    if (response.status === 404 && typeof showToast === 'function') {
+                        showToast('Panorama not found or no access.', 'error');
+                    }
+                } else {
+                    plots = Array.isArray(data) ? data : [];
+                }
                 renderPlots();
                 updatePlotsList();
             } catch (error) {
                 console.error('Failed to load plots:', error);
+                plots = [];
+                renderPlots();
+                updatePlotsList();
+            }
+        }
+
+        async function updatePlotLabelPosition(plotId, longitude, latitude) {
+            const headers = await (window.getAuthHeaders ? window.getAuthHeaders() : Promise.resolve({}));
+            headers['Content-Type'] = 'application/json';
+            const r = await fetch(`/api/plots/${encodeURIComponent(plotId)}/label-position`, {
+                method: 'PATCH',
+                headers,
+                body: JSON.stringify({ label_longitude: longitude, label_latitude: latitude })
+            });
+            if (!r.ok) {
+                const err = await r.json().catch(() => ({}));
+                throw new Error(err.error || 'Failed to save label position');
+            }
+            const plot = plots.find(p => String(p.id) === String(plotId));
+            if (plot) {
+                plot.label_longitude = longitude;
+                plot.label_latitude = latitude;
             }
         }
 
@@ -5162,24 +5197,44 @@
             }
 
             handleMarkerPointerDown(event) {
-                if (!this.markerModeEnabled) return;
-                const target = event.target && event.target.closest ? event.target.closest('.psv-glass-marker') : null;
-                if (!target) return;
-                const markerId = target.dataset ? target.dataset.markerId : null;
-                if (!markerId || !this.markerMap.has(markerId)) return;
+                const isPlotLabelClick = event.target && event.target.closest && event.target.closest('[data-plot-label-id]');
+                if (!this.markerModeEnabled && !isPlotLabelClick) return;
+                let target = event.target && event.target.closest ? event.target.closest('.psv-glass-marker') : null;
+                let markerId = target && target.dataset ? target.dataset.markerId : null;
+                if (!target || !markerId) {
+                    const labelEl = event.target && event.target.closest ? event.target.closest('[data-plot-label-id]') : null;
+                    if (labelEl) {
+                        markerId = 'plot-label-' + (labelEl.getAttribute('data-plot-label-id') || '');
+                        target = labelEl;
+                    }
+                }
+                if (!markerId) return;
+                if (!this.markerMap.has(markerId) && !String(markerId).startsWith('plot-label-')) return;
+
+                let originalLongitude, originalLatitude;
+                if (this.markerMap.has(markerId)) {
+                    const marker = this.markerMap.get(markerId);
+                    originalLongitude = marker.longitude;
+                    originalLatitude = marker.latitude;
+                } else if (String(markerId).startsWith('plot-label-')) {
+                    const list = this.markersPlugin.getMarkers ? this.markersPlugin.getMarkers() : [];
+                    const m = list.find(x => x.id === markerId);
+                    if (!m) return;
+                    originalLongitude = m.longitude;
+                    originalLatitude = m.latitude;
+                } else return;
 
                 event.preventDefault();
                 event.stopPropagation();
 
-                const marker = this.markerMap.get(markerId);
                 this.dragState = {
                     markerId,
                     startX: event.clientX,
                     startY: event.clientY,
                     moved: false,
                     lastCoords: null,
-                    originalLongitude: marker.longitude,
-                    originalLatitude: marker.latitude,
+                    originalLongitude,
+                    originalLatitude,
                     element: target
                 };
 
@@ -5205,20 +5260,22 @@
                     this.dragRaf = null;
                     if (!this.dragState || !this.dragState.lastCoords) return;
                     const markerId = this.dragState.markerId;
+                    const lon = this.dragState.lastCoords.longitude;
+                    const lat = this.dragState.lastCoords.latitude;
                     const marker = this.markerMap.get(markerId);
-                    if (!marker) return;
-
-                    marker.longitude = this.dragState.lastCoords.longitude;
-                    marker.latitude = this.dragState.lastCoords.latitude;
-
+                    if (marker) {
+                        marker.longitude = lon;
+                        marker.latitude = lat;
+                    }
+                    const viewerId = String(markerId).startsWith('plot-label-') ? markerId : this.toViewerMarkerId(markerId);
                     if (this.markersPlugin) {
                         this.markersPlugin.updateMarker({
-                            id: this.toViewerMarkerId(markerId),
-                            longitude: marker.longitude,
-                            latitude: marker.latitude
+                            id: viewerId,
+                            longitude: lon,
+                            latitude: lat
                         });
                     }
-                    if (this.selectedMarkerId === markerId) {
+                    if (this.selectedMarkerId === markerId && marker) {
                         this.renderDetails(markerId);
                     }
                 });
@@ -5238,29 +5295,48 @@
 
                 if (!state.moved || !state.lastCoords) return;
 
-                try {
-                    await this.updateMarkerPosition(state.markerId, state.lastCoords.longitude, state.lastCoords.latitude);
-                    this.renderSidebarList();
-                    if (this.selectedMarkerId === state.markerId) {
-                        this.renderDetails(state.markerId);
-                    }
-                } catch (error) {
-                    const marker = this.markerMap.get(state.markerId);
-                    if (marker) {
-                        marker.longitude = state.originalLongitude;
-                        marker.latitude = state.originalLatitude;
+                const isPlotLabel = String(state.markerId).startsWith('plot-label-');
+                const viewerId = isPlotLabel ? state.markerId : this.toViewerMarkerId(state.markerId);
+
+                if (isPlotLabel) {
+                    const plotId = String(state.markerId).replace(/^plot-label-/, '');
+                    try {
+                        await updatePlotLabelPosition(plotId, state.lastCoords.longitude, state.lastCoords.latitude);
+                        this.showToast('Label position saved.');
+                    } catch (error) {
                         if (this.markersPlugin) {
                             this.markersPlugin.updateMarker({
-                                id: this.toViewerMarkerId(state.markerId),
-                                longitude: marker.longitude,
-                                latitude: marker.latitude
+                                id: viewerId,
+                                longitude: state.originalLongitude,
+                                latitude: state.originalLatitude
                             });
                         }
+                        this.showToast(error && error.message ? error.message : 'Failed to save label position.', 'error');
                     }
-                    this.showToast('Failed to update marker position.', 'error');
-                } finally {
-                    this.ignoreSelectUntil = Date.now() + 220;
+                } else {
+                    try {
+                        await this.updateMarkerPosition(state.markerId, state.lastCoords.longitude, state.lastCoords.latitude);
+                        this.renderSidebarList();
+                        if (this.selectedMarkerId === state.markerId) {
+                            this.renderDetails(state.markerId);
+                        }
+                    } catch (error) {
+                        const marker = this.markerMap.get(state.markerId);
+                        if (marker) {
+                            marker.longitude = state.originalLongitude;
+                            marker.latitude = state.originalLatitude;
+                            if (this.markersPlugin) {
+                                this.markersPlugin.updateMarker({
+                                    id: viewerId,
+                                    longitude: marker.longitude,
+                                    latitude: marker.latitude
+                                });
+                            }
+                        }
+                        this.showToast('Failed to update marker position.', 'error');
+                    }
                 }
+                this.ignoreSelectUntil = Date.now() + 220;
             }
 
             clientToSpherical(clientX, clientY) {
@@ -5969,8 +6045,8 @@
         function renderPlots() {
             if (!markersPlugin || !viewer) return;
             const markers = [];
-            plots
-                .filter(plot => Array.isArray(plot.points) && plot.points.length >= 3)
+            (Array.isArray(plots) ? plots : [])
+                .filter(plot => plot && Array.isArray(plot.points) && plot.points.length >= 3)
                 .forEach(plot => {
                     const colors = getPlotColors(plot);
                     const statusKey = normalizeStatus(plot.status || colorToStatus[plot.color] || 'available');
@@ -5991,16 +6067,22 @@
                         data: { plotId: plot.id }
                     });
 
+                    let labelLon = plot.label_longitude;
+                    let labelLat = plot.label_latitude;
                     const centroid = getCentroid(plot.points);
                     if (centroid && plot.name) {
-                        const spherical = viewer.dataHelper.textureCoordsToSphericalCoords(centroid);
+                        if (typeof labelLon !== 'number' || typeof labelLat !== 'number') {
+                            const spherical = viewer.dataHelper.textureCoordsToSphericalCoords(centroid);
+                            labelLon = spherical.longitude;
+                            labelLat = spherical.latitude;
+                        }
                         markers.push({
                             id: `plot-label-${plot.id}`,
-                            longitude: spherical.longitude,
-                            latitude: spherical.latitude,
-                            html: `<div class="psv-plot-label ${labelClass}">${escapeHtml(plot.name)}</div>`,
+                            longitude: labelLon,
+                            latitude: labelLat,
+                            html: `<div class="psv-plot-label ${labelClass}" data-plot-label-id="${plot.id}">${escapeHtml(plot.name)}</div>`,
                             anchor: 'center center',
-                            style: { pointerEvents: 'none' },
+                            style: { pointerEvents: 'auto', cursor: 'move' },
                             data: { plotId: plot.id, label: true }
                         });
                     }

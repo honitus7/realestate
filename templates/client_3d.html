@@ -10,13 +10,13 @@
     <link
         href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Syne:wght@400;500;600;700&display=swap"
         rel="stylesheet">
-    <link rel="stylesheet" href="https://unpkg.com/photo-sphere-viewer@4.8.1/dist/photo-sphere-viewer.css">
-    <link rel="stylesheet" href="https://unpkg.com/photo-sphere-viewer@4.8.1/dist/plugins/markers.css">
-    <script src="https://unpkg.com/uevent@2.1.1/browser.js" onload="window.UEVENT_LOADED = true"></script>
-    <script src="https://unpkg.com/three@0.147.0/build/three.min.js" onload="window.THREE_LOADED = true"></script>
-    <script src="https://unpkg.com/photo-sphere-viewer@4.8.1/dist/photo-sphere-viewer.js"
+    <link rel="stylesheet" href="/static/vendor/photo-sphere-viewer/photo-sphere-viewer.css">
+    <link rel="stylesheet" href="/static/vendor/photo-sphere-viewer/plugins/markers.css">
+    <script src="/static/vendor/uevent/browser.js" onload="window.UEVENT_LOADED = true"></script>
+    <script src="/static/vendor/three/three.min.js" onload="window.THREE_LOADED = true"></script>
+    <script src="/static/vendor/photo-sphere-viewer/photo-sphere-viewer.js"
         onload="window.PSV_LOADED = true"></script>
-    <script src="https://unpkg.com/photo-sphere-viewer@4.8.1/dist/plugins/markers.js"
+    <script src="/static/vendor/photo-sphere-viewer/plugins/markers.js"
         onload="window.PSV_MARKERS_LOADED = true"></script>
     <script src="https://code.iconify.design/iconify-icon/1.0.8/iconify-icon.min.js"></script>
     <style>
@@ -2853,11 +2853,19 @@
             try {
                 const headers = await (window.getAuthHeaders ? window.getAuthHeaders() : Promise.resolve({}));
                 const response = await fetch(`/api/panoramas/${PANORAMA_ID}/plots`, { headers });
-                plots = await response.json();
+                const data = await response.json().catch(() => null);
+                if (!response.ok) {
+                    plots = [];
+                } else {
+                    plots = Array.isArray(data) ? data : [];
+                }
                 renderPlots();
                 updatePlotsList();
             } catch (error) {
                 console.error('Failed to load plots:', error);
+                plots = [];
+                renderPlots();
+                updatePlotsList();
             }
         }
 
@@ -4209,8 +4217,8 @@
         function renderPlots() {
             if (!markersPlugin || !viewer) return;
             const markers = [];
-            plots
-                .filter(plot => Array.isArray(plot.points) && plot.points.length >= 3)
+            (Array.isArray(plots) ? plots : [])
+                .filter(plot => plot && Array.isArray(plot.points) && plot.points.length >= 3)
                 .forEach(plot => {
                     const colors = getPlotColors(plot);
                     const statusKey = normalizeStatus(plot.status || colorToStatus[plot.color] || 'available');
@@ -4231,13 +4239,19 @@
                         data: { plotId: plot.id }
                     });
 
+                    let labelLon = plot.label_longitude;
+                    let labelLat = plot.label_latitude;
                     const centroid = getCentroid(plot.points);
                     if (centroid && plot.name) {
-                        const spherical = viewer.dataHelper.textureCoordsToSphericalCoords(centroid);
+                        if (typeof labelLon !== 'number' || typeof labelLat !== 'number') {
+                            const spherical = viewer.dataHelper.textureCoordsToSphericalCoords(centroid);
+                            labelLon = spherical.longitude;
+                            labelLat = spherical.latitude;
+                        }
                         markers.push({
                             id: `plot-label-${plot.id}`,
-                            longitude: spherical.longitude,
-                            latitude: spherical.latitude,
+                            longitude: labelLon,
+                            latitude: labelLat,
                             html: `<div class="psv-plot-label ${labelClass}">${escapeHtml(plot.name)}</div>`,
                             anchor: 'center center',
                             style: { pointerEvents: 'none' },

@@ -100,10 +100,36 @@ def get_profile(sb, user_id):
     return None
 
 
+def _sync_profile_display_name_from_auth(sb, user_id):
+    """Backfill profile display_name and email from Supabase Auth user_metadata when profile has no display_name."""
+    try:
+        resp = sb.auth.admin.get_user_by_id(str(user_id))
+        user = getattr(resp, 'user', resp)
+        if not user:
+            return
+        meta = getattr(user, 'user_metadata', None) or {}
+        display_name = (meta.get('display_name') or '').strip() or None
+        email = (getattr(user, 'email', None) or '').strip() or None
+        if not display_name and not email:
+            return
+        from datetime import datetime
+        upd = {'updated_at': datetime.utcnow().isoformat()}
+        if display_name is not None:
+            upd['display_name'] = display_name
+        if email is not None:
+            upd['email'] = email
+        sb.table('profiles').update(upd).eq('user_id', user_id).execute()
+    except Exception:
+        pass
+
+
 def ensure_profile(sb, user_id, role='user'):
     """Insert or update profile with role."""
     existing = get_profile(sb, user_id)
     if existing:
+        if not (existing.get('display_name') or '').strip():
+            _sync_profile_display_name_from_auth(sb, user_id)
+            existing = get_profile(sb, user_id) or existing
         return existing
     try:
         sb.table('profiles').upsert(

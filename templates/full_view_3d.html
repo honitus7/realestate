@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Full View – {{ org_name or '360' }}</title>
+    <link rel="stylesheet" href="/static/vendor/photo-sphere-viewer/photo-sphere-viewer.css">
+    <link rel="stylesheet" href="/static/vendor/photo-sphere-viewer/plugins/markers.css">
+    <script src="/static/vendor/uevent/browser.js"></script>
+    <script src="/static/vendor/three/three.min.js"></script>
+    <script src="/static/vendor/photo-sphere-viewer/photo-sphere-viewer.js"></script>
+    <script src="/static/vendor/photo-sphere-viewer/plugins/markers.js"></script>
+    <style>
+        :root {
+            --color-bg: #b8c8d9;
+            --color-text: #162338;
+            --font-body: system-ui, -apple-system, sans-serif;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html, body { height: 100%; overflow: hidden; font-family: var(--font-body); background: var(--color-bg); color: var(--color-text); touch-action: none; }
+        #psv-container { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: var(--color-bg); cursor: grab; }
+        .overlay-gradient { position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 5; background: linear-gradient(to bottom, rgba(248,252,255,0.22) 0%, transparent 24%, rgba(10,18,34,0.04) 78%, rgba(10,18,34,0.18) 100%); }
+        .loading-overlay { position: fixed; inset: 0; z-index: 100; background: var(--color-bg); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1rem; }
+        .loading-overlay.hidden { display: none; }
+        .loading-spinner { width: 48px; height: 48px; border: 4px solid rgba(22,35,56,0.2); border-top-color: #162338; border-radius: 50%; animation: spin 0.9s linear infinite; }
+        .loading-text { font-size: 0.9rem; font-weight: 600; color: var(--color-text); }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .viewer-actions { position: fixed; right: 14px; bottom: 14px; z-index: 22; display: flex; gap: 0.5rem; pointer-events: auto; }
+        .viewer-action-btn { border: 1px solid rgba(18,36,67,0.22); background: rgba(246,248,252,0.94); color: #23395f; font-family: var(--font-body); font-size: 0.73rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; padding: 0.54rem 0.72rem; min-height: 38px; border-radius: 0; cursor: pointer; box-shadow: 0 8px 18px rgba(7,25,50,0.15); }
+        .viewer-action-btn:hover { background: #fff; border-color: rgba(18,36,67,0.36); }
+        .viewer-action-btn.cart { border-color: rgba(191,140,74,0.34); background: linear-gradient(135deg, rgba(191,140,74,0.16) 0%, rgba(255,255,255,0.92) 100%); }
+        .cart-badge { display: inline-flex; align-items: center; justify-content: center; min-width: 22px; height: 18px; padding: 0 0.35rem; margin-left: 0.4rem; border-radius: 999px; background: rgba(10,10,11,0.85); color: #fff; font-size: 0.7rem; }
+        .ui-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 10; pointer-events: none; padding: 1rem 1.2rem; }
+        .header { display: flex; justify-content: space-between; align-items: flex-start; }
+        .header-left { pointer-events: auto; }
+        .project-info { min-width: 200px; padding: 0.7rem 1rem; border: 1px solid rgba(16,36,68,0.12); background: rgba(246,248,252,0.93); box-shadow: 0 6px 20px rgba(7,25,52,0.14); }
+        .project-name { font-size: 1.5rem; font-weight: 700; color: #b5772d; }
+        .project-subtitle { font-size: 0.65rem; color: #2d3f5f; margin-top: 0.2rem; text-transform: uppercase; letter-spacing: 0.08em; }
+        .panorama-nav-shell { position: fixed; top: 100px; left: 14px; z-index: 21; width: min(320px, calc(100vw - 28px)); pointer-events: auto; display: flex; align-items: flex-start; gap: 0.5rem; }
+        .panorama-nav-toggle { min-height: 38px; padding: 0.5rem 0.7rem; border: 1px solid rgba(18,36,67,0.3); background: rgba(246,248,252,0.96); color: #23395f; font-size: 0.68rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em; cursor: pointer; display: inline-flex; align-items: center; gap: 0.4rem; }
+        .panorama-nav-panel { width: 100%; border: 1px solid rgba(238,245,255,0.22); background: rgba(10,18,32,0.72); backdrop-filter: blur(14px); color: rgba(242,248,255,0.96); }
+        .panorama-nav-shell.is-collapsed .panorama-nav-panel { display: none; }
+        .panorama-nav-head { padding: 0.6rem 0.8rem; border-bottom: 1px solid rgba(219,234,255,0.15); }
+        .panorama-nav-title { font-size: 0.7rem; letter-spacing: 0.12em; text-transform: uppercase; font-weight: 800; }
+        .panorama-nav-subtitle { font-size: 0.6rem; color: rgba(214,230,250,0.78); margin-top: 0.15rem; }
+        .panorama-nav-list { max-height: min(50vh, 380px); overflow-y: auto; padding: 0.35rem; }
+        .panorama-nav-item { width: 100%; border: 0; background: transparent; text-align: left; cursor: pointer; padding: 0.5rem 0.6rem; color: rgba(237,246,255,0.93); border-bottom: 1px solid rgba(216,231,250,0.14); font-family: var(--font-body); display: flex; flex-direction: column; gap: 0.1rem; }
+        .panorama-nav-item:hover { background: rgba(232,241,251,0.12); }
+        .panorama-nav-item.active { background: rgba(240,247,255,0.18); cursor: default; }
+        .panorama-nav-item-name { font-size: 0.78rem; font-weight: 700; }
+        .panorama-nav-item-meta { font-size: 0.56rem; text-transform: uppercase; color: rgba(197,218,242,0.75); }
+        .status-legend { position: fixed; top: 50%; right: 14px; transform: translateY(-50%); width: 160px; background: rgba(247,249,253,0.94); border: 1px solid rgba(18,36,67,0.12); padding: 0.7rem; pointer-events: auto; }
+        .legend-head { font-size: 0.72rem; font-weight: 700; margin-bottom: 0.5rem; }
+        .legend-grid { display: grid; gap: 0.4rem; }
+        .status-pill { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 0.4rem; padding: 0.35rem; font-size: 0.68rem; }
+        .modal-backdrop { position: fixed; inset: 0; z-index: 1000; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; padding: 1rem; pointer-events: auto; opacity: 0; visibility: hidden; transition: opacity 0.2s, visibility 0.2s; }
+        .modal-backdrop.visible { opacity: 1; visibility: visible; }
+        .modal { background: #fff; border-radius: 8px; max-width: 90vw; max-height: 85vh; overflow: auto; position: relative; padding: 1rem; }
+        .modal-close { position: absolute; top: 0.5rem; right: 0.5rem; background: none; border: none; font-size: 1.5rem; cursor: pointer; color: #333; }
+        .details-header { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.75rem; }
+        .details-color { width: 12px; height: 12px; border-radius: 2px; }
+        .details-title { font-weight: 700; font-size: 1.1rem; }
+        .detail-item { margin-bottom: 0.5rem; }
+        .detail-label { font-size: 0.65rem; text-transform: uppercase; color: #666; }
+        .detail-value { font-size: 0.9rem; }
+        .modal-actions { margin-top: 1rem; display: flex; gap: 0.5rem; }
+        .modal-btn { padding: 0.5rem 1rem; border-radius: 4px; font-weight: 600; cursor: pointer; border: 1px solid #ccc; background: #f5f5f5; }
+        .modal-btn.primary { background: #162338; color: #fff; border-color: #162338; }
+        .psv-plot-label { display: inline-flex; align-items: center; padding: 0.3rem 0.5rem; border-radius: 999px; background: rgba(8,9,11,0.82); color: #fff; font-size: 0.7rem; font-weight: 700; pointer-events: none; }
+    </style>
+</head>
+<body>
+    <div class="loading-overlay" id="loading">
+        <div class="loading-spinner"></div>
+        <div class="loading-text">Loading panorama...</div>
+    </div>
+    <div id="psv-container"></div>
+    <div class="overlay-gradient"></div>
+    <div class="viewer-actions">
+        <button id="back-btn" class="viewer-action-btn" type="button" hidden>← Back</button>
+        <button id="view-cart-btn" class="viewer-action-btn cart" type="button">View Cart <span class="cart-badge" id="cart-count">0</span></button>
+        <button id="export-plots-btn" class="viewer-action-btn" type="button">Export Plots</button>
+        <button id="fullscreen-btn" class="viewer-action-btn" type="button">Fullscreen</button>
+    </div>
+    <div class="ui-overlay">
+        <header class="header">
+            <div class="header-left">
+                <div class="project-info">
+                    <div class="project-name" id="header-project-name">{{ (workspace_panoramas[0].name if workspace_panoramas else panorama.name) if workspace_panoramas or panorama else 'Full View' }}</div>
+                    <div class="project-subtitle">Connected 360° views</div>
+                </div>
+            </div>
+        </header>
+        <div class="panorama-nav-shell" id="panorama-nav-shell">
+            <button id="panorama-nav-toggle" type="button" aria-expanded="true"><span id="panorama-nav-toggle-icon">✕</span> Panorama List</button>
+            <aside class="panorama-nav-panel">
+                <div class="panorama-nav-head">
+                    <div class="panorama-nav-title">Panoramas</div>
+                    <div class="panorama-nav-subtitle" id="panorama-nav-subtitle">Switch between connected views</div>
+                </div>
+                <div class="panorama-nav-list" id="panorama-nav-list"></div>
+            </aside>
+        </div>
+        <div class="status-legend" id="status-legend">
+            <div class="legend-head"><span>Plots</span><span id="status-count-total">0</span></div>
+            <div class="legend-grid">
+                <div class="status-pill available"><span></span><span>Available</span><strong id="status-count-available">0</strong></div>
+                <div class="status-pill hold"><span></span><span>On Hold</span><strong id="status-count-hold">0</strong></div>
+                <div class="status-pill sold"><span></span><span>Sold</span><strong id="status-count-sold">0</strong></div>
+            </div>
+        </div>
+    </div>
+    <div class="modal-backdrop details-modal" id="plot-details-modal">
+        <div class="modal">
+            <button class="modal-close" id="close-details-icon" type="button">×</button>
+            <div class="details-header"><div class="details-color" id="details-color"></div><div class="details-title" id="details-title">Plot</div></div>
+            <div class="detail-item"><div class="detail-label">Price</div><div class="detail-value" id="details-price">—</div></div>
+            <div class="detail-item"><div class="detail-label">Area</div><div class="detail-value" id="details-area">—</div></div>
+            <div class="detail-item"><div class="detail-label">Status</div><div class="detail-value" id="details-status">—</div></div>
+            <div class="modal-actions">
+                <button class="modal-btn primary" id="add-to-cart-btn" type="button">Add to Cart</button>
+                <button class="modal-btn" id="enter-plot-panorama" type="button" style="display:none;">Enter Panorama</button>
+                <button class="modal-btn" id="close-details">Close</button>
+            </div>
+        </div>
+    </div>
+    <div class="modal-backdrop" id="marker-readonly-modal">
+        <div class="modal">
+            <button class="modal-close" id="close-marker-readonly" type="button">×</button>
+            <div class="details-header"><div class="details-color" id="marker-readonly-color"></div><div class="details-title" id="marker-readonly-name">Marker</div></div>
+            <div class="detail-item"><div class="detail-label">Description</div><div class="detail-value" id="marker-readonly-description">—</div></div>
+            <div class="modal-actions">
+                <button class="modal-btn primary" id="enter-marker-panorama" type="button" style="display:none;">Enter Panorama</button>
+                <button class="modal-btn" id="close-marker-readonly-btn">Close</button>
+            </div>
+        </div>
+    </div>
+    <div class="modal-backdrop" id="cart-modal">
+        <div class="modal" style="max-width: 480px;">
+            <button class="modal-close" id="close-cart-btn" type="button">×</button>
+            <div class="details-title">Your Cart</div>
+            <div id="cart-items"></div>
+            <div class="modal-actions"><button class="modal-btn" id="close-cart">Close</button></div>
+        </div>
+    </div>
+    <script>
+        window.FULL_VIEW_CONFIG = {
+            orgSlug: {{ (org_slug or '')|tojson }},
+            workspacePanoramas: {{ (workspace_panoramas or [])|tojson }},
+            initialPanoramaId: {{ initial_panorama_id if initial_panorama_id is not none else 'null' }}
+        };
+    </script>
+    <script src="/static/js/full_view3d.js"></script>
+</body>
+</html>

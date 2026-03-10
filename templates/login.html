@@ -30,14 +30,48 @@
             --radius-sm: 12px;
             --shadow: 0 24px 48px rgba(0, 0, 0, 0.4);
         }
-        {% if org_theme %}
-        :root {
-            --color-accent: {{ org_theme.accent }};
-            --color-accent-hover: {{ org_theme.accent_hover }};
-            --color-accent-muted: {{ org_theme.accent_muted }};
-            --color-accent-soft: {{ org_theme.accent_soft }};
+
+            {
+            % if org_theme %
         }
-        {% endif %}
+
+        :root {
+            --color-accent: {
+                    {
+                    org_theme.accent
+                }
+            }
+
+            ;
+
+            --color-accent-hover: {
+                    {
+                    org_theme.accent_hover
+                }
+            }
+
+            ;
+
+            --color-accent-muted: {
+                    {
+                    org_theme.accent_muted
+                }
+            }
+
+            ;
+
+            --color-accent-soft: {
+                    {
+                    org_theme.accent_soft
+                }
+            }
+
+            ;
+        }
+
+            {
+            % endif %
+        }
 
         * {
             margin: 0;
@@ -555,20 +589,22 @@
         function applyPendingSignupProfile(session) {
             if (!session || !session.access_token || !session.user) return Promise.resolve();
             var pending = loadPendingSignupProfile();
-            if (!pending || !pending.display_name) return Promise.resolve();
-            var pendingEmail = String(pending.email || '').trim().toLowerCase();
+            var displayName = (pending && pending.display_name) ? String(pending.display_name).trim() : '';
+            if (!displayName && session.user.user_metadata && session.user.user_metadata.display_name)
+                displayName = String(session.user.user_metadata.display_name || '').trim();
+            if (!displayName) return Promise.resolve();
+            var pendingEmail = (pending && pending.email) ? String(pending.email).trim().toLowerCase() : '';
             var sessionEmail = String(session.user.email || '').trim().toLowerCase();
             if (pendingEmail && sessionEmail && pendingEmail !== sessionEmail) return Promise.resolve();
+            var body = { display_name: displayName };
+            if (session.user.email) body.email = session.user.email; else if (pending && pending.email) body.email = pending.email;
             return fetch('/api/profile/me', {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
                     'Authorization': 'Bearer ' + session.access_token
                 },
-                body: JSON.stringify({
-                    display_name: pending.display_name,
-                    email: session.user.email || pending.email || ''
-                })
+                body: JSON.stringify(body)
             }).then(function (r) {
                 if (r.ok) clearPendingSignupProfile();
             }).catch(function () { });

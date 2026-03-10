@@ -10,13 +10,12 @@
     <link
         href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Syne:wght@400;500;600;700&display=swap"
         rel="stylesheet">
-    <link rel="stylesheet" href="https://unpkg.com/photo-sphere-viewer@4.8.1/dist/photo-sphere-viewer.css">
-    <link rel="stylesheet" href="https://unpkg.com/photo-sphere-viewer@4.8.1/dist/plugins/markers.css">
-    <script src="https://unpkg.com/uevent@2.1.1/browser.js" onload="window.UEVENT_LOADED = true"></script>
-    <script src="https://unpkg.com/three@0.147.0/build/three.min.js" onload="window.THREE_LOADED = true"></script>
-    <script src="https://unpkg.com/photo-sphere-viewer@4.8.1/dist/photo-sphere-viewer.js"
-        onload="window.PSV_LOADED = true"></script>
-    <script src="https://unpkg.com/photo-sphere-viewer@4.8.1/dist/plugins/markers.js"
+    <link rel="stylesheet" href="/static/vendor/photo-sphere-viewer/photo-sphere-viewer.css">
+    <link rel="stylesheet" href="/static/vendor/photo-sphere-viewer/plugins/markers.css">
+    <script src="/static/vendor/uevent/browser.js" onload="window.UEVENT_LOADED = true"></script>
+    <script src="/static/vendor/three/three.min.js" onload="window.THREE_LOADED = true"></script>
+    <script src="/static/vendor/photo-sphere-viewer/photo-sphere-viewer.js" onload="window.PSV_LOADED = true"></script>
+    <script src="/static/vendor/photo-sphere-viewer/plugins/markers.js"
         onload="window.PSV_MARKERS_LOADED = true"></script>
     <script src="https://code.iconify.design/iconify-icon/1.0.8/iconify-icon.min.js"></script>
     <style>
@@ -1027,6 +1026,7 @@
             from {
                 opacity: 0;
             }
+
             to {
                 opacity: 1;
             }
@@ -1037,6 +1037,7 @@
                 opacity: 0;
                 transform: translateY(20px) scale(0.95);
             }
+
             to {
                 opacity: 1;
                 transform: translateY(0) scale(1);
@@ -1056,7 +1057,7 @@
             max-height: 90vh;
             overflow: hidden;
             border: 1px solid rgba(201, 169, 98, 0.2);
-            box-shadow: 
+            box-shadow:
                 0 25px 60px rgba(0, 0, 0, 0.6),
                 0 0 0 1px rgba(255, 255, 255, 0.05) inset,
                 0 0 80px rgba(201, 169, 98, 0.1);
@@ -1073,21 +1074,21 @@
             left: 0;
             right: 0;
             height: 1px;
-            background: linear-gradient(90deg, 
-                transparent 0%, 
-                rgba(201, 169, 98, 0.3) 50%, 
-                transparent 100%);
+            background: linear-gradient(90deg,
+                    transparent 0%,
+                    rgba(201, 169, 98, 0.3) 50%,
+                    transparent 100%);
         }
 
-        .modal > *:not(.marker-modal-close):not(.modal-close) {
+        .modal>*:not(.marker-modal-close):not(.modal-close) {
             padding: 2.5rem;
         }
 
-        .modal > *:not(.marker-modal-close):not(.modal-close):first-child {
+        .modal>*:not(.marker-modal-close):not(.modal-close):first-child {
             padding-top: 2.5rem;
         }
 
-        .modal > *:not(.marker-modal-close):not(.modal-close):last-child {
+        .modal>*:not(.marker-modal-close):not(.modal-close):last-child {
             padding-bottom: 2.5rem;
         }
 
@@ -1131,7 +1132,7 @@
             width: 56px;
             height: 56px;
             border-radius: 14px;
-            box-shadow: 
+            box-shadow:
                 0 8px 24px rgba(0, 0, 0, 0.3),
                 0 0 0 2px rgba(255, 255, 255, 0.1) inset;
             transition: transform 0.3s ease, box-shadow 0.3s ease;
@@ -1139,7 +1140,7 @@
 
         .details-color:hover {
             transform: scale(1.05);
-            box-shadow: 
+            box-shadow:
                 0 12px 32px rgba(0, 0, 0, 0.4),
                 0 0 0 2px rgba(255, 255, 255, 0.15) inset;
         }
@@ -1255,7 +1256,7 @@
             overflow: hidden;
             border: 1px solid rgba(255, 255, 255, 0.1);
             box-sizing: border-box;
-            box-shadow: 
+            box-shadow:
                 0 8px 24px rgba(0, 0, 0, 0.4),
                 0 0 0 1px rgba(255, 255, 255, 0.05) inset;
             display: flex;
@@ -1473,7 +1474,7 @@
             background: linear-gradient(90deg, rgba(191, 140, 74, 0) 0%, rgba(191, 140, 74, 0.78) 50%, rgba(191, 140, 74, 0) 100%);
         }
 
-        .details-modal .modal > *:not(.marker-modal-close):not(.modal-close) {
+        .details-modal .modal>*:not(.marker-modal-close):not(.modal-close) {
             padding: 1.6rem 1.8rem;
         }
 
@@ -1847,6 +1848,7 @@
                 grid-template-columns: 1fr;
                 padding: 1.1rem 1rem 1.1rem;
             }
+
             .cart-modal .cart-header,
             .cart-modal .modal-actions {
                 padding-left: 1rem;
@@ -2419,20 +2421,48 @@
         }
 
         @keyframes markerPulse {
-            0% { transform: translate(-50%, -50%) scale(0.88); opacity: 0.72; }
-            50% { transform: translate(-50%, -50%) scale(1.06); opacity: 0.98; }
-            100% { transform: translate(-50%, -50%) scale(0.88); opacity: 0.72; }
+            0% {
+                transform: translate(-50%, -50%) scale(0.88);
+                opacity: 0.72;
+            }
+
+            50% {
+                transform: translate(-50%, -50%) scale(1.06);
+                opacity: 0.98;
+            }
+
+            100% {
+                transform: translate(-50%, -50%) scale(0.88);
+                opacity: 0.72;
+            }
         }
 
         @keyframes markerIdleFloat {
-            0% { transform: translateX(-50%) translateY(0); }
-            50% { transform: translateX(-50%) translateY(-2px); }
-            100% { transform: translateX(-50%) translateY(0); }
+            0% {
+                transform: translateX(-50%) translateY(0);
+            }
+
+            50% {
+                transform: translateX(-50%) translateY(-2px);
+            }
+
+            100% {
+                transform: translateX(-50%) translateY(0);
+            }
         }
 
         @keyframes iconPulse {
-            0%, 100% { opacity: 1; transform: scale(1); }
-            50% { opacity: 0.92; transform: scale(1.08); }
+
+            0%,
+            100% {
+                opacity: 1;
+                transform: scale(1);
+            }
+
+            50% {
+                opacity: 0.92;
+                transform: scale(1.08);
+            }
         }
 
         .psv-glass-marker.marker-icon-animated .marker-icon {
@@ -2444,8 +2474,13 @@
         }
 
         @keyframes shimmer {
-            0% { background-position: 100% 0; }
-            100% { background-position: 0 0; }
+            0% {
+                background-position: 100% 0;
+            }
+
+            100% {
+                background-position: 0 0;
+            }
         }
 
         @keyframes spin {
@@ -2529,7 +2564,7 @@
                 max-height: 92vh;
             }
 
-            .details-modal .modal > *:not(.marker-modal-close):not(.modal-close) {
+            .details-modal .modal>*:not(.marker-modal-close):not(.modal-close) {
                 padding: 1.1rem 1rem;
             }
 
@@ -2552,12 +2587,12 @@
 
 <body>
     <script>
-    (function(){var url={{ (supabase_url or '')|tojson }};var key={{ (supabase_anon_key or '')|tojson }};
-    if(!url||!key||!window.supabase)return;
-    var s=window.supabase.createClient(url,key);
-    window._supabase=s;
-    window.getAuthHeaders=function(){return s.auth.getSession().then(function(r){var h={};if(r.data.session&&r.data.session.access_token)h['Authorization']='Bearer '+r.data.session.access_token;return h;});};
-    })();
+        (function () { var url = {{ (supabase_url or '')| tojson }}; var key = {{ (supabase_anon_key or '')| tojson }};
+        if (!url || !key || !window.supabase) return;
+        var s = window.supabase.createClient(url, key);
+        window._supabase = s;
+        window.getAuthHeaders = function () { return s.auth.getSession().then(function (r) { var h = {}; if (r.data.session && r.data.session.access_token) h['Authorization'] = 'Bearer ' + r.data.session.access_token; return h; }); };
+    }) ();
     </script>
     <div class="loading-overlay" id="loading">
         <div class="loading-spinner"></div>
@@ -2570,7 +2605,8 @@
 
     <div class="viewer-actions">
         <button id="back-btn" class="viewer-action-btn" type="button" hidden>Back</button>
-        <button id="view-cart-btn" class="viewer-action-btn cart" type="button">View Cart <span class="cart-badge" id="cart-count">0</span></button>
+        <button id="view-cart-btn" class="viewer-action-btn cart" type="button">View Cart <span class="cart-badge"
+                id="cart-count">0</span></button>
         <button id="export-plots-btn" class="viewer-action-btn" type="button">Export Plots</button>
         <button id="toggle-overlays-btn" class="viewer-action-btn" type="button">Hide All</button>
         <button id="fullscreen-btn" class="viewer-action-btn" type="button">Fullscreen</button>
@@ -2593,16 +2629,11 @@
                 </div>
             </div>
             <div class="header-center">
-                <div class="search-shell" id="plot-search-shell" role="combobox" aria-haspopup="listbox" aria-expanded="false">
-                    <input
-                        id="plot-search-input"
-                        class="search-plot-input"
-                        type="search"
-                        placeholder="Search your dream plot"
-                        autocomplete="off"
-                        spellcheck="false"
-                        aria-label="Search plots and markers"
-                        aria-controls="plot-search-dropdown-list"
+                <div class="search-shell" id="plot-search-shell" role="combobox" aria-haspopup="listbox"
+                    aria-expanded="false">
+                    <input id="plot-search-input" class="search-plot-input" type="search"
+                        placeholder="Search your dream plot" autocomplete="off" spellcheck="false"
+                        aria-label="Search plots and markers" aria-controls="plot-search-dropdown-list"
                         aria-autocomplete="list">
                     <div class="search-dropdown" id="plot-search-dropdown" hidden>
                         <div class="search-dropdown-list" id="plot-search-dropdown-list" role="listbox"></div>
@@ -2615,7 +2646,8 @@
             </div>
         </header>
         <div class="panorama-nav-shell is-collapsed" id="panorama-nav-shell">
-            <button id="panorama-nav-toggle" class="panorama-nav-toggle" type="button" aria-expanded="false" aria-controls="panorama-nav-panel">
+            <button id="panorama-nav-toggle" class="panorama-nav-toggle" type="button" aria-expanded="false"
+                aria-controls="panorama-nav-panel">
                 <span class="panorama-nav-toggle-icon" id="panorama-nav-toggle-icon">☰</span>
                 <span>Panorama List</span>
             </button>
@@ -2687,7 +2719,8 @@
             </div>
             <div class="modal-actions">
                 <button class="modal-btn primary" id="add-to-cart-btn" type="button">Add to Cart</button>
-                <button class="modal-btn secondary" id="enter-plot-panorama" type="button" style="display:none;">Enter Panorama</button>
+                <button class="modal-btn secondary" id="enter-plot-panorama" type="button" style="display:none;">Enter
+                    Panorama</button>
                 <button class="modal-btn secondary" id="close-details">Close</button>
             </div>
         </div>
@@ -2708,7 +2741,8 @@
                         <button class="cart-link-btn" id="cart-clear-btn" type="button">Clear</button>
                     </div>
                     <div class="cart-items" id="cart-items"></div>
-                    <div class="cart-empty" id="cart-empty" style="display:none;">No plots added yet. Open a plot and click “Add to Cart”.</div>
+                    <div class="cart-empty" id="cart-empty" style="display:none;">No plots added yet. Open a plot and
+                        click “Add to Cart”.</div>
                 </div>
                 <div class="cart-panel">
                     <div class="cart-panel-head">
@@ -2771,7 +2805,8 @@
 
     <div class="modal-backdrop details-modal" id="marker-readonly-modal">
         <div class="modal marker-readonly-modal">
-            <button class="marker-modal-close" id="close-marker-readonly-icon" type="button" aria-label="Close marker details">×</button>
+            <button class="marker-modal-close" id="close-marker-readonly-icon" type="button"
+                aria-label="Close marker details">×</button>
             <div class="details-header">
                 <div class="details-color" id="marker-readonly-color"></div>
                 <div class="details-title" id="marker-readonly-name">Marker</div>
@@ -2785,14 +2820,17 @@
                         <div class="detail-label">Description</div>
                         <div class="detail-value description" id="marker-readonly-description">—</div>
                     </div>
-                    <div class="detail-item marker-readonly-voiceover-wrap" id="marker-readonly-voiceover-wrap" style="display:none;">
+                    <div class="detail-item marker-readonly-voiceover-wrap" id="marker-readonly-voiceover-wrap"
+                        style="display:none;">
                         <div class="detail-label">Voice-over</div>
-                        <button type="button" class="modal-btn primary" id="play-marker-voiceover" aria-label="Play voice-over">Play voice-over</button>
+                        <button type="button" class="modal-btn primary" id="play-marker-voiceover"
+                            aria-label="Play voice-over">Play voice-over</button>
                     </div>
                 </div>
             </div>
             <div class="modal-actions">
-                <button class="modal-btn primary" id="enter-marker-panorama" type="button" style="display:none;">Enter Panorama</button>
+                <button class="modal-btn primary" id="enter-marker-panorama" type="button" style="display:none;">Enter
+                    Panorama</button>
                 <button class="modal-btn secondary" id="close-marker-readonly">Close</button>
             </div>
         </div>
@@ -2804,10 +2842,13 @@
 
     <script>
         const PANORAMA_ID = {{ panorama.id }};
-        const CURRENT_PANORAMA_NAME = {{ (panorama.name or '')|tojson }};
+        const CURRENT_PANORAMA_NAME = {{ (panorama.name or '')| tojson }};
         const IS_360 = 1; // Always 360 for 3D routes
-        const ORG_SLUG = {{ (org_slug or '')|tojson }};
+        const ORG_SLUG = {{ (org_slug or '')| tojson }};
         const USE_ANIMATED_ICONS = {{ (panorama.get('use_animated_icons', false) if panorama else false) | tojson }};
+        const FULL_VIEW = {{ (full_view or false)| tojson }};
+        const WORKSPACE_PANORAMAS = {{ (workspace_panoramas or[])| tojson }};
+        const INITIAL_PANORAMA_ID = {{ initial_panorama_id if initial_panorama_id is not none else 'null' }};
 
         const loading = document.getElementById('loading');
         const shareBtn = document.getElementById('share-btn');
@@ -2866,6 +2907,8 @@
         let panoramaMenuOpen = false;
         let markerManager = null;
         const PANORAMA_MENU_PREF_KEY = 'customer_panorama_menu_open_v1';
+        let fullViewHistoryStack = [];
+        let currentFullViewPanoramaId = PANORAMA_ID;
 
         async function loadPanoramaIndex() {
             if (panoramaIndexCache) return panoramaIndexCache;
@@ -2912,7 +2955,7 @@
                     panoramaIndexById.set(String(data.id), data);
                     return data;
                 }
-            } catch (e) {}
+            } catch (e) { }
             return null;
         }
 
@@ -2931,7 +2974,7 @@
         function writeNavStack(stack) {
             try {
                 sessionStorage.setItem(NAV_STACK_KEY, JSON.stringify(Array.isArray(stack) ? stack : []));
-            } catch (e) {}
+            } catch (e) { }
         }
 
         function pushNavStack(url) {
@@ -2981,7 +3024,7 @@
 
             // If the index isn't loaded yet, try to load it first so we can route 2D vs 360 correctly.
             if (!panoramaIndexCache) {
-                loadPanoramaIndex().catch(() => {}).finally(() => { go(); });
+                loadPanoramaIndex().catch(() => { }).finally(() => { go(); });
             } else {
                 go();
             }
@@ -2996,6 +3039,10 @@
         function getPanoramaMenuName(panoramaId) {
             const id = normalizePanoramaId(panoramaId);
             if (!id) return '';
+            if (FULL_VIEW && Array.isArray(WORKSPACE_PANORAMAS)) {
+                const p = WORKSPACE_PANORAMAS.find(function (x) { return String(x && x.id) === String(id); });
+                if (p && p.name) return String(p.name).trim();
+            }
             if (id === String(PANORAMA_ID)) {
                 return String(CURRENT_PANORAMA_NAME || '').trim() || `Panorama #${id}`;
             }
@@ -3007,10 +3054,70 @@
             return `Panorama #${id}`;
         }
 
+        function getWorkspacePanoramaById(panoramaId) {
+            if (!Array.isArray(WORKSPACE_PANORAMAS)) return null;
+            return WORKSPACE_PANORAMAS.find(function (p) { return p && String(p.id) === String(panoramaId); }) || null;
+        }
+
+        function getFullViewImageUrl(panoramaId) {
+            const p = getWorkspacePanoramaById(panoramaId);
+            if (!p || !p.filename) return null;
+            return '/uploads/' + encodeURIComponent(p.filename);
+        }
+
+        function switchToPanoramaInView(panoramaId, skipHistoryPush) {
+            const id = String(panoramaId || '').trim();
+            if (!id || !viewer) return Promise.resolve();
+            const url = getFullViewImageUrl(id);
+            if (!url) return Promise.resolve();
+            const opts = { showLoader: true, transition: 1200 };
+            if (typeof viewer.setPanorama !== 'function') return Promise.resolve();
+            return viewer.setPanorama(url, opts).then(function () {
+                currentFullViewPanoramaId = id;
+                if (!skipHistoryPush) {
+                    const base = window.location.pathname;
+                    const params = new URLSearchParams(window.location.search || '');
+                    params.set('full_view', '1');
+                    params.set('p', id);
+                    if (window.history && window.history.replaceState) window.history.replaceState({ fullView: true, panoramaId: id }, '', base + '?' + params.toString());
+                }
+                refreshPanoramaMenu();
+                if (markerManager) {
+                    markerManager.plotId = id;
+                    markerManager.loadMarkers().catch(() => { });
+                }
+                loadPlots(id);
+                setTimeout(() => markerManager && markerManager.updateViewportFocus(), 200);
+            }).catch(function () { });
+        }
+
+        function goToPanorama(targetId) {
+            const id = String(targetId || '').trim();
+            if (!id) return;
+            if (FULL_VIEW && getWorkspacePanoramaById(id)) {
+                fullViewHistoryStack.push(String(currentFullViewPanoramaId));
+                switchToPanoramaInView(id);
+                if (backBtn) backBtn.hidden = false;
+            } else {
+                navigateToPanorama(id);
+            }
+        }
+
         function buildPanoramaMenuEntries() {
-            const currentId = String(PANORAMA_ID);
+            const currentId = FULL_VIEW ? String(currentFullViewPanoramaId) : String(PANORAMA_ID);
             const map = new Map();
             map.set(currentId, { id: currentId, sources: new Set(['current']) });
+
+            if (FULL_VIEW && Array.isArray(WORKSPACE_PANORAMAS) && WORKSPACE_PANORAMAS.length > 0) {
+                WORKSPACE_PANORAMAS.forEach(function (p) {
+                    if (!p || p.id == null) return;
+                    const id = String(p.id);
+                    if (id === currentId) return;
+                    let entry = map.get(id);
+                    if (!entry) { entry = { id: id, sources: new Set(['index']) }; map.set(id, entry); }
+                });
+                return map;
+            }
 
             const add = (rawId, source) => {
                 const id = normalizePanoramaId(rawId);
@@ -3109,7 +3216,7 @@
                     if (window.matchMedia && window.matchMedia('(max-width: 768px)').matches) {
                         setPanoramaMenuOpen(false, false);
                     }
-                    navigateToPanorama(targetId);
+                    goToPanorama(targetId);
                 });
             });
         }
@@ -3118,6 +3225,7 @@
             const baseEntries = buildPanoramaMenuEntries();
             renderPanoramaMenu(baseEntries);
 
+            if (FULL_VIEW) return;
             const idsToResolve = Array.from(baseEntries.keys()).filter((id) => {
                 return String(id) !== String(PANORAMA_ID) && !getPanoramaMeta(id);
             });
@@ -3130,6 +3238,7 @@
         }
 
         function getInitialPanoramaMenuOpen() {
+            if (FULL_VIEW && Array.isArray(WORKSPACE_PANORAMAS) && WORKSPACE_PANORAMAS.length > 1) return true;
             let preferred = null;
             try {
                 if (window.localStorage) {
@@ -3137,7 +3246,7 @@
                     if (raw === '1') preferred = true;
                     if (raw === '0') preferred = false;
                 }
-            } catch (e) {}
+            } catch (e) { }
             if (preferred !== null) return preferred;
             return !(window.matchMedia && window.matchMedia('(max-width: 768px)').matches);
         }
@@ -3150,7 +3259,7 @@
             if (!persist) return;
             try {
                 if (window.localStorage) localStorage.setItem(PANORAMA_MENU_PREF_KEY, panoramaMenuOpen ? '1' : '0');
-            } catch (e) {}
+            } catch (e) { }
         }
 
         (function initPanoramaMenu() {
@@ -3159,18 +3268,33 @@
             panoramaNavToggle.addEventListener('click', () => {
                 setPanoramaMenuOpen(!panoramaMenuOpen, true);
             });
-            refreshPanoramaMenu().catch(() => {});
+            refreshPanoramaMenu().catch(() => { });
         })();
 
         if (enterPlotPanoramaBtn) {
             enterPlotPanoramaBtn.addEventListener('click', () => {
                 const targetId = enterPlotPanoramaBtn.dataset ? enterPlotPanoramaBtn.dataset.panoramaId : null;
-                if (targetId) navigateToPanorama(targetId);
+                if (targetId) goToPanorama(targetId);
             });
+        }
+
+        function updateFullViewBackButton() {
+            if (!backBtn || !FULL_VIEW) return;
+            backBtn.hidden = fullViewHistoryStack.length === 0;
         }
 
         (function initBackButton() {
             if (!backBtn) return;
+            if (FULL_VIEW) {
+                backBtn.hidden = fullViewHistoryStack.length === 0;
+                backBtn.addEventListener('click', () => {
+                    if (fullViewHistoryStack.length === 0) return;
+                    const prevId = fullViewHistoryStack.pop();
+                    switchToPanoramaInView(prevId, true);
+                    updateFullViewBackButton();
+                });
+                return;
+            }
             const params = new URLSearchParams(window.location.search || '');
             const fromId = String(params.get('from') || '').trim();
             const fromMode = String(params.get('from_mode') || '').trim().toLowerCase();
@@ -3206,8 +3330,8 @@
         function prefetchImageUrl(url) {
             return new Promise((resolve) => {
                 const img = new Image();
-                try { img.decoding = 'async'; } catch (e) {}
-                try { img.fetchPriority = 'low'; } catch (e) {}
+                try { img.decoding = 'async'; } catch (e) { }
+                try { img.fetchPriority = 'low'; } catch (e) { }
                 img.onload = () => resolve(true);
                 img.onerror = () => resolve(false);
                 img.src = url;
@@ -3445,7 +3569,7 @@
             try {
                 const url = new URL(normalized);
                 start = parseTimeToSeconds(url.searchParams.get('start') || url.searchParams.get('t') || '');
-            } catch (e) {}
+            } catch (e) { }
             const params = [];
             if (start > 0) params.push(`start=${start}`);
             params.push('rel=0');
@@ -3474,20 +3598,20 @@
             const videoUrl = (plot.media_video || '').trim();
             const mediaElements = [];
 
-                if (plot.has_image && plot.id) {
-                    const mediaWrapper = document.createElement('div');
-                    mediaWrapper.className = 'media-wrapper';
-                    const img = document.createElement('img');
-                    img.alt = (plot.name || 'Plot') + ' photo';
-                    img.style.maxWidth = '100%'; img.style.height = 'auto';
-                    try {
-                        const headers = await (window.getAuthHeaders ? window.getAuthHeaders() : Promise.resolve({}));
-                        const r = await fetch('/api/public/plots/' + plot.id + '/image', { headers });
-                        if (r.ok) { const blob = await r.blob(); img.src = URL.createObjectURL(blob); }
-                    } catch (e) { console.warn('Plot image load failed', e); }
-                    mediaWrapper.appendChild(img);
-                    mediaElements.push(mediaWrapper);
-                } else if (photoUrl) {
+            if (plot.has_image && plot.id) {
+                const mediaWrapper = document.createElement('div');
+                mediaWrapper.className = 'media-wrapper';
+                const img = document.createElement('img');
+                img.alt = (plot.name || 'Plot') + ' photo';
+                img.style.maxWidth = '100%'; img.style.height = 'auto';
+                try {
+                    const headers = await (window.getAuthHeaders ? window.getAuthHeaders() : Promise.resolve({}));
+                    const r = await fetch('/api/public/plots/' + plot.id + '/image', { headers });
+                    if (r.ok) { const blob = await r.blob(); img.src = URL.createObjectURL(blob); }
+                } catch (e) { console.warn('Plot image load failed', e); }
+                mediaWrapper.appendChild(img);
+                mediaElements.push(mediaWrapper);
+            } else if (photoUrl) {
                 const mediaWrapper = document.createElement('div');
                 mediaWrapper.className = 'media-wrapper';
                 const iframe = document.createElement('iframe');
@@ -3562,16 +3686,18 @@
             }
         }
 
-        async function loadPlots() {
+        async function loadPlots(panoramaId) {
+            const pid = panoramaId != null ? String(panoramaId).trim() : (FULL_VIEW ? String(currentFullViewPanoramaId) : String(PANORAMA_ID));
+            if (!pid) return;
             try {
                 const headers = await (window.getAuthHeaders ? window.getAuthHeaders() : Promise.resolve({}));
-                const response = await fetch(`/api/public/panoramas/${PANORAMA_ID}/plots`, { headers });
+                const response = await fetch(`/api/public/panoramas/${pid}/plots`, { headers });
                 const data = await response.json();
                 plots = Array.isArray(data) ? data : [];
                 updateStatusLegend();
                 renderPlots();
                 updateSearchDropdown(plotSearchInput ? plotSearchInput.value : '');
-                refreshPanoramaMenu().catch(() => {});
+                refreshPanoramaMenu().catch(() => { });
             } catch (error) {
                 console.error('Failed to load plots:', error);
             }
@@ -3589,7 +3715,7 @@
             const descContainer = document.getElementById('details-description-container');
             descContainer.style.display = plot.description ? 'block' : 'none';
             document.getElementById('details-description').textContent = plot.description || '';
-            renderPlotMedia(plot).then(() => {});
+            renderPlotMedia(plot).then(() => { });
             if (enterPlotPanoramaBtn) {
                 const rawLink = plot && Object.prototype.hasOwnProperty.call(plot, 'linked_panorama_id')
                     ? plot.linked_panorama_id
@@ -3642,7 +3768,7 @@
             try {
                 cart = Array.isArray(items) ? items : [];
                 if (window.localStorage) localStorage.setItem(cartStorageKey(), JSON.stringify(cart));
-            } catch (e) {}
+            } catch (e) { }
         }
 
         function isPlotInCart(plotId) {
@@ -3948,7 +4074,7 @@
                     this.dom.enterBtn.addEventListener('click', () => {
                         const targetId = this.dom.enterBtn && this.dom.enterBtn.dataset ? this.dom.enterBtn.dataset.panoramaId : null;
                         if (targetId) {
-                            navigateToPanorama(targetId);
+                            goToPanorama(targetId);
                         }
                     });
                 }
@@ -3978,7 +4104,7 @@
                                 this.voiceoverAudio = null;
                             }
                             this.voiceoverAudio = new Audio(data.url);
-                            this.voiceoverAudio.play().catch(() => {});
+                            this.voiceoverAudio.play().catch(() => { });
                             this.voiceoverAudio.onended = () => { if (btn) btn.disabled = false; };
                             this.voiceoverAudio.onerror = () => { if (btn) btn.disabled = false; };
                         } else if (btn) btn.disabled = false;
@@ -4000,7 +4126,7 @@
                         this.markerMap.set(String(row.id), this.normalizeMarker(row));
                     });
                     this.syncViewerMarkers();
-                    refreshPanoramaMenu().catch(() => {});
+                    refreshPanoramaMenu().catch(() => { });
                 } catch (error) {
                     console.error('Marker load failed', error);
                 }
@@ -4172,7 +4298,7 @@
                     }
                 });
                 existing.forEach((id) => {
-                    try { this.markersPlugin.removeMarker(id); } catch (error) {}
+                    try { this.markersPlugin.removeMarker(id); } catch (error) { }
                 });
                 requestAnimationFrame(() => this.applyMarkerVisualStyle());
                 setTimeout(() => this.applyMarkerVisualStyle(), 60);
@@ -4185,10 +4311,10 @@
                 const markerId = String(markerData.markerId);
                 const selected = this.markerMap.get(markerId);
                 if (selected && selected.linked_panorama_id) {
-                    try { this.closeReadonly(); } catch (e) {}
-                    try { if (isMarkerPhotoLightboxVisible()) closeMarkerPhotoLightbox(); } catch (e) {}
+                    try { this.closeReadonly(); } catch (e) { }
+                    try { if (isMarkerPhotoLightboxVisible()) closeMarkerPhotoLightbox(); } catch (e) { }
                     this.focus(markerId, false);
-                    navigateToPanorama(selected.linked_panorama_id);
+                    goToPanorama(selected.linked_panorama_id);
                     return true;
                 }
                 if (selected && this.isPhotoMarkerStyle(selected.marker_style) && !selected.linked_panorama_id) {
@@ -4207,7 +4333,7 @@
                 this.selectedMarkerId = String(markerId);
                 this.setActiveState(markerId, true);
                 if (rotate && this.markersPlugin) {
-                    this.markersPlugin.gotoMarker(this.toViewerMarkerId(markerId), '6rpm').catch(() => {});
+                    this.markersPlugin.gotoMarker(this.toViewerMarkerId(markerId), '6rpm').catch(() => { });
                 }
             }
 
@@ -4361,11 +4487,11 @@
             revokeMarkerImage(marker) {
                 if (!marker) return;
                 if (marker.image_object_url) {
-                    try { URL.revokeObjectURL(marker.image_object_url); } catch (e) {}
+                    try { URL.revokeObjectURL(marker.image_object_url); } catch (e) { }
                     marker.image_object_url = '';
                 }
                 if (marker.image_thumb_url) {
-                    try { URL.revokeObjectURL(marker.image_thumb_url); } catch (e) {}
+                    try { URL.revokeObjectURL(marker.image_thumb_url); } catch (e) { }
                     marker.image_thumb_url = '';
                 }
             }
@@ -4384,7 +4510,7 @@
                     .then((url) => {
                         if (url) imgEl.src = url;
                     })
-                    .catch(() => {});
+                    .catch(() => { });
             }
 
             async fetchMarkers(plotId) {
@@ -4498,10 +4624,10 @@
             if (cartModal && cartModal.classList.contains('visible')) {
                 closeCart();
             }
-                const markerModal = document.getElementById('marker-readonly-modal');
-                if (markerModal && markerModal.classList.contains('visible')) {
-                    markerManager.closeReadonly();
-                }
+            const markerModal = document.getElementById('marker-readonly-modal');
+            if (markerModal && markerModal.classList.contains('visible')) {
+                markerManager.closeReadonly();
+            }
             if (isMarkerPhotoLightboxVisible()) {
                 closeMarkerPhotoLightbox();
             }
@@ -4524,9 +4650,9 @@
                 return;
             }
             if (!document.fullscreenElement && psvContainer && psvContainer.requestFullscreen) {
-                psvContainer.requestFullscreen().catch(() => {});
+                psvContainer.requestFullscreen().catch(() => { });
             } else if (document.fullscreenElement && document.exitFullscreen) {
-                document.exitFullscreen().catch(() => {});
+                document.exitFullscreen().catch(() => { });
             }
         }
 
@@ -4545,13 +4671,13 @@
                 if (window.localStorage && localStorage.getItem(storageKey) === '1') {
                     customerGuide.classList.add('is-hidden');
                 }
-            } catch (error) {}
+            } catch (error) { }
 
             dismissGuideBtn.addEventListener('click', () => {
                 customerGuide.classList.add('is-hidden');
                 try {
                     if (window.localStorage) localStorage.setItem(storageKey, '1');
-                } catch (error) {}
+                } catch (error) { }
             });
         }
 
@@ -4570,7 +4696,7 @@
 
             const plotMatch = plots.find((plot) => String(plot.name || '').toLowerCase().includes(query));
             if (plotMatch && markersPlugin) {
-                markersPlugin.gotoMarker(`plot-label-${plotMatch.id}`, '6rpm').catch(() => {});
+                markersPlugin.gotoMarker(`plot-label-${plotMatch.id}`, '6rpm').catch(() => { });
                 return true;
             }
             return false;
@@ -4683,7 +4809,7 @@
             }
 
             if (item.kind === 'plot' && markersPlugin) {
-                markersPlugin.gotoMarker(`plot-label-${item.id}`, '6rpm').catch(() => {});
+                markersPlugin.gotoMarker(`plot-label-${item.id}`, '6rpm').catch(() => { });
             }
         }
 
@@ -5000,13 +5126,19 @@
                         data: { plotId: plot.id }
                     });
 
+                    let labelLon = plot.label_longitude;
+                    let labelLat = plot.label_latitude;
                     const centroid = getCentroid(plot.points);
                     if (centroid && plot.name) {
-                        const spherical = viewer.dataHelper.textureCoordsToSphericalCoords(centroid);
+                        if (typeof labelLon !== 'number' || typeof labelLat !== 'number') {
+                            const spherical = viewer.dataHelper.textureCoordsToSphericalCoords(centroid);
+                            labelLon = spherical.longitude;
+                            labelLat = spherical.latitude;
+                        }
                         markers.push({
                             id: `plot-label-${plot.id}`,
-                            longitude: spherical.longitude,
-                            latitude: spherical.latitude,
+                            longitude: labelLon,
+                            latitude: labelLat,
                             html: `<div class="psv-plot-label ${labelClass}">${escapeHtml(plot.name)}</div>`,
                             anchor: 'center center',
                             style: { pointerEvents: 'none' },
@@ -5048,22 +5180,25 @@
 
             viewer.on('ready', () => {
                 loading.classList.add('hidden');
-                const indexPromise = loadPanoramaIndex().catch(() => []);
+                const indexPromise = FULL_VIEW ? Promise.resolve([]) : loadPanoramaIndex().catch(() => []);
                 const plotsPromise = loadPlots();
                 const markersPromise = markerManager.loadMarkers()
                     .then(() => updateSearchDropdown(plotSearchInput ? plotSearchInput.value : ''))
-                    .catch(() => {});
+                    .catch(() => { });
                 Promise.all([indexPromise, plotsPromise, markersPromise])
                     .then(() => {
-                        refreshPanoramaMenu().catch(() => {});
-                        const runPrefetch = () => prefetchLinkedPanoramas().catch(() => {});
+                        refreshPanoramaMenu().catch(() => { });
+                        if (FULL_VIEW && INITIAL_PANORAMA_ID && INITIAL_PANORAMA_ID !== PANORAMA_ID && getWorkspacePanoramaById(INITIAL_PANORAMA_ID)) {
+                            switchToPanoramaInView(INITIAL_PANORAMA_ID, true);
+                        }
+                        const runPrefetch = () => prefetchLinkedPanoramas().catch(() => { });
                         if (typeof requestIdleCallback === 'function') {
                             requestIdleCallback(runPrefetch, { timeout: 2500 });
                         } else {
                             setTimeout(runPrefetch, 1200);
                         }
                     })
-                    .catch(() => {});
+                    .catch(() => { });
                 scheduleAutoRotateResume(AUTO_ROTATE_BOOT_DELAY_MS);
                 setTimeout(() => markerManager.updateViewportFocus(), 250);
             });

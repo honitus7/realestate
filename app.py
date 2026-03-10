@@ -683,6 +683,13 @@ def _serialize_workspace_row(row, access_type='owner'):
     for k in ('created_at', 'updated_at'):
         if out.get(k):
             out[k] = str(out.get(k))
+    if out.get('main_panorama_id') is not None:
+        try:
+            out['main_panorama_id'] = int(out['main_panorama_id'])
+        except (TypeError, ValueError):
+            out['main_panorama_id'] = None
+    else:
+        out['main_panorama_id'] = None
     out['access_type'] = access_type
     return out
 
@@ -692,6 +699,17 @@ def _get_workspace_by_id(sb, workspace_id):
     if r.data and len(r.data) > 0:
         return dict(r.data[0])
     return None
+
+
+def _clear_workspace_main_for_panorama(sb, panorama_id):
+    """Clear main_panorama_id on any workspace that has this panorama as main (on delete or move)."""
+    try:
+        sb.table('workspaces').update({
+            'main_panorama_id': None,
+            'updated_at': datetime.utcnow().isoformat()
+        }).eq('main_panorama_id', panorama_id).execute()
+    except Exception:
+        pass
 
 
 def _can_manage_workspace(sb, workspace, user_id, role):
@@ -913,7 +931,7 @@ def customer_3d(panorama_id):
 
 @app.route('/customer/<org_slug>/3d/<int:panorama_id>')
 def customer_3d_with_org(org_slug, panorama_id):
-    """Canonical customer 360 URL (public): /customer/<orgname>/3d/<id>."""
+    """Canonical customer 360 URL (public): /customer/<orgname>/3d/<id>. full_view=1: load workspace siblings for in-viewer switching."""
     sb = get_supabase()
     if not sb:
         return "Database not configured", 503
@@ -927,7 +945,84 @@ def customer_3d_with_org(org_slug, panorama_id):
         return redirect(f"/customer/{canonical_slug}/{panorama_id}{suffix}", code=302)
     if str(org_slug or '').lower() != str(canonical_slug).lower():
         return redirect(f"/customer/{canonical_slug}/3d/{panorama_id}{suffix}", code=302)
-    return render_template('customer_3d.html', panorama=panorama, org_name=org_name, org_slug=canonical_slug, **auth_ctx())
+
+    full_view = request.args.get('full_view') == '1'
+    if full_view:
+        # Use dedicated full-view page (avoids tracking/prevention issues, separate template + full_view3d.js)
+        p_param = request.args.get('p')
+        query = ('?p=' + p_param) if p_param else ''
+        return redirect(f"/customer/{canonical_slug}/full-view/{panorama_id}{query}", code=302)
+
+    return render_template(
+        'customer_3d.html',
+        panorama=panorama,
+        org_name=org_name,
+        org_slug=canonical_slug,
+        full_view=False,
+        workspace_panoramas=[],
+        initial_panorama_id=None,
+        **auth_ctx()
+    )
+
+
+@app.route('/customer/<org_slug>/full-view/<int:panorama_id>')
+def customer_full_view(org_slug, panorama_id):
+    """Dedicated full-view page for connected panoramas: single template + full_view3d.js, all assets from /static/."""
+    sb = get_supabase()
+    if not sb:
+        return "Database not configured", 503
+    panorama = get_panorama_by_id(sb, panorama_id)
+    if not panorama:
+        return "Panorama not found", 404
+    org_name, canonical_slug = _get_org_name_and_slug_for_panorama(sb, panorama)
+    if not bool((panorama or {}).get('is_360')):
+        return redirect(f"/customer/{canonical_slug}/{panorama_id}", code=302)
+    if str(org_slug or '').lower() != str(canonical_slug).lower():
+        return redirect(f"/customer/{canonical_slug}/full-view/{panorama_id}", code=302)
+
+    workspace_panoramas = []
+    workspace_id = (panorama or {}).get('workspace_id')
+    if workspace_id:
+        try:
+            r = sb.table('panoramas').select('id, name, filename').eq('workspace_id', workspace_id).eq('is_360', True).order('id').execute()
+            rows = list(r.data or [])
+            ws_row = _get_workspace_by_id(sb, workspace_id)
+            main_id = (ws_row or {}).get('main_panorama_id')
+            if main_id is not None:
+                main_id = int(main_id)
+            def sort_key(p):
+                pid = p.get('id')
+                if main_id is not None and pid == main_id:
+                    return (0, pid or 0)
+                return (1, pid or 0)
+            rows.sort(key=sort_key)
+            for p in rows:
+                workspace_panoramas.append({
+                    'id': p.get('id'),
+                    'name': (p.get('name') or '').strip() or ('Panorama #' + str(p.get('id') or '')),
+                    'filename': p.get('filename') or '',
+                })
+        except Exception:
+            pass
+
+    initial_panorama_id = panorama_id
+    if request.args.get('p'):
+        try:
+            pid = int(request.args.get('p'))
+            if any(p.get('id') == pid for p in workspace_panoramas):
+                initial_panorama_id = pid
+        except (TypeError, ValueError):
+            pass
+
+    return render_template(
+        'full_view_3d.html',
+        panorama=panorama,
+        org_name=org_name,
+        org_slug=canonical_slug,
+        workspace_panoramas=workspace_panoramas,
+        initial_panorama_id=initial_panorama_id,
+        **auth_ctx()
+    )
 
 
 @app.route('/uploads/<filename>')
@@ -1026,14 +1121,17 @@ def public_get_plots(panorama_id):
             'id, panorama_id, name, area, price, status, description, color, '
             'media_photo, media_video, linked_panorama_id, points, created_at, updated_at, image_filename'
         )
+        fields_with_label = fields_with_links + ', label_longitude, label_latitude'
         try:
-            r = sb.table('plots').select(fields_with_links).eq('panorama_id', panorama_id).order('created_at').execute()
-        except Exception as e:
-            # Backward-compatible: linked_panorama_id column may not exist yet.
-            if 'linked_panorama_id' in str(e).lower():
-                r = sb.table('plots').select(fields_base).eq('panorama_id', panorama_id).order('created_at').execute()
-            else:
-                raise
+            r = sb.table('plots').select(fields_with_label).eq('panorama_id', panorama_id).order('created_at').execute()
+        except Exception:
+            try:
+                r = sb.table('plots').select(fields_with_links).eq('panorama_id', panorama_id).order('created_at').execute()
+            except Exception as e2:
+                if 'linked_panorama_id' in str(e2).lower():
+                    r = sb.table('plots').select(fields_base).eq('panorama_id', panorama_id).order('created_at').execute()
+                else:
+                    raise
         plots = []
         for row in (r.data or []):
             p = dict(row)
@@ -1042,9 +1140,18 @@ def public_get_plots(panorama_id):
                     p['points'] = json.loads(p['points'])
                 except Exception:
                     p['points'] = []
-            # Frontend loads image by id; use filename presence as a lightweight has_image flag.
             p['has_image'] = bool(p.get('image_filename'))
             p.pop('image_filename', None)
+            if p.get('label_longitude') is not None:
+                try:
+                    p['label_longitude'] = float(p['label_longitude'])
+                except (TypeError, ValueError):
+                    p['label_longitude'] = None
+            if p.get('label_latitude') is not None:
+                try:
+                    p['label_latitude'] = float(p['label_latitude'])
+                except (TypeError, ValueError):
+                    p['label_latitude'] = None
             plots.append(p)
         return jsonify(plots)
     except Exception as e:
@@ -1476,13 +1583,23 @@ def list_workspaces(user_id, role):
     if not sb:
         return jsonify({'error': 'Database not configured'}), 503
     try:
-        owned = (
-            sb.table('workspaces')
-            .select('id, user_id, org_id, name, created_at, updated_at')
-            .eq('user_id', user_id)
-            .order('updated_at', desc=True)
-            .execute()
-        )
+        owned_cols = 'id, user_id, org_id, name, created_at, updated_at'
+        try:
+            owned = (
+                sb.table('workspaces')
+                .select(owned_cols + ', main_panorama_id')
+                .eq('user_id', user_id)
+                .order('updated_at', desc=True)
+                .execute()
+            )
+        except Exception:
+            owned = (
+                sb.table('workspaces')
+                .select(owned_cols)
+                .eq('user_id', user_id)
+                .order('updated_at', desc=True)
+                .execute()
+            )
         shared_acc = (
             sb.table('workspace_access')
             .select('workspace_id, access_type')
@@ -1515,12 +1632,21 @@ def list_workspaces(user_id, role):
     shared_ids = list(shared_map.keys())
     if shared_ids:
         try:
-            shared_rows = (
-                sb.table('workspaces')
-                .select('id, user_id, org_id, name, created_at, updated_at')
-                .in_('id', shared_ids)
-                .execute()
-            )
+            shared_cols = 'id, user_id, org_id, name, created_at, updated_at'
+            try:
+                shared_rows = (
+                    sb.table('workspaces')
+                    .select(shared_cols + ', main_panorama_id')
+                    .in_('id', shared_ids)
+                    .execute()
+                )
+            except Exception:
+                shared_rows = (
+                    sb.table('workspaces')
+                    .select(shared_cols)
+                    .in_('id', shared_ids)
+                    .execute()
+                )
             for row in (shared_rows.data or []):
                 wsid = str(row.get('id'))
                 access_type = shared_map.get(wsid, 'viewer')
@@ -1602,10 +1728,16 @@ def rename_workspace(user_id, role, workspace_id):
     if not sb:
         return jsonify({'error': 'Database not configured'}), 503
     payload = request.get_json(silent=True) or request.form or {}
-    name = str(payload.get('name') or '').strip()
-    if not name:
-        return jsonify({'error': 'name is required'}), 400
-    if len(name) > 120:
+    name = str(payload.get('name') or '').strip() if payload.get('name') is not None else None
+    main_panorama_id = payload.get('main_panorama_id')
+    if main_panorama_id is not None:
+        try:
+            main_panorama_id = int(main_panorama_id)
+        except (TypeError, ValueError):
+            main_panorama_id = None
+    if not name and main_panorama_id is None:
+        return jsonify({'error': 'name or main_panorama_id is required'}), 400
+    if name is not None and len(name) > 120:
         return jsonify({'error': 'name must be 120 characters or fewer'}), 400
     try:
         workspace = _get_workspace_by_id(sb, workspace_id)
@@ -1616,11 +1748,27 @@ def rename_workspace(user_id, role, workspace_id):
     if not workspace:
         return jsonify({'error': 'Workspace not found'}), 404
     if str(workspace.get('user_id') or '') != str(user_id):
-        return jsonify({'error': 'Only workspace owner can rename'}), 403
+        return jsonify({'error': 'Only workspace owner can update'}), 403
+    update_fields = {'updated_at': datetime.utcnow().isoformat()}
+    if name is not None:
+        update_fields['name'] = name
+    if main_panorama_id is not None:
+        if main_panorama_id <= 0:
+            update_fields['main_panorama_id'] = None
+        else:
+            pano = get_panorama_by_id(sb, main_panorama_id)
+            if not pano:
+                return jsonify({'error': 'Panorama not found'}), 404
+            pano_ws = (pano.get('workspace_id') or '')
+            if str(pano_ws) != str(workspace_id):
+                return jsonify({'error': 'Panorama must be in this workspace'}), 400
+            if not bool(pano.get('is_360')):
+                return jsonify({'error': 'Main panorama must be a 360° panorama'}), 400
+            update_fields['main_panorama_id'] = main_panorama_id
     try:
         r = (
             sb.table('workspaces')
-            .update({'name': name, 'updated_at': datetime.utcnow().isoformat()})
+            .update(update_fields)
             .eq('id', workspace_id)
             .execute()
         )
@@ -1632,7 +1780,11 @@ def rename_workspace(user_id, role, workspace_id):
             return jsonify({'error': 'Workspace name already exists'}), 409
         return jsonify({'error': str(e)}), 500
     row = (r.data or [None])[0] if hasattr(r, 'data') else None
-    return jsonify({'success': True, 'workspace': _serialize_workspace_row(row or {'id': workspace_id, 'name': name, 'user_id': user_id}, 'owner')})
+    merged = dict(workspace or {})
+    merged.update(update_fields)
+    if main_panorama_id is not None:
+        merged['main_panorama_id'] = main_panorama_id if main_panorama_id > 0 else None
+    return jsonify({'success': True, 'workspace': _serialize_workspace_row(row or merged, 'owner')})
 
 
 @app.route('/api/workspaces/<workspace_id>', methods=['DELETE'])
@@ -2079,6 +2231,7 @@ def delete_panorama(user_id, role, panorama_id):
             os.remove(filepath)
         except Exception:
             pass
+    _clear_workspace_main_for_panorama(sb, panorama_id)
     try:
         sb.table('panoramas').delete().eq('id', panorama_id).execute()
     except Exception as e:
@@ -2197,6 +2350,7 @@ def move_panorama_to_workspace(user_id, role, panorama_id):
         if panorama_org and workspace_org and str(panorama_org) != str(workspace_org):
             return jsonify({'error': 'Workspace organization mismatch'}), 403
 
+    _clear_workspace_main_for_panorama(sb, panorama_id)
     try:
         r = (
             sb.table('panoramas')
@@ -2240,14 +2394,17 @@ def get_plots(user_id, role, panorama_id):
             'id, panorama_id, name, area, price, status, description, color, '
             'media_photo, media_video, linked_panorama_id, points, created_at, updated_at, image_filename'
         )
+        fields_with_label = fields_with_links + ', label_longitude, label_latitude'
         try:
-            r = sb.table('plots').select(fields_with_links).eq('panorama_id', panorama_id).order('created_at').execute()
+            r = sb.table('plots').select(fields_with_label).eq('panorama_id', panorama_id).order('created_at').execute()
         except Exception as e:
-            # Backward-compatible: linked_panorama_id column may not exist yet.
-            if 'linked_panorama_id' in str(e).lower():
-                r = sb.table('plots').select(fields_base).eq('panorama_id', panorama_id).order('created_at').execute()
-            else:
-                raise
+            try:
+                r = sb.table('plots').select(fields_with_links).eq('panorama_id', panorama_id).order('created_at').execute()
+            except Exception as e2:
+                if 'linked_panorama_id' in str(e2).lower():
+                    r = sb.table('plots').select(fields_base).eq('panorama_id', panorama_id).order('created_at').execute()
+                else:
+                    raise
         plots = []
         for row in (r.data or []):
             p = dict(row)
@@ -2259,6 +2416,16 @@ def get_plots(user_id, role, panorama_id):
             # Frontend loads image by id; use content type presence as a lightweight has_image flag.
             p['has_image'] = bool(p.get('image_filename'))
             p.pop('image_filename', None)
+            if p.get('label_longitude') is not None:
+                try:
+                    p['label_longitude'] = float(p['label_longitude'])
+                except (TypeError, ValueError):
+                    p['label_longitude'] = None
+            if p.get('label_latitude') is not None:
+                try:
+                    p['label_latitude'] = float(p['label_latitude'])
+                except (TypeError, ValueError):
+                    p['label_latitude'] = None
             plots.append(p)
         return jsonify(plots)
     except Exception as e:
@@ -2388,21 +2555,78 @@ def update_plot(user_id, role, plot_id):
                     link_id = int(raw_link)
                 except Exception:
                     link_id = None
-            # Explicit null clears the link.
             upd['linked_panorama_id'] = link_id
+        if 'label_longitude' in data:
+            try:
+                v = data.get('label_longitude')
+                upd['label_longitude'] = float(v) if v is not None else None
+            except (TypeError, ValueError):
+                upd['label_longitude'] = None
+        if 'label_latitude' in data:
+            try:
+                v = data.get('label_latitude')
+                upd['label_latitude'] = float(v) if v is not None else None
+            except (TypeError, ValueError):
+                upd['label_latitude'] = None
         try:
             sb.table('plots').update(upd).eq('id', plot_id).execute()
         except Exception as e:
-            # Backward-compatible: linked_panorama_id column may not exist yet.
-            if 'linked_panorama_id' in str(e).lower():
-                upd.pop('linked_panorama_id', None)
+            for key in ('linked_panorama_id', 'label_longitude', 'label_latitude'):
+                if key in str(e).lower() and key in upd:
+                    upd.pop(key, None)
+            try:
                 sb.table('plots').update(upd).eq('id', plot_id).execute()
-            else:
+            except Exception:
                 raise
         sb.table('panoramas').update({'updated_at': datetime.utcnow().isoformat()}).eq('id', panorama_id).execute()
     except Exception as e:
         return jsonify({'error': str(e)}), 500
     return jsonify({'success': True})
+
+
+@app.route('/api/plots/<int:plot_id>/label-position', methods=['PATCH', 'PUT'])
+@require_auth
+def update_plot_label_position(user_id, role, plot_id):
+    """Update only the plot label position on the sphere (for movable plot labels)."""
+    data = request.get_json(silent=True) or {}
+    try:
+        lon = data.get('label_longitude') if 'label_longitude' in data else data.get('longitude')
+        lat = data.get('label_latitude') if 'label_latitude' in data else data.get('latitude')
+    except Exception:
+        lon, lat = None, None
+    if lon is None and lat is None:
+        return jsonify({'error': 'label_longitude and label_latitude (or longitude and latitude) required'}), 400
+    sb = get_supabase()
+    if not sb:
+        return jsonify({'error': 'Database not configured'}), 503
+    try:
+        pl = sb.table('plots').select('panorama_id').eq('id', plot_id).limit(1).execute()
+        if not pl.data or len(pl.data) == 0:
+            return jsonify({'error': 'Plot not found'}), 404
+        panorama_id = pl.data[0]['panorama_id']
+    except Exception:
+        return jsonify({'error': 'Not found'}), 404
+    panorama, access_type = get_panorama_with_access(sb, panorama_id, user_id)
+    if not panorama or not can_edit_plots(access_type):
+        return jsonify({'error': 'Forbidden'}), 403
+    try:
+        lon_f = float(lon) if lon is not None else None
+        lat_f = float(lat) if lat is not None else None
+    except (TypeError, ValueError):
+        return jsonify({'error': 'Invalid longitude or latitude'}), 400
+    upd = {'updated_at': datetime.utcnow().isoformat()}
+    if lon_f is not None:
+        upd['label_longitude'] = lon_f
+    if lat_f is not None:
+        upd['label_latitude'] = lat_f
+    try:
+        sb.table('plots').update(upd).eq('id', plot_id).execute()
+    except Exception as e:
+        if 'label_longitude' in str(e).lower() or 'label_latitude' in str(e).lower():
+            return jsonify({'error': 'Plot label position not supported. Run supabase_migration_plot_label_position.sql.'}), 503
+        return jsonify({'error': str(e)}), 500
+    sb.table('panoramas').update({'updated_at': datetime.utcnow().isoformat()}).eq('id', panorama_id).execute()
+    return jsonify({'success': True, 'label_longitude': lon_f, 'label_latitude': lat_f})
 
 
 # ----- Plot image (stored in S3; DB stores filename) -----
@@ -3206,8 +3430,6 @@ def update_my_profile(user_id, role):
     updated_at = datetime.utcnow().isoformat()
     existing = get_profile(sb, user_id)
     payload = {
-        'user_id': user_id,
-        'role': (existing.get('role') if existing else 'user'),
         'updated_at': updated_at,
     }
     if 'display_name' in data:
@@ -3215,7 +3437,19 @@ def update_my_profile(user_id, role):
     if 'email' in data:
         payload['email'] = email
     try:
-        sb.table('profiles').upsert(payload, on_conflict='user_id').execute()
+        if existing:
+            sb.table('profiles').update(payload).eq('user_id', user_id).execute()
+        else:
+            full = {
+                'user_id': user_id,
+                'role': (existing.get('role') if existing else 'user'),
+                'updated_at': updated_at,
+            }
+            if 'display_name' in data:
+                full['display_name'] = display_name
+            if 'email' in data:
+                full['email'] = email
+            sb.table('profiles').upsert(full, on_conflict='user_id').execute()
         return jsonify({'success': True})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -3244,6 +3478,8 @@ def get_my_org(user_id, role):
             msg = str(e)
             if 'organizations' in msg and ('does not exist' in msg.lower() or 'relation' in msg.lower()):
                 return jsonify({'error': 'organizations table not found. Run supabase_migration_orgs.sql in Supabase SQL Editor.'}), 503
+        if org and org.get('name'):
+            org['slug'] = _slugify_org_name(org.get('name'))
 
     out_profile = {
         'user_id': str(profile.get('user_id') or user_id),
