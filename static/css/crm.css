@@ -1,0 +1,615 @@
+/**
+ * CRM page – minimal presentation style.
+ */
+.crm-page {
+    min-height: 100vh;
+    background: var(--color-bg);
+}
+
+.crm-page a {
+    color: inherit;
+}
+
+.crm-page .header {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    background: var(--color-bg-elevated);
+    border-bottom: 1px solid var(--color-border);
+}
+
+.crm-page .header-left {
+    display: flex;
+    align-items: center;
+    gap: 1.25rem;
+    min-width: 0;
+}
+
+.crm-page .logo {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.6rem;
+    text-decoration: none;
+    color: var(--color-text);
+}
+
+.crm-page .logo img {
+    width: 34px;
+    height: 34px;
+    object-fit: contain;
+}
+
+.crm-page .page-title {
+    display: grid;
+    gap: 0.15rem;
+    min-width: 0;
+}
+
+.crm-page .page-title h1 {
+    font-family: var(--font-display);
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    font-size: 1.35rem;
+    line-height: 1.1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: var(--color-text);
+}
+
+.crm-page .page-title p {
+    font-size: 0.78rem;
+    color: var(--color-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.crm-page .header-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+}
+
+.crm-page .btn {
+    border: 1px solid var(--color-border);
+    background: var(--color-surface);
+    color: var(--color-text);
+    border-radius: var(--radius-sm);
+    padding: 0.5rem 0.85rem;
+    font-weight: 600;
+    font-size: 0.82rem;
+    cursor: pointer;
+    transition: background 0.2s ease, border-color 0.2s ease;
+}
+
+.crm-page .btn:hover {
+    border-color: var(--border-strong);
+    background: var(--color-accent-hover);
+}
+
+.crm-page .btn.primary {
+    background: var(--color-surface);
+    border-color: var(--color-border);
+}
+
+.crm-page .btn.primary:hover {
+    background: var(--color-accent-hover);
+}
+
+.crm-page .btn.ghost {
+    background: transparent;
+    border-color: transparent;
+}
+
+.container {
+    max-width: 1260px;
+    margin: 0 auto;
+    padding: 1.8rem 1.2rem 3rem;
+}
+
+.grid-top {
+    display: grid;
+    grid-template-columns: 1.1fr 0.9fr;
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+.crm-page .card {
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    background: var(--color-surface-strong);
+    box-shadow: var(--shadow);
+    overflow: hidden;
+}
+
+.crm-page .card-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 1.25rem 1.5rem;
+    border-bottom: 1px solid var(--color-border);
+}
+
+.crm-page .card-title {
+    display: grid;
+    gap: 0.15rem;
+}
+
+.crm-page .card-title strong {
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: var(--color-text);
+}
+
+.crm-page .card-title span {
+    font-size: 0.85rem;
+    color: var(--color-muted);
+}
+
+.crm-page .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 0.75rem;
+    padding: 1.25rem 1.5rem;
+}
+
+.crm-page .stat {
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    background: var(--color-bg-elevated);
+    padding: 1rem;
+    display: grid;
+    gap: 0.35rem;
+}
+
+.crm-page .stat .label {
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    color: var(--color-muted);
+}
+
+.crm-page .stat .value {
+    font-family: var(--font-display);
+    font-size: 1.5rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    color: var(--color-text);
+}
+
+.crm-page .stat .hint {
+    font-size: 0.78rem;
+    color: var(--color-muted);
+}
+
+.crm-page .pipeline {
+    padding: 1.25rem 1.5rem;
+}
+
+.crm-page .pipe-row {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 0.8rem;
+    align-items: center;
+    padding: 0.7rem 0;
+    border-bottom: 1px solid var(--color-border);
+}
+
+.crm-page .pipe-row:last-child {
+    border-bottom: none;
+}
+
+.crm-page .pipe-name {
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: var(--color-text);
+}
+
+.crm-page .pipe-bar {
+    height: 8px;
+    border-radius: 4px;
+    background: var(--color-surface);
+    overflow: hidden;
+    margin-top: 0.4rem;
+    border: 1px solid var(--color-border);
+}
+
+.crm-page .pipe-fill {
+    height: 100%;
+    width: 0%;
+    background: var(--color-text);
+    border-radius: 4px;
+    transition: width 0.35s ease;
+}
+
+.pipe-meta {
+    display: flex;
+    align-items: baseline;
+    gap: 0.5rem;
+    justify-content: flex-end;
+    white-space: nowrap;
+}
+
+.pipe-count {
+    font-variant-numeric: tabular-nums;
+    font-weight: 800;
+}
+
+.pipe-pct {
+    font-size: 0.78rem;
+    color: var(--muted);
+    font-variant-numeric: tabular-nums;
+}
+
+.crm-page .filters {
+    display: grid;
+    grid-template-columns: 1.6fr 0.7fr 0.7fr 1fr auto;
+    gap: 0.65rem;
+    align-items: center;
+    padding: 1.25rem 1.5rem;
+}
+
+.crm-page .input {
+    width: 100%;
+    height: 42px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--color-border);
+    background: var(--color-bg-elevated);
+    color: var(--color-text);
+    padding: 0 1rem;
+    outline: none;
+    font-weight: 500;
+}
+
+.crm-page .input::placeholder {
+    color: var(--color-muted);
+}
+
+.crm-page .select {
+    appearance: none;
+    -webkit-appearance: none;
+    background-color: var(--color-bg-elevated);
+    border: 1px solid var(--color-border);
+    color: var(--color-text);
+    padding-right: 2.2rem;
+}
+
+.crm-page .table-wrap {
+    border-top: 1px solid var(--color-border);
+}
+
+.crm-page table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.crm-page thead th {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    text-align: left;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--color-muted);
+    background: var(--color-bg-elevated);
+    padding: 0.85rem 1rem;
+    border-bottom: 1px solid var(--color-border);
+}
+
+.crm-page tbody td {
+    padding: 0.9rem 1rem;
+    border-bottom: 1px solid var(--color-border);
+    vertical-align: top;
+    font-size: 0.9rem;
+    color: var(--color-text);
+}
+
+.crm-page tbody tr {
+    cursor: pointer;
+    transition: background 0.2s ease;
+}
+
+.crm-page tbody tr:hover {
+    background: var(--bg-elev-1);
+}
+
+.mono {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum";
+}
+
+.crm-page .subtle {
+    color: var(--color-muted);
+    font-size: 0.82rem;
+    margin-top: 0.22rem;
+}
+
+.crm-page .pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    border: 1px solid var(--color-border);
+    background: var(--color-surface);
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    white-space: nowrap;
+    color: var(--color-text);
+}
+
+.crm-page .dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 2px;
+}
+
+.crm-page .pill.new .dot { background: var(--color-text); }
+.crm-page .pill.contacted .dot { background: var(--warning); }
+.crm-page .pill.qualified .dot { background: #60a5fa; }
+.crm-page .pill.won .dot { background: var(--success); }
+.crm-page .pill.lost .dot { background: var(--danger); }
+
+.crm-page .empty {
+    padding: 2rem 1rem;
+    text-align: center;
+    color: var(--color-muted);
+}
+
+.crm-page .empty strong {
+    display: block;
+    font-family: var(--font-display);
+    font-size: 1.35rem;
+    font-weight: 700;
+    color: var(--color-text);
+    margin-bottom: 0.3rem;
+}
+
+/* Drawer */
+.crm-page .drawer-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(22, 35, 56, 0.2);
+    z-index: 40;
+    display: none;
+    backdrop-filter: blur(4px);
+}
+
+.crm-page .drawer-backdrop.visible {
+    display: block;
+}
+
+.crm-page .drawer {
+    position: fixed;
+    top: 0;
+    right: 0;
+    width: min(480px, 94vw);
+    height: 100vh;
+    background: var(--color-bg-elevated);
+    border-left: 1px solid var(--color-border);
+    box-shadow: -8px 0 32px rgba(22, 35, 56, 0.08);
+    transform: translateX(102%);
+    transition: transform 0.28s ease;
+    z-index: 45;
+    display: grid;
+    grid-template-rows: auto 1fr auto;
+}
+
+.drawer.visible {
+    transform: translateX(0);
+}
+
+.crm-page .drawer-head {
+    padding: 1.25rem 1.5rem;
+    border-bottom: 1px solid var(--color-border);
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+}
+
+.crm-page .drawer-head h2 {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 1.25rem;
+    line-height: 1.2;
+    color: var(--color-text);
+}
+
+.crm-page .drawer-close {
+    width: 36px;
+    height: 36px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--color-border);
+    background: var(--color-surface-strong);
+    color: var(--color-text);
+    font-size: 1.2rem;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.crm-page .drawer-body {
+    overflow: auto;
+    padding: 1.25rem 1.5rem;
+}
+
+.crm-page .drawer-section {
+    border: 1px solid var(--color-border);
+    background: var(--color-bg-elevated);
+    border-radius: var(--radius-sm);
+    padding: 1rem;
+    margin-bottom: 0.75rem;
+}
+
+.crm-page .drawer-section h3 {
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--color-muted);
+    margin-bottom: 0.5rem;
+}
+
+.crm-page .kv {
+    display: grid;
+    gap: 0.5rem;
+}
+
+.crm-page .kv-row {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 1rem;
+    border-bottom: 1px solid var(--color-border);
+    padding-bottom: 0.5rem;
+}
+
+.crm-page .kv-row:last-child {
+    border-bottom: none;
+    padding-bottom: 0;
+}
+
+.crm-page .kv-row .k {
+    color: var(--color-muted);
+    font-size: 0.85rem;
+}
+
+.crm-page .kv-row .v {
+    font-weight: 600;
+    text-align: right;
+    max-width: 62%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: var(--color-text);
+}
+
+.crm-page .drawer-foot {
+    padding: 1rem 1.5rem;
+    border-top: 1px solid var(--color-border);
+    display: flex;
+    gap: 0.65rem;
+    justify-content: flex-end;
+    background: var(--color-surface-strong);
+}
+
+.crm-page .msg {
+    margin-top: 0.6rem;
+    font-size: 0.85rem;
+    color: var(--color-muted);
+}
+
+.crm-page .msg.error {
+    color: var(--color-danger);
+}
+
+.crm-page .report-card .report-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+}
+
+.crm-page .report-card .report-label {
+    font-size: 0.85rem;
+    color: var(--color-muted);
+}
+
+.crm-page .report-print-area {
+    padding: 1rem;
+    background: var(--color-bg-elevated);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    min-height: 120px;
+    color: var(--color-text);
+}
+
+.report-print-area table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+}
+
+.crm-page .report-print-area th,
+.crm-page .report-print-area td {
+    padding: 0.5rem 0.75rem;
+    text-align: left;
+    border: 1px solid var(--color-border);
+}
+
+.crm-page .report-print-area th {
+    font-weight: 600;
+    background: var(--color-surface);
+}
+
+.crm-page .report-print-area h2 {
+    font-family: var(--font-display);
+    font-size: 1.25rem;
+    font-weight: 700;
+    margin-bottom: 0.75rem;
+    color: var(--color-text);
+}
+
+.crm-page .report-print-area .report-meta {
+    font-size: 0.8rem;
+    color: var(--color-muted);
+    margin-bottom: 1rem;
+}
+
+@media print {
+    body * {
+        visibility: hidden;
+    }
+    #report-print-area,
+    #report-print-area * {
+        visibility: visible;
+    }
+    #report-print-area {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 100%;
+        padding: 1rem;
+        background: #fff;
+        color: #111;
+    }
+    #report-print-area th,
+    #report-print-area td {
+        border-color: #ccc;
+    }
+    .header,
+    .header-actions,
+    .report-toolbar,
+    .btn,
+    .filters,
+    .drawer-backdrop,
+    .drawer {
+        display: none !important;
+    }
+}
+
+@media (max-width: 980px) {
+    .grid-top {
+        grid-template-columns: 1fr;
+    }
+    .stats-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    thead th {
+        top: 78px;
+    }
+    .filters {
+        grid-template-columns: 1fr 1fr;
+    }
+    .filters .btn {
+        grid-column: 1 / -1;
+    }
+}

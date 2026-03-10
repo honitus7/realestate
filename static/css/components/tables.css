@@ -1,0 +1,36 @@
+/**
+ * Tables – clean, generous spacing, minimal borders.
+ */
+
+.data-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: var(--font-body);
+    font-size: 0.9rem;
+}
+
+.data-table th,
+.data-table td {
+    padding: 1rem 1.25rem;
+    text-align: left;
+    border-bottom: 1px solid var(--color-border);
+}
+
+.data-table th {
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--color-muted);
+    background: var(--color-bg-elevated);
+}
+
+.data-table tbody tr:hover {
+    background: var(--bg-elev-1);
+}
+
+.data-table .actions {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+}

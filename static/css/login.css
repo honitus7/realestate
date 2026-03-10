@@ -1,0 +1,251 @@
+/**
+ * Login page – minimal presentation style (off-white, soft beige, dark text).
+ */
+
+.login-page {
+    min-height: 100vh;
+    background: var(--color-bg);
+}
+
+.page-bg {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    overflow: hidden;
+    pointer-events: none;
+}
+
+.page-bg::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse 80% 50% at 50% 0%, rgba(22, 35, 56, 0.03) 0%, transparent 50%);
+}
+
+.page-grid {
+    position: fixed;
+    inset: 0;
+    z-index: 1;
+    background-image:
+        linear-gradient(rgba(22, 35, 56, 0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(22, 35, 56, 0.03) 1px, transparent 1px);
+    background-size: 48px 48px;
+    pointer-events: none;
+}
+
+.login-page .brand-pill--login {
+    position: fixed;
+    top: 1.5rem;
+    left: 1.5rem;
+    z-index: 6;
+}
+
+#main-content {
+    position: relative;
+    z-index: 2;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    padding: 2.5rem 1.5rem;
+}
+
+.login-page .auth-wrap {
+    width: 100%;
+    max-width: 400px;
+    animation: loginCardIn 0.4s ease-out forwards;
+}
+
+@keyframes loginCardIn {
+    from { opacity: 0; transform: translateY(12px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.login-page .auth-wrap .card {
+    position: relative;
+    background: var(--color-surface-strong);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    padding: 2rem 1.75rem;
+    box-shadow: var(--shadow);
+    overflow: hidden;
+}
+
+.login-page .auth-wrap .card::before {
+    display: none;
+}
+
+.login-page .card-head {
+    text-align: center;
+    margin-bottom: 1.75rem;
+}
+
+.login-page .card-head h1 {
+    font-family: var(--font-display);
+    font-size: 1.65rem;
+    font-weight: 700;
+    margin-bottom: 0.4rem;
+    letter-spacing: -0.02em;
+    color: var(--color-text);
+}
+
+.login-page .card-head .subtitle {
+    color: var(--color-muted);
+    font-size: 0.9rem;
+    line-height: 1.5;
+}
+
+.login-page .tabs {
+    display: flex;
+    background: var(--color-surface);
+    border-radius: var(--radius-sm);
+    padding: 4px;
+    margin-bottom: 1.5rem;
+    border: 1px solid var(--color-border);
+}
+
+.login-page .tab {
+    flex: 1;
+    padding: 0.6rem 1rem;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.88rem;
+    font-weight: 600;
+    color: var(--color-muted);
+    background: transparent;
+    border: none;
+    font-family: var(--font-body);
+    transition: color 0.2s, background 0.2s;
+}
+
+.login-page .tab:hover {
+    color: var(--color-text);
+}
+
+.login-page .tab.active {
+    color: var(--color-text);
+    background: var(--color-bg-elevated);
+    border: 1px solid var(--color-border);
+}
+
+.login-page .panel {
+    display: none;
+    animation: loginFadeIn 0.25s ease forwards;
+}
+
+.login-page .panel.active {
+    display: block;
+}
+
+@keyframes loginFadeIn {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.login-page .form-group {
+    margin-bottom: 1.1rem;
+}
+
+.login-page .form-label {
+    display: block;
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.03em;
+    color: var(--color-text);
+    margin-bottom: 0.4rem;
+}
+
+.login-page .form-input {
+    width: 100%;
+    padding: 0.75rem 0.9rem;
+    background: var(--color-bg-elevated);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    color: var(--color-text);
+    font-family: var(--font-body);
+    font-size: 0.9rem;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.login-page .form-input::placeholder {
+    color: var(--color-muted);
+}
+
+.login-page .form-input:focus {
+    outline: none;
+    border-color: var(--border-strong);
+    box-shadow: 0 0 0 3px rgba(22, 35, 56, 0.06);
+}
+
+.login-page .auth-wrap .btn {
+    width: 100%;
+    padding: 0.8rem 1.25rem;
+    margin-top: 0.25rem;
+}
+
+.login-page .link-row {
+    text-align: center;
+    margin-top: 1rem;
+}
+
+.login-page .link-row a {
+    color: var(--color-text);
+    text-decoration: none;
+    font-size: 0.875rem;
+    font-weight: 500;
+}
+
+.login-page .link-row a:hover {
+    text-decoration: underline;
+}
+
+.login-page .msg {
+    font-size: 0.85rem;
+    margin-top: 0.75rem;
+    padding: 0.5rem 0.75rem;
+    border-radius: var(--radius-sm);
+}
+
+.login-page .msg.error {
+    color: var(--color-danger);
+    background: rgba(239, 68, 68, 0.08);
+}
+
+.login-page .msg.success {
+    color: var(--color-success);
+    background: rgba(34, 197, 94, 0.08);
+}
+
+.login-page .loading {
+    text-align: center;
+    color: var(--color-muted);
+    padding: 2rem;
+    font-size: 0.9rem;
+}
+
+.login-page .hidden {
+    display: none !important;
+}
+
+.login-page .back-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    color: var(--color-muted);
+    text-decoration: none;
+    font-size: 0.875rem;
+    margin-bottom: 1rem;
+    cursor: pointer;
+}
+
+.login-page .back-link:hover {
+    color: var(--color-text);
+}
+
+@media (max-width: 640px) {
+    .login-page .brand-pill--login {
+        top: 1rem;
+        left: 1rem;
+    }
+}

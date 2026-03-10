@@ -7,106 +7,57 @@
     <title>PropMark - Plot Marker</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link
-        href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Syne:wght@400;500;600;700;800&display=swap"
-        rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/theme.css">
+    <link rel="stylesheet" href="/static/css/components/buttons.css">
+    <link rel="stylesheet" href="/static/css/components/cards.css">
+    <link rel="stylesheet" href="/static/css/components/layout.css">
     <script src="/static/js/supabase.min.js"></script>
     <style>
-        :root {
-            --color-bg: #0a0a0b;
-            --color-bg-elevated: #141416;
-            --color-bg-card: #1a1a1c;
-            --color-text: #f5f5f0;
-            --color-text-dim: #a0a0a0;
-            --color-accent: #c9a962;
-            --color-accent-dim: rgba(201, 169, 98, 0.3);
-            --color-accent-hover: #d4b06e;
-            --color-success: #4ade80;
-            --color-danger: #ef4444;
-            --color-border: rgba(255, 255, 255, 0.08);
-            --font-display: 'Instrument Serif', Georgia, serif;
-            --font-body: 'Syne', sans-serif;
-            --radius: 12px;
-            --radius-sm: 8px;
-        }
-
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        html,
-        body {
-            min-height: 100vh;
-            font-family: var(--font-body);
-            background: var(--color-bg);
-            color: var(--color-text);
-        }
-
-        body {
-            background:
-                radial-gradient(ellipse at 20% 0%, rgba(201, 169, 98, 0.08) 0%, transparent 50%),
-                radial-gradient(ellipse at 80% 100%, rgba(201, 169, 98, 0.05) 0%, transparent 50%),
-                var(--color-bg);
-        }
-
-        /* Header */
+        body { background: var(--color-bg); }
         .header {
-            padding: 2rem 3rem;
+            padding: 1.5rem 2.5rem;
             display: flex;
             justify-content: space-between;
             align-items: center;
             border-bottom: 1px solid var(--color-border);
+            background: var(--color-bg-elevated);
         }
-
         .header-nav {
             display: flex;
             align-items: center;
-            gap: 1.25rem;
+            gap: 1.5rem;
         }
-
         .header-nav a {
-            color: var(--color-text-dim);
+            color: var(--color-muted);
             text-decoration: none;
             font-size: 0.9rem;
+            font-weight: 500;
         }
-
-        .header-nav a:hover {
-            color: var(--color-accent);
-        }
-
-        /* Main Container */
+        .header-nav a:hover { color: var(--color-text); }
         .container {
-            max-width: 1200px;
+            max-width: var(--content-max-width);
             margin: 0 auto;
-            padding: 3rem 2rem;
+            padding: 2.5rem 2rem;
         }
-
-        /* Hero Section */
         .hero {
-            text-align: center;
-            margin-bottom: 4rem;
+            text-align: left;
+            margin-bottom: 2.5rem;
         }
-
         .hero-title {
             font-family: var(--font-display);
-            font-size: clamp(2.5rem, 6vw, 4rem);
-            font-weight: 400;
-            font-style: italic;
+            font-size: clamp(1.75rem, 4vw, 2.5rem);
+            font-weight: 700;
+            letter-spacing: -0.02em;
             line-height: 1.2;
-            margin-bottom: 1rem;
+            margin-bottom: 0.5rem;
+            color: var(--color-text);
         }
-
-        .hero-title span {
-            color: var(--color-accent);
-        }
-
+        .hero-title span { color: var(--color-text); }
         .hero-subtitle {
-            font-size: 1rem;
-            color: var(--color-text-dim);
-            max-width: 500px;
-            margin: 0 auto;
+            font-size: 0.95rem;
+            color: var(--color-muted);
+            max-width: 520px;
             line-height: 1.6;
         }
 
@@ -608,6 +559,7 @@
 
 <body>
     <header class="header">
+        <a href="/" class="brand-pill" aria-label="PropMark">PropMark</a>
         <nav class="header-nav" id="header-nav">
             <a href="/login" id="nav-login">Sign in</a>
             <a href="/users" id="nav-users" style="display:none;">Add user</a>

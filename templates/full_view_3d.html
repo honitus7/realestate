@@ -4,6 +4,15 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Full View – {{ org_name or '360' }}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Syne:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/theme.css">
+    <link rel="stylesheet" href="/static/css/components/buttons.css">
+    <link rel="stylesheet" href="/static/css/components/cards.css">
+    <link rel="stylesheet" href="/static/css/components/modals.css">
+    <link rel="stylesheet" href="/static/css/components/forms.css">
+    <link rel="stylesheet" href="/static/css/components/layout.css">
     <link rel="stylesheet" href="/static/vendor/photo-sphere-viewer/photo-sphere-viewer.css">
     <link rel="stylesheet" href="/static/vendor/photo-sphere-viewer/plugins/markers.css">
     <script src="/static/vendor/uevent/browser.js"></script>
@@ -11,16 +20,7 @@
     <script src="/static/vendor/photo-sphere-viewer/photo-sphere-viewer.js"></script>
     <script src="/static/vendor/photo-sphere-viewer/plugins/markers.js"></script>
     <style>
-        :root {
-            --color-bg: #b8c8d9;
-            --color-text: #162338;
-            --color-accent: #bf8c4a;
-            --color-muted: #58677b;
-            --font-body: system-ui, -apple-system, sans-serif;
-            --font-display: Georgia, 'Times New Roman', serif;
-        }
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        html, body { height: 100%; overflow: hidden; font-family: var(--font-body); background: var(--color-bg); color: var(--color-text); touch-action: none; }
+        html, body { height: 100%; overflow: hidden; touch-action: none; }
         #psv-container { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: var(--color-bg); cursor: grab; }
         .overlay-gradient { position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 5; background: linear-gradient(to bottom, rgba(248,252,255,0.22) 0%, transparent 24%, rgba(10,18,34,0.04) 78%, rgba(10,18,34,0.18) 100%); }
         .loading-overlay { position: fixed; inset: 0; z-index: 100; background: var(--color-bg); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1rem; }

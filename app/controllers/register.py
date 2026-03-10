@@ -65,7 +65,7 @@ from app.services.storage_service import (
     compress_marker_image,
     probe_image_dimensions,
 )
-from app.services.org_service import get_org_name_and_slug_for_panorama, get_org_theme_from_accent, slugify_org_name
+from app.services.org_service import get_org_name_and_slug_for_panorama, slugify_org_name
 from app.services.plot_service import fetch_plots, create_plot as plot_create, get_plot_panorama_id, delete_plot as plot_delete, update_plot as plot_update, update_plot_label_position as plot_update_label_position
 from app.config import (
     ALLOWED_EXTENSIONS,
@@ -245,9 +245,7 @@ def register_routes(app):
 
     @app.route('/login')
     def login_page():
-        cookie = request.cookies.get('org_accent')
-        org_theme = get_org_theme_from_accent(cookie) if cookie else None
-        return render_template('login.html', org_theme=org_theme, **auth_ctx())
+        return render_template('login.html', **auth_ctx())
 
     @app.route('/auth/callback')
     def auth_callback():
@@ -256,27 +254,19 @@ def register_routes(app):
     @app.route('/dashboard')
     @app.route('/dashboard/<user_id>')
     def dashboard(user_id=None):
-        cookie = request.cookies.get('org_accent')
-        org_theme = get_org_theme_from_accent(cookie) if cookie else None
-        return render_template('dashboard.html', user_id=user_id, org_theme=org_theme, **auth_ctx())
+        return render_template('dashboard.html', user_id=user_id, **auth_ctx())
 
     @app.route('/crm')
     def crm_page():
-        cookie = request.cookies.get('org_accent')
-        org_theme = get_org_theme_from_accent(cookie) if cookie else None
-        return render_template('crm.html', org_theme=org_theme, **auth_ctx())
+        return render_template('crm.html', **auth_ctx())
 
     @app.route('/organizations')
     def organizations_page():
-        cookie = request.cookies.get('org_accent')
-        org_theme = get_org_theme_from_accent(cookie) if cookie else None
-        return render_template('organizations.html', org_theme=org_theme, **auth_ctx())
+        return render_template('organizations.html', **auth_ctx())
 
     @app.route('/users')
     def users_page():
-        cookie = request.cookies.get('org_accent')
-        org_theme = get_org_theme_from_accent(cookie) if cookie else None
-        return render_template('add_user.html', org_theme=org_theme, **auth_ctx())
+        return render_template('add_user.html', **auth_ctx())
 
     @app.route('/panorama/<int:panorama_id>/access')
     def panorama_access_page(panorama_id):

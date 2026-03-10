@@ -1,962 +1,181 @@
-<!DOCTYPE html>
-<html lang="en">
-
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard – PropMark</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link
-        href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Syne:wght@400;500;600;700;800&display=swap"
-        rel="stylesheet">
-    <script src="/static/js/supabase.min.js"></script>
-    <script src="/static/js/org_theme.js"></script>
-    <style>
-        :root {
-            --color-bg: #0a0a0b;
-            --color-bg-elevated: #141416;
-            --color-bg-card: #1a1a1c;
-            --color-text: #f5f5f0;
-            --color-text-dim: #a0a0a0;
-            --color-accent: #c9a962;
-            --color-accent-dim: rgba(201, 169, 98, 0.3);
-            --color-accent-hover: #d4b06e;
-            --color-success: #4ade80;
-            --color-danger: #ef4444;
-            --color-border: rgba(255, 255, 255, 0.08);
-            --font-display: 'Instrument Serif', Georgia, serif;
-            --font-body: 'Syne', sans-serif;
-            --radius: 12px;
-            --radius-sm: 8px;
-        }
-        {% if org_theme %}
-        :root {
-            --color-accent: {{ org_theme.accent }};
-            --color-accent-dim: {{ org_theme.accent_dim }};
-            --color-accent-hover: {{ org_theme.accent_hover }};
-            --accent: {{ org_theme.accent }};
-            --accent-2: {{ org_theme.accent_hover }};
-        }
-        {% endif %}
-
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        html,
-        body {
-            min-height: 100vh;
-            font-family: var(--font-body);
-            background: var(--color-bg);
-            color: var(--color-text);
-        }
-
-        body {
-            background:
-                radial-gradient(ellipse at 20% 0%, rgba(201, 169, 98, 0.08) 0%, transparent 50%),
-                radial-gradient(ellipse at 80% 100%, rgba(201, 169, 98, 0.05) 0%, transparent 50%),
-                var(--color-bg);
-        }
-
-        /* Header */
-        .header {
-            padding: 2rem 3rem;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            border-bottom: 1px solid var(--color-border);
-        }
-
-        .header-nav {
-            display: flex;
-            align-items: center;
-            gap: 1.25rem;
-        }
-
-        .header-logo {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            text-decoration: none;
-        }
-
-        .header-logo img {
-            height: 42px;
-            width: auto;
-            object-fit: contain;
-            filter: drop-shadow(0 10px 18px rgba(0, 0, 0, 0.35));
-        }
-
-        .header-nav a {
-            color: var(--color-text-dim);
-            text-decoration: none;
-            font-size: 0.9rem;
-        }
-
-        .header-nav a:hover {
-            color: var(--color-accent);
-        }
-
-        /* Main Container */
-        .container {
-            max-width: 1360px;
-            margin: 0 auto;
-            padding: 3rem 2rem;
-        }
-
-        .dashboard-layout {
-            display: grid;
-            grid-template-columns: minmax(260px, 320px) minmax(0, 1fr);
-            gap: 1.5rem;
-            align-items: start;
-        }
-
-        .dashboard-main {
-            min-width: 0;
-        }
-
-        .workspace-panel {
-            position: sticky;
-            top: 1.25rem;
-            background: linear-gradient(180deg, rgba(26, 26, 28, 0.98), rgba(15, 15, 16, 0.94));
-            border: 1px solid var(--color-border);
-            border-radius: var(--radius);
-            padding: 1rem;
-            box-shadow: 0 18px 40px rgba(0, 0, 0, 0.24);
-        }
-
-        .workspace-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 0.85rem;
-        }
-
-        .workspace-title {
-            font-size: 0.75rem;
-            text-transform: uppercase;
-            letter-spacing: 0.18em;
-            color: var(--color-accent);
-            font-weight: 700;
-        }
-
-        .workspace-list {
-            display: flex;
-            flex-direction: column;
-            gap: 0.5rem;
-            transition: opacity 0.18s ease-out;
-        }
-
-        .workspace-item {
-            position: relative;
-            width: 100%;
-            text-align: left;
-            border: 1px solid var(--color-border);
-            border-radius: var(--radius-sm);
-            background: rgba(255, 255, 255, 0.01);
-            color: var(--color-text);
-            padding: 0.72rem 0.7rem;
-            cursor: pointer;
-            transition: border-color 0.2s ease, background 0.2s ease, transform 0.2s ease;
-        }
-
-        .workspace-item:hover {
-            border-color: rgba(201, 169, 98, 0.45);
-            transform: translateY(-1px);
-        }
-
-        .workspace-item.active {
-            background: rgba(201, 169, 98, 0.09);
-            border-color: rgba(201, 169, 98, 0.55);
-        }
-
-        .workspace-item.drop-target {
-            border-color: var(--color-success);
-            background: rgba(74, 222, 128, 0.12);
-        }
-
-        .workspace-label {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 0.4rem;
-            font-size: 0.84rem;
-            font-weight: 600;
-        }
-
-        .workspace-count {
-            font-size: 0.7rem;
-            color: var(--color-text-dim);
-        }
-
-        .workspace-meta {
-            margin-top: 0.35rem;
-            font-size: 0.68rem;
-            color: var(--color-text-dim);
-            text-transform: uppercase;
-            letter-spacing: 0.08em;
-        }
-
-        .workspace-actions {
-            margin-top: 0.45rem;
-            display: flex;
-            gap: 0.45rem;
-            flex-wrap: wrap;
-        }
-
-        .workspace-action {
-            border: 1px solid var(--color-border);
-            border-radius: 999px;
-            background: transparent;
-            color: var(--color-text-dim);
-            font-size: 0.66rem;
-            padding: 0.25rem 0.6rem;
-            cursor: pointer;
-            transition: border-color 0.2s ease, color 0.2s ease;
-        }
-
-        .workspace-action:hover {
-            border-color: var(--color-accent-dim);
-            color: var(--color-accent);
-        }
-
-        .workspace-action.delete:hover {
-            border-color: rgba(239, 68, 68, 0.5);
-            color: var(--color-danger);
-        }
-
-        /* Hero Section */
-        .hero {
-            text-align: center;
-            margin-bottom: 4rem;
-        }
-
-        .hero-title {
-            font-family: var(--font-display);
-            font-size: clamp(2.5rem, 6vw, 4rem);
-            font-weight: 400;
-            font-style: italic;
-            line-height: 1.2;
-            margin-bottom: 1rem;
-        }
-
-        .hero-title span {
-            color: var(--color-accent);
-        }
-
-        .hero-subtitle {
-            font-size: 1rem;
-            color: var(--color-text-dim);
-            max-width: 500px;
-            margin: 0 auto;
-            line-height: 1.6;
-        }
-
-        /* Upload Section */
-        .upload-section {
-            margin-bottom: 2.6rem;
-        }
-
-        .section-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 1.5rem;
-        }
-
-        .section-title {
-            font-size: 0.75rem;
-            text-transform: uppercase;
-            letter-spacing: 0.2em;
-            color: var(--color-accent);
-            font-weight: 600;
-        }
-
-        /* Upload Zone */
-        .upload-zone {
-            background: var(--color-bg-card);
-            border: 2px dashed var(--color-border);
-            border-radius: var(--radius);
-            padding: 3rem 2rem;
-            text-align: center;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            position: relative;
-            overflow: hidden;
-        }
-
-        .upload-zone:hover {
-            border-color: var(--color-accent-dim);
-            background: var(--color-bg-elevated);
-        }
-
-        .upload-zone.dragover {
-            border-color: var(--color-accent);
-            background: rgba(201, 169, 98, 0.05);
-        }
-
-        .upload-zone.uploading {
-            pointer-events: none;
-        }
-
-        .upload-icon {
-            font-size: 3rem;
-            margin-bottom: 1rem;
-            opacity: 0.6;
-        }
-
-        .upload-text {
-            font-size: 1.1rem;
-            margin-bottom: 0.5rem;
-            color: var(--color-text);
-        }
-
-        .upload-hint {
-            font-size: 0.8rem;
-            color: var(--color-text-dim);
-        }
-
-        .upload-input {
-            display: none;
-        }
-
-        /* Upload Form (appears after file selection) */
-        .upload-form {
-            display: none;
-            margin-top: 1.5rem;
-            padding-top: 1.5rem;
-            border-top: 1px solid var(--color-border);
-        }
-
-        .upload-form.visible {
-            display: block;
-        }
-
-        .upload-preview {
-            display: flex;
-            gap: 1.5rem;
-            align-items: center;
-            margin-bottom: 1.5rem;
-        }
-
-        .preview-image {
-            width: 120px;
-            height: 80px;
-            object-fit: cover;
-            border-radius: var(--radius-sm);
-            background: var(--color-bg);
-        }
-
-        .preview-info {
-            text-align: left;
-            flex: 1;
-        }
-
-        .preview-filename {
-            font-size: 0.9rem;
-            margin-bottom: 0.25rem;
-            color: var(--color-text);
-        }
-
-        .preview-size {
-            font-size: 0.75rem;
-            color: var(--color-text-dim);
-        }
-
-        .form-row {
-            display: flex;
-            gap: 1rem;
-            margin-bottom: 1rem;
-        }
-
-        .form-group {
-            flex: 1;
-        }
-
-        .form-label {
-            display: block;
-            font-size: 0.7rem;
-            text-transform: uppercase;
-            letter-spacing: 0.1em;
-            color: var(--color-text-dim);
-            margin-bottom: 0.5rem;
-        }
-
-        .form-input {
-            width: 100%;
-            padding: 0.75rem 1rem;
-            background: var(--color-bg);
-            border: 1px solid var(--color-border);
-            border-radius: var(--radius-sm);
-            color: var(--color-text);
-            font-family: var(--font-body);
-            font-size: 0.9rem;
-            transition: border-color 0.2s;
-        }
-
-        .form-input:focus {
-            outline: none;
-            border-color: var(--color-accent);
-        }
-
-        .form-actions {
-            display: flex;
-            gap: 1rem;
-            justify-content: flex-end;
-        }
-
-        /* Buttons */
-        .btn {
-            padding: 0.75rem 1.5rem;
-            border-radius: var(--radius-sm);
-            font-family: var(--font-body);
-            font-size: 0.85rem;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.2s ease;
-            text-decoration: none;
-            display: inline-flex;
-            align-items: center;
-            gap: 0.5rem;
-            border: none;
-        }
-
-        .btn-primary {
-            background: var(--color-accent);
-            color: var(--color-bg);
-        }
-
-        .btn-primary:hover {
-            background: var(--color-accent-hover);
-        }
-
-        .btn-secondary {
-            background: transparent;
-            border: 1px solid var(--color-border);
-            color: var(--color-text-dim);
-        }
-
-        .btn-secondary:hover {
-            border-color: var(--color-text-dim);
-            color: var(--color-text);
-        }
-
-        .btn-danger {
-            background: rgba(239, 68, 68, 0.1);
-            color: var(--color-danger);
-        }
-
-        .btn-danger:hover {
-            background: rgba(239, 68, 68, 0.2);
-        }
-
-        /* Progress Bar */
-        .upload-progress {
-            display: none;
-            margin-top: 1rem;
-        }
-
-        .upload-progress.visible {
-            display: block;
-        }
-
-        .progress-bar {
-            height: 4px;
-            background: var(--color-border);
-            border-radius: 2px;
-            overflow: hidden;
-        }
-
-        .progress-fill {
-            height: 100%;
-            background: var(--color-accent);
-            border-radius: 2px;
-            transition: width 0.3s ease;
-        }
-
-        .progress-text {
-            font-size: 0.75rem;
-            color: var(--color-text-dim);
-            margin-top: 0.5rem;
-            text-align: center;
-        }
-
-        /* Projects Grid */
-        .projects-section {
-            margin-bottom: 3rem;
-        }
-
-        .projects-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-            gap: 1.5rem;
-        }
-
-        .project-card {
-            background: var(--color-bg-card);
-            border-radius: var(--radius);
-            overflow: hidden;
-            border: 1px solid var(--color-border);
-            transition: all 0.3s ease;
-            cursor: pointer;
-        }
-
-        .project-card.owner-draggable {
-            cursor: grab;
-        }
-
-        .project-card.owner-draggable.is-dragging {
-            opacity: 0.48;
-            transform: scale(0.99);
-        }
-
-        .project-card:hover {
-            border-color: var(--color-accent-dim);
-            transform: translateY(-4px);
-            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
-        }
-
-        .project-image {
-            width: 100%;
-            height: 180px;
-            object-fit: cover;
-            background: var(--color-bg);
-        }
-        .project-image.loading-placeholder {
-            background-image: linear-gradient(90deg, var(--color-bg) 0%, rgba(255,255,255,0.03) 50%, var(--color-bg) 100%);
-            background-size: 200% 100%;
-            animation: skeleton-shimmer 1.2s ease-in-out infinite;
-        }
-        .projects-container-transition {
-            transition: opacity 0.18s ease-out;
-        }
-
-        .project-content {
-            padding: 1.25rem;
-        }
-
-        .project-name {
-            font-size: 1.1rem;
-            font-weight: 600;
-            margin-bottom: 0.5rem;
-            color: var(--color-text);
-        }
-
-        .project-main-badge {
-            display: inline-block;
-            font-size: 0.65rem;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.04em;
-            padding: 0.15rem 0.4rem;
-            margin-left: 0.35rem;
-            border-radius: 4px;
-            background: var(--color-accent);
-            color: var(--color-bg);
-        }
-
-        .project-meta {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            font-size: 0.75rem;
-            color: var(--color-text-dim);
-        }
-
-        .project-plots {
-            display: flex;
-            align-items: center;
-            gap: 0.35rem;
-            color: var(--color-accent);
-            font-weight: 600;
-        }
-
-        .project-date {
-            opacity: 0.7;
-        }
-
-        .project-actions {
-            display: flex;
-            gap: 0.5rem;
-            padding: 0 1.25rem 1.25rem;
-        }
-
-        .project-btn {
-            flex: 1;
-            padding: 0.6rem;
-            font-size: 0.75rem;
-            text-align: center;
-            border-radius: var(--radius-sm);
-            cursor: pointer;
-            transition: all 0.2s;
-            border: none;
-            font-family: var(--font-body);
-            font-weight: 600;
-        }
-
-        .project-btn.edit {
-            background: var(--color-accent);
-            color: var(--color-bg);
-        }
-
-        .project-btn.edit:hover {
-            background: var(--color-accent-hover);
-        }
-
-        .project-btn.rename {
-            background: rgba(201, 169, 98, 0.14);
-            color: var(--color-accent);
-            border: 1px solid rgba(201, 169, 98, 0.35);
-        }
-
-        .project-btn.rename:hover {
-            background: rgba(201, 169, 98, 0.24);
-            border-color: rgba(201, 169, 98, 0.55);
-        }
-
-        .project-btn.delete {
-            background: rgba(239, 68, 68, 0.1);
-            color: var(--color-danger);
-        }
-
-        .project-btn.delete:hover {
-            background: rgba(239, 68, 68, 0.2);
-        }
-
-        /* Empty State */
-        .empty-state {
-            text-align: center;
-            padding: 4rem 2rem;
-            color: var(--color-text-dim);
-        }
-
-        .empty-icon {
-            font-size: 4rem;
-            margin-bottom: 1rem;
-            opacity: 0.3;
-        }
-
-        .empty-text {
-            font-size: 1rem;
-            margin-bottom: 0.5rem;
-        }
-
-        .empty-hint {
-            font-size: 0.85rem;
-            opacity: 0.7;
-        }
-
-        /* Loading Spinner */
-        .loading {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            padding: 3rem;
-        }
-
-        .spinner {
-            width: 40px;
-            height: 40px;
-            border: 3px solid var(--color-border);
-            border-top-color: var(--color-accent);
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-        }
-
-        @keyframes spin {
-            to {
-                transform: rotate(360deg);
-            }
-        }
-
-        /* Skeleton placeholders */
-        .skeleton-card {
-            background: var(--color-bg-card);
-            border-radius: var(--radius);
-            overflow: hidden;
-            border: 1px solid var(--color-border);
-        }
-        .skeleton-image {
-            width: 100%;
-            height: 180px;
-            background: var(--color-bg);
-            background-image: linear-gradient(90deg, var(--color-bg) 0%, rgba(255,255,255,0.04) 50%, var(--color-bg) 100%);
-            background-size: 200% 100%;
-            animation: skeleton-shimmer 1.2s ease-in-out infinite;
-        }
-        .skeleton-content { padding: 1.25rem; }
-        .skeleton-line {
-            height: 0.75rem;
-            border-radius: 4px;
-            background: rgba(255,255,255,0.06);
-            margin-bottom: 0.5rem;
-        }
-        .skeleton-line.short { width: 40%; }
-        .skeleton-line.medium { width: 70%; }
-        .skeleton-workspace-item {
-            height: 4rem;
-            border-radius: var(--radius-sm);
-            background: rgba(255,255,255,0.02);
-            background-image: linear-gradient(90deg, rgba(255,255,255,0.02) 0%, rgba(255,255,255,0.05) 50%, rgba(255,255,255,0.02) 100%);
-            background-size: 200% 100%;
-            animation: skeleton-shimmer 1.2s ease-in-out infinite;
-        }
-        @keyframes skeleton-shimmer {
-            0% { background-position: 200% 0; }
-            100% { background-position: -200% 0; }
-        }
-
-        /* Delete Confirmation Modal */
-        .modal-backdrop {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.8);
-            z-index: 100;
-            display: none;
-            align-items: center;
-            justify-content: center;
-            backdrop-filter: blur(5px);
-        }
-
-        .modal-backdrop.visible {
-            display: flex;
-        }
-
-        .modal {
-            background: var(--color-bg-card);
-            border-radius: var(--radius);
-            padding: 2rem;
-            max-width: 400px;
-            width: 90%;
-            border: 1px solid var(--color-border);
-        }
-
-        .modal-title {
-            font-family: var(--font-display);
-            font-size: 1.5rem;
-            font-style: italic;
-            margin-bottom: 1rem;
-        }
-
-        .modal-text {
-            color: var(--color-text-dim);
-            margin-bottom: 1.5rem;
-            line-height: 1.6;
-        }
-
-        .msg.error {
-            font-size: 0.85rem;
-            color: var(--color-danger);
-        }
-
-        .modal-actions {
-            display: flex;
-            gap: 1rem;
-            justify-content: flex-end;
-        }
-
-        /* Toast Notifications */
-        .toast-container {
-            position: fixed;
-            bottom: 2rem;
-            right: 2rem;
-            z-index: 200;
-            display: flex;
-            flex-direction: column;
-            gap: 0.75rem;
-        }
-
-        .toast {
-            background: var(--color-bg-card);
-            border: 1px solid var(--color-border);
-            border-radius: var(--radius-sm);
-            padding: 1rem 1.5rem;
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-            animation: slideIn 0.3s ease;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
-        }
-
-        .toast.success {
-            border-color: var(--color-success);
-        }
-
-        .toast.error {
-            border-color: var(--color-danger);
-        }
-
-        @keyframes slideIn {
-            from {
-                opacity: 0;
-                transform: translateX(100%);
-            }
-
-            to {
-                opacity: 1;
-                transform: translateX(0);
-            }
-        }
-
-        /* Responsive */
-        @media (max-width: 768px) {
-            .header {
-                padding: 1.5rem;
-            }
-
-            .container {
-                padding: 2rem 1.5rem;
-            }
-
-            .dashboard-layout {
-                grid-template-columns: 1fr;
-            }
-
-            .workspace-panel {
-                position: static;
-            }
-
-            .upload-preview {
-                flex-direction: column;
-                text-align: center;
-            }
-
-            .preview-info {
-                text-align: center;
-            }
-
-            .form-row {
-                flex-direction: column;
-            }
-
-            .projects-grid {
-                grid-template-columns: 1fr;
-            }
-        }
-    </style>
-</head>
-
-<body>
-    <header class="header">
-        <nav class="header-nav" id="header-nav">
-            <a href="/users" id="nav-users" style="display:none;">Add user</a>
-            <a href="/crm" id="nav-crm" style="display:none;">Customer Relation</a>
-            <a href="/organizations" id="nav-orgs" style="display:none;">Organizations</a>
-            <a href="#" id="nav-change-password">Change password</a>
-            <a href="/login" id="nav-logout">Sign out</a>
+{% extends 'base.html' %}
+{% block title %}Dashboard – PropMark{% endblock %}
+{% block head_css %}
+<link rel="stylesheet" href="/static/css/dashboard.css">
+{% endblock %}
+{% block content %}
+<div class="dashboard-page" id="dashboard-page">
+    <!-- Collapsible left sidebar -->
+    <aside class="dashboard-sidebar" id="dashboard-sidebar" aria-label="Navigation">
+        <button type="button" class="sidebar-toggle" id="sidebar-toggle" aria-label="Toggle sidebar">
+            <span class="sidebar-toggle-icon"></span>
+        </button>
+        <div class="sidebar-upload-wrap">
+            <button type="button" class="sidebar-upload-btn" id="sidebar-upload-btn" aria-label="Upload panorama">
+                <span class="sidebar-upload-icon">+</span>
+            </button>
+            <span class="sidebar-upload-label">Upload</span>
+        </div>
+        <nav class="sidebar-nav">
+            <a href="/dashboard" class="sidebar-link active" data-page="dashboard" aria-label="Dashboard">
+                <span class="sidebar-icon" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg></span>
+                <span class="sidebar-text">Dashboard</span>
+            </a>
+            <a href="/users" class="sidebar-link" id="nav-users" data-page="users" style="display:none;" aria-label="Add user">
+                <span class="sidebar-icon" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>
+                <span class="sidebar-text">Add user</span>
+            </a>
+            <a href="/crm" class="sidebar-link" id="nav-crm" data-page="crm" style="display:none;" aria-label="Customer Relation">
+                <span class="sidebar-icon" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>
+                <span class="sidebar-text">Customer Relation</span>
+            </a>
+            <a href="/organizations" class="sidebar-link" id="nav-orgs" data-page="organizations" style="display:none;" aria-label="Organizations">
+                <span class="sidebar-icon" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V9l-9-7-9 7z"/></svg></span>
+                <span class="sidebar-text">Organizations</span>
+            </a>
+            <a href="#" class="sidebar-link" id="nav-change-password" data-page="change-password" aria-label="Change password">
+                <span class="sidebar-icon" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></span>
+                <span class="sidebar-text">Change password</span>
+            </a>
+            <a href="/login" class="sidebar-link" id="nav-logout" data-page="logout" aria-label="Sign out">
+                <span class="sidebar-icon" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg></span>
+                <span class="sidebar-text">Sign out</span>
+            </a>
         </nav>
-        <a class="header-logo" href="/dashboard" aria-label="Dashboard">
-            <img src="/static/Logo.png" alt="Logo" loading="eager">
-        </a>
-    </header>
+        <div class="sidebar-footer">
+            <button type="button" class="sidebar-icon-btn" aria-label="Notifications"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg></button>
+            <div class="sidebar-avatar" id="sidebar-avatar" aria-label="Account">AM</div>
+        </div>
+    </aside>
 
-    <main class="container">
-        <!-- Hero -->
-        <section class="hero">
-            <h1 class="hero-title"><span id="org-name">PropMark</span> Plot Marker</h1>
-            <p class="hero-subtitle">Upload panoramic images and create interactive plot mappings for your real estate
-                properties</p>
-        </section>
+    <!-- Main content wrapper -->
+    <div class="dashboard-main-wrap">
+        <!-- Top bar: org name + subtext (constant) -->
+        <header class="dashboard-topbar">
+            <div class="dashboard-topbar-title">
+                <h1 class="dashboard-org-name" id="org-name">PropMark</h1>
+                <p class="dashboard-org-subtitle" id="org-subtitle">Plot Marker</p>
+            </div>
+        </header>
 
-        <div class="dashboard-layout">
-            <aside class="workspace-panel">
-                <div class="workspace-header">
-                    <div class="workspace-title">Workspaces</div>
-                    <button class="btn btn-primary" id="create-workspace-btn" style="padding:0.45rem 0.75rem; font-size:0.72rem;">New Folder</button>
-                </div>
-                <div class="workspace-list" id="workspace-list">
-                    <div class="skeleton-workspace-item"></div>
-                    <div class="skeleton-workspace-item"></div>
-                    <div class="skeleton-workspace-item"></div>
-                    <div class="skeleton-workspace-item"></div>
-                </div>
-            </aside>
+        <!-- Main content area -->
+        <main class="dashboard-content">
+            <!-- Search bar -->
+            <div class="dashboard-search-wrap">
+                <span class="dashboard-search-icon" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span>
+                <input type="search" class="dashboard-search-input" id="dashboard-search" placeholder="Search across all content" autocomplete="off">
+                <button type="button" class="dashboard-search-filter-btn" id="search-filter-btn" aria-label="Filters"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg></button>
+            </div>
 
-            <div class="dashboard-main">
-                <!-- Upload Section -->
-                <section class="upload-section">
-                    <div class="section-header">
-                        <h2 class="section-title">Create New Project</h2>
-                    </div>
+            <!-- Filters row -->
+            <div class="dashboard-filters">
+                <select class="dashboard-filter-select" id="filter-type" aria-label="Type">
+                    <option value="">Type</option>
+                    <option value="all">All</option>
+                    <option value="360">360°</option>
+                    <option value="flat">Flat</option>
+                </select>
+                <select class="dashboard-filter-select" id="filter-date" aria-label="Date modified">
+                    <option value="">Date modified</option>
+                    <option value="recent">Recent</option>
+                    <option value="oldest">Oldest first</option>
+                </select>
+                <button type="button" class="dashboard-filter-btn" id="create-workspace-btn">New Folder</button>
+            </div>
 
-                    <div class="upload-zone" id="upload-zone">
-                        <div class="upload-icon">📷</div>
-                        <div class="upload-text">Drag & drop your panorama image here</div>
-                        <div class="upload-hint">or click to browse • JPG, PNG, WebP up to 50MB</div>
-                        <input type="file" class="upload-input" id="upload-input" accept="image/*">
-
-                        <div class="upload-form" id="upload-form">
-                            <div class="upload-preview">
-                                <img src="" alt="Preview" class="preview-image" id="preview-image">
-                                <div class="preview-info">
-                                    <div class="preview-filename" id="preview-filename">filename.jpg</div>
-                                    <div class="preview-size" id="preview-size">2.5 MB • 8064 × 4536</div>
-                                </div>
-                            </div>
-
-                            <div class="form-row">
-                                <div class="form-group">
-                                    <label class="form-label">Project Name</label>
-                                    <input type="text" class="form-input" id="project-name"
-                                        placeholder="e.g., Sunset Valley Estate">
-                                </div>
-                            </div>
-
-                            <div class="form-row">
-                                <div class="form-group">
-                                    <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
-                                        <input type="checkbox" id="is-360" style="width: auto; cursor: pointer;">
-                                        <span style="font-size: 0.85rem; color: var(--color-text);">360° Equirectangular
-                                            Image</span>
-                                    </label>
-                                    <div
-                                        style="font-size: 0.7rem; color: var(--color-text-dim); margin-top: 0.25rem; margin-left: 1.75rem;">
-                                        Enable for full 360-degree spherical panoramas
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div class="form-actions">
-                                <button class="btn btn-secondary" id="cancel-upload">Cancel</button>
-                                <button class="btn btn-primary" id="start-upload">Create Project</button>
-                            </div>
-                        </div>
-
-                        <div class="upload-progress" id="upload-progress">
-                            <div class="progress-bar">
-                                <div class="progress-fill" id="progress-fill" style="width: 0%"></div>
-                            </div>
-                            <div class="progress-text" id="progress-text">Uploading...</div>
+            <!-- Recents: horizontal scroll of panorama cards -->
+            <section class="dashboard-section recents-section">
+                <h2 class="dashboard-section-title">Recents</h2>
+                <div class="recents-scroll-wrap">
+                    <div class="recents-track" id="recents-track">
+                        <div class="recents-skeleton" id="recents-skeleton">
+                            <div class="recent-card-skeleton"></div>
+                            <div class="recent-card-skeleton"></div>
+                            <div class="recent-card-skeleton"></div>
+                            <div class="recent-card-skeleton"></div>
                         </div>
                     </div>
-                </section>
+                    <div class="recents-arrow recents-arrow-right" id="recents-arrow-right" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg></div>
+                </div>
+            </section>
 
-                <!-- Projects Section -->
-                <section class="projects-section">
-                    <div class="section-header">
-                        <h2 class="section-title">Your Projects</h2>
+            <!-- Two columns: Folders (left) | Projects (right) -->
+            <div class="dashboard-two-col">
+                <aside class="dashboard-folders-col" aria-label="Folders">
+                    <h2 class="dashboard-section-title">Folders</h2>
+                    <div class="dashboard-folders-scroll">
+                        <div class="workspace-list" id="workspace-list">
+                            <div class="folder-card-skeleton"></div>
+                            <div class="folder-card-skeleton"></div>
+                            <div class="folder-card-skeleton"></div>
+                        </div>
                     </div>
-
-                    <div id="projects-container" class="projects-container-transition">
-                        <div class="projects-grid" id="projects-skeleton">
-                            <div class="skeleton-card"><div class="skeleton-image"></div><div class="skeleton-content"><div class="skeleton-line medium"></div><div class="skeleton-line short"></div></div></div>
-                            <div class="skeleton-card"><div class="skeleton-image"></div><div class="skeleton-content"><div class="skeleton-line medium"></div><div class="skeleton-line short"></div></div></div>
-                            <div class="skeleton-card"><div class="skeleton-image"></div><div class="skeleton-content"><div class="skeleton-line medium"></div><div class="skeleton-line short"></div></div></div>
-                            <div class="skeleton-card"><div class="skeleton-image"></div><div class="skeleton-content"><div class="skeleton-line medium"></div><div class="skeleton-line short"></div></div></div>
-                            <div class="skeleton-card"><div class="skeleton-image"></div><div class="skeleton-content"><div class="skeleton-line medium"></div><div class="skeleton-line short"></div></div></div>
-                            <div class="skeleton-card"><div class="skeleton-image"></div><div class="skeleton-content"><div class="skeleton-line medium"></div><div class="skeleton-line short"></div></div></div>
+                </aside>
+                <section class="dashboard-projects-col" aria-label="Projects">
+                    <h2 class="dashboard-section-title">Projects</h2>
+                    <div class="dashboard-projects-scroll">
+                        <div id="projects-container" class="projects-container-transition">
+                            <div class="projects-grid" id="projects-skeleton">
+                                <div class="skeleton-card"><div class="skeleton-image"></div><div class="skeleton-content"><div class="skeleton-line medium"></div><div class="skeleton-line short"></div></div></div>
+                                <div class="skeleton-card"><div class="skeleton-image"></div><div class="skeleton-content"><div class="skeleton-line medium"></div><div class="skeleton-line short"></div></div></div>
+                                <div class="skeleton-card"><div class="skeleton-image"></div><div class="skeleton-content"><div class="skeleton-line medium"></div><div class="skeleton-line short"></div></div></div>
+                            </div>
                         </div>
                     </div>
                 </section>
             </div>
+        </main>
+    </div>
+
+    <!-- Upload modal (opened from sidebar Upload button) -->
+    <div class="modal-backdrop" id="upload-modal">
+        <div class="modal upload-modal">
+            <div class="upload-modal-head">
+                <h2 class="modal-title">Upload panorama</h2>
+                <button type="button" class="modal-close" id="upload-modal-close" aria-label="Close">&times;</button>
+            </div>
+            <div class="upload-modal-body">
+                <div class="upload-zone" id="upload-zone">
+                    <div class="upload-icon">📷</div>
+                    <div class="upload-text">Drop files here</div>
+                    <div class="upload-hint">or use the Upload button in the sidebar • JPG, PNG, WebP up to 50MB</div>
+                    <input type="file" class="upload-input" id="upload-input" accept="image/*">
+                    <div class="upload-form" id="upload-form">
+                        <div class="upload-preview">
+                            <img src="" alt="Preview" class="preview-image" id="preview-image">
+                            <div class="preview-info">
+                                <div class="preview-filename" id="preview-filename">filename.jpg</div>
+                                <div class="preview-size" id="preview-size">2.5 MB • 8064 × 4536</div>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label class="form-label">Project Name</label>
+                                <input type="text" class="form-input" id="project-name" placeholder="e.g., Sunset Valley Estate">
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                                    <input type="checkbox" id="is-360" style="width: auto; cursor: pointer;">
+                                    <span style="font-size: 0.85rem; color: var(--color-text);">360° Equirectangular Image</span>
+                                </label>
+                                <div style="font-size: 0.7rem; color: var(--color-muted); margin-top: 0.25rem; margin-left: 1.75rem;">Enable for full 360-degree spherical panoramas</div>
+                            </div>
+                        </div>
+                        <div class="form-actions">
+                            <button class="btn btn-secondary" id="cancel-upload">Cancel</button>
+                            <button class="btn btn-primary" id="start-upload">Create Project</button>
+                        </div>
+                    </div>
+                    <div class="upload-progress" id="upload-progress">
+                        <div class="progress-bar"><div class="progress-fill" id="progress-fill" style="width: 0%"></div></div>
+                        <div class="progress-text" id="progress-text">Uploading...</div>
+                    </div>
+                </div>
+            </div>
         </div>
-    </main>
+    </div>
 
     <!-- Delete Confirmation Modal -->
     <div class="modal-backdrop" id="delete-modal">
@@ -1061,13 +280,14 @@
 
     <!-- Toast Container -->
     <div class="toast-container" id="toast-container"></div>
-
+</div>
+{% endblock %}
+{% block scripts %}
     <script>
         // Auth guard: must be logged in to view dashboard
         (function () {
-            var url = {{ (supabase_url or '')| tojson
-        }};
-        var key = {{ (supabase_anon_key or '')| tojson }};
+            var url = {{ (supabase_url or '')|tojson }};
+            var key = {{ (supabase_anon_key or '')|tojson }};
         if (!url || !key || !window.supabase) return;
         window._supabase = window.supabase.createClient(url, key);
         var supabase = window._supabase;
@@ -1087,7 +307,15 @@
                         currentUserRole = role;
                         var orgNameEl = document.getElementById('org-name');
                         var orgName = data && data.org && data.org.name ? String(data.org.name) : '';
-                        if (orgNameEl && orgName) orgNameEl.textContent = orgName;
+                        if (orgNameEl) orgNameEl.textContent = orgName || 'PropMark';
+                        var orgSubEl = document.getElementById('org-subtitle');
+                        if (orgSubEl) orgSubEl.textContent = 'Plot Marker';
+                        var avatarEl = document.getElementById('sidebar-avatar');
+                        if (avatarEl && profile) {
+                            var name = (profile.name || profile.email || '').trim();
+                            if (name.length >= 2) avatarEl.textContent = (name[0] + (name.indexOf(' ') >= 0 ? name[name.indexOf(' ') + 1] : name[1] || '')).toUpperCase();
+                            else if (name.length === 1) avatarEl.textContent = name[0].toUpperCase();
+                        }
                         var usersEl = document.getElementById('nav-users');
                         var orgsEl = document.getElementById('nav-orgs');
                         if (usersEl) usersEl.style.display = (role === 'admin' || role === 'superadmin') ? '' : 'none';
@@ -1155,6 +383,56 @@
             window.location.replace('/login');
         });
         }) ();
+
+        (function initSidebarAndUploadModal() {
+            var sidebar = document.getElementById('dashboard-sidebar');
+            var toggle = document.getElementById('sidebar-toggle');
+            var uploadBtn = document.getElementById('sidebar-upload-btn');
+            var uploadModal = document.getElementById('upload-modal');
+            var uploadModalClose = document.getElementById('upload-modal-close');
+            var cancelUploadEl = document.getElementById('cancel-upload');
+            var recentsTrack = document.getElementById('recents-track');
+            var recentsArrowRight = document.getElementById('recents-arrow-right');
+            var searchInput = document.getElementById('dashboard-search');
+            var filterType = document.getElementById('filter-type');
+            var filterDate = document.getElementById('filter-date');
+            if (toggle && sidebar) {
+                var collapsed = localStorage.getItem('dashboard-sidebar-collapsed') === '1';
+                if (collapsed) sidebar.classList.add('sidebar-collapsed');
+                toggle.addEventListener('click', function () {
+                    sidebar.classList.toggle('sidebar-collapsed');
+                    localStorage.setItem('dashboard-sidebar-collapsed', sidebar.classList.contains('sidebar-collapsed') ? '1' : '0');
+                });
+            }
+            if (uploadBtn && uploadModal) {
+                uploadBtn.addEventListener('click', function () {
+                    uploadModal.classList.add('visible');
+                });
+            }
+            if (uploadModalClose && uploadModal) {
+                uploadModalClose.addEventListener('click', function () { uploadModal.classList.remove('visible'); });
+            }
+            uploadModal && uploadModal.addEventListener('click', function (e) {
+                if (e.target === uploadModal) uploadModal.classList.remove('visible');
+            });
+            if (cancelUploadEl && uploadModal) {
+                cancelUploadEl.addEventListener('click', function () {
+                    uploadModal.classList.remove('visible');
+                });
+            }
+            if (recentsArrowRight && recentsTrack) {
+                recentsArrowRight.addEventListener('click', function () {
+                    recentsTrack.scrollBy({ left: 280, behavior: 'smooth' });
+                });
+            }
+            function onSearchOrFilterChange() {
+                if (typeof renderRecents === 'function') renderRecents();
+                if (typeof renderProjects === 'function') renderProjects();
+            }
+            if (searchInput) searchInput.addEventListener('input', onSearchOrFilterChange);
+            if (filterType) filterType.addEventListener('change', onSearchOrFilterChange);
+            if (filterDate) filterDate.addEventListener('change', onSearchOrFilterChange);
+        })();
 
         let dashboardInitStarted = false;
 
@@ -1264,6 +542,28 @@
             setCrmNavVisible(roleAllows || projectAllows);
         }
 
+        function getFilteredProjects() {
+            var list = getVisibleProjects();
+            var searchEl = document.getElementById('dashboard-search');
+            var typeEl = document.getElementById('filter-type');
+            var dateEl = document.getElementById('filter-date');
+            var q = (searchEl && searchEl.value) ? String(searchEl.value).trim().toLowerCase() : '';
+            if (q) {
+                list = list.filter(function (p) { return (p.name || '').toLowerCase().indexOf(q) !== -1; });
+            }
+            var typeVal = typeEl ? typeEl.value : '';
+            if (typeVal === '360') list = list.filter(function (p) { return Boolean(p.is_360); });
+            if (typeVal === 'flat') list = list.filter(function (p) { return !p.is_360; });
+            var dateVal = dateEl ? dateEl.value : '';
+            list = list.slice();
+            list.sort(function (a, b) {
+                var ta = (a.updated_at && new Date(a.updated_at).getTime()) || 0;
+                var tb = (b.updated_at && new Date(b.updated_at).getTime()) || 0;
+                return dateVal === 'oldest' ? ta - tb : tb - ta;
+            });
+            return list;
+        }
+
         function getWorkspaceById(workspaceId) {
             if (!workspaceId) return null;
             return workspaces.find(function (w) { return String(w.id) === String(workspaceId); }) || null;
@@ -1365,14 +665,14 @@
             });
 
             var items = '';
-            items += '<div class="workspace-item ' + (selectedWorkspaceKey === 'all' ? 'active' : '') + '" onclick="setWorkspaceSelection(\'all\')" ondragover="onWorkspaceDragOver(event)" ondragleave="onWorkspaceDragLeave(event)" ondrop="onWorkspaceDrop(event,\'all\')">';
-            items += '<div class="workspace-label"><span>All Projects</span><span class="workspace-count">' + projects.length + '</span></div>';
-            items += '<div class="workspace-meta">Everything</div>';
+            items += '<div class="folder-card folder-card--system ' + (selectedWorkspaceKey === 'all' ? 'active' : '') + '" onclick="setWorkspaceSelection(\'all\')" ondragover="onWorkspaceDragOver(event)" ondragleave="onWorkspaceDragLeave(event)" ondrop="onWorkspaceDrop(event,\'all\')">';
+            items += '<div class="folder-card-head"><span class="folder-card-title">All Projects</span><span class="folder-card-count">' + projects.length + '</span></div>';
+            items += '<p class="folder-card-subtitle">Everything</p>';
             items += '</div>';
 
-            items += '<div class="workspace-item ' + (selectedWorkspaceKey === 'unfiled' ? 'active' : '') + '" onclick="setWorkspaceSelection(\'unfiled\')" ondragover="onWorkspaceDragOver(event)" ondragleave="onWorkspaceDragLeave(event)" ondrop="onWorkspaceDrop(event,\'unfiled\')">';
-            items += '<div class="workspace-label"><span>Unfiled</span><span class="workspace-count">' + unfiledCount + '</span></div>';
-            items += '<div class="workspace-meta">No folder assigned</div>';
+            items += '<div class="folder-card folder-card--system ' + (selectedWorkspaceKey === 'unfiled' ? 'active' : '') + '" onclick="setWorkspaceSelection(\'unfiled\')" ondragover="onWorkspaceDragOver(event)" ondragleave="onWorkspaceDragLeave(event)" ondrop="onWorkspaceDrop(event,\'unfiled\')">';
+            items += '<div class="folder-card-head"><span class="folder-card-title">Unfiled</span><span class="folder-card-count">' + unfiledCount + '</span></div>';
+            items += '<p class="folder-card-subtitle">No folder assigned</p>';
             items += '</div>';
 
             workspaces.forEach(function (ws) {
@@ -1381,15 +681,15 @@
                 var isOwner = String(ws.access_type || 'owner') === 'owner';
                 var count = countByWorkspace[workspaceId] || 0;
                 if (!isOwner && count === 0) return;
-                items += '<div class="workspace-item ' + (selectedWorkspaceKey === wsKey ? 'active' : '') + '" onclick="setWorkspaceSelection(\'' + wsKey + '\')" ondragover="onWorkspaceDragOver(event)" ondragleave="onWorkspaceDragLeave(event)" ondrop="onWorkspaceDrop(event,\'' + wsKey + '\')">';
-                items += '<div class="workspace-label"><span>' + escapeHtml(ws.name || 'Workspace') + '</span><span class="workspace-count">' + count + '</span></div>';
-                items += '<div class="workspace-meta">' + (isOwner ? 'Owned folder' : ('Shared: ' + escapeHtml(ws.access_type || 'viewer'))) + '</div>';
+                items += '<div class="folder-card folder-card--owned ' + (selectedWorkspaceKey === wsKey ? 'active' : '') + '" onclick="setWorkspaceSelection(\'' + wsKey + '\')" ondragover="onWorkspaceDragOver(event)" ondragleave="onWorkspaceDragLeave(event)" ondrop="onWorkspaceDrop(event,\'' + wsKey + '\')">';
+                items += '<div class="folder-card-head"><span class="folder-card-title">' + escapeHtml(ws.name || 'Workspace') + '</span><span class="folder-card-count">' + count + '</span></div>';
+                items += '<p class="folder-card-subtitle">' + (isOwner ? 'Owned folder' : ('Shared: ' + escapeHtml(ws.access_type || 'viewer'))) + '</p>';
                 if (isOwner) {
-                    items += '<div class="workspace-actions">';
-                    items += '<button class="workspace-action" onclick="event.stopPropagation(); shareFullView(\'' + workspaceId + '\')">Share Full View</button>';
-                    items += '<button class="workspace-action" onclick="event.stopPropagation(); window.location.href=\'/workspace/' + workspaceId + '/access\'">Manage access</button>';
-                    items += '<button class="workspace-action" onclick="event.stopPropagation(); showRenameWorkspaceModal(\'' + workspaceId + '\')">Rename</button>';
-                    items += '<button class="workspace-action delete" onclick="event.stopPropagation(); showDeleteWorkspaceModal(\'' + workspaceId + '\')">Delete</button>';
+                    items += '<div class="folder-card-actions">';
+                    items += '<button type="button" class="folder-card-btn" onclick="event.stopPropagation(); shareFullView(\'' + workspaceId + '\')">Share Full View</button>';
+                    items += '<button type="button" class="folder-card-btn" onclick="event.stopPropagation(); window.location.href=\'/workspace/' + workspaceId + '/access\'">Manage access</button>';
+                    items += '<button type="button" class="folder-card-btn" onclick="event.stopPropagation(); showRenameWorkspaceModal(\'' + workspaceId + '\')">Rename</button>';
+                    items += '<button type="button" class="folder-card-btn folder-card-btn--danger" onclick="event.stopPropagation(); showDeleteWorkspaceModal(\'' + workspaceId + '\')">Delete</button>';
                     items += '</div>';
                 }
                 items += '</div>';
@@ -1618,9 +918,12 @@
                 const onCreated = function (project) {
                     showToast('Project created successfully!', 'success');
                     resetUploadForm();
+                    var um = document.getElementById('upload-modal');
+                    if (um) um.classList.remove('visible');
                     Promise.all([loadProjects(), loadWorkspaces()]).then(function () {
                         renderWorkspaces();
                         renderProjects();
+                        renderRecents();
                     });
                     setTimeout(() => {
                         openProjectWithAccessToken('admin', project.id, !!project.is_360);
@@ -1820,8 +1123,37 @@
             }
         }
 
+        function renderRecents() {
+            var track = document.getElementById('recents-track');
+            if (!track) return;
+            var list = getFilteredProjects();
+            list = list.slice().sort(function (a, b) {
+                var ta = (a.updated_at && new Date(a.updated_at).getTime()) || 0;
+                var tb = (b.updated_at && new Date(b.updated_at).getTime()) || 0;
+                return tb - ta;
+            });
+            if (list.length === 0) {
+                track.innerHTML = '<div class="recents-empty">No recent projects</div>';
+                return;
+            }
+            var accessType = function (p) { return p.access_type || 'owner'; };
+            var html = list.map(function (project) {
+                var at = accessType(project);
+                var isOwner = at === 'owner';
+                var openLabel = isOwner ? 'Open' : (at === 'client' ? 'Open as Client' : 'View');
+                var openFn = isOwner ? 'openEditor(' + project.id + ')' : "window.location.href='/panorama/" + project.id + "/client'";
+                return '<div class="recent-card" onclick="' + openFn + '">' +
+                    '<img src="/uploads/' + escapeHtml(project.filename) + '?size=thumb" alt="" class="recent-card-thumb loading-placeholder" loading="lazy" onload="this.classList.remove(\'loading-placeholder\')">' +
+                    '<div class="recent-card-body">' +
+                    '<div class="recent-card-title">' + escapeHtml(project.name || 'Untitled') + '</div>' +
+                    '<div class="recent-card-meta">Edited ' + formatDate(project.updated_at) + '</div>' +
+                    '</div></div>';
+            }).join('');
+            track.innerHTML = html;
+        }
+
         function renderProjects() {
-            const visibleProjects = getVisibleProjects();
+            const visibleProjects = getFilteredProjects();
             if (visibleProjects.length === 0) {
                 projectsContainer.innerHTML = `
                     <div class="empty-state">
@@ -1880,6 +1212,7 @@
             }).join('')}
                 </div>
             `;
+            if (typeof renderRecents === 'function') renderRecents();
         }
 
         async function movePanoramaWorkspace(panoramaId, targetKey) {
@@ -1927,7 +1260,7 @@
         function onProjectDragEnd(event) {
             draggingPanoramaId = null;
             if (event.currentTarget) event.currentTarget.classList.remove('is-dragging');
-            document.querySelectorAll('.workspace-item.drop-target').forEach(function (el) { el.classList.remove('drop-target'); });
+            document.querySelectorAll('.folder-card.drop-target').forEach(function (el) { el.classList.remove('drop-target'); });
         }
 
         function onWorkspaceDragOver(event) {
@@ -2294,6 +1627,4 @@
             });
         }
     </script>
-</body>
-
-</html>
+{% endblock %}
