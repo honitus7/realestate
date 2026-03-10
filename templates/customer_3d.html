@@ -2430,6 +2430,19 @@
             100% { transform: translateX(-50%) translateY(0); }
         }
 
+        @keyframes iconPulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.92; transform: scale(1.08); }
+        }
+
+        .psv-glass-marker.marker-icon-animated .marker-icon {
+            animation: iconPulse 2.2s ease-in-out infinite;
+        }
+
+        .psv-glass-marker.marker-icon-animated.marker-super .marker-tag {
+            animation: iconPulse 2.2s ease-in-out infinite;
+        }
+
         @keyframes shimmer {
             0% { background-position: 100% 0; }
             100% { background-position: 0 0; }
@@ -2558,6 +2571,7 @@
     <div class="viewer-actions">
         <button id="back-btn" class="viewer-action-btn" type="button" hidden>Back</button>
         <button id="view-cart-btn" class="viewer-action-btn cart" type="button">View Cart <span class="cart-badge" id="cart-count">0</span></button>
+        <button id="export-plots-btn" class="viewer-action-btn" type="button">Export Plots</button>
         <button id="toggle-overlays-btn" class="viewer-action-btn" type="button">Hide All</button>
         <button id="fullscreen-btn" class="viewer-action-btn" type="button">Fullscreen</button>
     </div>
@@ -2771,6 +2785,10 @@
                         <div class="detail-label">Description</div>
                         <div class="detail-value description" id="marker-readonly-description">—</div>
                     </div>
+                    <div class="detail-item marker-readonly-voiceover-wrap" id="marker-readonly-voiceover-wrap" style="display:none;">
+                        <div class="detail-label">Voice-over</div>
+                        <button type="button" class="modal-btn primary" id="play-marker-voiceover" aria-label="Play voice-over">Play voice-over</button>
+                    </div>
                 </div>
             </div>
             <div class="modal-actions">
@@ -2789,6 +2807,7 @@
         const CURRENT_PANORAMA_NAME = {{ (panorama.name or '')|tojson }};
         const IS_360 = 1; // Always 360 for 3D routes
         const ORG_SLUG = {{ (org_slug or '')|tojson }};
+        const USE_ANIMATED_ICONS = {{ (panorama.get('use_animated_icons', false) if panorama else false) | tojson }};
 
         const loading = document.getElementById('loading');
         const shareBtn = document.getElementById('share-btn');
@@ -2798,6 +2817,7 @@
         const plotDetailsModal = document.getElementById('plot-details-modal');
         const addToCartBtn = document.getElementById('add-to-cart-btn');
         const viewCartBtn = document.getElementById('view-cart-btn');
+        const exportPlotsBtn = document.getElementById('export-plots-btn');
         const cartCountEl = document.getElementById('cart-count');
         const cartModal = document.getElementById('cart-modal');
         const cartItemsEl = document.getElementById('cart-items');
@@ -3020,9 +3040,14 @@
             }
 
             if (Array.isArray(panoramaIndexCache)) {
+                const currentMeta = getPanoramaMeta(currentId);
+                const currentWorkspaceId = currentMeta && currentMeta.workspace_id != null ? String(currentMeta.workspace_id) : null;
                 panoramaIndexCache.forEach((row) => {
                     if (!row || !row.id) return;
                     if (!Boolean(row.is_360)) return;
+                    const rowWorkspaceId = row.workspace_id != null ? String(row.workspace_id) : null;
+                    const sameFolder = (currentWorkspaceId == null && rowWorkspaceId == null) || (currentWorkspaceId && rowWorkspaceId === currentWorkspaceId);
+                    if (!sameFolder) return;
                     add(row.id, 'index');
                 });
             }
@@ -3636,6 +3661,33 @@
             cartMessageEl.classList.toggle('error', type === 'error');
         }
 
+        function escapeCsvCell(value) {
+            if (value == null) return '';
+            const s = String(value).trim();
+            if (/[,\r\n"]/.test(s)) return '"' + s.replace(/"/g, '""') + '"';
+            return s;
+        }
+
+        function exportPlotsToCsv() {
+            const rows = Array.isArray(plots) ? plots : [];
+            if (rows.length === 0) {
+                if (typeof showToast === 'function') showToast('No plots to export', 'info');
+                return;
+            }
+            const cols = ['id', 'name', 'area', 'price', 'status', 'description', 'color', 'media_photo', 'media_video'];
+            const header = cols.map((c) => escapeCsvCell(c)).join(',');
+            const dataRows = rows.map((plot) => cols.map((c) => escapeCsvCell(plot[c])).join(','));
+            const csv = [header, ...dataRows].join('\r\n');
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `plots-export-${PANORAMA_ID}-${new Date().toISOString().slice(0, 10)}.csv`;
+            a.click();
+            URL.revokeObjectURL(url);
+            if (typeof showToast === 'function') showToast(`Exported ${rows.length} plot(s)`, 'success');
+        }
+
         function updateAddToCartButton(plot) {
             if (!addToCartBtn) return;
             if (!plot || !plot.id) {
@@ -3877,8 +3929,11 @@
                     color: document.getElementById('marker-readonly-color'),
                     description: document.getElementById('marker-readonly-description'),
                     mediaCol: document.getElementById('marker-readonly-media-col'),
-                    media: document.getElementById('marker-readonly-media')
+                    media: document.getElementById('marker-readonly-media'),
+                    voiceoverWrap: document.getElementById('marker-readonly-voiceover-wrap'),
+                    playVoiceoverBtn: document.getElementById('play-marker-voiceover')
                 };
+                this.voiceoverAudio = null;
                 this.bindUi();
             }
 
@@ -3902,6 +3957,33 @@
                         if (event.target === this.dom.modal) this.closeReadonly();
                     });
                 }
+                if (this.dom.playVoiceoverBtn) {
+                    this.dom.playVoiceoverBtn.addEventListener('click', () => this.playVoiceover());
+                }
+            }
+
+            playVoiceover() {
+                const markerId = this.selectedMarkerId;
+                if (!markerId) return;
+                const marker = this.markerMap.get(String(markerId));
+                if (!marker || !marker.voiceover_filename) return;
+                const btn = this.dom.playVoiceoverBtn;
+                if (btn) btn.disabled = true;
+                fetch(`/api/public/markers/${encodeURIComponent(markerId)}/voiceover`)
+                    .then((r) => r.ok ? r.json() : Promise.reject(new Error('Failed to load voice-over')))
+                    .then((data) => {
+                        if (data && data.url) {
+                            if (this.voiceoverAudio) {
+                                this.voiceoverAudio.pause();
+                                this.voiceoverAudio = null;
+                            }
+                            this.voiceoverAudio = new Audio(data.url);
+                            this.voiceoverAudio.play().catch(() => {});
+                            this.voiceoverAudio.onended = () => { if (btn) btn.disabled = false; };
+                            this.voiceoverAudio.onerror = () => { if (btn) btn.disabled = false; };
+                        } else if (btn) btn.disabled = false;
+                    })
+                    .catch(() => { if (btn) btn.disabled = false; });
             }
 
             init(viewer, markersPlugin) {
@@ -3970,8 +4052,11 @@
                     name: row.name || '',
                     description: row.description || '',
                     image_filename: row.image_filename || '',
+                    voiceover_filename: row.voiceover_filename || '',
                     image_object_url: '',
+                    image_thumb_url: '',
                     image_loading: false,
+                    image_loading_thumb: false,
                     marker_style: this.normalizeMarkerStyle(row.marker_style),
                     marker_icon: this.normalizeMarkerIcon(row.marker_icon),
                     marker_color: this.normalizeMarkerColor(row.marker_color),
@@ -4008,13 +4093,14 @@
                 const markerStyle = this.normalizeMarkerStyle(marker.marker_style);
                 const markerIcon = this.normalizeMarkerIcon(marker.marker_icon);
                 const markerRgb = hexToMarkerRgb(marker.marker_color);
+                const animatedClass = (typeof USE_ANIMATED_ICONS !== 'undefined' && USE_ANIMATED_ICONS) ? ' marker-icon-animated' : '';
                 let markerHtml = '';
                 if (markerStyle === 'super') {
-                    markerHtml = `<button class="psv-glass-marker marker-super ${statusClass}" type="button" data-marker-id="${this.escapeAttr(marker.id)}" aria-label="${this.escapeAttr(marker.name || 'Marker')}"><span class="marker-callout" aria-hidden="true"><span class="marker-tag">${this.escapeHtml(marker.name || 'Marker')}</span><span class="marker-stem"></span></span><span class="marker-base" aria-hidden="true"><span class="marker-ring-outer"></span><span class="marker-ring-inner"></span></span></button>`;
+                    markerHtml = `<button class="psv-glass-marker marker-super ${statusClass}${animatedClass}" type="button" data-marker-id="${this.escapeAttr(marker.id)}" aria-label="${this.escapeAttr(marker.name || 'Marker')}"><span class="marker-callout" aria-hidden="true"><span class="marker-tag">${this.escapeHtml(marker.name || 'Marker')}</span><span class="marker-stem"></span></span><span class="marker-base" aria-hidden="true"><span class="marker-ring-outer"></span><span class="marker-ring-inner"></span></span></button>`;
                 } else if (this.isPhotoMarkerStyle(markerStyle)) {
                     markerHtml = this.buildPhotoMarkerHtml(marker, statusClass);
                 } else {
-                    markerHtml = `<button class="psv-glass-marker marker-classic ${statusClass} marker-theme-${this.escapeAttr(markerStyle)}" style="--mk-rgb:${this.escapeAttr(markerRgb)};" type="button" data-marker-id="${this.escapeAttr(marker.id)}" aria-label="${this.escapeAttr(marker.name || 'Marker')}"><span class="marker-callout" aria-hidden="true"><span class="marker-tag">${this.escapeHtml(marker.name || 'Marker')}</span></span><span class="marker-halo" aria-hidden="true"></span><span class="marker-core" aria-hidden="true"><span class="marker-dot"></span><span class="marker-icon" aria-hidden="true"><iconify-icon icon="${this.escapeAttr(markerIcon)}"></iconify-icon></span></span><span class="marker-pointer" aria-hidden="true"></span></button>`;
+                    markerHtml = `<button class="psv-glass-marker marker-classic ${statusClass} marker-theme-${this.escapeAttr(markerStyle)}${animatedClass}" style="--mk-rgb:${this.escapeAttr(markerRgb)};" type="button" data-marker-id="${this.escapeAttr(marker.id)}" aria-label="${this.escapeAttr(marker.name || 'Marker')}"><span class="marker-callout" aria-hidden="true"><span class="marker-tag">${this.escapeHtml(marker.name || 'Marker')}</span></span><span class="marker-halo" aria-hidden="true"></span><span class="marker-core" aria-hidden="true"><span class="marker-dot"></span><span class="marker-icon" aria-hidden="true"><iconify-icon icon="${this.escapeAttr(markerIcon)}"></iconify-icon></span></span><span class="marker-pointer" aria-hidden="true"></span></button>`;
                 }
                 return {
                     id: this.toViewerMarkerId(marker.id),
@@ -4147,6 +4233,18 @@
                         if (this.dom.enterBtn.dataset) delete this.dom.enterBtn.dataset.panoramaId;
                     }
                 }
+                if (this.dom.voiceoverWrap) {
+                    if (marker.voiceover_filename) {
+                        this.dom.voiceoverWrap.style.display = '';
+                        if (this.dom.playVoiceoverBtn) this.dom.playVoiceoverBtn.disabled = false;
+                    } else {
+                        this.dom.voiceoverWrap.style.display = 'none';
+                    }
+                }
+                if (this.voiceoverAudio) {
+                    this.voiceoverAudio.pause();
+                    this.voiceoverAudio = null;
+                }
                 this.selectedMarkerId = String(markerId);
                 this.showMediaLoading();
                 this.dom.modal.classList.add('visible');
@@ -4183,6 +4281,10 @@
                 if (this.dom.enterBtn) {
                     this.dom.enterBtn.style.display = 'none';
                     if (this.dom.enterBtn.dataset) delete this.dom.enterBtn.dataset.panoramaId;
+                }
+                if (this.voiceoverAudio) {
+                    this.voiceoverAudio.pause();
+                    this.voiceoverAudio = null;
                 }
                 scheduleAutoRotateResume(850);
             }
@@ -4225,32 +4327,47 @@
                 }
             }
 
-            async ensureMarkerImage(markerId) {
+            async ensureMarkerImage(markerId, opts) {
                 const marker = this.markerMap.get(String(markerId));
                 if (!marker || !marker.image_filename) return '';
-                if (marker.image_object_url) return marker.image_object_url;
-                if (marker.image_loading) return '';
-                marker.image_loading = true;
+                const useThumb = opts && opts.thumb;
+                if (useThumb && marker.image_thumb_url) return marker.image_thumb_url;
+                if (!useThumb && marker.image_object_url) return marker.image_object_url;
+                const loadingKey = useThumb ? 'image_loading_thumb' : 'image_loading';
+                if (marker[loadingKey]) return useThumb ? (marker.image_thumb_url || '') : (marker.image_object_url || '');
+                marker[loadingKey] = true;
                 try {
                     const headers = await (window.getAuthHeaders ? window.getAuthHeaders() : Promise.resolve({}));
-                    const response = await fetch(`/api/public/markers/${encodeURIComponent(String(markerId))}/image`, { headers });
+                    const url = `/api/public/markers/${encodeURIComponent(String(markerId))}/image` + (useThumb ? '?size=thumb' : '');
+                    const response = await fetch(url, { headers });
                     if (response.ok) {
                         const blob = await response.blob();
-                        marker.image_object_url = URL.createObjectURL(blob);
+                        const objectUrl = URL.createObjectURL(blob);
+                        if (useThumb) {
+                            marker.image_thumb_url = objectUrl;
+                            return marker.image_thumb_url;
+                        }
+                        marker.image_object_url = objectUrl;
                         return marker.image_object_url;
                     }
                 } catch (error) {
                     return '';
                 } finally {
-                    marker.image_loading = false;
+                    marker[loadingKey] = false;
                 }
                 return '';
             }
 
             revokeMarkerImage(marker) {
-                if (!marker || !marker.image_object_url) return;
-                try { URL.revokeObjectURL(marker.image_object_url); } catch (e) {}
-                marker.image_object_url = '';
+                if (!marker) return;
+                if (marker.image_object_url) {
+                    try { URL.revokeObjectURL(marker.image_object_url); } catch (e) {}
+                    marker.image_object_url = '';
+                }
+                if (marker.image_thumb_url) {
+                    try { URL.revokeObjectURL(marker.image_thumb_url); } catch (e) {}
+                    marker.image_thumb_url = '';
+                }
             }
 
             applyMarkerImage(marker, imgEl) {
@@ -4259,11 +4376,11 @@
                     imgEl.removeAttribute('src');
                     return;
                 }
-                if (marker.image_object_url) {
-                    imgEl.src = marker.image_object_url;
+                if (marker.image_thumb_url) {
+                    imgEl.src = marker.image_thumb_url;
                     return;
                 }
-                this.ensureMarkerImage(marker.id)
+                this.ensureMarkerImage(marker.id, { thumb: true })
                     .then((url) => {
                         if (url) imgEl.src = url;
                     })
@@ -4757,11 +4874,10 @@
 
         function getCentroid(points) {
             if (!Array.isArray(points) || points.length === 0) return null;
-
+            // Always use polygon area centroid so the label is at the geometric center of the plot.
             const c = polygonAreaCentroid(points);
-            if (c && pointInPolygon(c, points)) return c;
-
-            // Backward-compatible fallback (previous behavior).
+            if (c) return c;
+            // Fallback only for degenerate polygons (zero area).
             let x = 0, y = 0;
             points.forEach(p => { x += p.x; y += p.y; });
             return { x: x / points.length, y: y / points.length };
@@ -4784,6 +4900,9 @@
 
         if (viewCartBtn) {
             viewCartBtn.addEventListener('click', openCart);
+        }
+        if (exportPlotsBtn) {
+            exportPlotsBtn.addEventListener('click', exportPlotsToCsv);
         }
         if (cartClearBtn) {
             cartClearBtn.addEventListener('click', clearCart);

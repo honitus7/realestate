@@ -3057,11 +3057,10 @@
 
         function getCentroid(points) {
             if (!Array.isArray(points) || points.length === 0) return null;
-
+            // Always use polygon area centroid so the label is at the geometric center of the plot.
             const c = polygonAreaCentroid(points);
-            if (c && pointInPolygon(c, points)) return c;
-
-            // Backward-compatible fallback (previous behavior).
+            if (c) return c;
+            // Fallback only for degenerate polygons (zero area).
             let x = 0, y = 0;
             points.forEach(p => { x += p.x; y += p.y; });
             return { x: x / points.length, y: y / points.length };

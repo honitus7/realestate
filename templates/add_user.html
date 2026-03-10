@@ -28,6 +28,12 @@
             --radius: 12px;
             --radius-sm: 8px;
         }
+        {% if org_theme %}
+        :root {
+            --color-accent: {{ org_theme.accent }};
+            --color-accent-hover: {{ org_theme.accent_hover }};
+        }
+        {% endif %}
 
         * {
             margin: 0;

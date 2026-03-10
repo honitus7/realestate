@@ -64,16 +64,30 @@
             if (data && data.org && data.org.accent_color) accent = String(data.org.accent_color);
             accent = normalizeHex(accent);
             if (!accent) return;
+
+            var root = document.documentElement;
+            var current = (getComputedStyle(root).getPropertyValue('--color-accent') || '').trim();
+            var currentNorm = normalizeHex(current);
+            if (currentNorm && currentNorm === accent) {
+                try {
+                    document.cookie = 'org_accent=' + encodeURIComponent(accent) + '; path=/; max-age=86400; SameSite=Lax';
+                } catch (e) { }
+                return;
+            }
+
             var rgb = hexToRgb(accent);
             if (!rgb) return;
 
-            var root = document.documentElement;
             // Common variables used across templates.
             root.style.setProperty('--color-accent', accent);
             root.style.setProperty('--color-accent-hover', lighten(accent, 0.08) || accent);
             root.style.setProperty('--color-accent-dim', 'rgba(' + rgb.r + ', ' + rgb.g + ', ' + rgb.b + ', 0.3)');
             root.style.setProperty('--accent', accent);
             root.style.setProperty('--accent-2', lighten(accent, 0.18) || accent);
+            // Persist in cookie so next full page load (login/dashboard) can inject theme in HTML and avoid default-color flash.
+            try {
+                document.cookie = 'org_accent=' + encodeURIComponent(accent) + '; path=/; max-age=86400; SameSite=Lax';
+            } catch (e) { }
         } catch (e) { }
     }
 

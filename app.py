@@ -2,6 +2,7 @@
 Real Estate Panorama Plot Marker - Flask Application
 Uses Supabase for Auth + DB. All data is user-scoped; admin can grant client/viewer access.
 """
+import io
 import os
 import json
 import uuid
@@ -86,9 +87,15 @@ SUPABASE_S3_SIGNED_URL_TTL = max(60, int(os.environ.get('SUPABASE_S3_SIGNED_URL_
 SUPABASE_S3_UPLOAD_URL_TTL = max(60, int(os.environ.get('SUPABASE_S3_UPLOAD_URL_TTL', '900')))
 SUPABASE_S3_PLOT_PREFIX = os.environ.get('SUPABASE_S3_PLOT_PREFIX', 'plot-images').strip('/')
 SUPABASE_S3_MARKER_PREFIX = os.environ.get('SUPABASE_S3_MARKER_PREFIX', 'marker-images').strip('/')
+SUPABASE_S3_VOICEOVER_PREFIX = os.environ.get('SUPABASE_S3_VOICEOVER_PREFIX', 'marker-voiceovers').strip('/')
 PAGE_ACCESS_TOKEN_TTL = max(60, int(os.environ.get('PAGE_ACCESS_TOKEN_TTL', '900')))
 
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
+ALLOWED_AUDIO_EXTENSIONS = {'mp3', 'wav', 'm4a', 'ogg', 'webm'}
+AUDIO_CONTENT_TYPES = {
+    'mp3': 'audio/mpeg', 'wav': 'audio/wav', 'm4a': 'audio/mp4',
+    'ogg': 'audio/ogg', 'webm': 'audio/webm',
+}
 IMAGE_CONTENT_TYPES = {
     'png': 'image/png', 'jpg': 'image/jpeg', 'jpeg': 'image/jpeg',
     'gif': 'image/gif', 'webp': 'image/webp',
@@ -178,6 +185,89 @@ def _panorama_object_key(filename):
     return safe_name
 
 
+def _panorama_thumb_object_key(filename):
+    """S3 key for panorama thumbnail (dashboard preview). Same base name with _thumb before extension."""
+    base = os.path.basename(filename or '').strip()
+    if not base:
+        return None
+    name, ext = os.path.splitext(base)
+    thumb_name = f"{name}_thumb.jpg"
+    if SUPABASE_S3_PANORAMA_PREFIX:
+        return f"{SUPABASE_S3_PANORAMA_PREFIX}/{thumb_name}"
+    return thumb_name
+
+
+PANORAMA_THUMB_MAX_DIMENSION = 400
+PANORAMA_THUMB_JPEG_QUALITY = 82
+
+
+def _generate_panorama_thumb_bytes(raw_bytes):
+    """Generate a small JPEG thumbnail from panorama image bytes. Returns bytes or None."""
+    if not raw_bytes:
+        return None
+    try:
+        img = Image.open(io.BytesIO(raw_bytes))
+        img = img.convert('RGB')
+    except Exception:
+        return None
+    w, h = img.size
+    if w == 0 or h == 0:
+        return None
+    if max(w, h) <= PANORAMA_THUMB_MAX_DIMENSION:
+        tw, th = w, h
+    else:
+        ratio = PANORAMA_THUMB_MAX_DIMENSION / float(max(w, h))
+        tw = max(1, int(w * ratio))
+        th = max(1, int(h * ratio))
+    img_thumb = img.resize((tw, th), RESAMPLE_LANCZOS)
+    buf = io.BytesIO()
+    try:
+        img_thumb.save(buf, 'JPEG', quality=PANORAMA_THUMB_JPEG_QUALITY, optimize=True)
+    except Exception:
+        return None
+    return buf.getvalue()
+
+
+def _upload_panorama_thumb_to_s3(filename, thumb_bytes):
+    """Upload panorama thumbnail to S3."""
+    if not thumb_bytes:
+        return
+    client = _get_s3_client()
+    if not client:
+        return
+    key = _panorama_thumb_object_key(filename)
+    if not key:
+        return
+    try:
+        client.put_object(
+            Bucket=SUPABASE_S3_BUCKET,
+            Key=key,
+            Body=thumb_bytes,
+            ContentType='image/jpeg',
+        )
+    except Exception:
+        pass
+
+
+def _get_panorama_thumb_s3_url(filename):
+    """Return presigned URL for panorama thumbnail if it exists in S3."""
+    client = _get_s3_client()
+    if not client or not filename:
+        return None
+    key = _panorama_thumb_object_key(filename)
+    if not key:
+        return None
+    try:
+        client.head_object(Bucket=SUPABASE_S3_BUCKET, Key=key)
+    except Exception:
+        return None
+    return client.generate_presigned_url(
+        ClientMethod='get_object',
+        Params={'Bucket': SUPABASE_S3_BUCKET, 'Key': key},
+        ExpiresIn=SUPABASE_S3_SIGNED_URL_TTL,
+    )
+
+
 def _plot_object_key(filename):
     safe_name = os.path.basename(filename or '').strip()
     if SUPABASE_S3_PLOT_PREFIX:
@@ -190,6 +280,61 @@ def _marker_object_key(filename):
     if SUPABASE_S3_MARKER_PREFIX:
         return f"{SUPABASE_S3_MARKER_PREFIX}/{safe_name}"
     return safe_name
+
+
+def _marker_thumb_object_key(filename):
+    """S3 key for marker image thumbnail (same base name with _thumb before extension)."""
+    base = os.path.basename(filename or '').strip()
+    if not base:
+        return None
+    name, ext = os.path.splitext(base)
+    thumb_name = f"{name}_thumb.jpg"
+    if SUPABASE_S3_MARKER_PREFIX:
+        return f"{SUPABASE_S3_MARKER_PREFIX}/{thumb_name}"
+    return thumb_name
+
+
+MARKER_IMAGE_MAX_DIMENSION = 1200
+MARKER_IMAGE_THUMB_SIZE = 200
+MARKER_IMAGE_JPEG_QUALITY = 85
+
+
+def _compress_marker_image(raw_bytes):
+    """Resize and compress image; return (full_jpeg_bytes, thumb_jpeg_bytes) or None on failure."""
+    if not raw_bytes:
+        return None
+    try:
+        img = Image.open(io.BytesIO(raw_bytes))
+        img = img.convert('RGB')
+    except Exception:
+        return None
+    w, h = img.size
+    if w == 0 or h == 0:
+        return None
+    # Full size: cap at MARKER_IMAGE_MAX_DIMENSION
+    if max(w, h) > MARKER_IMAGE_MAX_DIMENSION:
+        ratio = MARKER_IMAGE_MAX_DIMENSION / float(max(w, h))
+        new_w = max(1, int(w * ratio))
+        new_h = max(1, int(h * ratio))
+        img_full = img.resize((new_w, new_h), RESAMPLE_LANCZOS)
+    else:
+        img_full = img
+    # Thumb
+    if max(img_full.size) > MARKER_IMAGE_THUMB_SIZE:
+        ratio = MARKER_IMAGE_THUMB_SIZE / float(max(img_full.size))
+        tw = max(1, int(img_full.size[0] * ratio))
+        th = max(1, int(img_full.size[1] * ratio))
+        img_thumb = img_full.resize((tw, th), RESAMPLE_LANCZOS)
+    else:
+        img_thumb = img_full
+    buf_full = io.BytesIO()
+    buf_thumb = io.BytesIO()
+    try:
+        img_full.save(buf_full, 'JPEG', quality=MARKER_IMAGE_JPEG_QUALITY, optimize=True)
+        img_thumb.save(buf_thumb, 'JPEG', quality=MARKER_IMAGE_JPEG_QUALITY, optimize=True)
+    except Exception:
+        return None
+    return buf_full.getvalue(), buf_thumb.getvalue()
 
 
 def _upload_panorama_to_s3(filename, raw_bytes, content_type):
@@ -352,8 +497,93 @@ def _delete_marker_from_s3(filename):
         pass
 
 
+def _voiceover_object_key(filename):
+    safe_name = os.path.basename(filename or '').strip()
+    if SUPABASE_S3_VOICEOVER_PREFIX:
+        return f"{SUPABASE_S3_VOICEOVER_PREFIX}/{safe_name}"
+    return safe_name
+
+
+def _get_voiceover_s3_url(filename):
+    client = _get_s3_client()
+    if not client or not filename:
+        return None
+    key = _voiceover_object_key(filename)
+    try:
+        client.head_object(Bucket=SUPABASE_S3_BUCKET, Key=key)
+    except Exception:
+        return None
+    return client.generate_presigned_url(
+        ClientMethod='get_object',
+        Params={'Bucket': SUPABASE_S3_BUCKET, 'Key': key},
+        ExpiresIn=SUPABASE_S3_SIGNED_URL_TTL,
+    )
+
+
+def _delete_voiceover_from_s3(filename):
+    client = _get_s3_client()
+    if not client or not filename:
+        return
+    try:
+        client.delete_object(Bucket=SUPABASE_S3_BUCKET, Key=_voiceover_object_key(filename))
+    except Exception:
+        pass
+
+
 def auth_ctx():
     return {'supabase_url': SUPABASE_URL, 'supabase_anon_key': SUPABASE_ANON_KEY}
+
+
+# Default accent (gold) used when no org theme cookie is set
+_DEFAULT_ACCENT = '#c9a962'
+
+
+def _normalize_hex(hex_str):
+    """Validate and normalize hex color to #rrggbb."""
+    v = str(hex_str or '').strip()
+    if not v:
+        return None
+    if v[0] != '#':
+        v = '#' + v
+    if len(v) == 4:
+        v = '#' + v[1] * 2 + v[2] * 2 + v[3] * 2
+    if not re.match(r'^#[0-9a-fA-F]{6}$', v):
+        return None
+    return v.lower()
+
+
+def _lighten_hex(hex_str, amount):
+    """Lighten a hex color by 0..1 amount (same as JS lighten)."""
+    try:
+        n = int((hex_str or '#c9a962').lstrip('#')[:6], 16)
+        r, g, b = (n >> 16) & 255, (n >> 8) & 255, n & 255
+        a = max(0, min(1, float(amount)))
+        r = min(255, round(r + (255 - r) * a))
+        g = min(255, round(g + (255 - g) * a))
+        b = min(255, round(b + (255 - b) * a))
+        return '#{:02x}{:02x}{:02x}'.format(r, g, b)
+    except Exception:
+        return hex_str or _DEFAULT_ACCENT
+
+
+def get_org_theme_from_cookie():
+    """
+    Read org accent from cookie (set by client after applyOrgTheme) and return
+    a dict of CSS variable values so the first paint uses org colors (no default flash).
+    """
+    cookie = request.cookies.get('org_accent') if request else None
+    accent = _normalize_hex(cookie)
+    if not accent:
+        return None
+    r, g, b = int(accent[1:3], 16), int(accent[3:5], 16), int(accent[5:7], 16)
+    return {
+        'accent': accent,
+        'accent_hover': _lighten_hex(accent, 0.08),
+        'accent_2': _lighten_hex(accent, 0.18),
+        'accent_dim': 'rgba({}, {}, {}, 0.3)'.format(r, g, b),
+        'accent_muted': 'rgba({}, {}, {}, 0.15)'.format(r, g, b),
+        'accent_soft': 'rgba({}, {}, {}, 0.08)'.format(r, g, b),
+    }
 
 
 def _slugify_org_name(name):
@@ -543,7 +773,8 @@ def index():
 
 @app.route('/login')
 def login_page():
-    return render_template('login.html', **auth_ctx())
+    org_theme = get_org_theme_from_cookie()
+    return render_template('login.html', org_theme=org_theme, **auth_ctx())
 
 
 @app.route('/auth/callback')
@@ -555,22 +786,26 @@ def auth_callback():
 @app.route('/dashboard')
 @app.route('/dashboard/<user_id>')
 def dashboard(user_id=None):
-    return render_template('dashboard.html', user_id=user_id, **auth_ctx())
+    org_theme = get_org_theme_from_cookie()
+    return render_template('dashboard.html', user_id=user_id, org_theme=org_theme, **auth_ctx())
 
 @app.route('/crm')
 def crm_page():
     """Client CRM page for managing customer buy interests."""
-    return render_template('crm.html', **auth_ctx())
+    org_theme = get_org_theme_from_cookie()
+    return render_template('crm.html', org_theme=org_theme, **auth_ctx())
 
 @app.route('/organizations')
 def organizations_page():
     """SuperAdmin org management page (client-side guard; API enforces permissions)."""
-    return render_template('organizations.html', **auth_ctx())
+    org_theme = get_org_theme_from_cookie()
+    return render_template('organizations.html', org_theme=org_theme, **auth_ctx())
 
 
 @app.route('/users')
 def users_page():
-    return render_template('add_user.html', **auth_ctx())
+    org_theme = get_org_theme_from_cookie()
+    return render_template('add_user.html', org_theme=org_theme, **auth_ctx())
 
 
 @app.route('/panorama/<int:panorama_id>/access')
@@ -697,12 +932,53 @@ def customer_3d_with_org(org_slug, panorama_id):
 
 @app.route('/uploads/<filename>')
 def uploaded_file(filename):
-    """Serve panorama image from Supabase S3 when configured, else legacy sources."""
+    """Serve panorama image from Supabase S3 when configured, else legacy sources. Use ?size=thumb for dashboard preview."""
+    use_thumb = request.args.get('size') == 'thumb'
+    if use_thumb:
+        thumb_url = _get_panorama_thumb_s3_url(filename)
+        if thumb_url:
+            resp = redirect(thumb_url, code=302)
+            try:
+                resp.headers['Cache-Control'] = f'private, max-age={int(SUPABASE_S3_SIGNED_URL_TTL)}'
+            except Exception:
+                resp.headers['Cache-Control'] = 'private, max-age=900'
+            return resp
+        # Thumb not in S3: generate on-the-fly from full image (dashboard speed)
+        client = _get_s3_client()
+        if client:
+            key = _panorama_object_key(filename)
+            try:
+                obj = client.get_object(Bucket=SUPABASE_S3_BUCKET, Key=key)
+                body = obj.get('Body')
+                data = body.read() if body else b''
+                if body:
+                    try:
+                        body.close()
+                    except Exception:
+                        pass
+                if data:
+                    thumb_bytes = _generate_panorama_thumb_bytes(data)
+                    if thumb_bytes:
+                        _upload_panorama_thumb_to_s3(filename, thumb_bytes)
+                        resp = Response(thumb_bytes, mimetype='image/jpeg')
+                        resp.headers['Cache-Control'] = 'private, max-age=86400'
+                        return resp
+            except Exception:
+                pass
+        # Local file: serve resized thumb on-the-fly
+        local_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+        if os.path.isfile(local_path):
+            try:
+                with open(local_path, 'rb') as f:
+                    data = f.read()
+                thumb_bytes = _generate_panorama_thumb_bytes(data)
+                if thumb_bytes:
+                    return Response(thumb_bytes, mimetype='image/jpeg', headers={'Cache-Control': 'private, max-age=86400'})
+            except Exception:
+                pass
     s3_url = _get_panorama_s3_url(filename)
     if s3_url:
         resp = redirect(s3_url, code=302)
-        # Cache the redirect privately so repeated loads/prefetches reuse the same presigned URL
-        # (helps navigation performance without making the signed URL publicly cacheable).
         try:
             resp.headers['Cache-Control'] = f'private, max-age={int(SUPABASE_S3_SIGNED_URL_TTL)}'
         except Exception:
@@ -857,11 +1133,14 @@ def public_list_markers(panorama_id):
     ]
     style_cols = ['marker_style', 'marker_icon', 'marker_color']
     link_cols = ['linked_panorama_id']
+    voiceover_columns_supported = True
 
     def build_columns():
         cols = list(base_cols)
         if image_columns_supported:
             cols.insert(4, 'image_filename')
+        if voiceover_columns_supported:
+            cols.append('voiceover_filename')
         if link_columns_supported:
             cols.extend(link_cols)
         if style_columns_supported:
@@ -880,8 +1159,12 @@ def public_list_markers(panorama_id):
         msg = str(err).lower()
         return 'image_filename' in msg
 
+    def is_voiceover_column_error(err):
+        msg = str(err).lower()
+        return 'voiceover_filename' in msg and ('does not exist' in msg or 'column' in msg)
+
     last_error = None
-    for _ in range(3):
+    for _ in range(4):
         try:
             r = (
                 sb.table('plot_markers')
@@ -902,6 +1185,9 @@ def public_list_markers(panorama_id):
                 changed = True
             if image_columns_supported and is_image_column_error(e):
                 image_columns_supported = False
+                changed = True
+            if voiceover_columns_supported and is_voiceover_column_error(e):
+                voiceover_columns_supported = False
                 changed = True
             if not changed:
                 break
@@ -942,8 +1228,28 @@ def public_get_marker_image(marker_id):
     client = _get_s3_client()
     if not client:
         return jsonify({'error': 'Supabase S3 is not configured'}), 503
+    use_thumb = request.args.get('size') == 'thumb'
+    key = _marker_object_key(image_filename)
+    if use_thumb:
+        thumb_key = _marker_thumb_object_key(image_filename)
+        if thumb_key:
+            try:
+                obj = client.get_object(Bucket=SUPABASE_S3_BUCKET, Key=thumb_key)
+                body = obj.get('Body')
+                data = body.read() if body else b''
+                try:
+                    if body:
+                        body.close()
+                except Exception:
+                    pass
+                content_type = obj.get('ContentType') or 'image/jpeg'
+                resp = Response(data, mimetype=str(content_type or 'image/jpeg'))
+                resp.headers['Cache-Control'] = 'private, max-age=900'
+                return resp
+            except Exception:
+                pass
     try:
-        obj = client.get_object(Bucket=SUPABASE_S3_BUCKET, Key=_marker_object_key(image_filename))
+        obj = client.get_object(Bucket=SUPABASE_S3_BUCKET, Key=key)
         body = obj.get('Body')
         data = body.read() if body else b''
         try:
@@ -957,6 +1263,38 @@ def public_get_marker_image(marker_id):
     resp = Response(data, mimetype=str(content_type or 'image/jpeg'))
     resp.headers['Cache-Control'] = 'private, max-age=900'
     return resp
+
+
+@app.route('/api/public/markers/<marker_id>/voiceover', methods=['GET'])
+def public_get_marker_voiceover(marker_id):
+    """Return a signed URL for the marker voice-over (no auth)."""
+    sb = get_supabase()
+    if not sb:
+        return jsonify({'error': 'Database not configured'}), 503
+    try:
+        r = sb.table('plot_markers').select('id, plot_id, voiceover_filename').eq('id', marker_id).limit(1).execute()
+        if not r.data:
+            return jsonify({'error': 'Marker not found'}), 404
+        row = r.data[0]
+    except Exception as e:
+        msg = str(e).lower()
+        if 'voiceover_filename' in msg and ('does not exist' in msg or 'column' in msg):
+            return jsonify({'error': 'voiceover_filename column missing. Run supabase_migration_marker_voiceover.sql in Supabase SQL Editor.'}), 503
+        return jsonify({'error': 'Marker not found'}), 404
+    plot_id = str(row.get('plot_id') or '').strip()
+    try:
+        panorama_id = int(plot_id)
+    except Exception:
+        panorama_id = None
+    if panorama_id is not None and not get_panorama_by_id(sb, panorama_id):
+        return jsonify({'error': 'Not found'}), 404
+    voiceover_filename = row.get('voiceover_filename') or ''
+    if not voiceover_filename:
+        return jsonify({'error': 'No voice-over'}), 404
+    url = _get_voiceover_s3_url(voiceover_filename)
+    if not url:
+        return jsonify({'error': 'Voice-over not found'}), 404
+    return jsonify({'url': url})
 
 
 @app.route('/api/public/buy-interests', methods=['POST'])
@@ -1611,6 +1949,23 @@ def create_panorama(user_id, role):
             max_mb = max(1, int(max_bytes / (1024 * 1024)))
             return jsonify({'error': f'Upload too large (max {max_mb}MB)'}), 413
 
+        # Generate and store dashboard thumbnail (max 400px) for fast dashboard preview
+        try:
+            obj = client.get_object(Bucket=SUPABASE_S3_BUCKET, Key=_panorama_object_key(filename))
+            body = obj.get('Body')
+            data = body.read() if body else b''
+            if body:
+                try:
+                    body.close()
+                except Exception:
+                    pass
+            if data:
+                thumb_bytes = _generate_panorama_thumb_bytes(data)
+                if thumb_bytes:
+                    _upload_panorama_thumb_to_s3(filename, thumb_bytes)
+        except Exception:
+            pass
+
         original_filename = secure_filename(str(payload.get('original_filename') or filename)) or 'upload'
 
     # ----- DB insert (shared) -----
@@ -1745,19 +2100,26 @@ def rename_panorama(user_id, role, panorama_id):
         return jsonify({'error': 'Only the owner can rename this panorama'}), 403
 
     payload = request.get_json(silent=True) or request.form or {}
-    name = str(payload.get('name', '')).strip()
-    if not name:
-        return jsonify({'error': 'Project name is required'}), 400
-    if len(name) > 120:
-        return jsonify({'error': 'Project name must be 120 characters or fewer'}), 400
+    name = str(payload.get('name', '')).strip() if payload.get('name') is not None else None
+    use_animated_icons = payload.get('use_animated_icons')
+    if use_animated_icons is not None:
+        use_animated_icons = bool(use_animated_icons) if use_animated_icons not in (True, False) else use_animated_icons
+    update_fields = {'updated_at': datetime.utcnow().isoformat()}
+    if name is not None:
+        if not name:
+            return jsonify({'error': 'Project name is required'}), 400
+        if len(name) > 120:
+            return jsonify({'error': 'Project name must be 120 characters or fewer'}), 400
+        update_fields['name'] = name
+    if use_animated_icons is not None:
+        update_fields['use_animated_icons'] = use_animated_icons
+
+    if len(update_fields) <= 1:
+        return jsonify({'error': 'Provide name and/or use_animated_icons'}), 400
 
     try:
         # supabase-py v2 postgrest update builders don't support chaining .select() after .update().
-        # Do the update, then (if needed) fetch the row.
-        response = sb.table('panoramas').update({
-            'name': name,
-            'updated_at': datetime.utcnow().isoformat(),
-        }).eq('id', panorama_id).execute()
+        response = sb.table('panoramas').update(update_fields).eq('id', panorama_id).execute()
         err = getattr(response, 'error', None)
         if err:
             message = getattr(err, 'message', None) or str(err)
@@ -1770,7 +2132,10 @@ def rename_panorama(user_id, role, panorama_id):
 
         if not row:
             # Fallback: explicit fetch for clients/configs that don't return updated rows.
-            fetch = sb.table('panoramas').select('id, name, updated_at').eq('id', panorama_id).limit(1).execute()
+            try:
+                fetch = sb.table('panoramas').select('id, name, updated_at, use_animated_icons').eq('id', panorama_id).limit(1).execute()
+            except Exception:
+                fetch = sb.table('panoramas').select('id, name, updated_at').eq('id', panorama_id).limit(1).execute()
             ferr = getattr(fetch, 'error', None)
             if ferr:
                 message = getattr(ferr, 'message', None) or str(ferr)
@@ -1780,19 +2145,23 @@ def rename_panorama(user_id, role, panorama_id):
                 row = fdata[0]
 
         if row:
-            return jsonify({
+            out = {
                 'id': row.get('id', panorama_id),
-                'name': row.get('name', name),
+                'name': row.get('name', name) if name is not None else row.get('name'),
                 'updated_at': str(row.get('updated_at') or datetime.utcnow().isoformat()),
-            })
+            }
+            if 'use_animated_icons' in row:
+                out['use_animated_icons'] = bool(row.get('use_animated_icons'))
+            return jsonify(out)
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-    return jsonify({
-        'id': panorama_id,
-        'name': name,
-        'updated_at': datetime.utcnow().isoformat(),
-    })
+    out = {'id': panorama_id, 'updated_at': datetime.utcnow().isoformat()}
+    if name is not None:
+        out['name'] = name
+    if use_animated_icons is not None:
+        out['use_animated_icons'] = use_animated_icons
+    return jsonify(out)
 
 
 @app.route('/api/panoramas/<int:panorama_id>/workspace', methods=['PATCH', 'PUT'])
@@ -2359,8 +2728,28 @@ def get_marker_image(user_id, role, marker_id):
     client = _get_s3_client()
     if not client:
         return jsonify({'error': 'Supabase S3 is not configured'}), 503
+    use_thumb = request.args.get('size') == 'thumb'
+    key = _marker_object_key(image_filename)
+    if use_thumb:
+        thumb_key = _marker_thumb_object_key(image_filename)
+        if thumb_key:
+            try:
+                obj = client.get_object(Bucket=SUPABASE_S3_BUCKET, Key=thumb_key)
+                body = obj.get('Body')
+                data = body.read() if body else b''
+                try:
+                    if body:
+                        body.close()
+                except Exception:
+                    pass
+                content_type = obj.get('ContentType') or 'image/jpeg'
+                resp = Response(data, mimetype=str(content_type or 'image/jpeg'))
+                resp.headers['Cache-Control'] = 'private, max-age=900'
+                return resp
+            except Exception:
+                pass
     try:
-        obj = client.get_object(Bucket=SUPABASE_S3_BUCKET, Key=_marker_object_key(image_filename))
+        obj = client.get_object(Bucket=SUPABASE_S3_BUCKET, Key=key)
         body = obj.get('Body')
         data = body.read() if body else b''
         try:
@@ -2374,6 +2763,120 @@ def get_marker_image(user_id, role, marker_id):
     resp = Response(data, mimetype=str(content_type or 'image/jpeg'))
     resp.headers['Cache-Control'] = 'private, max-age=900'
     return resp
+
+
+@app.route('/api/markers/<marker_id>/voiceover', methods=['GET'])
+@require_auth
+def get_marker_voiceover(user_id, role, marker_id):
+    """Return a signed URL for the marker voice-over."""
+    sb = get_supabase()
+    if not sb:
+        return jsonify({'error': 'Database not configured'}), 503
+    try:
+        r = sb.table('plot_markers').select('id, plot_id, voiceover_filename').eq('id', marker_id).limit(1).execute()
+        if not r.data:
+            return jsonify({'error': 'Marker not found'}), 404
+        row = r.data[0]
+    except Exception as e:
+        msg = str(e).lower()
+        if 'voiceover_filename' in msg and ('does not exist' in msg or 'column' in msg):
+            return jsonify({'error': 'voiceover_filename column missing. Run supabase_migration_marker_voiceover.sql in Supabase SQL Editor.'}), 503
+        return jsonify({'error': 'Marker not found'}), 404
+    plot_id = str(row.get('plot_id') or '').strip()
+    if not plot_id:
+        return jsonify({'error': 'Invalid marker'}), 400
+    try:
+        panorama_id = int(plot_id)
+    except Exception:
+        return jsonify({'error': 'Invalid marker reference'}), 400
+    panorama, _ = get_panorama_with_access(sb, panorama_id, user_id)
+    if not panorama:
+        return jsonify({'error': 'Forbidden'}), 403
+    voiceover_filename = row.get('voiceover_filename') or ''
+    if not voiceover_filename:
+        return jsonify({'error': 'No voice-over'}), 404
+    url = _get_voiceover_s3_url(voiceover_filename)
+    if not url:
+        return jsonify({'error': 'Voice-over not found'}), 404
+    return jsonify({'url': url})
+
+
+MAX_MARKER_VOICEOVER_BYTES = 10 * 1024 * 1024  # 10MB
+
+
+@app.route('/api/markers/<marker_id>/voiceover', methods=['POST'])
+@require_auth
+def upload_marker_voiceover(user_id, role, marker_id):
+    """Upload voice-over audio for a marker (S3)."""
+    if not _use_s3_for_panoramas():
+        return jsonify({'error': 'Supabase S3 is not configured'}), 503
+    sb = get_supabase()
+    if not sb:
+        return jsonify({'error': 'Database not configured'}), 503
+    try:
+        r = sb.table('plot_markers').select('id, plot_id, voiceover_filename').eq('id', marker_id).limit(1).execute()
+        if not r.data:
+            return jsonify({'error': 'Marker not found'}), 404
+        row = r.data[0]
+    except Exception as e:
+        msg = str(e).lower()
+        if 'voiceover_filename' in msg and ('does not exist' in msg or 'column' in msg):
+            return jsonify({'error': 'voiceover_filename column missing. Run supabase_migration_marker_voiceover.sql in Supabase SQL Editor.'}), 503
+        return jsonify({'error': 'Marker not found'}), 404
+    plot_id = str(row.get('plot_id') or '').strip()
+    if not plot_id:
+        return jsonify({'error': 'Invalid marker'}), 400
+    try:
+        panorama_id = int(plot_id)
+    except Exception:
+        return jsonify({'error': 'Invalid marker reference'}), 400
+    panorama, access_type = get_panorama_with_access(sb, panorama_id, user_id)
+    if not panorama or not can_edit_plots(access_type):
+        return jsonify({'error': 'Forbidden'}), 403
+    old_filename = str(row.get('voiceover_filename') or '').strip()
+    file_storage = request.files.get('file') or request.files.get('voiceover')
+    if not file_storage or not getattr(file_storage, 'filename', None):
+        return jsonify({'error': 'No audio file (use form field "file" or "voiceover")'}), 400
+    filename_orig = (file_storage.filename or '').strip()
+    ext = (filename_orig.rsplit('.', 1)[-1].lower() if '.' in filename_orig else '').strip()
+    if ext not in ALLOWED_AUDIO_EXTENSIONS:
+        return jsonify({'error': 'Audio type not allowed. Use: mp3, wav, m4a, ogg, webm'}), 400
+    data = _read_uploaded_file_bytes(file_storage, MAX_MARKER_VOICEOVER_BYTES)
+    if len(data) > MAX_MARKER_VOICEOVER_BYTES:
+        return jsonify({'error': f'Voice-over too large (max {MAX_MARKER_VOICEOVER_BYTES // (1024*1024)}MB)'}), 413
+    if not data:
+        return jsonify({'error': 'Empty file'}), 400
+    unique = uuid.uuid4().hex[:10]
+    filename = f"voice_{marker_id}_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}_{unique}.{ext}"
+    content_type = AUDIO_CONTENT_TYPES.get(ext, 'audio/mpeg')
+    client = _get_s3_client()
+    if not client:
+        return jsonify({'error': 'Supabase S3 is not configured'}), 503
+    try:
+        client.put_object(
+            Bucket=SUPABASE_S3_BUCKET,
+            Key=_voiceover_object_key(filename),
+            Body=data,
+            ContentType=content_type,
+        )
+    except Exception as e:
+        app.logger.exception('Voice-over S3 upload failed')
+        return jsonify({'error': str(e)}), 500
+    try:
+        sb.table('plot_markers').update({
+            'voiceover_filename': filename,
+            'updated_at': datetime.utcnow().isoformat(),
+        }).eq('id', marker_id).execute()
+    except Exception as e:
+        app.logger.exception('Failed to update marker voiceover_filename')
+        try:
+            _delete_voiceover_from_s3(filename)
+        except Exception:
+            pass
+        return jsonify({'error': 'Failed to save'}), 500
+    if old_filename and old_filename != filename:
+        _delete_voiceover_from_s3(old_filename)
+    return jsonify({'success': True, 'voiceover_filename': filename})
 
 
 @app.route('/api/markers/<marker_id>/image/upload-url', methods=['POST'])
@@ -2516,19 +3019,39 @@ def upload_marker_image(user_id, role, marker_id):
             return jsonify({'error': 'Invalid upload'}), 400
 
         unique = uuid.uuid4().hex[:10]
-        filename = f"marker_{marker_id}_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}_{unique}.{ext}"
-        content_type = IMAGE_CONTENT_TYPES.get(ext, 'image/jpeg')
+        compressed = _compress_marker_image(raw)
+        if compressed:
+            full_bytes, thumb_bytes = compressed
+            filename = f"marker_{marker_id}_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}_{unique}.jpg"
+            content_type = 'image/jpeg'
+            body_to_upload = full_bytes
+            thumb_key = _marker_thumb_object_key(filename)
+        else:
+            filename = f"marker_{marker_id}_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}_{unique}.{ext}"
+            content_type = IMAGE_CONTENT_TYPES.get(ext, 'image/jpeg')
+            body_to_upload = raw
+            thumb_key = None
 
         try:
             client.put_object(
                 Bucket=SUPABASE_S3_BUCKET,
                 Key=_marker_object_key(filename),
-                Body=raw,
+                Body=body_to_upload,
                 ContentType=content_type,
             )
         except Exception as e:
             app.logger.exception('Direct marker image upload failed')
             return jsonify({'error': str(e) or 'Upload failed'}), 500
+        if thumb_key and compressed:
+            try:
+                client.put_object(
+                    Bucket=SUPABASE_S3_BUCKET,
+                    Key=thumb_key,
+                    Body=thumb_bytes,
+                    ContentType='image/jpeg',
+                )
+            except Exception:
+                pass
 
         try:
             sb.table('plot_markers').update({

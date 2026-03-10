@@ -33,6 +33,12 @@
             --font-display: 'Instrument Serif', Georgia, serif;
             --font-body: 'Syne', sans-serif;
         }
+        {% if org_theme %}
+        :root {
+            --accent: {{ org_theme.accent }};
+            --accent-2: {{ org_theme.accent_2 }};
+        }
+        {% endif %}
 
         * {
             margin: 0;
@@ -578,6 +584,89 @@
             color: #fecaca;
         }
 
+        .report-card .report-toolbar {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.75rem;
+            margin-bottom: 1rem;
+        }
+
+        .report-card .report-label {
+            font-size: 0.85rem;
+            color: var(--muted);
+        }
+
+        .report-print-area {
+            padding: 1rem;
+            background: rgba(18, 18, 20, 0.6);
+            border-radius: var(--radius);
+            min-height: 120px;
+            color: var(--text);
+        }
+
+        .report-print-area table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-print-area th,
+        .report-print-area td {
+            padding: 0.5rem 0.75rem;
+            text-align: left;
+            border: 1px solid var(--border);
+        }
+
+        .report-print-area th {
+            font-weight: 600;
+            background: rgba(28, 28, 32, 0.8);
+        }
+
+        .report-print-area h2 {
+            font-family: var(--font-display);
+            font-size: 1.4rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .report-print-area .report-meta {
+            font-size: 0.8rem;
+            color: var(--muted);
+            margin-bottom: 1rem;
+        }
+
+        @media print {
+            body * {
+                visibility: hidden;
+            }
+            #report-print-area,
+            #report-print-area * {
+                visibility: visible;
+            }
+            #report-print-area {
+                position: absolute;
+                left: 0;
+                top: 0;
+                width: 100%;
+                padding: 1rem;
+                background: #fff;
+                color: #111;
+            }
+            #report-print-area th,
+            #report-print-area td {
+                border-color: #ccc;
+            }
+            .header,
+            .header-actions,
+            .report-toolbar,
+            .btn,
+            .filters,
+            .drawer-backdrop,
+            .drawer {
+                display: none !important;
+            }
+        }
+
         @media (max-width: 980px) {
             .grid-top {
                 grid-template-columns: 1fr;
@@ -669,6 +758,7 @@
         </div>
         <div class="header-actions">
             <button class="btn ghost" id="btn-export" type="button">Export CSV</button>
+            <button class="btn ghost" id="btn-reports" type="button">Reports</button>
             <button class="btn" id="btn-refresh" type="button">Refresh</button>
             <a class="btn primary" href="/dashboard">Dashboard</a>
         </div>
@@ -748,6 +838,26 @@
                 </div>
             </div>
         </section>
+
+        <section class="card report-card" id="report-card" style="display:none;">
+            <div class="card-header">
+                <div class="card-title">
+                    <strong>Reports</strong>
+                    <span>Print or save as PDF</span>
+                </div>
+            </div>
+            <div class="report-toolbar">
+                <label class="report-label">Report type</label>
+                <select class="input select" id="report-type">
+                    <option value="pipeline">Pipeline summary</option>
+                    <option value="leads">Lead list</option>
+                </select>
+                <button class="btn" id="btn-print" type="button">Print</button>
+                <button class="btn primary" id="btn-pdf" type="button">Save as PDF</button>
+                <button class="btn ghost" id="btn-close-report" type="button">Close</button>
+            </div>
+            <div id="report-print-area" class="report-print-area"></div>
+        </section>
     </main>
 
     <div class="drawer-backdrop" id="drawer-backdrop"></div>
@@ -803,6 +913,13 @@
         const btnClear = document.getElementById('btn-clear');
         const btnRefresh = document.getElementById('btn-refresh');
         const btnExport = document.getElementById('btn-export');
+        const btnReports = document.getElementById('btn-reports');
+        const reportCard = document.getElementById('report-card');
+        const reportTypeEl = document.getElementById('report-type');
+        const reportPrintArea = document.getElementById('report-print-area');
+        const btnPrint = document.getElementById('btn-print');
+        const btnPdf = document.getElementById('btn-pdf');
+        const btnCloseReport = document.getElementById('btn-close-report');
 
         const drawerBackdrop = document.getElementById('drawer-backdrop');
         const drawer = document.getElementById('drawer');
@@ -1130,7 +1247,10 @@
 
         function exportCsv() {
             const rows = filtered;
-            if (!rows.length) return;
+            if (!rows.length) {
+                if (typeof alert !== 'undefined') alert('No data to export. Adjust filters or add buy interests.');
+                return;
+            }
             const header = ['Created At', 'Status', 'Category', 'Project ID', 'Project Name', 'Customer Name', 'Customer Email', 'Customer Phone', 'Plot Count', 'Plots', 'Notes'];
             // Excel (especially on non-US locale settings) may ignore comma delimiters unless this preamble is present.
             const lines = ['sep=,', header.join(',')];
@@ -1155,6 +1275,49 @@
             });
             const stamp = new Date().toISOString().slice(0, 10);
             downloadCsv('buy_interests_' + stamp + '.csv', lines.join('\r\n') + '\r\n');
+        }
+
+        function buildReportContent() {
+            if (!reportPrintArea) return;
+            const type = reportTypeEl ? reportTypeEl.value : 'pipeline';
+            const rows = filtered.length ? filtered : interests;
+            const stamp = new Date().toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
+            if (type === 'pipeline') {
+                const c = countByStatus(rows);
+                const total = Math.max(1, c.total);
+                reportPrintArea.innerHTML = [
+                    '<h2>Pipeline summary</h2>',
+                    '<div class="report-meta">Generated ' + escapeHtml(stamp) + '</div>',
+                    '<table><thead><tr><th>Stage</th><th>Count</th><th>%</th></tr></thead><tbody>',
+                    '<tr><td>New</td><td>' + c.new + '</td><td>' + ((c.new / total) * 100).toFixed(1) + '%</td></tr>',
+                    '<tr><td>Contacted</td><td>' + c.contacted + '</td><td>' + ((c.contacted / total) * 100).toFixed(1) + '%</td></tr>',
+                    '<tr><td>Qualified</td><td>' + c.qualified + '</td><td>' + ((c.qualified / total) * 100).toFixed(1) + '%</td></tr>',
+                    '<tr><td>Won</td><td>' + c.won + '</td><td>' + ((c.won / total) * 100).toFixed(1) + '%</td></tr>',
+                    '<tr><td>Lost</td><td>' + c.lost + '</td><td>' + ((c.lost / total) * 100).toFixed(1) + '%</td></tr>',
+                    '<tr><td><strong>Total</strong></td><td><strong>' + c.total + '</strong></td><td>100%</td></tr>',
+                    '</tbody></table>'
+                ].join('');
+            } else {
+                const header = ['Created', 'Customer', 'Email', 'Phone', 'Category', 'Project', 'Status', 'Notes'];
+                let bodyRows = '';
+                rows.forEach(function (i) {
+                    const project = projectById.get(String(i.panorama_id));
+                    const projectName = (project && project.name) ? project.name : '';
+                    bodyRows += '<tr><td>' + escapeHtml(fmtDate(i.created_at)) + '</td><td>' + escapeHtml(i.customer_name || '') + '</td><td>' + escapeHtml(i.customer_email || '') + '</td><td>' + escapeHtml(i.customer_phone || '') + '</td><td>' + escapeHtml(i.category || '') + '</td><td>' + escapeHtml(projectName) + '</td><td>' + escapeHtml(toStatusLabel(i.status || '')) + '</td><td>' + escapeHtml((i.notes || '').slice(0, 80)) + '</td></tr>';
+                });
+                reportPrintArea.innerHTML = [
+                    '<h2>Lead list</h2>',
+                    '<div class="report-meta">Generated ' + escapeHtml(stamp) + ' &middot; ' + rows.length + ' row(s)</div>',
+                    '<table><thead><tr>' + header.map(function (h) { return '<th>' + escapeHtml(h) + '</th>'; }).join('') + '</tr></thead><tbody>',
+                    bodyRows || '<tr><td colspan="8">No data</td></tr>',
+                    '</tbody></table>'
+                ].join('');
+            }
+        }
+
+        function openReportPanel() {
+            buildReportContent();
+            if (reportCard) reportCard.style.display = 'block';
         }
 
         async function loadProjects() {
@@ -1208,6 +1371,12 @@
             finally { btnRefresh.disabled = false; }
         });
         btnExport.addEventListener('click', exportCsv);
+
+        if (btnReports) btnReports.addEventListener('click', openReportPanel);
+        if (reportTypeEl) reportTypeEl.addEventListener('change', buildReportContent);
+        if (btnPrint) btnPrint.addEventListener('click', function () { buildReportContent(); window.print(); });
+        if (btnPdf) btnPdf.addEventListener('click', function () { buildReportContent(); window.print(); });
+        if (btnCloseReport) btnCloseReport.addEventListener('click', function () { if (reportCard) reportCard.style.display = 'none'; });
 
         drawerClose.addEventListener('click', closeDrawer);
         drawerBackdrop.addEventListener('click', closeDrawer);

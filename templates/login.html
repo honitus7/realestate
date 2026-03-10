@@ -30,6 +30,14 @@
             --radius-sm: 12px;
             --shadow: 0 24px 48px rgba(0, 0, 0, 0.4);
         }
+        {% if org_theme %}
+        :root {
+            --color-accent: {{ org_theme.accent }};
+            --color-accent-hover: {{ org_theme.accent_hover }};
+            --color-accent-muted: {{ org_theme.accent_muted }};
+            --color-accent-soft: {{ org_theme.accent_soft }};
+        }
+        {% endif %}
 
         * {
             margin: 0;

@@ -30,6 +30,15 @@
             --radius: 12px;
             --radius-sm: 8px;
         }
+        {% if org_theme %}
+        :root {
+            --color-accent: {{ org_theme.accent }};
+            --color-accent-dim: {{ org_theme.accent_dim }};
+            --color-accent-hover: {{ org_theme.accent_hover }};
+            --accent: {{ org_theme.accent }};
+            --accent-2: {{ org_theme.accent_hover }};
+        }
+        {% endif %}
 
         * {
             margin: 0;
@@ -138,6 +147,7 @@
             display: flex;
             flex-direction: column;
             gap: 0.5rem;
+            transition: opacity 0.18s ease-out;
         }
 
         .workspace-item {
@@ -515,6 +525,14 @@
             object-fit: cover;
             background: var(--color-bg);
         }
+        .project-image.loading-placeholder {
+            background-image: linear-gradient(90deg, var(--color-bg) 0%, rgba(255,255,255,0.03) 50%, var(--color-bg) 100%);
+            background-size: 200% 100%;
+            animation: skeleton-shimmer 1.2s ease-in-out infinite;
+        }
+        .projects-container-transition {
+            transition: opacity 0.18s ease-out;
+        }
 
         .project-content {
             padding: 1.25rem;
@@ -639,6 +657,43 @@
             to {
                 transform: rotate(360deg);
             }
+        }
+
+        /* Skeleton placeholders */
+        .skeleton-card {
+            background: var(--color-bg-card);
+            border-radius: var(--radius);
+            overflow: hidden;
+            border: 1px solid var(--color-border);
+        }
+        .skeleton-image {
+            width: 100%;
+            height: 180px;
+            background: var(--color-bg);
+            background-image: linear-gradient(90deg, var(--color-bg) 0%, rgba(255,255,255,0.04) 50%, var(--color-bg) 100%);
+            background-size: 200% 100%;
+            animation: skeleton-shimmer 1.2s ease-in-out infinite;
+        }
+        .skeleton-content { padding: 1.25rem; }
+        .skeleton-line {
+            height: 0.75rem;
+            border-radius: 4px;
+            background: rgba(255,255,255,0.06);
+            margin-bottom: 0.5rem;
+        }
+        .skeleton-line.short { width: 40%; }
+        .skeleton-line.medium { width: 70%; }
+        .skeleton-workspace-item {
+            height: 4rem;
+            border-radius: var(--radius-sm);
+            background: rgba(255,255,255,0.02);
+            background-image: linear-gradient(90deg, rgba(255,255,255,0.02) 0%, rgba(255,255,255,0.05) 50%, rgba(255,255,255,0.02) 100%);
+            background-size: 200% 100%;
+            animation: skeleton-shimmer 1.2s ease-in-out infinite;
+        }
+        @keyframes skeleton-shimmer {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
         }
 
         /* Delete Confirmation Modal */
@@ -803,7 +858,10 @@
                     <button class="btn btn-primary" id="create-workspace-btn" style="padding:0.45rem 0.75rem; font-size:0.72rem;">New Folder</button>
                 </div>
                 <div class="workspace-list" id="workspace-list">
-                    <div class="loading"><div class="spinner"></div></div>
+                    <div class="skeleton-workspace-item"></div>
+                    <div class="skeleton-workspace-item"></div>
+                    <div class="skeleton-workspace-item"></div>
+                    <div class="skeleton-workspace-item"></div>
                 </div>
             </aside>
 
@@ -872,9 +930,14 @@
                         <h2 class="section-title">Your Projects</h2>
                     </div>
 
-                    <div id="projects-container">
-                        <div class="loading">
-                            <div class="spinner"></div>
+                    <div id="projects-container" class="projects-container-transition">
+                        <div class="projects-grid" id="projects-skeleton">
+                            <div class="skeleton-card"><div class="skeleton-image"></div><div class="skeleton-content"><div class="skeleton-line medium"></div><div class="skeleton-line short"></div></div></div>
+                            <div class="skeleton-card"><div class="skeleton-image"></div><div class="skeleton-content"><div class="skeleton-line medium"></div><div class="skeleton-line short"></div></div></div>
+                            <div class="skeleton-card"><div class="skeleton-image"></div><div class="skeleton-content"><div class="skeleton-line medium"></div><div class="skeleton-line short"></div></div></div>
+                            <div class="skeleton-card"><div class="skeleton-image"></div><div class="skeleton-content"><div class="skeleton-line medium"></div><div class="skeleton-line short"></div></div></div>
+                            <div class="skeleton-card"><div class="skeleton-image"></div><div class="skeleton-content"><div class="skeleton-line medium"></div><div class="skeleton-line short"></div></div></div>
+                            <div class="skeleton-card"><div class="skeleton-image"></div><div class="skeleton-content"><div class="skeleton-line medium"></div><div class="skeleton-line short"></div></div></div>
                         </div>
                     </div>
                 </section>
@@ -1129,6 +1192,7 @@
         let deleteWorkspaceTargetId = null;
         let draggingPanoramaId = null;
         let workspaceFeatureReady = true;
+        let projectsLoadFailed = false;
         let currentUserRole = '';
 
         // DOM Elements
@@ -1344,7 +1408,6 @@
                         workspaceFeatureReady = false;
                         if (createWorkspaceBtn) createWorkspaceBtn.style.display = 'none';
                         workspaces = [];
-                        renderWorkspaces();
                         return;
                     }
                     throw new Error('Failed to load folders');
@@ -1356,20 +1419,25 @@
                     var existing = getWorkspaceById(selectedWorkspaceKey.slice(3));
                     if (!existing) selectedWorkspaceKey = 'all';
                 }
-                renderWorkspaces();
-                renderProjects();
             } catch (error) {
                 workspaceFeatureReady = false;
                 if (createWorkspaceBtn) createWorkspaceBtn.style.display = 'none';
                 workspaces = [];
-                renderWorkspaces();
-                renderProjects();
             }
         }
 
         async function initializeDashboard() {
-            await Promise.all([loadProjects(), loadWorkspaces()]);
-            renderProjects();
+            try {
+                await Promise.all([loadProjects(), loadWorkspaces()]);
+            } catch (e) {
+                // State already set by loadProjects/loadWorkspaces; single render below.
+            }
+            renderWorkspaces();
+            if (projectsLoadFailed) {
+                projectsContainer.innerHTML = '<div class="empty-state"><div class="empty-text">Failed to load projects</div></div>';
+            } else {
+                renderProjects();
+            }
         }
 
         function startDashboardOnce() {
@@ -1469,7 +1537,10 @@
                 const onCreated = function (project) {
                     showToast('Project created successfully!', 'success');
                     resetUploadForm();
-                    Promise.all([loadProjects(), loadWorkspaces()]);
+                    Promise.all([loadProjects(), loadWorkspaces()]).then(function () {
+                        renderWorkspaces();
+                        renderProjects();
+                    });
                     setTimeout(() => {
                         openProjectWithAccessToken('admin', project.id, !!project.is_360);
                     }, 500);
@@ -1643,8 +1714,9 @@
             projectName.value = '';
         }
 
-        // Projects (user-scoped; send auth token)
+        // Projects (user-scoped; send auth token). Does not render; initializeDashboard renders once after load.
         async function loadProjects() {
+            projectsLoadFailed = false;
             try {
                 const headers = await getAuthHeaders();
                 const response = await fetch('/api/panoramas', { headers });
@@ -1660,12 +1732,10 @@
                 }
                 projects = await response.json();
                 updateCrmNavVisibility();
-                renderProjects();
-                renderWorkspaces();
             } catch (error) {
                 projects = [];
+                projectsLoadFailed = true;
                 updateCrmNavVisibility();
-                projectsContainer.innerHTML = '<div class="empty-state"><div class="empty-text">Failed to load projects</div></div>';
             }
         }
 
@@ -1704,7 +1774,7 @@
                 var dragClass = isOwner ? ' owner-draggable' : '';
                 return `
                         <div class="project-card${dragClass}" data-id="${project.id}" ${dragAttr}>
-                            <img src="/uploads/${project.filename}" alt="${project.name}" class="project-image" loading="lazy">
+                            <img src="/uploads/${project.filename}?size=thumb" alt="${escapeHtml(project.name)}" class="project-image loading-placeholder" loading="lazy" decoding="async" onload="this.classList.remove('loading-placeholder')">
                             <div class="project-content">
                                 <div class="project-name">${escapeHtml(project.name)}</div>
                                 <div class="project-meta">
@@ -1751,6 +1821,8 @@
                 }
                 showToast('Project moved', 'success');
                 await Promise.all([loadProjects(), loadWorkspaces()]);
+                renderWorkspaces();
+                renderProjects();
             } catch (err) {
                 showToast(err.message || 'Failed to move project', 'error');
             }
@@ -1878,6 +1950,8 @@
                 deleteModal.classList.remove('visible');
                 deleteTargetId = null;
                 await Promise.all([loadProjects(), loadWorkspaces()]);
+                renderWorkspaces();
+                renderProjects();
             } catch (error) {
                 showToast('Failed to delete project', 'error');
             }
@@ -1921,6 +1995,8 @@
                     showToast('Project renamed successfully!', 'success');
                     closeRenameModal();
                     await loadProjects();
+                    renderWorkspaces();
+                    renderProjects();
                 } catch (error) {
                     showRenameProjectError(error.message || 'Failed to rename project');
                 } finally {
@@ -1965,6 +2041,8 @@
                     closeCreateWorkspaceModal();
                     showToast('Folder created', 'success');
                     await loadWorkspaces();
+                    renderWorkspaces();
+                    renderProjects();
                 } catch (error) {
                     showWorkspaceCreateError(error.message || 'Failed to create folder');
                 } finally {
@@ -1999,6 +2077,8 @@
                     closeRenameWorkspaceModal();
                     showToast('Folder renamed', 'success');
                     await loadWorkspaces();
+                    renderWorkspaces();
+                    renderProjects();
                 } catch (error) {
                     showWorkspaceRenameError(error.message || 'Failed to rename folder');
                 } finally {
@@ -2027,6 +2107,8 @@
                     showToast('Folder deleted', 'success');
                     if (selectedWorkspaceKey === 'ws:' + deleteWorkspaceTargetId) selectedWorkspaceKey = 'all';
                     await Promise.all([loadProjects(), loadWorkspaces()]);
+                    renderWorkspaces();
+                    renderProjects();
                 } catch (error) {
                     showWorkspaceDeleteError(error.message || 'Failed to delete folder');
                 } finally {

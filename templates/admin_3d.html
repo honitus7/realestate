@@ -263,6 +263,19 @@
             font-style: italic;
         }
 
+        .animated-icons-option {
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+            margin-top: 0.35rem;
+            font-size: 0.8rem;
+            color: var(--color-text-muted, rgba(255,255,255,0.75));
+            cursor: pointer;
+            user-select: none;
+        }
+        .animated-icons-option input { margin: 0; }
+        .animated-icons-option:hover { color: var(--color-text); }
+
         .header-controls {
             display: flex;
             gap: 0.75rem;
@@ -2881,6 +2894,10 @@
                 <a href="/dashboard" class="back-btn">← Back</a>
                 <div class="project-info">
                     <div class="project-name">{{ panorama.name }}</div>
+                    <label class="animated-icons-option" title="Show animated marker icons in customer view">
+                        <input type="checkbox" id="use-animated-icons" {{ 'checked' if panorama.get('use_animated_icons') else '' }}>
+                        <span>Animated icons</span>
+                    </label>
                 </div>
             </div>
             <div class="header-controls">
@@ -3149,6 +3166,15 @@
                 <input id="marker-image" type="file" class="marker-form-input" accept="image/png,image/jpeg,image/jpg,image/webp">
                 <div class="marker-form-helper">Image is uploaded to storage (S3). If it fails, check your Supabase migrations and S3 env vars.</div>
                 <div class="marker-image-preview" id="marker-image-preview"></div>
+            </div>
+            <div class="marker-form-row">
+                <label class="marker-form-label" for="marker-voiceover">Voice-over</label>
+                <div style="display:flex;flex-wrap:wrap;align-items:center;gap:0.5rem;">
+                    <input id="marker-voiceover" type="file" class="marker-form-input" accept="audio/*,.mp3,.wav,.m4a,.ogg,.webm" style="max-width:220px;">
+                    <button type="button" class="modal-btn secondary" id="upload-voiceover-btn">Upload file</button>
+                    <button type="button" class="modal-btn secondary" id="record-voiceover-btn">Record</button>
+                </div>
+                <div class="marker-form-helper" id="marker-voiceover-status">No voice-over. Save marker first, then upload a file or record directly (MP3, WAV, M4A, or record in browser).</div>
             </div>
             <div class="modal-actions">
                 <button class="modal-btn secondary" id="cancel-marker">Cancel</button>
@@ -3636,6 +3662,7 @@
                 this.styleColumnsSupported = true;
                 this.linkColumnsSupported = true;
                 this.imageColumnsSupported = true;
+                this.voiceoverColumnsSupported = true;
                 this.iconDropdownBound = false;
 
                 this.dom = {
@@ -3677,6 +3704,10 @@
                     colorRow: document.getElementById('marker-color-row'),
                     imageInput: document.getElementById('marker-image'),
                     imagePreview: document.getElementById('marker-image-preview'),
+                    voiceoverInput: document.getElementById('marker-voiceover'),
+                    voiceoverUploadBtn: document.getElementById('upload-voiceover-btn'),
+                    recordVoiceoverBtn: document.getElementById('record-voiceover-btn'),
+                    voiceoverStatus: document.getElementById('marker-voiceover-status'),
                     cancelBtn: document.getElementById('cancel-marker'),
                     saveBtn: document.getElementById('save-marker')
                 };
@@ -3733,6 +3764,12 @@
                 }
                 if (d.imageInput) {
                     d.imageInput.addEventListener('change', () => this.previewSelectedImage());
+                }
+                if (d.voiceoverUploadBtn) {
+                    d.voiceoverUploadBtn.addEventListener('click', () => this.uploadVoiceover());
+                }
+                if (d.recordVoiceoverBtn) {
+                    d.recordVoiceoverBtn.addEventListener('click', () => this.toggleRecordVoiceover());
                 }
                 if (d.descriptionInput) {
                     d.descriptionInput.addEventListener('input', () => this.updateMediaPreviewFromDescription(d.descriptionInput.value));
@@ -3932,6 +3969,11 @@
                 return message.includes('image_filename');
             }
 
+            isVoiceoverColumnError(error) {
+                const message = String(error && (error.message || error.details || error.hint) ? (error.message || error.details || error.hint) : '').toLowerCase();
+                return message.includes('voiceover_filename');
+            }
+
             initViewer(viewerInstance) {
                 this.viewer = viewerInstance;
                 if (this.viewer) {
@@ -4038,6 +4080,9 @@
                 if (this.dom.imageInput) this.dom.imageInput.value = '';
                 this.updateCoordinatesText(coords);
                 this.updateImagePreview('');
+                if (this.dom.voiceoverInput) this.dom.voiceoverInput.value = '';
+                if (this.dom.voiceoverUploadBtn) this.dom.voiceoverUploadBtn.disabled = true;
+                if (this.dom.voiceoverStatus) this.dom.voiceoverStatus.textContent = 'Save marker first, then edit to add voice-over (MP3, WAV, M4A).';
                 this.openFormModal();
             }
 
@@ -4069,6 +4114,9 @@
                 if (this.dom.imageInput) this.dom.imageInput.value = '';
                 this.updateCoordinatesText(this.pendingCoordinates);
                 this.updateImagePreview(this.currentImageUrl);
+                if (this.dom.voiceoverInput) this.dom.voiceoverInput.value = '';
+                if (this.dom.voiceoverUploadBtn) this.dom.voiceoverUploadBtn.disabled = false;
+                if (this.dom.voiceoverStatus) this.dom.voiceoverStatus.textContent = marker.voiceover_filename ? 'Voice-over uploaded.' : 'No voice-over. Upload an audio file (MP3, WAV, M4A).';
                 this.openFormModal();
                 this.ensureMarkerImage(marker.id)
                     .then((url) => {
@@ -4107,6 +4155,12 @@
                 this.setIconValue(DEFAULT_MARKER_ICON, { closePanel: true, rerender: true });
                 if (this.dom.colorInput) this.dom.colorInput.value = DEFAULT_MARKER_COLOR;
                 this.updateMarkerStyleControls();
+                if (this.dom.voiceoverInput) this.dom.voiceoverInput.value = '';
+                if (this.dom.voiceoverStatus) this.dom.voiceoverStatus.textContent = '';
+                this.stopRecordVoiceover();
+                if (this.dom.recordVoiceoverBtn) this.dom.recordVoiceoverBtn.textContent = 'Record';
+                if (this.dom.voiceoverUploadBtn) this.dom.voiceoverUploadBtn.disabled = false;
+                if (this.dom.voiceoverInput) this.dom.voiceoverInput.disabled = false;
                 this.setSaveState(false);
             }
 
@@ -4440,6 +4494,89 @@
                 }
             }
 
+            async uploadVoiceover(fileOrBlob) {
+                const markerId = this.editingMarkerId;
+                if (!markerId) {
+                    this.showToast('Save the marker first, then edit it to add a voice-over.', 'error');
+                    return;
+                }
+                let file = fileOrBlob;
+                if (!file && this.dom.voiceoverInput && this.dom.voiceoverInput.files && this.dom.voiceoverInput.files[0]) {
+                    file = this.dom.voiceoverInput.files[0];
+                }
+                if (!file) {
+                    this.showToast('Select an audio file first or record using the Record button.', 'error');
+                    return;
+                }
+                if (file instanceof Blob && !(file instanceof File)) {
+                    file = new File([file], 'recording.webm', { type: file.type || 'audio/webm' });
+                }
+                const headers = await (window.getAuthHeaders ? window.getAuthHeaders() : Promise.resolve({}));
+                const fd = new FormData();
+                fd.append('file', file);
+                try {
+                    const resp = await fetch(`/api/markers/${encodeURIComponent(String(markerId))}/voiceover`, {
+                        method: 'POST',
+                        headers,
+                        body: fd
+                    });
+                    const data = await resp.json().catch(() => ({}));
+                    if (!resp.ok) {
+                        throw new Error(data.error || 'Voice-over upload failed');
+                    }
+                    const marker = this.markerMap.get(String(markerId));
+                    if (marker) marker.voiceover_filename = data.voiceover_filename || true;
+                    if (this.dom.voiceoverStatus) this.dom.voiceoverStatus.textContent = 'Voice-over uploaded.';
+                    if (this.dom.voiceoverInput) this.dom.voiceoverInput.value = '';
+                    this.showToast('Voice-over uploaded.');
+                } catch (e) {
+                    this.showToast(e && e.message ? e.message : 'Voice-over upload failed', 'error');
+                }
+            }
+
+            async toggleRecordVoiceover() {
+                const btn = this.dom.recordVoiceoverBtn;
+                if (!btn) return;
+                if (this._voiceoverRecording) {
+                    this.stopRecordVoiceover();
+                    return;
+                }
+                if (!this.editingMarkerId) {
+                    this.showToast('Save the marker first, then edit to record voice-over.', 'error');
+                    return;
+                }
+                try {
+                    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                    const mime = MediaRecorder.isTypeSupported('audio/webm;codecs=opus') ? 'audio/webm;codecs=opus' : 'audio/webm';
+                    const recorder = new MediaRecorder(stream);
+                    const chunks = [];
+                    recorder.ondataavailable = (e) => { if (e.data && e.data.size) chunks.push(e.data); };
+                    recorder.onstop = () => {
+                        stream.getTracks().forEach((t) => t.stop());
+                        const blob = new Blob(chunks, { type: mime });
+                        if (blob.size > 0) this.uploadVoiceover(blob);
+                        this._voiceoverRecording = null;
+                        if (btn) { btn.textContent = 'Record'; btn.disabled = false; }
+                        if (this.dom.voiceoverUploadBtn) this.dom.voiceoverUploadBtn.disabled = false;
+                        if (this.dom.voiceoverInput) this.dom.voiceoverInput.disabled = false;
+                    };
+                    recorder.start(100);
+                    this._voiceoverRecording = { recorder, stream };
+                    btn.textContent = 'Stop';
+                    if (this.dom.voiceoverUploadBtn) this.dom.voiceoverUploadBtn.disabled = true;
+                    if (this.dom.voiceoverInput) this.dom.voiceoverInput.disabled = true;
+                } catch (e) {
+                    this.showToast(e && e.message ? e.message : 'Microphone access needed to record.', 'error');
+                }
+            }
+
+            stopRecordVoiceover() {
+                if (this._voiceoverRecording && this._voiceoverRecording.recorder && this._voiceoverRecording.recorder.state !== 'inactive') {
+                    this._voiceoverRecording.recorder.stop();
+                }
+                this._voiceoverRecording = null;
+            }
+
             async ensureMarkerImage(markerId) {
                 const marker = this.markerMap.get(String(markerId));
                 if (!marker || !marker.image_filename) return '';
@@ -4583,7 +4720,7 @@
 
             async fetchMarkers(plot_id) {
                 const supabase = this.getSupabaseClient();
-                const baseCols = ['id', 'plot_id', 'name', 'description', 'longitude', 'latitude', 'status', 'created_at', 'image_filename'];
+                const baseCols = ['id', 'plot_id', 'name', 'description', 'longitude', 'latitude', 'status', 'created_at', 'image_filename', 'voiceover_filename'];
                 const styleCols = ['marker_style', 'marker_icon', 'marker_color'];
                 const linkCols = ['linked_panorama_id'];
 
@@ -4595,11 +4732,15 @@
                         const idx = cols.indexOf('image_filename');
                         if (idx !== -1) cols.splice(idx, 1);
                     }
+                    if (this.voiceoverColumnsSupported === false) {
+                        const idx = cols.indexOf('voiceover_filename');
+                        if (idx !== -1) cols.splice(idx, 1);
+                    }
                     return cols.join(', ');
                 };
 
                 let result = null;
-                for (let attempt = 0; attempt < 3; attempt += 1) {
+                for (let attempt = 0; attempt < 4; attempt += 1) {
                     result = await supabase
                         .from('plot_markers')
                         .select(buildCols())
@@ -4619,6 +4760,10 @@
                     }
                     if (this.imageColumnsSupported && this.isImageColumnError(result.error)) {
                         this.imageColumnsSupported = false;
+                        changed = true;
+                    }
+                    if (this.voiceoverColumnsSupported !== false && this.isVoiceoverColumnError(result.error)) {
+                        this.voiceoverColumnsSupported = false;
                         changed = true;
                     }
                     if (!changed) break;
@@ -4659,6 +4804,7 @@
                     name: row.name || '',
                     description: row.description || '',
                     image_filename: row.image_filename || '',
+                    voiceover_filename: row.voiceover_filename || '',
                     image_object_url: '',
                     image_loading: false,
                     marker_style: this.normalizeMarkerStyle(row.marker_style),
@@ -5623,11 +5769,10 @@
 
         function getCentroid(points) {
             if (!Array.isArray(points) || points.length === 0) return null;
-
+            // Always use polygon area centroid so the label is at the geometric center of the plot.
             const c = polygonAreaCentroid(points);
-            if (c && pointInPolygon(c, points)) return c;
-
-            // Backward-compatible fallback (previous behavior).
+            if (c) return c;
+            // Fallback only for degenerate polygons (zero area).
             let x = 0, y = 0;
             points.forEach(p => { x += p.x; y += p.y; });
             return { x: x / points.length, y: y / points.length };
@@ -5911,6 +6056,30 @@
 
             closeShare.addEventListener('click', () => shareModal.classList.remove('visible'));
             shareModal.addEventListener('click', (e) => { if (e.target === shareModal) shareModal.classList.remove('visible'); });
+        }
+
+        const useAnimatedIconsCheckbox = document.getElementById('use-animated-icons');
+        if (useAnimatedIconsCheckbox) {
+            useAnimatedIconsCheckbox.addEventListener('change', async () => {
+                const checked = useAnimatedIconsCheckbox.checked;
+                try {
+                    const headers = await (window.getAuthHeaders ? window.getAuthHeaders() : Promise.resolve({}));
+                    headers['Content-Type'] = 'application/json';
+                    const r = await fetch(`/api/panoramas/${PANORAMA_ID}`, {
+                        method: 'PATCH',
+                        headers,
+                        body: JSON.stringify({ use_animated_icons: checked })
+                    });
+                    if (!r.ok) {
+                        const err = await r.json().catch(() => ({}));
+                        throw new Error(err.error || r.statusText);
+                    }
+                    if (typeof showToast === 'function') showToast(checked ? 'Animated icons enabled' : 'Animated icons disabled', 'success');
+                } catch (e) {
+                    useAnimatedIconsCheckbox.checked = !checked;
+                    if (typeof showToast === 'function') showToast(e.message || 'Failed to update setting', 'error');
+                }
+            });
         }
 
         // Keyboard shortcuts for 360° mode

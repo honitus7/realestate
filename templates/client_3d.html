@@ -2663,6 +2663,13 @@
             <label class="marker-form-label" for="marker-image">Image</label>
             <input id="marker-image" class="marker-form-input" type="file" accept="image/png,image/jpeg,image/jpg,image/webp">
             <div class="marker-image-preview" id="marker-image-preview"></div>
+            <label class="marker-form-label" for="marker-voiceover">Voice-over</label>
+            <div style="display:flex;flex-wrap:wrap;align-items:center;gap:0.5rem;">
+                <input id="marker-voiceover" class="marker-form-input" type="file" accept="audio/*,.mp3,.wav,.m4a,.ogg,.webm" style="max-width:220px;">
+                <button type="button" class="modal-btn secondary" id="upload-voiceover-btn">Upload file</button>
+                <button type="button" class="modal-btn secondary" id="record-voiceover-btn">Record</button>
+            </div>
+            <div class="marker-form-helper" id="marker-voiceover-status">No voice-over. Upload a file or record directly (MP3, WAV, M4A, or record in browser).</div>
             <div class="marker-modal-actions">
                 <button class="modal-btn secondary" id="cancel-marker">Cancel</button>
                 <button class="modal-btn primary" id="save-marker">Save Marker</button>
@@ -3238,6 +3245,7 @@
                 this.previewObjectUrl = '';
                 this.styleColumnsSupported = true;
                 this.imageColumnsSupported = true;
+                this.voiceoverColumnsSupported = true;
                 this.iconDropdownBound = false;
 
                 this.dom = {
@@ -3257,6 +3265,10 @@
                     colorInput: document.getElementById('marker-color'),
                     imageInput: document.getElementById('marker-image'),
                     imagePreview: document.getElementById('marker-image-preview'),
+                    voiceoverInput: document.getElementById('marker-voiceover'),
+                    voiceoverUploadBtn: document.getElementById('upload-voiceover-btn'),
+                    recordVoiceoverBtn: document.getElementById('record-voiceover-btn'),
+                    voiceoverStatus: document.getElementById('marker-voiceover-status'),
                     cancelBtn: document.getElementById('cancel-marker'),
                     saveBtn: document.getElementById('save-marker'),
                     closeBtn: document.getElementById('close-marker-form')
@@ -3284,6 +3296,12 @@
                 }
                 if (d.imageInput) {
                     d.imageInput.addEventListener('change', () => this.previewSelectedImage());
+                }
+                if (d.voiceoverUploadBtn) {
+                    d.voiceoverUploadBtn.addEventListener('click', () => this.uploadVoiceover());
+                }
+                if (d.recordVoiceoverBtn) {
+                    d.recordVoiceoverBtn.addEventListener('click', () => this.toggleRecordVoiceover());
                 }
                 if (d.descriptionInput) {
                     d.descriptionInput.addEventListener('input', () => this.updateMediaPreviewFromDescription(d.descriptionInput.value));
@@ -3465,6 +3483,7 @@
                     name: row.name || '',
                     description: row.description || '',
                     image_filename: row.image_filename || '',
+                    voiceover_filename: row.voiceover_filename || '',
                     image_object_url: '',
                     image_loading: false,
                     marker_style: this.normalizeMarkerStyle(row.marker_style),
@@ -3649,6 +3668,8 @@
                 this.setIconValue(this.normalizeMarkerIcon(marker.marker_icon), { closePanel: true, rerender: true });
                 if (d.colorInput) d.colorInput.value = this.normalizeMarkerColor(marker.marker_color);
                 if (d.imageInput) d.imageInput.value = '';
+                if (d.voiceoverInput) d.voiceoverInput.value = '';
+                if (d.voiceoverStatus) d.voiceoverStatus.textContent = marker.voiceover_filename ? 'Voice-over uploaded.' : 'No voice-over. Upload an audio file (MP3, WAV, M4A).';
                 this.updatePreview(this.currentImageUrl);
                 if (d.formBackdrop) d.formBackdrop.classList.add('visible');
                 this.ensureMarkerImage(marker.id)
@@ -3669,6 +3690,12 @@
                 if (this.dom.colorInput) this.dom.colorInput.value = DEFAULT_MARKER_COLOR;
                 this.currentImageUrl = '';
                 this.updateMediaPreviewFromDescription('');
+                if (this.dom.voiceoverInput) this.dom.voiceoverInput.value = '';
+                if (this.dom.voiceoverStatus) this.dom.voiceoverStatus.textContent = '';
+                this.stopRecordVoiceover();
+                if (this.dom.recordVoiceoverBtn) this.dom.recordVoiceoverBtn.textContent = 'Record';
+                if (this.dom.voiceoverUploadBtn) this.dom.voiceoverUploadBtn.disabled = false;
+                if (this.dom.voiceoverInput) this.dom.voiceoverInput.disabled = false;
                 if (this.previewObjectUrl) {
                     try { URL.revokeObjectURL(this.previewObjectUrl); } catch (e) {}
                     this.previewObjectUrl = '';
@@ -3733,6 +3760,87 @@
                 } catch (error) {
                     showToast(error && error.message ? error.message : 'Failed to update marker', 'error');
                 }
+            }
+
+            async uploadVoiceover(fileOrBlob) {
+                const markerId = this.selectedMarkerId;
+                if (!markerId) {
+                    showToast('Select a marker first.', 'error');
+                    return;
+                }
+                let file = fileOrBlob;
+                if (!file && this.dom.voiceoverInput && this.dom.voiceoverInput.files && this.dom.voiceoverInput.files[0]) {
+                    file = this.dom.voiceoverInput.files[0];
+                }
+                if (!file) {
+                    showToast('Select an audio file first or record using the Record button.', 'error');
+                    return;
+                }
+                if (file instanceof Blob && !(file instanceof File)) {
+                    file = new File([file], 'recording.webm', { type: file.type || 'audio/webm' });
+                }
+                try {
+                    const headers = await (window.getAuthHeaders ? window.getAuthHeaders() : Promise.resolve({}));
+                    const fd = new FormData();
+                    fd.append('file', file);
+                    const resp = await fetch(`/api/markers/${encodeURIComponent(String(markerId))}/voiceover`, {
+                        method: 'POST',
+                        headers,
+                        body: fd
+                    });
+                    const data = await resp.json().catch(() => ({}));
+                    if (!resp.ok) throw new Error(data.error || 'Voice-over upload failed');
+                    const marker = this.markerMap.get(String(markerId));
+                    if (marker) marker.voiceover_filename = data.voiceover_filename || true;
+                    if (this.dom.voiceoverStatus) this.dom.voiceoverStatus.textContent = 'Voice-over uploaded.';
+                    if (this.dom.voiceoverInput) this.dom.voiceoverInput.value = '';
+                    showToast('Voice-over uploaded.');
+                } catch (e) {
+                    showToast(e && e.message ? e.message : 'Voice-over upload failed', 'error');
+                }
+            }
+
+            async toggleRecordVoiceover() {
+                const btn = this.dom.recordVoiceoverBtn;
+                if (!btn) return;
+                if (this._voiceoverRecording) {
+                    this.stopRecordVoiceover();
+                    return;
+                }
+                if (!this.selectedMarkerId) {
+                    showToast('Select a marker first.', 'error');
+                    return;
+                }
+                try {
+                    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                    const mime = MediaRecorder.isTypeSupported('audio/webm;codecs=opus') ? 'audio/webm;codecs=opus' : 'audio/webm';
+                    const recorder = new MediaRecorder(stream);
+                    const chunks = [];
+                    recorder.ondataavailable = (e) => { if (e.data && e.data.size) chunks.push(e.data); };
+                    recorder.onstop = () => {
+                        stream.getTracks().forEach((t) => t.stop());
+                        const blob = new Blob(chunks, { type: mime });
+                        if (blob.size > 0) this.uploadVoiceover(blob);
+                        this._voiceoverRecording = null;
+                        if (btn) { btn.textContent = 'Record'; btn.disabled = false; }
+                        if (this.dom.voiceoverUploadBtn) this.dom.voiceoverUploadBtn.disabled = false;
+                        if (this.dom.voiceoverInput) this.dom.voiceoverInput.disabled = false;
+                    };
+                    recorder.start(100);
+                    this._voiceoverRecording = { recorder, stream };
+                    btn.textContent = 'Stop';
+                    if (this.dom.voiceoverUploadBtn) this.dom.voiceoverUploadBtn.disabled = true;
+                    if (this.dom.voiceoverInput) this.dom.voiceoverInput.disabled = true;
+                } catch (e) {
+                    showToast(e && e.message ? e.message : 'Microphone access needed to record.', 'error');
+                }
+            }
+
+            stopRecordVoiceover() {
+                if (this._voiceoverRecording && this._voiceoverRecording.recorder && this._voiceoverRecording.recorder.state !== 'inactive') {
+                    this._voiceoverRecording.recorder.stop();
+                }
+                this._voiceoverRecording = null;
             }
 
             async updateMarker(id, data) {
@@ -3918,11 +4026,15 @@
                 const supabase = this.getSupabaseClient();
                 const baseCols = ['id', 'plot_id', 'name', 'description', 'longitude', 'latitude', 'status', 'created_at'];
                 const styleCols = ['marker_style', 'marker_icon', 'marker_color'];
-                const imageCols = ['image_filename'];
+                const imageCols = ['image_filename', 'voiceover_filename'];
                 const buildCols = () => {
                     const cols = [...baseCols];
                     if (this.styleColumnsSupported) cols.push(...styleCols);
                     if (this.imageColumnsSupported) cols.push(...imageCols);
+                    if (this.voiceoverColumnsSupported === false) {
+                        const idx = cols.indexOf('voiceover_filename');
+                        if (idx !== -1) cols.splice(idx, 1);
+                    }
                     return cols.join(', ');
                 };
 
@@ -3950,9 +4062,23 @@
                         .order('created_at', { ascending: true });
                 }
 
+                if (result.error && this.voiceoverColumnsSupported !== false && this.isVoiceoverColumnError(result.error)) {
+                    this.voiceoverColumnsSupported = false;
+                    result = await supabase
+                        .from('plot_markers')
+                        .select(buildCols())
+                        .eq('plot_id', String(plotId))
+                        .order('created_at', { ascending: true });
+                }
+
                 const { data, error } = result;
                 if (error) throw error;
                 return data || [];
+            }
+
+            isVoiceoverColumnError(error) {
+                const message = String(error && (error.message || error.details || error.hint) ? (error.message || error.details || error.hint) : '').toLowerCase();
+                return message.includes('voiceover_filename');
             }
 
             getSupabaseClient() {
@@ -4217,11 +4343,10 @@
 
         function getCentroid(points) {
             if (!Array.isArray(points) || points.length === 0) return null;
-
+            // Always use polygon area centroid so the label is at the geometric center of the plot.
             const c = polygonAreaCentroid(points);
-            if (c && pointInPolygon(c, points)) return c;
-
-            // Backward-compatible fallback (previous behavior).
+            if (c) return c;
+            // Fallback only for degenerate polygons (zero area).
             let x = 0, y = 0;
             points.forEach(p => { x += p.x; y += p.y; });
             return { x: x / points.length, y: y / points.length };

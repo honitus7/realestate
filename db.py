@@ -436,11 +436,19 @@ def can_delete_panorama(access_type):
 def get_panorama_by_id(sb, panorama_id):
     """Fetch panorama by id (no access check). For page render. Excludes image_data blob."""
     try:
-        r = sb.table('panoramas').select(
-            'id, user_id, name, filename, original_filename, width, height, is_360, created_at, updated_at'
-        ).eq('id', panorama_id).limit(1).execute()
+        cols = 'id, user_id, name, filename, original_filename, width, height, is_360, created_at, updated_at'
+        try:
+            r = sb.table('panoramas').select(cols + ', workspace_id, use_animated_icons').eq('id', panorama_id).limit(1).execute()
+        except Exception:
+            try:
+                r = sb.table('panoramas').select(cols + ', workspace_id').eq('id', panorama_id).limit(1).execute()
+            except Exception:
+                r = sb.table('panoramas').select(cols).eq('id', panorama_id).limit(1).execute()
         if r.data and len(r.data) > 0:
-            return r.data[0]
+            row = r.data[0]
+            if 'use_animated_icons' not in row:
+                row['use_animated_icons'] = False
+            return row
     except Exception:
         pass
     return None
