@@ -145,7 +145,7 @@ body {
 .project-info {
     min-width: 228px;
     padding: 0.78rem 1rem 0.68rem;
-    border-radius: 0;
+    border-radius: 16px;
     border: 1px solid rgba(16, 36, 68, 0.12);
     background: rgba(246, 248, 252, 0.93);
     box-shadow: 0 6px 20px rgba(7, 25, 52, 0.14);
@@ -332,7 +332,7 @@ body {
     border: 1px solid rgba(18, 36, 67, 0.16);
     background: rgba(246, 248, 252, 0.93);
     box-shadow: 0 10px 24px rgba(8, 20, 40, 0.13);
-    border-radius: 0;
+    border-radius: 16px;
     display: grid;
     place-items: center;
     color: #b58a4c;
@@ -353,7 +353,7 @@ body {
     width: 170px;
     background: rgba(247, 249, 253, 0.94);
     border: 1px solid rgba(18, 36, 67, 0.12);
-    border-radius: 0;
+    border-radius: 16px;
     box-shadow: 0 10px 22px rgba(7, 27, 56, 0.15);
     padding: 0.82rem 0.64rem;
     pointer-events: auto;
@@ -389,7 +389,7 @@ body {
     background: rgba(255, 255, 255, 0.35);
     color: var(--color-text);
     box-shadow: 0 4px 12px rgba(22, 35, 56, 0.08);
-    border-radius: var(--radius-sm);
+    border-radius: 12px;
     font-size: 0.68rem;
     letter-spacing: 0.08em;
     text-transform: uppercase;
@@ -419,6 +419,7 @@ body {
     width: 100%;
     border: 1px solid rgba(238, 245, 255, 0.22);
     background: rgba(10, 18, 32, 0.72);
+    border-radius: 16px;
     box-shadow: 0 12px 30px rgba(4, 15, 30, 0.3);
     backdrop-filter: blur(14px);
     -webkit-backdrop-filter: blur(14px);
@@ -483,7 +484,7 @@ body {
     text-align: left;
     cursor: pointer;
     padding: 0.56rem 0.62rem;
-    border-radius: var(--radius-sm);
+    border-radius: 8px;
     color: var(--color-text);
     border-bottom: 1px solid rgba(22, 35, 56, 0.08);
     transition: background 0.18s ease;
@@ -539,7 +540,7 @@ body {
     letter-spacing: 0.08em;
     padding: 0.54rem 0.72rem;
     min-height: 38px;
-    border-radius: 0;
+    border-radius: 12px;
     cursor: pointer;
     box-shadow: 0 8px 18px rgba(7, 25, 50, 0.15);
     transition: background 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
@@ -591,7 +592,7 @@ body {
 }
 
 .legend-total {
-    border-radius: 0;
+    border-radius: 8px;
     border: 1px solid rgba(33, 53, 84, 0.18);
     background: rgba(228, 235, 246, 0.8);
     color: #22395f;
@@ -611,7 +612,7 @@ body {
     grid-template-columns: auto 1fr auto;
     align-items: center;
     gap: 0.48rem;
-    border-radius: 0;
+    border-radius: 8px;
     border: 1px solid rgba(24, 42, 72, 0.1);
     background: rgba(236, 241, 249, 0.92);
     padding: 0.38rem 0.44rem;
@@ -622,7 +623,7 @@ body {
 .status-dot {
     width: 11px;
     height: 20px;
-    border-radius: 0;
+    border-radius: 4px;
     box-shadow: none;
 }
 
@@ -831,7 +832,7 @@ body.overlays-hidden .psv-glass-marker .marker-photo-name {
     pointer-events: auto;
     background: rgba(10, 10, 11, 0.8);
     padding: 1rem;
-    border-radius: 8px;
+    border-radius: 16px;
     backdrop-filter: blur(10px);
     border: 1px solid var(--color-accent-dim);
     max-width: 200px;

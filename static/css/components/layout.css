@@ -31,12 +31,38 @@
     padding: 1.5rem 2.5rem;
     border-bottom: 1px solid var(--color-border);
     background: var(--color-bg-elevated);
+    border-radius: 24px;
+    left: 25px;
+    width: 30%;
 }
 
 .header-left {
     display: flex;
     align-items: center;
     gap: 1.5rem;
+}
+
+.access-badge {
+    font-size: 0.65rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    padding: 0.25rem 0.6rem;
+    border-radius: 20px;
+    line-height: 1;
+    white-space: nowrap;
+}
+
+.access-badge--admin {
+    background: rgba(201, 169, 98, 0.15);
+    color: var(--color-accent, #c9a962);
+    border: 1px solid rgba(201, 169, 98, 0.3);
+}
+
+.access-badge--client {
+    background: rgba(100, 160, 255, 0.12);
+    color: #7ab4ff;
+    border: 1px solid rgba(100, 160, 255, 0.25);
 }
 
 .header-center {
