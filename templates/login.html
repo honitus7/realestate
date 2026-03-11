@@ -5,86 +5,106 @@
 {% endblock %}
 {% block content %}
 <div class="login-page">
-    <div class="page-bg" aria-hidden="true"></div>
-    <div class="page-grid" aria-hidden="true"></div>
-    <a class="brand-pill brand-pill--login" href="/dashboard" aria-label="PropMark">PropMark</a>
+    <!-- Left decorative panel -->
+    <div class="login-left" aria-hidden="true">
+        <div class="login-orbit-ring"></div>
+        <div class="login-orbit-dot"></div>
+        <div class="login-orbit-dot"></div>
+        <div class="login-orbit-dot"></div>
+        <div class="login-orbit-dot"></div>
+        <div class="login-left-content">
+            <div class="login-left-logo">
+                <img src="/static/Logo.png" alt="">
+                <span>PropMark</span>
+            </div>
+            <h2>Immersive Property Visualization</h2>
+            <p>Upload panoramas, mark interactive plots, and share stunning 360-degree property views with your clients.</p>
+        </div>
+    </div>
 
-    <div class="auth-wrap">
-        <div class="card" id="card">
-            <div id="loading-msg" class="loading">Loading…</div>
+    <!-- Right auth panel -->
+    <div class="login-right">
+        <a class="brand-pill brand-pill--login" href="/" aria-label="PropMark">PropMark</a>
 
-            <div id="auth-ui" class="hidden">
-                <div class="card-head">
-                    <h1 id="card-title">Welcome back</h1>
-                    <p class="subtitle" id="card-subtitle">Sign in to your account to continue.</p>
-                </div>
+        <div class="auth-wrap">
+            <div class="card" id="card">
+                <div id="loading-msg" class="loading">Loading…</div>
 
-                <div class="tabs" id="main-tabs">
-                    <button type="button" class="tab active" data-tab="signin">Sign in</button>
-                    <button type="button" class="tab" data-tab="signup">Sign up</button>
-                </div>
-
-                <div id="panel-signin" class="panel active">
-                    <form id="form-signin">
-                        <div class="form-group">
-                            <label class="form-label" for="signin-email">Email</label>
-                            <input type="email" id="signin-email" class="form-input" required
-                                placeholder="you@example.com" autocomplete="email">
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label" for="signin-password">Password</label>
-                            <input type="password" id="signin-password" class="form-input" required
-                                placeholder="••••••••" autocomplete="current-password">
-                        </div>
-                        <div class="link-row">
-                            <a href="#" id="forgot-password-link">Forgot password?</a>
-                        </div>
-                        <div id="signin-error" class="msg error" style="display:none;"></div>
-                        <button type="submit" class="btn btn-primary" id="btn-signin">Sign in</button>
-                    </form>
-                </div>
-
-                <div id="panel-signup" class="panel">
-                    <form id="form-signup">
-                        <div class="form-group">
-                            <label class="form-label" for="signup-name">Name</label>
-                            <input type="text" id="signup-name" class="form-input" required placeholder="Your name"
-                                autocomplete="name">
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label" for="signup-email">Email</label>
-                            <input type="email" id="signup-email" class="form-input" required
-                                placeholder="you@example.com" autocomplete="email">
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label" for="signup-password">Password</label>
-                            <input type="password" id="signup-password" class="form-input" required minlength="6"
-                                placeholder="At least 6 characters" autocomplete="new-password">
-                        </div>
-                        <div id="signup-error" class="msg error" style="display:none;"></div>
-                        <button type="submit" class="btn btn-primary" id="btn-signup">Create account</button>
-                    </form>
-                </div>
-
-                <div id="panel-forgot" class="panel">
-                    <a href="#" class="back-link" id="forgot-back">← Back to sign in</a>
-                    <div class="card-head" style="margin-bottom: 1.5rem;">
-                        <h1 style="font-size: 1.5rem;">Reset password</h1>
-                        <p class="subtitle">Enter your email and we'll send you a link to reset your password.</p>
+                <div id="auth-ui" class="hidden">
+                    <div class="card-head">
+                        <h1 id="card-title">Welcome back</h1>
+                        <p class="subtitle" id="card-subtitle">Sign in to your account to continue.</p>
                     </div>
-                    <form id="form-forgot">
-                        <div class="form-group">
-                            <label class="form-label" for="forgot-email">Email</label>
-                            <input type="email" id="forgot-email" class="form-input" required
-                                placeholder="you@example.com" autocomplete="email">
+
+                    <div class="tabs" id="main-tabs">
+                        <button type="button" class="tab active" data-tab="signin">Sign in</button>
+                        <button type="button" class="tab" data-tab="signup">Sign up</button>
+                    </div>
+
+                    <div id="panel-signin" class="panel active">
+                        <form id="form-signin">
+                            <div class="form-group">
+                                <label class="form-label" for="signin-email">Email</label>
+                                <input type="email" id="signin-email" class="form-input" required
+                                    placeholder="you@example.com" autocomplete="email">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label" for="signin-password">Password</label>
+                                <input type="password" id="signin-password" class="form-input" required
+                                    placeholder="••••••••" autocomplete="current-password">
+                            </div>
+                            <div class="link-row">
+                                <a href="#" id="forgot-password-link">Forgot password?</a>
+                            </div>
+                            <div id="signin-error" class="msg error" style="display:none;"></div>
+                            <button type="submit" class="btn btn-primary" id="btn-signin">Sign in</button>
+                        </form>
+                    </div>
+
+                    <div id="panel-signup" class="panel">
+                        <form id="form-signup">
+                            <div class="form-group">
+                                <label class="form-label" for="signup-name">Name</label>
+                                <input type="text" id="signup-name" class="form-input" required placeholder="Your name"
+                                    autocomplete="name">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label" for="signup-email">Email</label>
+                                <input type="email" id="signup-email" class="form-input" required
+                                    placeholder="you@example.com" autocomplete="email">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label" for="signup-password">Password</label>
+                                <input type="password" id="signup-password" class="form-input" required minlength="6"
+                                    placeholder="At least 6 characters" autocomplete="new-password">
+                            </div>
+                            <div id="signup-error" class="msg error" style="display:none;"></div>
+                            <button type="submit" class="btn btn-primary" id="btn-signup">Create account</button>
+                        </form>
+                    </div>
+
+                    <div id="panel-forgot" class="panel">
+                        <a href="#" class="back-link" id="forgot-back">← Back to sign in</a>
+                        <div class="card-head" style="margin-bottom: 1.5rem;">
+                            <h1 style="font-size: 1.5rem;">Reset password</h1>
+                            <p class="subtitle">Enter your email and we'll send you a link to reset your password.</p>
                         </div>
-                        <div id="forgot-error" class="msg error" style="display:none;"></div>
-                        <div id="forgot-success" class="msg success" style="display:none;"></div>
-                        <button type="submit" class="btn btn-primary" id="btn-forgot">Send reset link</button>
-                    </form>
+                        <form id="form-forgot">
+                            <div class="form-group">
+                                <label class="form-label" for="forgot-email">Email</label>
+                                <input type="email" id="forgot-email" class="form-input" required
+                                    placeholder="you@example.com" autocomplete="email">
+                            </div>
+                            <div id="forgot-error" class="msg error" style="display:none;"></div>
+                            <div id="forgot-success" class="msg success" style="display:none;"></div>
+                            <button type="submit" class="btn btn-primary" id="btn-forgot">Send reset link</button>
+                        </form>
+                    </div>
                 </div>
             </div>
         </div>
+
+        <a href="/" class="login-home-link">← Back to home</a>
     </div>
 </div>
 {% endblock %}

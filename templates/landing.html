@@ -1,0 +1,306 @@
+{% extends 'base.html' %}
+{% block title %}PropMark — Immersive 360° Real Estate Visualization{% endblock %}
+{% block head_css %}
+<link rel="stylesheet" href="/static/css/landing.css">
+{% endblock %}
+{% block content %}
+<div class="landing-page">
+
+    <!-- ── Navbar ── -->
+    <nav class="land-nav" id="land-nav">
+        <a href="/" class="land-nav-logo">
+            <img src="/static/Logo.png" alt="PropMark">
+            <span>PropMark</span>
+        </a>
+        <div class="land-nav-links">
+            <a href="#features">Features</a>
+            <a href="#how-it-works">How It Works</a>
+            <a href="#demo">Demo</a>
+        </div>
+        <div class="land-nav-actions">
+            <a href="/login" class="land-btn land-btn--ghost">Log in</a>
+            <a href="/login" class="land-btn land-btn--primary">Get Started</a>
+        </div>
+    </nav>
+
+    <!-- ── Hero ── -->
+    <section class="land-hero">
+        <div class="land-hero-text">
+            <div class="land-kicker">Real Estate Visualization Platform</div>
+            <h1>Visualize Properties in <span class="accent">Immersive 360&deg;</span></h1>
+            <p class="land-hero-sub">
+                Upload panoramic images, mark interactive plots, add rich media markers,
+                and share stunning 360&deg; property views with your clients — all from one platform.
+            </p>
+            <div class="land-hero-ctas">
+                <a href="/login" class="land-btn land-btn--primary land-btn--large">Start Free Trial</a>
+                <a href="#demo" class="land-btn land-btn--secondary land-btn--large">See Demo</a>
+            </div>
+            <div class="land-trust">
+                <div class="land-trust-item">
+                    <span class="land-trust-num">500+</span>
+                    <span class="land-trust-label">Properties</span>
+                </div>
+                <div class="land-trust-item">
+                    <span class="land-trust-num">50+</span>
+                    <span class="land-trust-label">Developers</span>
+                </div>
+                <div class="land-trust-item">
+                    <span class="land-trust-num">10K+</span>
+                    <span class="land-trust-label">Plots Mapped</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="land-hero-visual">
+            <div class="land-mockup">
+                <div class="land-mockup-screen">
+                    <!-- Plot overlays -->
+                    <div class="land-mock-plot land-mock-plot--available"></div>
+                    <div class="land-mock-plot land-mock-plot--hold"></div>
+                    <div class="land-mock-plot land-mock-plot--sold"></div>
+                    <!-- Marker dots -->
+                    <div class="land-mock-marker"></div>
+                    <div class="land-mock-marker"></div>
+                    <div class="land-mock-marker"></div>
+                    <!-- Tooltip -->
+                    <div class="land-mock-tooltip">
+                        <div class="land-mock-tooltip-title">Plot A-12</div>
+                        <div class="land-mock-tooltip-meta">
+                            <span class="land-mock-tooltip-status">Available</span>
+                            <span>2,400 sq ft</span>
+                        </div>
+                    </div>
+                    <!-- Legend -->
+                    <div class="land-mock-legend">
+                        <div class="land-mock-legend-item">
+                            <div class="land-mock-legend-dot land-mock-legend-dot--green"></div>
+                            Available
+                        </div>
+                        <div class="land-mock-legend-item">
+                            <div class="land-mock-legend-dot land-mock-legend-dot--orange"></div>
+                            Hold
+                        </div>
+                        <div class="land-mock-legend-item">
+                            <div class="land-mock-legend-dot land-mock-legend-dot--red"></div>
+                            Sold
+                        </div>
+                    </div>
+                </div>
+                <div class="land-mockup-reflection"></div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ── Features ── -->
+    <section class="land-section" id="features">
+        <div class="land-section-header">
+            <h2>Everything You Need to Showcase Properties</h2>
+            <p>From panoramic uploads to CRM tracking, PropMark gives you the complete toolkit for immersive real estate visualization.</p>
+        </div>
+        <div class="land-features">
+            <div class="land-feature-card">
+                <div class="land-feature-icon">&#127760;</div>
+                <h3>360&deg; Panorama Upload</h3>
+                <p>Upload high-resolution panoramic images and manage them as projects. Support for standard and 360&deg; formats with automatic detection.</p>
+            </div>
+            <div class="land-feature-card">
+                <div class="land-feature-icon">&#9964;</div>
+                <h3>Interactive Plot Marking</h3>
+                <p>Draw polygon plots directly on panoramas. Track status as Available, Hold, or Sold with color-coded overlays visible at a glance.</p>
+            </div>
+            <div class="land-feature-card">
+                <div class="land-feature-icon">&#9670;</div>
+                <h3>Immersive 3D Viewing</h3>
+                <p>Experience properties in full 360&deg; with Photo Sphere integration. Smooth pan, zoom, and rotate for a virtual walk-through feel.</p>
+            </div>
+            <div class="land-feature-card">
+                <div class="land-feature-icon">&#128205;</div>
+                <h3>Smart Markers</h3>
+                <p>Pin informational markers with descriptions, images, and voice-overs. Each marker is a rich content point your clients can explore.</p>
+            </div>
+            <div class="land-feature-card">
+                <div class="land-feature-icon">&#128101;</div>
+                <h3>Client &amp; Admin Modes</h3>
+                <p>Admins get full editing power while clients enjoy a clean, interactive view. Role-based access keeps everything organized and secure.</p>
+            </div>
+            <div class="land-feature-card">
+                <div class="land-feature-icon">&#128200;</div>
+                <h3>CRM &amp; Lead Tracking</h3>
+                <p>Capture leads directly from property views. Manage customer data, track inquiries, and export reports — all built in.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- ── How It Works ── -->
+    <section class="land-section" id="how-it-works">
+        <div class="land-section-header">
+            <h2>How It Works</h2>
+            <p>Get your property visualization live in four simple steps.</p>
+        </div>
+        <div class="land-steps">
+            <div class="land-step">
+                <div class="land-step-num">1</div>
+                <h3>Upload</h3>
+                <p>Upload your 360-degree panoramic images via drag-and-drop.</p>
+            </div>
+            <div class="land-step">
+                <div class="land-step-num">2</div>
+                <h3>Mark</h3>
+                <p>Draw polygon plots and set their status — Available, Hold, or Sold.</p>
+            </div>
+            <div class="land-step">
+                <div class="land-step-num">3</div>
+                <h3>Customize</h3>
+                <p>Add markers with descriptions, images, and voice-over narrations.</p>
+            </div>
+            <div class="land-step">
+                <div class="land-step-num">4</div>
+                <h3>Share</h3>
+                <p>Generate a shareable link and send it to your clients instantly.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- ── Demo Mockup ── -->
+    <section class="land-demo-section" id="demo">
+        <div class="land-demo-wrap">
+            <div class="land-section-header">
+                <h2>See PropMark in Action</h2>
+                <p>A full-featured workspace for managing panoramic property views, plot overlays, and customer interactions.</p>
+            </div>
+            <div class="land-demo-perspective">
+                <div class="land-demo-browser">
+                    <div class="land-demo-chrome">
+                        <div class="land-demo-dot"></div>
+                        <div class="land-demo-dot"></div>
+                        <div class="land-demo-dot"></div>
+                        <div class="land-demo-url">app.propmark.io/project/skyline-towers</div>
+                    </div>
+                    <div class="land-demo-body">
+                        <div class="land-demo-sidebar">
+                            <div class="land-demo-thumb active"></div>
+                            <div class="land-demo-thumb"></div>
+                            <div class="land-demo-thumb"></div>
+                            <div class="land-demo-thumb"></div>
+                            <div class="land-demo-thumb"></div>
+                        </div>
+                        <div class="land-demo-viewport">
+                            <div class="land-demo-plot land-demo-plot--1"></div>
+                            <div class="land-demo-plot land-demo-plot--2"></div>
+                            <div class="land-demo-plot land-demo-plot--3"></div>
+                            <div class="land-demo-marker land-demo-marker--1"></div>
+                            <div class="land-demo-marker land-demo-marker--2"></div>
+                            <div class="land-demo-marker land-demo-marker--3"></div>
+                            <div class="land-demo-info">
+                                <strong>Plot B-07</strong>
+                                1,800 sq ft &middot; <span>Available</span>
+                            </div>
+                            <div class="land-demo-legend">
+                                <div class="land-demo-legend-row">
+                                    <div class="land-demo-legend-dot" style="background:#22c55e"></div>
+                                    Available
+                                </div>
+                                <div class="land-demo-legend-row">
+                                    <div class="land-demo-legend-dot" style="background:#f97316"></div>
+                                    Hold
+                                </div>
+                                <div class="land-demo-legend-row">
+                                    <div class="land-demo-legend-dot" style="background:#ef4444"></div>
+                                    Sold
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ── Stats ── -->
+    <section class="land-stats">
+        <div class="land-stats-grid">
+            <div>
+                <div class="land-stat-num">99.9%</div>
+                <div class="land-stat-label">Uptime</div>
+            </div>
+            <div>
+                <div class="land-stat-num">&lt; 2s</div>
+                <div class="land-stat-label">Load Time</div>
+            </div>
+            <div>
+                <div class="land-stat-num">360&deg;</div>
+                <div class="land-stat-label">Immersive Views</div>
+            </div>
+            <div>
+                <div class="land-stat-num">24/7</div>
+                <div class="land-stat-label">Support</div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ── CTA ── -->
+    <section class="land-cta">
+        <div class="land-cta-inner">
+            <h2>Ready to Transform Your Property Showcasing?</h2>
+            <p>Join hundreds of developers and real estate professionals who use PropMark to create immersive property experiences.</p>
+            <a href="/login" class="land-btn land-btn--primary land-btn--large">Get Started Free</a>
+        </div>
+    </section>
+
+    <!-- ── Footer ── -->
+    <footer class="land-footer">
+        <div class="land-footer-grid">
+            <div class="land-footer-brand">
+                <h3>PropMark</h3>
+                <p>The modern platform for immersive real estate visualization. Upload, mark, customize, and share — all in 360 degrees.</p>
+            </div>
+            <div class="land-footer-col">
+                <h4>Product</h4>
+                <a href="#features">Features</a>
+                <a href="#how-it-works">How It Works</a>
+                <a href="#demo">Demo</a>
+            </div>
+            <div class="land-footer-col">
+                <h4>Account</h4>
+                <a href="/login">Log in</a>
+                <a href="/login">Sign up</a>
+            </div>
+        </div>
+        <div class="land-footer-bottom">
+            <span>&copy; 2026 PropMark. All rights reserved.</span>
+            <span>Built with PropMark</span>
+        </div>
+    </footer>
+
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+(function() {
+    var nav = document.getElementById('land-nav');
+    if (!nav) return;
+    window.addEventListener('scroll', function() {
+        if (window.scrollY > 20) {
+            nav.classList.add('scrolled');
+        } else {
+            nav.classList.remove('scrolled');
+        }
+    }, { passive: true });
+
+    // Smooth scroll for anchor links
+    document.querySelectorAll('.land-nav-links a, a[href^="#"]').forEach(function(a) {
+        a.addEventListener('click', function(e) {
+            var href = this.getAttribute('href');
+            if (href && href.startsWith('#')) {
+                var target = document.querySelector(href);
+                if (target) {
+                    e.preventDefault();
+                    target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
+            }
+        });
+    });
+})();
+</script>
+{% endblock %}

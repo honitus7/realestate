@@ -241,7 +241,7 @@ def register_routes(app):
     # ----- Public routes -----
     @app.route('/')
     def index():
-        return redirect('/login')
+        return render_template('landing.html')
 
     @app.route('/login')
     def login_page():
