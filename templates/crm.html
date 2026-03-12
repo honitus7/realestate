@@ -7,20 +7,31 @@
 <div class="crm-page">
     <header class="header">
         <div class="header-left">
-            <a href="/dashboard" class="brand-pill" aria-label="PropMark">PropMark</a>
             <a class="logo" href="/dashboard" aria-label="Back to dashboard">
                 <img src="/static/Logo.png" alt="Logo" loading="eager">
             </a>
+            <span class="header-sep"></span>
             <div class="page-title">
-                <h1>Customer Relation</h1>
-                <p id="subtitle">Manage leads, plots, and lock access</p>
+                <h1>CRM</h1>
+                <p id="subtitle">Leads · Plots · Lock Access</p>
             </div>
         </div>
         <div class="header-actions">
-            <button class="btn ghost" id="btn-export" type="button">Export CSV</button>
-            <button class="btn ghost" id="btn-reports" type="button">Reports</button>
-            <button class="btn" id="btn-refresh" type="button">Refresh</button>
-            <a class="btn primary" href="/dashboard">Dashboard</a>
+            <button class="hdr-btn" id="btn-export" type="button">
+                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                Export CSV
+            </button>
+            <button class="hdr-btn" id="btn-reports" type="button">
+                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                Reports
+            </button>
+            <button class="hdr-btn hdr-btn--icon" id="btn-refresh" type="button" title="Refresh data">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+            </button>
+            <a class="hdr-btn hdr-btn--primary" href="/dashboard">
+                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+                Dashboard
+            </a>
         </div>
     </header>
 
@@ -34,34 +45,62 @@
             <div class="sidebar-divider"></div>
             <div class="sidebar-label">Lock Management</div>
             <a data-section="manage-lock" id="nav-manage-lock" style="display:none;"><span class="sidebar-icon">&#128274;</span> Manage Lock</a>
-            <a data-section="lock-plots"><span class="sidebar-icon">&#128275;</span> Lock Plots</a>
+            <a data-section="lock-plots" id="nav-lock-plots"><span class="sidebar-icon">&#128275;</span> Lock Plots</a>
         </nav>
 
         <!-- Content -->
         <main class="crm-content">
             <!-- ══════════ INTERESTS SECTION ══════════ -->
             <section class="crm-section active" id="sec-interests">
-                <div class="section-header">
-                    <div><h2>Buy Interests</h2><p>Leads captured from plot carts</p></div>
+                <!-- Stats Row -->
+                <div class="interest-stats" id="interest-stats">
+                    <div class="istat">
+                        <div class="istat-icon istat-icon--total">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                        </div>
+                        <div class="istat-body"><div class="istat-val" id="stat-total">0</div><div class="istat-label">Total Leads</div></div>
+                    </div>
+                    <div class="istat">
+                        <div class="istat-icon istat-icon--new">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+                        </div>
+                        <div class="istat-body"><div class="istat-val" id="stat-new">0</div><div class="istat-label">New</div></div>
+                    </div>
+                    <div class="istat">
+                        <div class="istat-icon istat-icon--qualified">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+                        </div>
+                        <div class="istat-body"><div class="istat-val" id="stat-qualified">0</div><div class="istat-label">Qualified</div></div>
+                    </div>
+                    <div class="istat">
+                        <div class="istat-icon istat-icon--won">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                        </div>
+                        <div class="istat-body"><div class="istat-val" id="stat-won">0</div><div class="istat-label">Won</div></div>
+                    </div>
+                    <div class="istat">
+                        <div class="istat-icon istat-icon--conversion">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="20" x2="12" y2="10"/><line x1="18" y1="20" x2="18" y2="4"/><line x1="6" y1="20" x2="6" y2="16"/></svg>
+                        </div>
+                        <div class="istat-body"><div class="istat-val" id="stat-conversion">0%</div><div class="istat-label">Conversion</div></div>
+                    </div>
                 </div>
-                <div class="grid-top">
-                    <div class="card">
-                        <div class="card-header"><div class="card-title"><strong>Overview</strong><span>At-a-glance totals</span></div></div>
-                        <div class="stats-grid" id="stats-grid"></div>
+
+                <!-- Toolbar: view toggle + filters -->
+                <div class="interest-toolbar">
+                    <div class="interest-toolbar-left">
+                        <div class="view-toggle">
+                            <button class="view-btn active" id="view-board" type="button" title="Board view">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+                            </button>
+                            <button class="view-btn" id="view-table" type="button" title="Table view">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+                            </button>
+                        </div>
+                        <input class="toolbar-search" id="q" placeholder="Search leads..." autocomplete="off">
                     </div>
-                    <div class="card">
-                        <div class="card-header"><div class="card-title"><strong>Pipeline</strong><span>Distribution across stages</span></div></div>
-                        <div class="pipeline" id="pipeline"></div>
-                    </div>
-                </div>
-                <div class="card">
-                    <div class="card-header">
-                        <div class="card-title"><strong>All Interests</strong><span id="results-meta">0 results</span></div>
-                        <span class="pill new"><span class="dot"></span><span>Live</span></span>
-                    </div>
-                    <div class="filters">
-                        <input class="input" id="q" placeholder="Search name, email, phone…" autocomplete="off">
-                        <select class="input select" id="filter-status">
+                    <div class="interest-toolbar-right">
+                        <select class="toolbar-select" id="filter-status">
                             <option value="">All Status</option>
                             <option value="new">New</option>
                             <option value="contacted">Contacted</option>
@@ -69,27 +108,89 @@
                             <option value="won">Won</option>
                             <option value="lost">Lost</option>
                         </select>
-                        <select class="input select" id="filter-category"><option value="">All Categories</option></select>
-                        <select class="input select" id="filter-project"><option value="">All Projects</option></select>
-                        <button class="btn primary" id="btn-clear" type="button">Clear</button>
+                        <select class="toolbar-select" id="filter-category"><option value="">All Categories</option></select>
+                        <select class="toolbar-select" id="filter-project"><option value="">All Projects</option></select>
+                        <button class="toolbar-btn" id="btn-clear" type="button">Clear</button>
                     </div>
-                    <div class="table-wrap">
-                        <table>
-                            <thead><tr>
-                                <th style="width:14%">Created</th>
-                                <th style="width:20%">Customer</th>
-                                <th style="width:18%">Contact</th>
-                                <th style="width:14%">Category</th>
-                                <th style="width:20%">Project</th>
-                                <th style="width:14%">Status</th>
-                            </tr></thead>
-                            <tbody id="tbody"></tbody>
-                        </table>
-                        <div class="empty" id="empty" style="display:none;">
-                            <strong>No buy interests yet</strong>
-                            <div>Once customers submit the cart checkout from a panorama, leads will appear here.</div>
+                </div>
+
+                <!-- Board View (Kanban) -->
+                <div class="kanban" id="kanban-board">
+                    <div class="kanban-col" data-stage="new">
+                        <div class="kanban-col-header">
+                            <span class="kanban-dot kanban-dot--new"></span>
+                            <span class="kanban-col-title">New</span>
+                            <span class="kanban-col-count" id="kb-count-new">0</span>
+                        </div>
+                        <div class="kanban-cards" id="kb-new"></div>
+                    </div>
+                    <div class="kanban-col" data-stage="contacted">
+                        <div class="kanban-col-header">
+                            <span class="kanban-dot kanban-dot--contacted"></span>
+                            <span class="kanban-col-title">Contacted</span>
+                            <span class="kanban-col-count" id="kb-count-contacted">0</span>
+                        </div>
+                        <div class="kanban-cards" id="kb-contacted"></div>
+                    </div>
+                    <div class="kanban-col" data-stage="qualified">
+                        <div class="kanban-col-header">
+                            <span class="kanban-dot kanban-dot--qualified"></span>
+                            <span class="kanban-col-title">Qualified</span>
+                            <span class="kanban-col-count" id="kb-count-qualified">0</span>
+                        </div>
+                        <div class="kanban-cards" id="kb-qualified"></div>
+                    </div>
+                    <div class="kanban-col" data-stage="won">
+                        <div class="kanban-col-header">
+                            <span class="kanban-dot kanban-dot--won"></span>
+                            <span class="kanban-col-title">Won</span>
+                            <span class="kanban-col-count" id="kb-count-won">0</span>
+                        </div>
+                        <div class="kanban-cards" id="kb-won"></div>
+                    </div>
+                    <div class="kanban-col" data-stage="lost">
+                        <div class="kanban-col-header">
+                            <span class="kanban-dot kanban-dot--lost"></span>
+                            <span class="kanban-col-title">Lost</span>
+                            <span class="kanban-col-count" id="kb-count-lost">0</span>
+                        </div>
+                        <div class="kanban-cards" id="kb-lost"></div>
+                    </div>
+                </div>
+
+                <!-- Table View -->
+                <div class="interest-table-wrap" id="interest-table-view" style="display:none;">
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-title"><strong>All Leads</strong><span id="results-meta">0 results</span></div>
+                            <span class="pill new"><span class="dot"></span><span>Live</span></span>
+                        </div>
+                        <div class="table-wrap">
+                            <table>
+                                <thead><tr>
+                                    <th style="width:14%">Created</th>
+                                    <th style="width:20%">Customer</th>
+                                    <th style="width:16%">Contact</th>
+                                    <th style="width:12%">Category</th>
+                                    <th style="width:18%">Project</th>
+                                    <th style="width:10%">Plots</th>
+                                    <th style="width:10%">Status</th>
+                                </tr></thead>
+                                <tbody id="tbody"></tbody>
+                            </table>
+                            <div class="empty" id="table-empty" style="display:none;">
+                                <strong>No leads yet</strong>
+                                <div>Once customers submit the cart checkout from a panorama, leads will appear here.</div>
+                            </div>
                         </div>
                     </div>
+                </div>
+
+                <!-- Empty state for board -->
+                <div class="kanban-empty" id="kanban-empty" style="display:none;">
+                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" opacity="0.35"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                    <strong>No leads yet</strong>
+                    <div>Once customers submit the cart checkout from a panorama, leads will appear here.</div>
                 </div>
 
                 <!-- Report card (hidden by default) -->
@@ -98,13 +199,13 @@
                     <div style="padding:1.25rem 1.5rem;">
                         <div class="report-toolbar">
                             <label class="report-label">Report type</label>
-                            <select class="input select" id="report-type">
+                            <select class="toolbar-select" id="report-type">
                                 <option value="pipeline">Pipeline summary</option>
                                 <option value="leads">Lead list</option>
                             </select>
                             <button class="btn" id="btn-print" type="button">Print</button>
                             <button class="btn primary" id="btn-pdf" type="button">Save as PDF</button>
-                            <button class="btn ghost" id="btn-close-report" type="button">Close</button>
+                            <button class="btn" id="btn-close-report" type="button">Close</button>
                         </div>
                         <div id="report-print-area" class="report-print-area"></div>
                     </div>
@@ -122,7 +223,6 @@
                             <thead><tr>
                                 <th>ID</th>
                                 <th>Name</th>
-                                <th>Markers</th>
                                 <th></th>
                             </tr></thead>
                             <tbody id="panorama-tbody"></tbody>
@@ -137,12 +237,12 @@
             <!-- ══════════ PLOTS SECTION ══════════ -->
             <section class="crm-section" id="sec-plots">
                 <div class="section-header">
-                    <div><h2>Plots</h2><p>All plots across your panoramas – editable inline</p></div>
+                    <div><h2>Plots</h2><p>All plots across your panoramas</p></div>
                 </div>
                 <div class="crm-filter-bar">
-                    <input class="input" id="plot-search" placeholder="Search plots…" autocomplete="off">
-                    <select class="input select" id="plot-panorama-filter"><option value="">All Panoramas</option></select>
-                    <select class="input select" id="plot-status-filter">
+                    <input class="toolbar-search" id="plot-search" placeholder="Search plots..." autocomplete="off">
+                    <select class="toolbar-select" id="plot-panorama-filter"><option value="">All Panoramas</option></select>
+                    <select class="toolbar-select" id="plot-status-filter">
                         <option value="">All Status</option>
                         <option value="available">Available</option>
                         <option value="hold">Hold</option>
@@ -174,7 +274,7 @@
                     <div><h2>Manage Lock Access</h2><p>Grant or revoke plot lock access for users in your organization</p></div>
                 </div>
                 <div class="crm-filter-bar">
-                    <select class="input select" id="lock-panorama-select"><option value="">Select Panorama</option></select>
+                    <select class="toolbar-select" id="lock-panorama-select"><option value="">Select Panorama</option></select>
                 </div>
                 <div class="card" id="lock-access-card">
                     <div class="card-header"><div class="card-title"><strong>Users</strong><span id="lock-access-meta">Select a panorama above</span></div></div>
@@ -207,7 +307,7 @@
                             <strong>No lockable plots</strong><div>You don't have lock access to any plots. Ask an admin to grant access.</div>
                         </div>
                         <div class="crm-loading" id="lockplots-loading" style="display:none;">
-                            <div class="crm-spinner"></div> Loading lockable plots…
+                            <div class="crm-spinner"></div> Loading lockable plots...
                         </div>
                     </div>
                 </div>
@@ -220,7 +320,7 @@
         <div class="crm-modal">
             <div class="crm-modal-header">
                 <h2 id="panorama-modal-title">Panorama</h2>
-                <button class="crm-modal-close" id="panorama-modal-close" type="button">×</button>
+                <button class="crm-modal-close" id="panorama-modal-close" type="button">&times;</button>
             </div>
             <div class="crm-modal-tabs">
                 <button class="crm-modal-tab active" data-panel="modal-plots">Plots</button>
@@ -238,7 +338,7 @@
                         <tbody id="modal-plots-tbody"></tbody>
                     </table>
                     <div class="crm-loading" id="modal-plots-loading" style="display:none;">
-                        <div class="crm-spinner"></div> Loading…
+                        <div class="crm-spinner"></div> Loading...
                     </div>
                 </div>
                 <div class="crm-modal-panel" id="modal-markers">
@@ -253,14 +353,14 @@
                         <tbody id="modal-markers-tbody"></tbody>
                     </table>
                     <div class="crm-loading" id="modal-markers-loading" style="display:none;">
-                        <div class="crm-spinner"></div> Loading…
+                        <div class="crm-spinner"></div> Loading...
                     </div>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- ══════════ INTEREST DRAWER ══════════ -->
+    <!-- ══════════ LEAD DETAIL DRAWER ══════════ -->
     <div class="drawer-backdrop" id="drawer-backdrop"></div>
     <aside class="drawer" id="drawer" aria-hidden="true">
         <div class="drawer-head">
@@ -268,38 +368,138 @@
                 <h2 id="d-title">Lead</h2>
                 <div class="subtle" id="d-subtitle"></div>
             </div>
-            <button class="drawer-close" id="drawer-close" type="button" aria-label="Close">×</button>
+            <button class="drawer-close" id="drawer-close" type="button" aria-label="Close">&times;</button>
         </div>
         <div class="drawer-body">
             <div class="drawer-section">
-                <h3>Contact</h3>
+                <div class="drawer-section-head">
+                    <h3>Contact</h3>
+                    <div class="drawer-contact-actions" id="d-contact-actions"></div>
+                </div>
                 <div class="kv" id="d-contact"></div>
             </div>
             <div class="drawer-section">
-                <h3>Interest</h3>
+                <h3>Deal Info</h3>
                 <div class="kv" id="d-interest"></div>
+            </div>
+            <div class="drawer-section">
+                <div class="drawer-section-head">
+                    <h3>Plots</h3>
+                </div>
+                <div class="drawer-plots" id="d-plots"></div>
             </div>
             <div class="drawer-section">
                 <h3>Update</h3>
                 <div style="display:grid;gap:0.65rem;">
-                    <select class="input select" id="d-status">
+                    <label class="drawer-field-label">Status</label>
+                    <select class="toolbar-select" id="d-status" style="max-width:100%;">
                         <option value="new">New</option>
                         <option value="contacted">Contacted</option>
                         <option value="qualified">Qualified</option>
                         <option value="won">Won</option>
                         <option value="lost">Lost</option>
                     </select>
-                    <textarea class="input" id="d-notes" rows="5" style="height:auto;border-radius:14px;padding:0.8rem 0.9rem;resize:vertical;" placeholder="Notes (call summary, next steps, objections, etc)"></textarea>
+                    <label class="drawer-field-label">Notes</label>
+                    <textarea class="toolbar-search" id="d-notes" rows="5" style="height:auto;resize:vertical;min-height:100px;" placeholder="Call summary, next steps, objections..."></textarea>
                     <div class="msg" id="d-msg" style="display:none;"></div>
                 </div>
             </div>
         </div>
         <div class="drawer-foot">
+            <button class="btn" id="btn-quotation" type="button" title="Generate Quotation">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                Quotation
+            </button>
             <button class="btn" id="btn-contacted" type="button">Mark Contacted</button>
-            <button class="btn primary" id="btn-save" type="button">Save</button>
+            <button class="btn primary" id="btn-save" type="button">Save Changes</button>
         </div>
     </aside>
 </div>
+
+<!-- ══════════ QUOTATION MODAL ══════════ -->
+<div class="crm-modal-backdrop" id="quotation-modal-backdrop">
+    <div class="crm-modal" style="width:min(640px,94vw);">
+        <div class="crm-modal-header">
+            <h2>Generate Quotation</h2>
+            <button class="crm-modal-close" id="quotation-modal-close" type="button">&times;</button>
+        </div>
+        <div class="crm-modal-body" style="padding:1.25rem 1.5rem;display:grid;gap:0.85rem;">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;">
+                <div class="q-field">
+                    <label class="drawer-field-label">Client Name</label>
+                    <input class="toolbar-search" id="q-client-name" style="width:100%;min-width:0;" placeholder="Full name">
+                </div>
+                <div class="q-field">
+                    <label class="drawer-field-label">Client Phone</label>
+                    <input class="toolbar-search" id="q-client-phone" style="width:100%;min-width:0;" placeholder="Phone">
+                </div>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;">
+                <div class="q-field">
+                    <label class="drawer-field-label">Client Email</label>
+                    <input class="toolbar-search" id="q-client-email" style="width:100%;min-width:0;" placeholder="Email">
+                </div>
+                <div class="q-field">
+                    <label class="drawer-field-label">Client Address</label>
+                    <input class="toolbar-search" id="q-client-address" style="width:100%;min-width:0;" placeholder="Address">
+                </div>
+            </div>
+            <div class="q-field">
+                <label class="drawer-field-label">Project / Property Name</label>
+                <input class="toolbar-search" id="q-project-name" style="width:100%;min-width:0;" placeholder="Project name">
+            </div>
+            <div id="q-plots-section">
+                <label class="drawer-field-label" style="margin-bottom:0.4rem;">Plot Details</label>
+                <div id="q-plots-list" style="display:grid;gap:0.5rem;"></div>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;">
+                <div class="q-field">
+                    <label class="drawer-field-label">Base Price (per unit)</label>
+                    <input class="toolbar-search" id="q-base-price" type="text" style="width:100%;min-width:0;" placeholder="e.g. 5,00,000">
+                </div>
+                <div class="q-field">
+                    <label class="drawer-field-label">Total Amount</label>
+                    <input class="toolbar-search" id="q-total-amount" type="text" style="width:100%;min-width:0;" placeholder="e.g. 25,00,000">
+                </div>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;">
+                <div class="q-field">
+                    <label class="drawer-field-label">Payment Terms</label>
+                    <select class="toolbar-select" id="q-payment-terms" style="max-width:100%;width:100%;">
+                        <option value="Full Payment">Full Payment</option>
+                        <option value="EMI Available">EMI Available</option>
+                        <option value="50% Advance + Balance on Registration">50% Advance + Balance</option>
+                        <option value="30% Advance + 70% on Possession">30% Advance + 70% Possession</option>
+                        <option value="Custom">Custom</option>
+                    </select>
+                </div>
+                <div class="q-field">
+                    <label class="drawer-field-label">Validity (Days)</label>
+                    <input class="toolbar-search" id="q-validity" type="number" value="30" style="width:100%;min-width:0;">
+                </div>
+            </div>
+            <div class="q-field">
+                <label class="drawer-field-label">Additional Notes / Special Terms</label>
+                <textarea class="toolbar-search" id="q-notes" rows="3" style="width:100%;min-width:0;height:auto;resize:vertical;" placeholder="Registration charges, maintenance, amenities, etc."></textarea>
+            </div>
+            <div class="msg" id="q-msg" style="display:none;"></div>
+        </div>
+        <div style="display:flex;gap:0.65rem;justify-content:flex-end;padding:1rem 1.5rem;border-top:1px solid var(--color-border);background:var(--color-surface-strong);">
+            <button class="btn" id="q-download-btn" type="button">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                Download PDF
+            </button>
+            <button class="btn" id="q-whatsapp-btn" type="button" style="color:#25d366;border-color:rgba(37,211,102,0.3);">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+                Share via WhatsApp
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Hidden quotation render area -->
+<div id="quotation-render" style="position:fixed;left:-9999px;top:0;width:794px;background:#fff;font-family:'Syne',sans-serif;color:#162338;"></div>
+
 {% endblock %}
 {% block scripts %}
 <script>
@@ -363,6 +563,21 @@
     function fmtTime(iso) {
         try { const d = new Date(iso); return isNaN(d.getTime()) ? '' : d.toLocaleString(undefined,{hour:'2-digit',minute:'2-digit'}); } catch(e) { return ''; }
     }
+    function fmtRelative(iso) {
+        try {
+            const d = new Date(iso);
+            if (isNaN(d.getTime())) return '';
+            const diff = Date.now() - d.getTime();
+            const mins = Math.floor(diff / 60000);
+            if (mins < 1) return 'Just now';
+            if (mins < 60) return mins + 'm ago';
+            const hrs = Math.floor(mins / 60);
+            if (hrs < 24) return hrs + 'h ago';
+            const days = Math.floor(hrs / 24);
+            if (days < 30) return days + 'd ago';
+            return fmtDate(iso);
+        } catch(e) { return ''; }
+    }
     function kvRow(k,v) { return '<div class="kv-row"><div class="k">'+esc(k)+'</div><div class="v">'+esc(v)+'</div></div>'; }
     function countByStatus(items) {
         const c = {new:0,contacted:0,qualified:0,won:0,lost:0,total:0};
@@ -380,6 +595,11 @@
         try { const d=new Date(iso); if(isNaN(d.getTime()))return String(iso||''); const p=n=>String(n).padStart(2,'0'); return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())+' '+p(d.getHours())+':'+p(d.getMinutes()); } catch(e){ return String(iso||''); }
     }
     function toStatusLabel(s) { const r=String(s||'').trim().toLowerCase(); return r?r.charAt(0).toUpperCase()+r.slice(1):''; }
+    function initials(name) {
+        if(!name) return '?';
+        const parts = name.trim().split(/\s+/);
+        return parts.length >= 2 ? (parts[0][0] + parts[parts.length-1][0]).toUpperCase() : (parts[0][0] || '?').toUpperCase();
+    }
 
     async function api(path, opts) {
         const headers = await ensureAuthenticated();
@@ -396,6 +616,7 @@
     let selected = null;
     let allPlots = [];
     let orgUsers = [];
+    let currentView = 'board'; // 'board' or 'table'
 
     // ── DOM refs ──
     const $ = id => document.getElementById(id);
@@ -415,7 +636,6 @@
             e.preventDefault();
             const sec = this.getAttribute('data-section');
             switchSection(sec);
-            // Lazy load data for section
             if (sec === 'panoramas') loadPanoramas();
             if (sec === 'plots') loadAllPlots();
             if (sec === 'manage-lock') loadManageLock();
@@ -440,11 +660,6 @@
     // ══════════════════════════════════════════
     //  INTERESTS SECTION
     // ══════════════════════════════════════════
-    const elStats = $('stats-grid');
-    const elPipe = $('pipeline');
-    const elTbody = $('tbody');
-    const elEmpty = $('empty');
-    const elMeta = $('results-meta');
     const qEl = $('q');
     const statusEl = $('filter-status');
     const categoryEl = $('filter-category');
@@ -453,28 +668,33 @@
     const reportTypeEl = $('report-type');
     const reportPrintArea = $('report-print-area');
 
-    function statCard(label,value,hint) {
-        return '<div class="stat"><div class="label">'+esc(label)+'</div><div class="value mono">'+esc(value)+'</div><div class="hint">'+esc(hint)+'</div></div>';
-    }
+    // -- Stats --
     function renderStats() {
-        const c = countByStatus(filtered.length?filtered:interests);
-        const t = Math.max(1,c.total);
-        elStats.innerHTML = [
-            statCard('Total',c.total,'All captured interests'),
-            statCard('New',c.new,'Uncontacted leads'),
-            statCard('Qualified',c.qualified,'~'+((c.qualified/t)*100).toFixed(0)+'% of total'),
-            statCard('Won / Lost',c.won+' / '+c.lost,'Win '+((c.won/t)*100).toFixed(0)+'% • Lost '+((c.lost/t)*100).toFixed(0)+'%')
-        ].join('');
+        const src = filtered.length ? filtered : interests;
+        const c = countByStatus(src);
+        const t = Math.max(1, c.total);
+        $('stat-total').textContent = c.total;
+        $('stat-new').textContent = c.new;
+        $('stat-qualified').textContent = c.qualified;
+        $('stat-won').textContent = c.won;
+        $('stat-conversion').textContent = ((c.won / t) * 100).toFixed(0) + '%';
     }
-    function pipeRow(label,count,total) {
-        const pct = Math.round((count/Math.max(1,total))*100);
-        return '<div class="pipe-row"><div><div class="pipe-name">'+esc(label)+'</div><div class="pipe-bar"><div class="pipe-fill" data-pipe-fill="'+pct+'"></div></div></div><div class="pipe-meta"><div class="pipe-count mono">'+count+'</div><div class="pipe-pct">'+pct+'%</div></div></div>';
+
+    // -- View toggle --
+    $('view-board').addEventListener('click', () => setView('board'));
+    $('view-table').addEventListener('click', () => setView('table'));
+
+    function setView(v) {
+        currentView = v;
+        $('view-board').classList.toggle('active', v === 'board');
+        $('view-table').classList.toggle('active', v === 'table');
+        $('kanban-board').style.display = v === 'board' ? '' : 'none';
+        $('kanban-empty').style.display = 'none';
+        $('interest-table-view').style.display = v === 'table' ? '' : 'none';
+        refreshInterestsUI();
     }
-    function renderPipeline() {
-        const c = countByStatus(filtered.length?filtered:interests);
-        elPipe.innerHTML = [pipeRow('New',c.new,c.total),pipeRow('Contacted',c.contacted,c.total),pipeRow('Qualified',c.qualified,c.total),pipeRow('Won',c.won,c.total),pipeRow('Lost',c.lost,c.total)].join('');
-        requestAnimationFrame(() => { document.querySelectorAll('[data-pipe-fill]').forEach(el => { el.style.width = (el.getAttribute('data-pipe-fill')||'0')+'%'; }); });
-    }
+
+    // -- Category / project selects --
     function renderCategoryOptions() {
         const vals = new Set(); interests.forEach(i => { if(i.category) vals.add(String(i.category)); });
         const cur = categoryEl.value;
@@ -492,6 +712,8 @@
         }).join('');
         projectEl.value = opts.includes(cur)?cur:'';
     }
+
+    // -- Filters --
     function applyFilters() {
         const q = String(qEl.value||'').trim().toLowerCase();
         const status = String(statusEl.value||'').trim().toLowerCase();
@@ -508,7 +730,97 @@
             return true;
         });
     }
+
+    // -- Kanban Board --
+    const stages = ['new','contacted','qualified','won','lost'];
+    const stageColors = {new:'#6366f1',contacted:'#f59e0b',qualified:'#3b82f6',won:'#22c55e',lost:'#ef4444'};
+
+    function renderKanban() {
+        const byStage = {};
+        stages.forEach(s => { byStage[s] = []; });
+        filtered.forEach(i => {
+            const s = String(i.status||'new').toLowerCase();
+            if(byStage[s]) byStage[s].push(i);
+            else byStage['new'].push(i);
+        });
+
+        let anyCards = false;
+        stages.forEach(s => {
+            const container = $('kb-'+s);
+            const count = $('kb-count-'+s);
+            const items = byStage[s];
+            count.textContent = items.length;
+            if(items.length) anyCards = true;
+
+            container.innerHTML = items.map(i => {
+                const pj = projectById.get(String(i.panorama_id));
+                const pn = pj&&pj.name?pj.name:'Project #'+i.panorama_id;
+                const plots = Array.isArray(i.plots)?i.plots:[];
+                const plotCount = plots.length;
+                const plotLabel = plotCount === 0 ? '' : plotCount === 1 ? (plots[0].name||'1 plot') : plotCount + ' plots';
+                return '<div class="kb-card" draggable="true" data-id="'+esc(i.id)+'">' +
+                    '<div class="kb-card-top">' +
+                        '<div class="kb-avatar" style="background:'+stageColors[s]+'">'+esc(initials(i.customer_name))+'</div>' +
+                        '<div class="kb-card-info">' +
+                            '<div class="kb-card-name">'+esc(i.customer_name||'Unknown')+'</div>' +
+                            '<div class="kb-card-time">'+esc(fmtRelative(i.created_at))+'</div>' +
+                        '</div>' +
+                    '</div>' +
+                    '<div class="kb-card-details">' +
+                        (i.customer_email ? '<div class="kb-card-row"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg><span>'+esc(i.customer_email)+'</span></div>' : '') +
+                        (i.customer_phone ? '<div class="kb-card-row"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg><span>'+esc(i.customer_phone)+'</span></div>' : '') +
+                    '</div>' +
+                    '<div class="kb-card-footer">' +
+                        '<span class="kb-card-project">'+esc(pn)+'</span>' +
+                        (plotLabel ? '<span class="kb-card-plots">'+esc(plotLabel)+'</span>' : '') +
+                    '</div>' +
+                '</div>';
+            }).join('');
+
+            // Drag and drop
+            container.querySelectorAll('.kb-card').forEach(card => {
+                card.addEventListener('dragstart', e => {
+                    e.dataTransfer.setData('text/plain', card.getAttribute('data-id'));
+                    card.classList.add('kb-card--dragging');
+                });
+                card.addEventListener('dragend', () => {
+                    card.classList.remove('kb-card--dragging');
+                });
+                card.addEventListener('click', () => {
+                    const item = interests.find(x => String(x.id) === card.getAttribute('data-id'));
+                    if(item) openDrawer(item);
+                });
+            });
+        });
+
+        // Drop targets
+        document.querySelectorAll('.kanban-cards').forEach(zone => {
+            zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('kb-drop-active'); });
+            zone.addEventListener('dragleave', () => { zone.classList.remove('kb-drop-active'); });
+            zone.addEventListener('drop', async e => {
+                e.preventDefault();
+                zone.classList.remove('kb-drop-active');
+                const id = e.dataTransfer.getData('text/plain');
+                const newStage = zone.closest('.kanban-col').getAttribute('data-stage');
+                const item = interests.find(x => String(x.id) === id);
+                if(!item || String(item.status||'new').toLowerCase() === newStage) return;
+                try {
+                    const r = await api('/api/buy-interests/'+encodeURIComponent(id), {method:'PATCH', body:JSON.stringify({status:newStage})});
+                    if(!r.ok) { const d = await r.json().catch(()=>({})); throw new Error(d.error||'Failed'); }
+                    item.status = newStage;
+                    refreshInterestsUI();
+                } catch(err) { console.warn('Status update failed:', err.message); }
+            });
+        });
+
+        $('kanban-empty').style.display = (!anyCards && !filtered.length) ? '' : 'none';
+    }
+
+    // -- Table View --
     function renderTable() {
+        const elMeta = $('results-meta');
+        const elTbody = $('tbody');
+        const elEmpty = $('table-empty');
         elMeta.textContent = filtered.length+(filtered.length===1?' result':' results');
         elEmpty.style.display = filtered.length===0?'':'none';
         elTbody.innerHTML = filtered.map(i => {
@@ -517,7 +829,7 @@
             const plots = Array.isArray(i.plots)?i.plots:[];
             const pl = plots.length?(plots.length===1?(plots[0].name||'1 plot'):(plots.length+' plots')):'—';
             const st = String(i.status||'new').toLowerCase();
-            return '<tr data-id="'+esc(i.id)+'"><td class="mono">'+esc(fmtDate(i.created_at))+'<div class="subtle">'+esc(fmtTime(i.created_at))+'</div></td><td><div style="font-weight:800">'+esc(i.customer_name||'—')+'</div><div class="subtle">'+esc(pl)+'</div></td><td><div>'+esc(i.customer_email||'—')+'</div><div class="subtle mono">'+esc(i.customer_phone||'')+'</div></td><td>'+esc(i.category||'—')+'</td><td><div style="font-weight:800">'+esc(pn)+'</div><div class="subtle mono">#'+esc(i.panorama_id)+'</div></td><td><span class="pill '+esc(st)+'"><span class="dot"></span><span>'+esc(st||'new')+'</span></span></td></tr>';
+            return '<tr data-id="'+esc(i.id)+'"><td class="mono">'+esc(fmtDate(i.created_at))+'<div class="subtle">'+esc(fmtTime(i.created_at))+'</div></td><td><div style="font-weight:700">'+esc(i.customer_name||'—')+'</div></td><td><div>'+esc(i.customer_email||'—')+'</div><div class="subtle mono">'+esc(i.customer_phone||'')+'</div></td><td>'+esc(i.category||'—')+'</td><td><div style="font-weight:600">'+esc(pn)+'</div></td><td class="mono">'+esc(pl)+'</td><td><span class="pill '+esc(st)+'"><span class="dot"></span><span>'+esc(toStatusLabel(st))+'</span></span></td></tr>';
         }).join('');
         elTbody.querySelectorAll('tr[data-id]').forEach(tr => {
             tr.addEventListener('click', () => {
@@ -526,15 +838,22 @@
             });
         });
     }
-    function refreshInterestsUI() { applyFilters(); renderStats(); renderPipeline(); renderTable(); }
 
-    // Drawer
+    function refreshInterestsUI() {
+        applyFilters();
+        renderStats();
+        if(currentView === 'board') renderKanban();
+        else renderTable();
+    }
+
+    // -- Drawer --
     const drawerBackdrop = $('drawer-backdrop');
     const drawer = $('drawer');
     const dTitle = $('d-title');
     const dSubtitle = $('d-subtitle');
     const dContact = $('d-contact');
     const dInterest = $('d-interest');
+    const dPlots = $('d-plots');
     const dStatus = $('d-status');
     const dNotes = $('d-notes');
     const dMsg = $('d-msg');
@@ -542,29 +861,51 @@
     const btnContacted = $('btn-contacted');
 
     function showDrawerMsg(text,type) { if(!dMsg)return; dMsg.textContent=text||''; dMsg.className='msg'+(type==='error'?' error':''); dMsg.style.display=text?'':'none'; }
+
     function openDrawer(item) {
         selected = item;
         const pj = projectById.get(String(item.panorama_id));
         const pn = pj&&pj.name?pj.name:('Project #'+item.panorama_id);
+        const st = String(item.status||'new').toLowerCase();
         dTitle.textContent = item.customer_name||'Lead';
-        dSubtitle.textContent = pn+' • '+fmtDate(item.created_at)+' '+fmtTime(item.created_at);
+        dSubtitle.innerHTML = '<span class="pill '+esc(st)+'" style="margin-right:0.5rem"><span class="dot"></span><span>'+esc(toStatusLabel(st))+'</span></span> '+esc(pn)+' &middot; '+esc(fmtDate(item.created_at));
+
+        // Contact
         dContact.innerHTML = [kvRow('Email',item.customer_email||'—'),kvRow('Phone',item.customer_phone||'—')].join('');
+        $('d-contact-actions').innerHTML =
+            (item.customer_email ? '<a class="drawer-action-btn" href="mailto:'+esc(item.customer_email)+'" title="Send email"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg></a>' : '') +
+            (item.customer_phone ? '<a class="drawer-action-btn" href="tel:'+esc(item.customer_phone)+'" title="Call"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg></a>' : '');
+
+        // Deal info
+        dInterest.innerHTML = [kvRow('Category',item.category||'—'),kvRow('Project',pn),kvRow('Created',fmtDate(item.created_at)+' '+fmtTime(item.created_at))].join('');
+
+        // Plots
         const plots = Array.isArray(item.plots)?item.plots:[];
-        const plotNames = plots.map(p=>p&&p.name?p.name:'').filter(Boolean);
-        dInterest.innerHTML = [kvRow('Category',item.category||'—'),kvRow('Project',pn),kvRow('Plots',plotNames.length?plotNames.join(', '):'—')].join('');
-        dStatus.value = String(item.status||'new').toLowerCase();
+        if(plots.length) {
+            dPlots.innerHTML = plots.map(p => {
+                const sk = getStatusKey(p.status);
+                const sc = sk==='sold'?'status-pill--sold':sk==='hold'?'status-pill--hold':'status-pill--available';
+                return '<div class="drawer-plot-chip"><span class="drawer-plot-name">'+esc(p.name||'Plot')+'</span>'+(p.area?'<span class="drawer-plot-meta">'+esc(p.area)+'</span>':'')+(p.price?'<span class="drawer-plot-meta">'+esc(p.price)+'</span>':'')+'<span class="status-pill '+sc+'" style="font-size:0.65rem;padding:0.1rem 0.4rem">'+esc(p.status||'available')+'</span></div>';
+            }).join('');
+        } else {
+            dPlots.innerHTML = '<div class="subtle">No plots attached</div>';
+        }
+
+        dStatus.value = st;
         dNotes.value = String(item.notes||'');
         showDrawerMsg('');
         drawerBackdrop.classList.add('visible');
         drawer.classList.add('visible');
         drawer.setAttribute('aria-hidden','false');
     }
+
     function closeDrawer() {
         drawerBackdrop.classList.remove('visible');
         drawer.classList.remove('visible');
         drawer.setAttribute('aria-hidden','true');
         selected = null;
     }
+
     async function saveSelected(partial) {
         if(!selected)return;
         btnSave.disabled=true; btnContacted.disabled=true; showDrawerMsg('');
@@ -586,13 +927,14 @@
     btnContacted.addEventListener('click', () => saveSelected({status:'contacted'}));
     btnSave.addEventListener('click', () => saveSelected({status:dStatus.value,notes:dNotes.value}));
 
+    // -- Filter listeners --
     qEl.addEventListener('input', refreshInterestsUI);
     statusEl.addEventListener('change', refreshInterestsUI);
     categoryEl.addEventListener('change', refreshInterestsUI);
     projectEl.addEventListener('change', refreshInterestsUI);
     $('btn-clear').addEventListener('click', () => { qEl.value=''; statusEl.value=''; categoryEl.value=''; projectEl.value=''; refreshInterestsUI(); });
 
-    // Export
+    // -- Export --
     $('btn-export').addEventListener('click', function() {
         if(!filtered.length){ alert('No data to export.'); return; }
         const header = ['Created At','Status','Category','Project ID','Project Name','Customer Name','Customer Email','Customer Phone','Plot Count','Plots','Notes'];
@@ -610,7 +952,7 @@
         setTimeout(()=>URL.revokeObjectURL(url),5000);
     });
 
-    // Reports
+    // -- Reports --
     function buildReportContent() {
         if(!reportPrintArea) return;
         const type = reportTypeEl?reportTypeEl.value:'pipeline';
@@ -668,7 +1010,7 @@
         if(!projects.length) { tbody.innerHTML=''; empty.style.display=''; return; }
         empty.style.display='none';
         tbody.innerHTML = projects.map(p => {
-            return '<tr><td class="mono">'+esc(p.id)+'</td><td style="font-weight:700">'+esc(p.name||'Unnamed')+'</td><td class="mono">—</td><td><button class="btn" data-open-panorama="'+esc(p.id)+'">Open</button></td></tr>';
+            return '<tr><td class="mono">'+esc(p.id)+'</td><td style="font-weight:700">'+esc(p.name||'Unnamed')+'</td><td><button class="btn" data-open-panorama="'+esc(p.id)+'">Open</button></td></tr>';
         }).join('');
         tbody.querySelectorAll('[data-open-panorama]').forEach(btn => {
             btn.addEventListener('click', () => openPanoramaModal(btn.getAttribute('data-open-panorama')));
@@ -698,7 +1040,6 @@
         const pj = projectById.get(String(panoramaId));
         $('panorama-modal-title').textContent = (pj&&pj.name)?pj.name:('Panorama #'+panoramaId);
         modalBackdrop.classList.add('visible');
-        // Reset to plots tab
         modalTabs.forEach(t => t.classList.toggle('active', t.getAttribute('data-panel')==='modal-plots'));
         document.querySelectorAll('.crm-modal-panel').forEach(p => p.classList.toggle('active', p.id==='modal-plots'));
         loadPanoramaMarkers(panoramaId);
@@ -720,30 +1061,24 @@
                 markersTbody.innerHTML='<tr><td colspan="5" class="empty">No markers found</td></tr>';
                 return;
             }
-            // Render plots tab (same data, focus on name/status/description)
             plotsTbody.innerHTML = markers.map(m => {
                 const sk = getStatusKey(m.status);
                 const statusClass = sk==='sold'?'status-pill--sold':sk==='hold'?'status-pill--hold':'status-pill--available';
                 return '<tr data-marker-id="'+esc(m.id)+'"><td><input class="inline-edit" value="'+esc(m.name||'')+'" data-field="name" data-id="'+esc(m.id)+'"></td><td><span class="status-pill '+statusClass+'">'+esc(m.status||'available')+'</span></td><td><input class="inline-edit" value="'+esc(m.description||'')+'" data-field="description" data-id="'+esc(m.id)+'"></td><td><button class="btn" data-save-marker="'+esc(m.id)+'">Save</button></td></tr>';
             }).join('');
-            // Render markers tab
             markersTbody.innerHTML = markers.map(m => {
                 return '<tr><td style="font-weight:700">'+esc(m.name||'—')+'</td><td><select class="inline-edit-select" data-field="status" data-id="'+esc(m.id)+'"><option value="available"'+(getStatusKey(m.status)==='available'?' selected':'')+'>Available</option><option value="hold"'+(getStatusKey(m.status)==='hold'?' selected':'')+'>Hold</option><option value="sold"'+(getStatusKey(m.status)==='sold'?' selected':'')+'>Sold</option></select></td><td>'+esc(m.marker_style||'default')+'</td><td class="mono">'+esc((m.latitude||'—')+' / '+(m.longitude||'—'))+'</td><td><button class="btn" data-save-marker="'+esc(m.id)+'">Save</button></td></tr>';
             }).join('');
-            // Wire up save buttons
             document.querySelectorAll('[data-save-marker]').forEach(btn => {
                 btn.addEventListener('click', async () => {
                     const mid = btn.getAttribute('data-save-marker');
                     const upd = {};
-                    document.querySelectorAll('[data-id="'+mid+'"]').forEach(el => {
-                        upd[el.getAttribute('data-field')] = el.value;
-                    });
-                    btn.disabled=true; btn.textContent='Saving…';
+                    document.querySelectorAll('[data-id="'+mid+'"]').forEach(el => { upd[el.getAttribute('data-field')] = el.value; });
+                    btn.disabled=true; btn.textContent='Saving...';
                     try {
                         const r = await api('/api/crm/markers/'+encodeURIComponent(mid),{method:'PUT',body:JSON.stringify(upd)});
                         if(!r.ok) { const d=await r.json().catch(()=>({})); throw new Error(d.error||'Failed'); }
-                        btn.textContent='Saved!';
-                        setTimeout(()=>{btn.textContent='Save'; btn.disabled=false;},1500);
+                        btn.textContent='Saved!'; setTimeout(()=>{btn.textContent='Save'; btn.disabled=false;},1500);
                     } catch(e) { btn.textContent='Error'; setTimeout(()=>{btn.textContent='Save'; btn.disabled=false;},2000); }
                 });
             });
@@ -768,7 +1103,6 @@
                 const data = await r.json();
                 allPlots = Array.isArray(data)?data:[];
                 plotsLoaded = true;
-                // Populate panorama filter
                 const panoSet = new Map();
                 allPlots.forEach(p => { if(p.panorama_id && p.panorama_name) panoSet.set(String(p.panorama_id), p.panorama_name); });
                 plotPanoFilter.innerHTML = '<option value="">All Panoramas</option>'+Array.from(panoSet.entries()).map(([id,name])=>'<option value="'+esc(id)+'">'+esc(name)+'</option>').join('');
@@ -797,18 +1131,14 @@
             btn.addEventListener('click', async () => {
                 const pid = btn.getAttribute('data-save-plot');
                 const upd = {};
-                document.querySelectorAll('[data-pid="'+pid+'"]').forEach(el => {
-                    upd[el.getAttribute('data-field')] = el.value;
-                });
-                btn.disabled=true; btn.textContent='Saving…';
+                document.querySelectorAll('[data-pid="'+pid+'"]').forEach(el => { upd[el.getAttribute('data-field')] = el.value; });
+                btn.disabled=true; btn.textContent='Saving...';
                 try {
                     const r = await api('/api/plots/'+encodeURIComponent(pid),{method:'PUT',body:JSON.stringify(upd)});
                     if(!r.ok) { const d=await r.json().catch(()=>({})); throw new Error(d.error||'Failed'); }
-                    // Update local data
                     const idx = allPlots.findIndex(x=>String(x.id)===String(pid));
                     if(idx>=0) Object.assign(allPlots[idx], upd);
-                    btn.textContent='Saved!';
-                    setTimeout(()=>{btn.textContent='Save'; btn.disabled=false;},1500);
+                    btn.textContent='Saved!'; setTimeout(()=>{btn.textContent='Save'; btn.disabled=false;},1500);
                 } catch(e) { btn.textContent='Error'; setTimeout(()=>{btn.textContent='Save'; btn.disabled=false;},2000); }
             });
         });
@@ -824,23 +1154,27 @@
     let lockAccessData = [];
 
     async function loadManageLock() {
-        // Populate panorama select
         if(!projects.length) await loadProjects();
         lockPanoSelect.innerHTML = '<option value="">Select Panorama</option>'+projects.map(p=>'<option value="'+esc(p.id)+'">'+esc(p.name||'#'+p.id)+'</option>').join('');
-        // Load org users
         try {
             const r = await api('/api/crm/org-users');
             if(r.ok) { orgUsers = await r.json(); orgUsers = Array.isArray(orgUsers)?orgUsers:[]; }
         } catch(e) { console.warn(e); }
-        // Load existing access
-        try {
-            const r = await api('/api/crm/lock-access');
-            if(r.ok) { lockAccessData = await r.json(); lockAccessData = Array.isArray(lockAccessData)?lockAccessData:[]; }
-        } catch(e) { console.warn(e); }
+        lockAccessData = [];
         renderLockAccessList();
     }
 
-    lockPanoSelect.addEventListener('change', renderLockAccessList);
+    lockPanoSelect.addEventListener('change', async function() {
+        const panoId = this.value;
+        lockAccessData = [];
+        if(panoId) {
+            try {
+                const r = await api('/api/crm/lock-access?panorama_id='+encodeURIComponent(panoId));
+                if(r.ok) { lockAccessData = await r.json(); lockAccessData = Array.isArray(lockAccessData)?lockAccessData:[]; }
+            } catch(e) { console.warn(e); }
+        }
+        renderLockAccessList();
+    });
 
     function renderLockAccessList() {
         const panoId = lockPanoSelect.value;
@@ -850,28 +1184,34 @@
         if(!panoId) { list.innerHTML=''; empty.style.display='none'; meta.textContent='Select a panorama above'; return; }
         if(!orgUsers.length) { list.innerHTML=''; empty.style.display=''; meta.textContent='0 users'; return; }
         empty.style.display='none';
-        meta.textContent = orgUsers.length+' user'+(orgUsers.length===1?'':'s');
-        list.innerHTML = orgUsers.map(u => {
-            const hasAccess = lockAccessData.some(a => String(a.panorama_id)===String(panoId) && String(a.user_id)===String(u.id));
-            return '<div class="lock-user-row"><div class="lock-user-info"><div class="lock-user-name">'+esc(u.name||u.email||'User')+'</div><div class="lock-user-email">'+esc(u.email||'')+'</div></div><label class="toggle-switch"><input type="checkbox" data-user-id="'+esc(u.id)+'" data-panorama-id="'+esc(panoId)+'"'+(hasAccess?' checked':'')+'><span class="slider"></span></label></div>';
+        const validUsers = orgUsers.filter(u => u.user_id && String(u.user_id).trim() !== '');
+        meta.textContent = validUsers.length+' user'+(validUsers.length===1?'':'s');
+        if(!validUsers.length) { list.innerHTML=''; empty.style.display=''; meta.textContent='0 users'; return; }
+        list.innerHTML = validUsers.map(u => {
+            const uid = String(u.user_id).trim();
+            const hasAccess = lockAccessData.some(a => String(a.panorama_id)===String(panoId) && String(a.user_id)===uid);
+            return '<div class="lock-user-row"><div class="lock-user-info"><div class="lock-user-name">'+esc(u.display_name||u.email||'User')+'</div><div class="lock-user-email">'+esc(u.email||'')+'</div></div><label class="toggle-switch"><input type="checkbox" data-user-id="'+esc(uid)+'" data-panorama-id="'+esc(panoId)+'"'+(hasAccess?' checked':'')+'><span class="slider"></span></label></div>';
         }).join('');
         list.querySelectorAll('input[type="checkbox"]').forEach(cb => {
             cb.addEventListener('change', async () => {
-                const uid = cb.getAttribute('data-user-id');
+                const uid = (cb.getAttribute('data-user-id') || '').trim();
                 const pid = cb.getAttribute('data-panorama-id');
+                if(!uid) { cb.checked = !cb.checked; console.error('[lock-access] BLOCKED: user_id empty on element', cb); return; }
                 cb.disabled=true;
+                const panoramaIdInt = parseInt(pid, 10);
+                const body = JSON.stringify({user_id: uid, panorama_id: panoramaIdInt});
+                console.log('[lock-access] sending:', body);
                 try {
                     if(cb.checked) {
-                        const r = await api('/api/crm/lock-access',{method:'POST',body:JSON.stringify({user_id:uid,panorama_id:pid})});
-                        if(!r.ok) { cb.checked=false; throw new Error('Failed to grant'); }
-                        const d = await r.json().catch(()=>({}));
-                        if(d.id) lockAccessData.push(d);
+                        const r = await api('/api/crm/lock-access',{method:'POST',body});
+                        if(!r.ok) { cb.checked=false; const d=await r.json().catch(()=>({})); throw new Error(d.error||'Failed to grant'); }
+                        lockAccessData.push({panorama_id: panoramaIdInt, user_id: uid});
                     } else {
-                        const r = await api('/api/crm/lock-access',{method:'DELETE',body:JSON.stringify({user_id:uid,panorama_id:pid})});
-                        if(!r.ok) { cb.checked=true; throw new Error('Failed to revoke'); }
+                        const r = await api('/api/crm/lock-access',{method:'DELETE',body});
+                        if(!r.ok) { cb.checked=true; const d=await r.json().catch(()=>({})); throw new Error(d.error||'Failed to revoke'); }
                         lockAccessData = lockAccessData.filter(a => !(String(a.panorama_id)===String(pid) && String(a.user_id)===String(uid)));
                     }
-                } catch(e) { console.warn(e); }
+                } catch(e) { console.warn('lock-access error:', e.message); }
                 finally { cb.disabled=false; }
             });
         });
@@ -915,14 +1255,12 @@
             const sk = getStatusKey(p.status);
             const sc = sk==='sold'?'status-pill--sold':sk==='hold'?'status-pill--hold':'status-pill--available';
 
-            // Build locked-for dropdown: buy interest users + manual entry
             let lockedForHtml = '';
             if(isLocked) {
                 lockedForHtml = '<span style="font-weight:600;font-size:0.85rem">'+esc(lockedFor)+'</span>';
             } else {
                 lockedForHtml = '<select class="inline-edit-select locked-for-select" data-lockfor-plot="'+esc(p.id)+'">';
-                lockedForHtml += '<option value="">Select customer…</option>';
-                // Show users who have buy interest for this plot
+                lockedForHtml += '<option value="">Select customer...</option>';
                 const plotInterests = interests.filter(i => {
                     if(!Array.isArray(i.plots)) return false;
                     return i.plots.some(ip => String(ip.id)===String(p.id) || String(ip.name)===String(p.name));
@@ -935,7 +1273,7 @@
                         lockedForHtml += '<option value="'+esc(i.customer_name||'')+'" data-email="'+esc(i.customer_email||'')+'">'+esc(i.customer_name||i.customer_email)+'</option>';
                     }
                 });
-                lockedForHtml += '<option value="__manual__">Manual entry…</option>';
+                lockedForHtml += '<option value="__manual__">Manual entry...</option>';
                 lockedForHtml += '</select>';
             }
 
@@ -946,7 +1284,6 @@
             return '<tr><td style="font-weight:700">'+esc(p.name||'—')+'</td><td>'+esc(panoName)+'</td><td><span class="status-pill '+sc+'">'+esc(p.status||'available')+'</span></td><td><span class="lock-pill '+lockClass+'">'+esc(lockLabel)+'</span></td><td>'+lockedForHtml+'</td><td>'+actionBtn+'</td></tr>';
         }).join('');
 
-        // Wire up lock/unlock buttons
         tbody.querySelectorAll('[data-lock-plot]').forEach(btn => {
             btn.addEventListener('click', async () => {
                 const plotId = btn.getAttribute('data-lock-plot');
@@ -964,7 +1301,7 @@
                         lockedForEmail = opt?opt.getAttribute('data-email')||'':'';
                     }
                 }
-                btn.disabled=true; btn.textContent='Locking…';
+                btn.disabled=true; btn.textContent='Locking...';
                 try {
                     const r = await api('/api/crm/plots/'+encodeURIComponent(plotId)+'/lock',{method:'POST',body:JSON.stringify({locked_for_name:lockedForName,locked_for_email:lockedForEmail})});
                     if(!r.ok) { const d=await r.json().catch(()=>({})); throw new Error(d.error||'Failed'); }
@@ -975,7 +1312,7 @@
         tbody.querySelectorAll('[data-unlock-plot]').forEach(btn => {
             btn.addEventListener('click', async () => {
                 const plotId = btn.getAttribute('data-unlock-plot');
-                btn.disabled=true; btn.textContent='Unlocking…';
+                btn.disabled=true; btn.textContent='Unlocking...';
                 try {
                     const r = await api('/api/crm/plots/'+encodeURIComponent(plotId)+'/lock',{method:'DELETE'});
                     if(!r.ok) { const d=await r.json().catch(()=>({})); throw new Error(d.error||'Failed'); }
@@ -983,8 +1320,6 @@
                 } catch(e) { alert(e.message); btn.textContent='Unlock'; btn.disabled=false; }
             });
         });
-
-        // Handle manual entry select change
         tbody.querySelectorAll('.locked-for-select').forEach(sel => {
             sel.addEventListener('change', function() {
                 if(this.value === '__manual__') {
@@ -1013,10 +1348,12 @@
             await loadUserInfo();
             await loadProjects();
             await loadInterests();
-            if(interests.length === 0) elEmpty.style.display = '';
+            if(interests.length === 0) {
+                $('kanban-empty').style.display = '';
+            }
         } catch(e) {
-            elEmpty.style.display = '';
-            elEmpty.innerHTML = '<strong>CRM unavailable</strong><div>'+esc(e.message||'Failed to load CRM')+'</div>';
+            $('kanban-empty').style.display = '';
+            $('kanban-empty').innerHTML = '<svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" opacity="0.35"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg><strong>CRM unavailable</strong><div>'+esc(e.message||'Failed to load CRM')+'</div>';
         }
     })();
 })();

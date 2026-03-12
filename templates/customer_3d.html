@@ -47,47 +47,48 @@
 
     <div class="overlay-gradient"></div>
 
-    <div class="viewer-actions">
-        <button id="back-btn" class="viewer-action-btn" type="button" hidden>Back</button>
-        <button id="view-cart-btn" class="viewer-action-btn cart" type="button">View Cart <span class="cart-badge"
-                id="cart-count">0</span></button>
-        <button id="export-plots-btn" class="viewer-action-btn" type="button">Export Plots</button>
-        <button id="toggle-overlays-btn" class="viewer-action-btn" type="button">Hide All</button>
-        <button id="fullscreen-btn" class="viewer-action-btn" type="button">Fullscreen</button>
-    </div>
-
     <div class="ui-overlay">
         <header class="header">
             <div class="header-left">
-                <div class="project-info">
-                    <div class="project-kicker">Premium Township</div>
-                    <div class="project-name">{{ panorama.name }}</div>
-                    <div class="project-subtitle">Interactive Plot Explorer</div>
-                    <div class="project-meta">
-                        <div class="project-meta-item">
-                            <span class="project-meta-dot"></span>
-                            <span>Live Availability</span>
-                        </div>
-                        <div class="project-meta-item" id="meta-total-plots">0 Plots</div>
+                <div class="project-badge">
+                    <span class="project-badge-name">{{ panorama.name }}</span>
+                    <span class="project-badge-dot"></span>
+                    <span class="project-badge-label">360° Explorer</span>
+                </div>
+            </div>
+            <div class="header-center">
+                <div class="search-shell" id="plot-search-shell" role="combobox" aria-haspopup="listbox" aria-expanded="false">
+                    <svg class="search-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                    <input id="plot-search-input" class="search-plot-input" type="search" placeholder="Search plots..."
+                        autocomplete="off" spellcheck="false" aria-label="Search plots and markers"
+                        aria-controls="plot-search-dropdown-list" aria-autocomplete="list">
+                    <div class="search-dropdown" id="plot-search-dropdown" hidden>
+                        <div class="search-dropdown-list" id="plot-search-dropdown-list" role="listbox"></div>
+                        <div class="search-dropdown-empty" id="plot-search-dropdown-empty" hidden>No matches</div>
                     </div>
                 </div>
             </div>
-    </div>
-    <div class="header-center">
-        <div class="search-shell" id="plot-search-shell" role="combobox" aria-haspopup="listbox" aria-expanded="false">
-            <input id="plot-search-input" class="search-plot-input" type="search" placeholder="Search your dream plot"
-                autocomplete="off" spellcheck="false" aria-label="Search plots and markers"
-                aria-controls="plot-search-dropdown-list" aria-autocomplete="list">
-            <div class="search-dropdown" id="plot-search-dropdown" hidden>
-                <div class="search-dropdown-list" id="plot-search-dropdown-list" role="listbox"></div>
-                <div class="search-dropdown-empty" id="plot-search-dropdown-empty" hidden>No matches</div>
+            <div class="header-right">
+                <button id="back-btn" class="hdr-action-btn" type="button" hidden title="Go back">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+                </button>
+                <button id="export-plots-btn" class="hdr-action-btn" type="button" title="Export plots">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                </button>
+                <button id="toggle-overlays-btn" class="hdr-action-btn" type="button" title="Toggle overlays">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                </button>
+                <button id="fullscreen-btn" class="hdr-action-btn" type="button" title="Fullscreen">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
+                </button>
+                <div class="hdr-divider"></div>
+                <button id="view-cart-btn" class="hdr-cart-btn" type="button" title="View cart">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
+                    <span class="cart-badge" id="cart-count">0</span>
+                </button>
             </div>
-        </div>
+        </header>
     </div>
-    <div class="header-right">
-        <div class="compass-card" aria-hidden="true"></div>
-    </div>
-    </header>
     <div class="panorama-nav-shell is-collapsed" id="panorama-nav-shell">
         <button id="panorama-nav-toggle" class="panorama-nav-toggle" type="button" aria-expanded="false"
             aria-controls="panorama-nav-panel">
@@ -2061,7 +2062,10 @@
             overlaysHidden = Boolean(hidden);
             document.body.classList.toggle('overlays-hidden', overlaysHidden);
             if (toggleOverlaysBtn) {
-                toggleOverlaysBtn.textContent = overlaysHidden ? 'Show UI' : 'Hide All';
+                toggleOverlaysBtn.title = overlaysHidden ? 'Show overlays' : 'Toggle overlays';
+                toggleOverlaysBtn.innerHTML = overlaysHidden
+                    ? '<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>'
+                    : '<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>';
             }
             if (!overlaysHidden) return;
 
@@ -2089,7 +2093,8 @@
             const active = viewer && typeof viewer.isFullscreenEnabled === 'function'
                 ? viewer.isFullscreenEnabled()
                 : Boolean(document.fullscreenElement);
-            fullscreenBtn.textContent = active ? 'Exit Fullscreen' : 'Fullscreen';
+            fullscreenBtn.title = active ? 'Exit Fullscreen' : 'Fullscreen';
+            fullscreenBtn.setAttribute('aria-pressed', active ? 'true' : 'false');
         }
 
         function toggleFullscreenMode() {

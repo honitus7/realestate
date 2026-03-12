@@ -161,43 +161,17 @@ def register_routes(app):
                         return _fetch_panorama_ids(sb, lambda q: q.eq('org_id', caller_org))
             except Exception:
                 pass
+        # Regular users: only see panoramas they have been granted lock access to
         ids = set()
         try:
-            owned = sb.table('panoramas').select('id').eq('user_id', user_id).execute()
-            for row in (owned.data or []):
-                try:
-                    ids.add(int(row.get('id')))
-                except Exception:
-                    pass
-        except Exception:
-            pass
-        try:
-            shared = sb.table('panorama_access').select('panorama_id').eq('user_id', user_id).eq('access_type', 'client').execute()
-            for row in (shared.data or []):
+            lock_access = sb.table('plot_lock_access').select('panorama_id').eq('user_id', user_id).execute()
+            for row in (lock_access.data or []):
                 try:
                     ids.add(int(row.get('panorama_id')))
                 except Exception:
                     pass
         except Exception:
             pass
-        try:
-            ws = sb.table('workspace_access').select('workspace_id').eq('user_id', user_id).eq('access_type', 'client').execute()
-            workspace_ids = [str(row.get('workspace_id')) for row in (ws.data or []) if row.get('workspace_id')]
-            workspace_ids = list(dict.fromkeys(workspace_ids))
-        except Exception:
-            workspace_ids = []
-        if workspace_ids:
-            for i in range(0, len(workspace_ids), 100):
-                chunk = workspace_ids[i:i + 100]
-                try:
-                    panos = sb.table('panoramas').select('id').in_('workspace_id', chunk).execute()
-                    for row in (panos.data or []):
-                        try:
-                            ids.add(int(row.get('id')))
-                        except Exception:
-                            pass
-                except Exception:
-                    continue
         return sorted(ids)
 
     def _fetch_panorama_ids(sb, query_builder=None):
@@ -258,7 +232,11 @@ def register_routes(app):
 
     @app.route('/crm')
     def crm_page():
-        return render_template('crm.html', **auth_ctx())
+        from flask import make_response
+        resp = make_response(render_template('crm.html', **auth_ctx()))
+        resp.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate'
+        resp.headers['Pragma'] = 'no-cache'
+        return resp
 
     @app.route('/organizations')
     def organizations_page():
@@ -3114,7 +3092,9 @@ def register_routes(app):
             return jsonify([])
         try:
             r = sb.table('profiles').select('user_id, display_name, email, role').eq('org_id', org_id).execute()
-            return jsonify(r.data or [])
+            # Only return rows that have a valid user_id — orphaned or incomplete profiles are excluded
+            users = [row for row in (r.data or []) if row.get('user_id') and str(row['user_id']).strip()]
+            return jsonify(users)
         except Exception as e:
             return jsonify({'error': str(e)}), 500
 

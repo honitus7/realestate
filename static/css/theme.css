@@ -59,6 +59,16 @@
     box-sizing: border-box;
 }
 
+::selection {
+    background-color: #162338;
+    color: #fff;
+}
+
+::-moz-selection {
+    background-color: #162338;
+    color: #fff;
+}
+
 html,
 body {
     min-height: 100vh;
