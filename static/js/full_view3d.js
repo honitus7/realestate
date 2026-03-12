@@ -97,6 +97,11 @@
             addToCartBtn.textContent = 'Sold';
             return;
         }
+        if (plot.is_locked) {
+            addToCartBtn.disabled = true;
+            addToCartBtn.textContent = 'Locked';
+            return;
+        }
         if (isPlotInCart(plot.id)) {
             addToCartBtn.disabled = true;
             addToCartBtn.textContent = 'Added';

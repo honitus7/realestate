@@ -561,6 +561,21 @@ def register_routes(app):
                     except (TypeError, ValueError):
                         p['label_latitude'] = None
                 plots.append(p)
+            # Enrich with lock status
+            try:
+                plot_ids = [p['id'] for p in plots if p.get('id')]
+                locked_ids = set()
+                if plot_ids:
+                    for ci in range(0, len(plot_ids), 50):
+                        chunk = plot_ids[ci:ci+50]
+                        lr = sb.table('plot_locks').select('plot_id').in_('plot_id', chunk).execute()
+                        for lrow in (lr.data or []):
+                            locked_ids.add(lrow.get('plot_id'))
+                for p in plots:
+                    p['is_locked'] = p.get('id') in locked_ids
+            except Exception:
+                for p in plots:
+                    p['is_locked'] = False
             return jsonify(plots)
         except Exception as e:
             msg = str(e)
@@ -672,7 +687,24 @@ def register_routes(app):
                     .order('created_at', desc=False)
                     .execute()
                 )
-                return jsonify(r.data or [])
+                markers = r.data or []
+                # Enrich with lock status
+                try:
+                    marker_ids = [str(m.get('id', '')) for m in markers if m.get('id')]
+                    locked_ids = set()
+                    if marker_ids:
+                        for i in range(0, len(marker_ids), 50):
+                            chunk = marker_ids[i:i+50]
+                            lr = sb.table('plot_locks').select('plot_id').in_('plot_id', chunk).execute()
+                            for row in (lr.data or []):
+                                locked_ids.add(str(row.get('plot_id', '')))
+                    for m in markers:
+                        m['is_locked'] = str(m.get('id', '')) in locked_ids
+                except Exception:
+                    # If plot_locks table doesn't exist yet, just return without lock info
+                    for m in markers:
+                        m['is_locked'] = False
+                return jsonify(markers)
             except Exception as e:
                 last_error = e
                 changed = False
@@ -2980,3 +3012,281 @@ def register_routes(app):
             if 'buy_interests' in msg and ('does not exist' in msg.lower() or 'relation' in msg.lower()):
                 return jsonify({'error': 'buy_interests table not found. Run supabase_migration_buy_interests.sql in Supabase SQL Editor.'}), 503
             return jsonify({'error': msg}), 500
+
+    # ----- CRM extended endpoints -----
+
+    @app.route('/api/crm/me', methods=['GET'])
+    @require_auth
+    def crm_me(user_id, role):
+        sb = get_supabase()
+        if not sb:
+            return jsonify({'error': 'Database not configured'}), 503
+        profile = get_profile(sb, user_id) or {}
+        return jsonify({
+            'user_id': user_id,
+            'role': role,
+            'org_id': profile.get('org_id'),
+            'display_name': profile.get('display_name') or profile.get('email') or '',
+        })
+
+    @app.route('/api/crm/plots', methods=['GET'])
+    @require_auth
+    def list_crm_all_plots(user_id, role):
+        sb = get_supabase()
+        if not sb:
+            return jsonify({'error': 'Database not configured'}), 503
+        pano_ids = _crm_panorama_ids(sb, user_id, role)
+        if not pano_ids:
+            return jsonify([])
+        pano_names = {}
+        all_plots = []
+        for i in range(0, len(pano_ids), 100):
+            chunk = pano_ids[i:i+100]
+            try:
+                panos_r = sb.table('panoramas').select('id, name').in_('id', chunk).execute()
+                for p in (panos_r.data or []):
+                    pano_names[p['id']] = p.get('name') or ('Project #' + str(p['id']))
+            except Exception:
+                pass
+            try:
+                plots_r = sb.table('plots').select('id, panorama_id, name, area, price, status, description').in_('panorama_id', chunk).execute()
+                all_plots.extend(plots_r.data or [])
+            except Exception:
+                pass
+        for p in all_plots:
+            p['panorama_name'] = pano_names.get(p.get('panorama_id'), '')
+        return jsonify(all_plots)
+
+    @app.route('/api/crm/panoramas/<int:panorama_id>/markers', methods=['GET'])
+    @require_auth
+    def list_crm_panorama_markers(user_id, role, panorama_id):
+        sb = get_supabase()
+        if not sb:
+            return jsonify({'error': 'Database not configured'}), 503
+        pano_ids = _crm_panorama_ids(sb, user_id, role)
+        if panorama_id not in pano_ids:
+            return jsonify({'error': 'Not authorized for this panorama'}), 403
+        try:
+            r = sb.table('plot_markers').select('id, plot_id, name, description, status, marker_style, marker_icon, marker_color, longitude, latitude, linked_panorama_id, created_at').eq('plot_id', str(panorama_id)).execute()
+            return jsonify(r.data or [])
+        except Exception as e:
+            msg = str(e)
+            if 'plot_markers' in msg and ('does not exist' in msg.lower() or 'relation' in msg.lower()):
+                return jsonify([])
+            return jsonify({'error': msg}), 500
+
+    @app.route('/api/crm/markers/<marker_id>', methods=['PUT', 'PATCH'])
+    @require_auth
+    def update_crm_marker(user_id, role, marker_id):
+        sb = get_supabase()
+        if not sb:
+            return jsonify({'error': 'Database not configured'}), 503
+        data = request.get_json(silent=True) or {}
+        try:
+            r = sb.table('plot_markers').select('plot_id').eq('id', str(marker_id)).limit(1).execute()
+            if not r.data:
+                return jsonify({'error': 'Marker not found'}), 404
+            panorama_id = int(r.data[0].get('plot_id', 0))
+        except Exception:
+            return jsonify({'error': 'Marker not found'}), 404
+        pano_ids = _crm_panorama_ids(sb, user_id, role)
+        if panorama_id not in pano_ids:
+            return jsonify({'error': 'Not authorized'}), 403
+        allowed = {'name', 'description', 'status', 'marker_icon', 'marker_color'}
+        upd = {k: v for k, v in data.items() if k in allowed and v is not None}
+        if not upd:
+            return jsonify({'error': 'No valid fields to update'}), 400
+        try:
+            sb.table('plot_markers').update(upd).eq('id', str(marker_id)).execute()
+            return jsonify({'success': True})
+        except Exception as e:
+            return jsonify({'error': str(e)}), 500
+
+    @app.route('/api/crm/org-users', methods=['GET'])
+    @require_admin
+    def list_crm_org_users(user_id, role):
+        sb = get_supabase()
+        if not sb:
+            return jsonify({'error': 'Database not configured'}), 503
+        profile = get_profile(sb, user_id) or {}
+        org_id = profile.get('org_id')
+        if not org_id:
+            return jsonify([])
+        try:
+            r = sb.table('profiles').select('user_id, display_name, email, role').eq('org_id', org_id).execute()
+            return jsonify(r.data or [])
+        except Exception as e:
+            return jsonify({'error': str(e)}), 500
+
+    @app.route('/api/crm/lock-access', methods=['GET'])
+    @require_admin
+    def list_lock_access(user_id, role):
+        sb = get_supabase()
+        if not sb:
+            return jsonify({'error': 'Database not configured'}), 503
+        panorama_id = request.args.get('panorama_id')
+        if not panorama_id:
+            return jsonify({'error': 'panorama_id required'}), 400
+        try:
+            panorama_id = int(panorama_id)
+        except (ValueError, TypeError):
+            return jsonify({'error': 'Invalid panorama_id'}), 400
+        try:
+            r = sb.table('plot_lock_access').select('id, panorama_id, user_id, granted_by, created_at').eq('panorama_id', panorama_id).execute()
+            return jsonify(r.data or [])
+        except Exception as e:
+            msg = str(e)
+            if 'plot_lock_access' in msg and ('does not exist' in msg.lower() or 'relation' in msg.lower()):
+                return jsonify({'error': 'plot_lock_access table not found. Run supabase_migration_plot_locks.sql in Supabase SQL Editor.'}), 503
+            return jsonify({'error': msg}), 500
+
+    @app.route('/api/crm/lock-access', methods=['POST'])
+    @require_admin
+    def grant_lock_access(user_id, role):
+        sb = get_supabase()
+        if not sb:
+            return jsonify({'error': 'Database not configured'}), 503
+        data = request.get_json(silent=True) or {}
+        try:
+            panorama_id = int(data.get('panorama_id'))
+        except (ValueError, TypeError):
+            return jsonify({'error': 'panorama_id required'}), 400
+        target_user_id = str(data.get('user_id') or '').strip()
+        if not target_user_id:
+            return jsonify({'error': 'user_id required'}), 400
+        profile = get_profile(sb, user_id) or {}
+        org_id = profile.get('org_id')
+        try:
+            sb.table('plot_lock_access').upsert({
+                'panorama_id': panorama_id,
+                'user_id': target_user_id,
+                'granted_by': user_id,
+                'org_id': org_id,
+            }, on_conflict='panorama_id,user_id').execute()
+            return jsonify({'success': True}), 201
+        except Exception as e:
+            msg = str(e)
+            if 'plot_lock_access' in msg and ('does not exist' in msg.lower() or 'relation' in msg.lower()):
+                return jsonify({'error': 'plot_lock_access table not found. Run supabase_migration_plot_locks.sql.'}), 503
+            return jsonify({'error': msg}), 500
+
+    @app.route('/api/crm/lock-access', methods=['DELETE'])
+    @require_admin
+    def revoke_lock_access(user_id, role):
+        sb = get_supabase()
+        if not sb:
+            return jsonify({'error': 'Database not configured'}), 503
+        data = request.get_json(silent=True) or {}
+        try:
+            panorama_id = int(data.get('panorama_id'))
+        except (ValueError, TypeError):
+            return jsonify({'error': 'panorama_id required'}), 400
+        target_user_id = str(data.get('user_id') or '').strip()
+        if not target_user_id:
+            return jsonify({'error': 'user_id required'}), 400
+        try:
+            sb.table('plot_lock_access').delete().eq('panorama_id', panorama_id).eq('user_id', target_user_id).execute()
+            return jsonify({'success': True})
+        except Exception as e:
+            return jsonify({'error': str(e)}), 500
+
+    @app.route('/api/crm/lockable-plots', methods=['GET'])
+    @require_auth
+    def list_lockable_plots(user_id, role):
+        sb = get_supabase()
+        if not sb:
+            return jsonify({'error': 'Database not configured'}), 503
+        try:
+            r = sb.table('plot_lock_access').select('panorama_id').eq('user_id', user_id).execute()
+            panorama_ids = [row['panorama_id'] for row in (r.data or [])]
+        except Exception:
+            panorama_ids = []
+        if not panorama_ids:
+            return jsonify([])
+        all_plots = []
+        pano_names = {}
+        for i in range(0, len(panorama_ids), 100):
+            chunk = panorama_ids[i:i+100]
+            try:
+                panos_r = sb.table('panoramas').select('id, name').in_('id', chunk).execute()
+                for p in (panos_r.data or []):
+                    pano_names[p['id']] = p.get('name') or ('Project #' + str(p['id']))
+            except Exception:
+                pass
+            try:
+                plots_r = sb.table('plots').select('id, panorama_id, name, area, price, status').in_('panorama_id', chunk).execute()
+                all_plots.extend(plots_r.data or [])
+            except Exception:
+                pass
+        locks_by_plot = {}
+        plot_ids = [p['id'] for p in all_plots]
+        if plot_ids:
+            for i in range(0, len(plot_ids), 100):
+                chunk = plot_ids[i:i+100]
+                try:
+                    locks_r = sb.table('plot_locks').select('*').in_('plot_id', chunk).execute()
+                    for lock in (locks_r.data or []):
+                        locks_by_plot[lock['plot_id']] = lock
+                except Exception:
+                    pass
+        result = []
+        for plot in all_plots:
+            lock = locks_by_plot.get(plot['id'])
+            result.append({
+                **plot,
+                'panorama_name': pano_names.get(plot.get('panorama_id'), ''),
+                'lock': lock,
+            })
+        return jsonify(result)
+
+    @app.route('/api/crm/plots/<int:plot_id>/lock', methods=['POST'])
+    @require_auth
+    def lock_plot(user_id, role, plot_id):
+        sb = get_supabase()
+        if not sb:
+            return jsonify({'error': 'Database not configured'}), 503
+        try:
+            plot_r = sb.table('plots').select('panorama_id').eq('id', plot_id).limit(1).execute()
+            if not plot_r.data:
+                return jsonify({'error': 'Plot not found'}), 404
+            panorama_id = plot_r.data[0]['panorama_id']
+        except Exception:
+            return jsonify({'error': 'Plot not found'}), 404
+        try:
+            access_r = sb.table('plot_lock_access').select('id').eq('panorama_id', panorama_id).eq('user_id', user_id).limit(1).execute()
+            if not access_r.data:
+                return jsonify({'error': 'No lock access for this panorama'}), 403
+        except Exception:
+            return jsonify({'error': 'No lock access for this panorama'}), 403
+        data = request.get_json(silent=True) or {}
+        lock_row = {
+            'plot_id': plot_id,
+            'locked_by': user_id,
+            'locked_for_name': str(data.get('locked_for_name') or '').strip() or None,
+            'locked_for_email': str(data.get('locked_for_email') or '').strip() or None,
+        }
+        try:
+            sb.table('plot_locks').upsert(lock_row, on_conflict='plot_id').execute()
+            return jsonify({'success': True}), 201
+        except Exception as e:
+            msg = str(e)
+            if 'plot_locks' in msg and ('does not exist' in msg.lower() or 'relation' in msg.lower()):
+                return jsonify({'error': 'plot_locks table not found. Run supabase_migration_plot_locks.sql.'}), 503
+            return jsonify({'error': msg}), 500
+
+    @app.route('/api/crm/plots/<int:plot_id>/lock', methods=['DELETE'])
+    @require_auth
+    def unlock_plot(user_id, role, plot_id):
+        sb = get_supabase()
+        if not sb:
+            return jsonify({'error': 'Database not configured'}), 503
+        try:
+            lock_r = sb.table('plot_locks').select('id, locked_by').eq('plot_id', plot_id).limit(1).execute()
+            if not lock_r.data:
+                return jsonify({'error': 'Plot is not locked'}), 404
+            if str(lock_r.data[0].get('locked_by')) != str(user_id) and role not in ('admin', 'superadmin'):
+                return jsonify({'error': 'Only the user who locked this plot or an admin can unlock it'}), 403
+            sb.table('plot_locks').delete().eq('plot_id', plot_id).execute()
+            return jsonify({'success': True})
+        except Exception as e:
+            return jsonify({'error': str(e)}), 500

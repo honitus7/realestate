@@ -5,61 +5,6 @@
 {% endblock %}
 {% block content %}
 <div class="crm-page">
-    <script>
-        (function () {
-            var url = {{ (supabase_url or '')|tojson }};
-            var key = {{ (supabase_anon_key or '')|tojson }};
-            if (!url || !key || !window.supabase) {
-                window._supabase = null;
-            } else {
-                window._supabase = window.supabase.createClient(url, key);
-            }
-            function waitForAuthSession(maxAttempts, delayMs) {
-                var supabase = window._supabase;
-                if (!supabase || !supabase.auth || typeof supabase.auth.getSession !== 'function') return Promise.resolve(null);
-                var remaining = Number(maxAttempts || 0);
-                function readSession() {
-                    return supabase.auth.getSession().then(function (r) {
-                        return (r && r.data && r.data.session) ? r.data.session : null;
-                    });
-                }
-                function step() {
-                    return readSession().then(function (session) {
-                        if (session) return session;
-                        remaining--;
-                        if (remaining <= 0) return null;
-                        return new Promise(function (resolve) { setTimeout(resolve, delayMs); }).then(step);
-                    });
-                }
-                return step();
-            }
-            function getAuthHeaders() {
-                return waitForAuthSession(4, 120).then(function (session) {
-                    var h = {};
-                    if (session && session.access_token) h['Authorization'] = 'Bearer ' + session.access_token;
-                    return h;
-                });
-            }
-            function ensureAuthenticated() {
-                return getAuthHeaders().then(function (headers) {
-                    if (!headers || !headers.Authorization) {
-                        window.location.replace('/login');
-                        throw new Error('Not authenticated');
-                    }
-                    return headers;
-                });
-            }
-            window.getAuthHeaders = getAuthHeaders;
-            window.ensureAuthenticated = ensureAuthenticated;
-            if (window._supabase) {
-                waitForAuthSession(4, 120).then(function (session) {
-                    if (!session) window.location.replace('/login');
-                }).catch(function () { window.location.replace('/login'); });
-            } else {
-                window.location.replace('/login');
-            }
-        })();
-    </script>
     <header class="header">
         <div class="header-left">
             <a href="/dashboard" class="brand-pill" aria-label="PropMark">PropMark</a>
@@ -68,7 +13,7 @@
             </a>
             <div class="page-title">
                 <h1>Customer Relation</h1>
-                <p id="subtitle">Leads captured from plot carts, scoped to your client projects</p>
+                <p id="subtitle">Manage leads, plots, and lock access</p>
             </div>
         </div>
         <div class="header-actions">
@@ -79,102 +24,243 @@
         </div>
     </header>
 
-    <main class="container">
-        <div class="grid-top">
-            <section class="card">
-                <div class="card-header">
-                    <div class="card-title">
-                        <strong>Overview</strong>
-                        <span>At-a-glance pipeline and totals</span>
+    <div class="crm-layout">
+        <!-- Sidebar -->
+        <nav class="crm-sidebar" id="crm-sidebar">
+            <div class="sidebar-label">Main</div>
+            <a class="active" data-section="interests"><span class="sidebar-icon">&#9733;</span> Interests</a>
+            <a data-section="panoramas"><span class="sidebar-icon">&#9881;</span> Panoramas</a>
+            <a data-section="plots"><span class="sidebar-icon">&#9632;</span> Plots</a>
+            <div class="sidebar-divider"></div>
+            <div class="sidebar-label">Lock Management</div>
+            <a data-section="manage-lock" id="nav-manage-lock" style="display:none;"><span class="sidebar-icon">&#128274;</span> Manage Lock</a>
+            <a data-section="lock-plots"><span class="sidebar-icon">&#128275;</span> Lock Plots</a>
+        </nav>
+
+        <!-- Content -->
+        <main class="crm-content">
+            <!-- ══════════ INTERESTS SECTION ══════════ -->
+            <section class="crm-section active" id="sec-interests">
+                <div class="section-header">
+                    <div><h2>Buy Interests</h2><p>Leads captured from plot carts</p></div>
+                </div>
+                <div class="grid-top">
+                    <div class="card">
+                        <div class="card-header"><div class="card-title"><strong>Overview</strong><span>At-a-glance totals</span></div></div>
+                        <div class="stats-grid" id="stats-grid"></div>
+                    </div>
+                    <div class="card">
+                        <div class="card-header"><div class="card-title"><strong>Pipeline</strong><span>Distribution across stages</span></div></div>
+                        <div class="pipeline" id="pipeline"></div>
                     </div>
                 </div>
-                <div class="stats-grid" id="stats-grid"></div>
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title"><strong>All Interests</strong><span id="results-meta">0 results</span></div>
+                        <span class="pill new"><span class="dot"></span><span>Live</span></span>
+                    </div>
+                    <div class="filters">
+                        <input class="input" id="q" placeholder="Search name, email, phone…" autocomplete="off">
+                        <select class="input select" id="filter-status">
+                            <option value="">All Status</option>
+                            <option value="new">New</option>
+                            <option value="contacted">Contacted</option>
+                            <option value="qualified">Qualified</option>
+                            <option value="won">Won</option>
+                            <option value="lost">Lost</option>
+                        </select>
+                        <select class="input select" id="filter-category"><option value="">All Categories</option></select>
+                        <select class="input select" id="filter-project"><option value="">All Projects</option></select>
+                        <button class="btn primary" id="btn-clear" type="button">Clear</button>
+                    </div>
+                    <div class="table-wrap">
+                        <table>
+                            <thead><tr>
+                                <th style="width:14%">Created</th>
+                                <th style="width:20%">Customer</th>
+                                <th style="width:18%">Contact</th>
+                                <th style="width:14%">Category</th>
+                                <th style="width:20%">Project</th>
+                                <th style="width:14%">Status</th>
+                            </tr></thead>
+                            <tbody id="tbody"></tbody>
+                        </table>
+                        <div class="empty" id="empty" style="display:none;">
+                            <strong>No buy interests yet</strong>
+                            <div>Once customers submit the cart checkout from a panorama, leads will appear here.</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Report card (hidden by default) -->
+                <div class="card report-card" id="report-card" style="display:none;">
+                    <div class="card-header"><div class="card-title"><strong>Reports</strong><span>Print or save as PDF</span></div></div>
+                    <div style="padding:1.25rem 1.5rem;">
+                        <div class="report-toolbar">
+                            <label class="report-label">Report type</label>
+                            <select class="input select" id="report-type">
+                                <option value="pipeline">Pipeline summary</option>
+                                <option value="leads">Lead list</option>
+                            </select>
+                            <button class="btn" id="btn-print" type="button">Print</button>
+                            <button class="btn primary" id="btn-pdf" type="button">Save as PDF</button>
+                            <button class="btn ghost" id="btn-close-report" type="button">Close</button>
+                        </div>
+                        <div id="report-print-area" class="report-print-area"></div>
+                    </div>
+                </div>
             </section>
 
-            <section class="card">
-                <div class="card-header">
-                    <div class="card-title">
-                        <strong>Pipeline</strong>
-                        <span>Distribution across stages</span>
+            <!-- ══════════ PANORAMAS SECTION ══════════ -->
+            <section class="crm-section" id="sec-panoramas">
+                <div class="section-header">
+                    <div><h2>Panoramas</h2><p>View and manage plots & markers per panorama</p></div>
+                </div>
+                <div class="card">
+                    <div class="table-wrap">
+                        <table>
+                            <thead><tr>
+                                <th>ID</th>
+                                <th>Name</th>
+                                <th>Markers</th>
+                                <th></th>
+                            </tr></thead>
+                            <tbody id="panorama-tbody"></tbody>
+                        </table>
+                        <div class="empty" id="panorama-empty" style="display:none;">
+                            <strong>No panoramas</strong><div>No panoramas are accessible to you.</div>
+                        </div>
                     </div>
                 </div>
-                <div class="pipeline" id="pipeline"></div>
             </section>
+
+            <!-- ══════════ PLOTS SECTION ══════════ -->
+            <section class="crm-section" id="sec-plots">
+                <div class="section-header">
+                    <div><h2>Plots</h2><p>All plots across your panoramas – editable inline</p></div>
+                </div>
+                <div class="crm-filter-bar">
+                    <input class="input" id="plot-search" placeholder="Search plots…" autocomplete="off">
+                    <select class="input select" id="plot-panorama-filter"><option value="">All Panoramas</option></select>
+                    <select class="input select" id="plot-status-filter">
+                        <option value="">All Status</option>
+                        <option value="available">Available</option>
+                        <option value="hold">Hold</option>
+                        <option value="sold">Sold</option>
+                    </select>
+                </div>
+                <div class="card">
+                    <div class="table-wrap">
+                        <table>
+                            <thead><tr>
+                                <th>Name</th>
+                                <th>Panorama</th>
+                                <th>Status</th>
+                                <th>Description</th>
+                                <th style="width:80px"></th>
+                            </tr></thead>
+                            <tbody id="plots-tbody"></tbody>
+                        </table>
+                        <div class="empty" id="plots-empty" style="display:none;">
+                            <strong>No plots found</strong><div>Adjust your filters or add plots to your panoramas.</div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ══════════ MANAGE LOCK SECTION (admin only) ══════════ -->
+            <section class="crm-section" id="sec-manage-lock">
+                <div class="section-header">
+                    <div><h2>Manage Lock Access</h2><p>Grant or revoke plot lock access for users in your organization</p></div>
+                </div>
+                <div class="crm-filter-bar">
+                    <select class="input select" id="lock-panorama-select"><option value="">Select Panorama</option></select>
+                </div>
+                <div class="card" id="lock-access-card">
+                    <div class="card-header"><div class="card-title"><strong>Users</strong><span id="lock-access-meta">Select a panorama above</span></div></div>
+                    <div id="lock-access-list"></div>
+                    <div class="empty" id="lock-access-empty" style="display:none;">
+                        <strong>No users</strong><div>No users found in your organization.</div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ══════════ LOCK PLOTS SECTION ══════════ -->
+            <section class="crm-section" id="sec-lock-plots">
+                <div class="section-header">
+                    <div><h2>Lock Plots</h2><p>Lock and unlock plots you have access to</p></div>
+                </div>
+                <div class="card">
+                    <div class="table-wrap">
+                        <table>
+                            <thead><tr>
+                                <th>Plot</th>
+                                <th>Panorama</th>
+                                <th>Status</th>
+                                <th>Lock</th>
+                                <th>Locked For</th>
+                                <th style="width:100px"></th>
+                            </tr></thead>
+                            <tbody id="lockplots-tbody"></tbody>
+                        </table>
+                        <div class="empty" id="lockplots-empty" style="display:none;">
+                            <strong>No lockable plots</strong><div>You don't have lock access to any plots. Ask an admin to grant access.</div>
+                        </div>
+                        <div class="crm-loading" id="lockplots-loading" style="display:none;">
+                            <div class="crm-spinner"></div> Loading lockable plots…
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- ══════════ PANORAMA DETAIL MODAL ══════════ -->
+    <div class="crm-modal-backdrop" id="panorama-modal-backdrop">
+        <div class="crm-modal">
+            <div class="crm-modal-header">
+                <h2 id="panorama-modal-title">Panorama</h2>
+                <button class="crm-modal-close" id="panorama-modal-close" type="button">×</button>
+            </div>
+            <div class="crm-modal-tabs">
+                <button class="crm-modal-tab active" data-panel="modal-plots">Plots</button>
+                <button class="crm-modal-tab" data-panel="modal-markers">Markers</button>
+            </div>
+            <div class="crm-modal-body">
+                <div class="crm-modal-panel active" id="modal-plots">
+                    <table>
+                        <thead><tr>
+                            <th>Name</th>
+                            <th>Status</th>
+                            <th>Description</th>
+                            <th style="width:80px"></th>
+                        </tr></thead>
+                        <tbody id="modal-plots-tbody"></tbody>
+                    </table>
+                    <div class="crm-loading" id="modal-plots-loading" style="display:none;">
+                        <div class="crm-spinner"></div> Loading…
+                    </div>
+                </div>
+                <div class="crm-modal-panel" id="modal-markers">
+                    <table>
+                        <thead><tr>
+                            <th>Name</th>
+                            <th>Status</th>
+                            <th>Style</th>
+                            <th>Lat / Lng</th>
+                            <th style="width:80px"></th>
+                        </tr></thead>
+                        <tbody id="modal-markers-tbody"></tbody>
+                    </table>
+                    <div class="crm-loading" id="modal-markers-loading" style="display:none;">
+                        <div class="crm-spinner"></div> Loading…
+                    </div>
+                </div>
+            </div>
         </div>
+    </div>
 
-        <section class="card">
-            <div class="card-header">
-                <div class="card-title">
-                    <strong>Buy Interests</strong>
-                    <span id="results-meta">0 results</span>
-                </div>
-                <div style="display:flex;gap:0.6rem;align-items:center;">
-                    <span class="pill new" id="live-pill" title="Data is loaded from your server API">
-                        <span class="dot"></span>
-                        <span>Live</span>
-                    </span>
-                </div>
-            </div>
-            <div class="filters">
-                <input class="input" id="q" placeholder="Search name, email, phone…" autocomplete="off">
-                <select class="input select" id="status">
-                    <option value="">All Status</option>
-                    <option value="new">New</option>
-                    <option value="contacted">Contacted</option>
-                    <option value="qualified">Qualified</option>
-                    <option value="won">Won</option>
-                    <option value="lost">Lost</option>
-                </select>
-                <select class="input select" id="category">
-                    <option value="">All Categories</option>
-                </select>
-                <select class="input select" id="project">
-                    <option value="">All Projects</option>
-                </select>
-                <button class="btn primary" id="btn-clear" type="button">Clear</button>
-            </div>
-            <div class="table-wrap">
-                <table>
-                    <thead>
-                        <tr>
-                            <th style="width: 14%;">Created</th>
-                            <th style="width: 20%;">Customer</th>
-                            <th style="width: 18%;">Contact</th>
-                            <th style="width: 14%;">Category</th>
-                            <th style="width: 20%;">Project</th>
-                            <th style="width: 14%;">Status</th>
-                        </tr>
-                    </thead>
-                    <tbody id="tbody"></tbody>
-                </table>
-                <div class="empty" id="empty" style="display:none;">
-                    <strong>No buy interests yet</strong>
-                    <div>Once customers submit the cart checkout from a panorama, leads will appear here.</div>
-                </div>
-            </div>
-        </section>
-
-        <section class="card report-card" id="report-card" style="display:none;">
-            <div class="card-header">
-                <div class="card-title">
-                    <strong>Reports</strong>
-                    <span>Print or save as PDF</span>
-                </div>
-            </div>
-            <div class="report-toolbar">
-                <label class="report-label">Report type</label>
-                <select class="input select" id="report-type">
-                    <option value="pipeline">Pipeline summary</option>
-                    <option value="leads">Lead list</option>
-                </select>
-                <button class="btn" id="btn-print" type="button">Print</button>
-                <button class="btn primary" id="btn-pdf" type="button">Save as PDF</button>
-                <button class="btn ghost" id="btn-close-report" type="button">Close</button>
-            </div>
-            <div id="report-print-area" class="report-print-area"></div>
-        </section>
-    </main>
-
+    <!-- ══════════ INTEREST DRAWER ══════════ -->
     <div class="drawer-backdrop" id="drawer-backdrop"></div>
     <aside class="drawer" id="drawer" aria-hidden="true">
         <div class="drawer-head">
@@ -216,504 +302,723 @@
 </div>
 {% endblock %}
 {% block scripts %}
-    <script>
-        const elStats = document.getElementById('stats-grid');
-        const elPipe = document.getElementById('pipeline');
-        const elTbody = document.getElementById('tbody');
-        const elEmpty = document.getElementById('empty');
-        const elMeta = document.getElementById('results-meta');
-
-        const qEl = document.getElementById('q');
-        const statusEl = document.getElementById('status');
-        const categoryEl = document.getElementById('category');
-        const projectEl = document.getElementById('project');
-        const btnClear = document.getElementById('btn-clear');
-        const btnRefresh = document.getElementById('btn-refresh');
-        const btnExport = document.getElementById('btn-export');
-        const btnReports = document.getElementById('btn-reports');
-        const reportCard = document.getElementById('report-card');
-        const reportTypeEl = document.getElementById('report-type');
-        const reportPrintArea = document.getElementById('report-print-area');
-        const btnPrint = document.getElementById('btn-print');
-        const btnPdf = document.getElementById('btn-pdf');
-        const btnCloseReport = document.getElementById('btn-close-report');
-
-        const drawerBackdrop = document.getElementById('drawer-backdrop');
-        const drawer = document.getElementById('drawer');
-        const drawerClose = document.getElementById('drawer-close');
-
-        const dTitle = document.getElementById('d-title');
-        const dSubtitle = document.getElementById('d-subtitle');
-        const dContact = document.getElementById('d-contact');
-        const dInterest = document.getElementById('d-interest');
-        const dStatus = document.getElementById('d-status');
-        const dNotes = document.getElementById('d-notes');
-        const dMsg = document.getElementById('d-msg');
-        const btnSave = document.getElementById('btn-save');
-        const btnContacted = document.getElementById('btn-contacted');
-
-        let projects = [];
-        let projectById = new Map();
-        let interests = [];
-        let filtered = [];
-        let selected = null;
-
-        function escapeHtml(value) {
-            return String(value || '')
-                .replace(/&/g, '&amp;')
-                .replace(/</g, '&lt;')
-                .replace(/>/g, '&gt;')
-                .replace(/\"/g, '&quot;')
-                .replace(/'/g, '&#39;');
-        }
-
-        function fmtDate(iso) {
-            try {
-                const d = new Date(iso);
-                if (Number.isNaN(d.getTime())) return String(iso || '—');
-                return d.toLocaleString(undefined, { year: 'numeric', month: 'short', day: '2-digit' });
-            } catch (e) {
-                return String(iso || '—');
-            }
-        }
-
-        function fmtTime(iso) {
-            try {
-                const d = new Date(iso);
-                if (Number.isNaN(d.getTime())) return '';
-                return d.toLocaleString(undefined, { hour: '2-digit', minute: '2-digit' });
-            } catch (e) {
-                return '';
-            }
-        }
-
-        function countByStatus(items) {
-            const counts = { new: 0, contacted: 0, qualified: 0, won: 0, lost: 0, total: 0 };
-            (items || []).forEach((i) => {
-                const s = String(i.status || 'new').toLowerCase();
-                if (counts[s] !== undefined) counts[s] += 1;
-                counts.total += 1;
-            });
-            return counts;
-        }
-
-        function renderStats() {
-            const c = countByStatus(filtered.length ? filtered : interests);
-            const total = Math.max(1, c.total);
-            const winRate = ((c.won / total) * 100);
-            const lossRate = ((c.lost / total) * 100);
-            const qualifyRate = ((c.qualified / total) * 100);
-
-            elStats.innerHTML = [
-                statCard('Total', c.total, 'All captured interests'),
-                statCard('New', c.new, 'Uncontacted leads'),
-                statCard('Qualified', c.qualified, `~${qualifyRate.toFixed(0)}% of total`),
-                statCard('Won / Lost', `${c.won} / ${c.lost}`, `Win ${winRate.toFixed(0)}% • Lost ${lossRate.toFixed(0)}%`),
-            ].join('');
-        }
-
-        function statCard(label, value, hint) {
-            return `
-                <div class="stat">
-                    <div class="label">${escapeHtml(label)}</div>
-                    <div class="value mono">${escapeHtml(value)}</div>
-                    <div class="hint">${escapeHtml(hint)}</div>
-                </div>
-            `;
-        }
-
-        function renderPipeline() {
-            const c = countByStatus(filtered.length ? filtered : interests);
-            const total = Math.max(1, c.total);
-            const rows = [
-                pipeRow('New', c.new, total),
-                pipeRow('Contacted', c.contacted, total),
-                pipeRow('Qualified', c.qualified, total),
-                pipeRow('Won', c.won, total),
-                pipeRow('Lost', c.lost, total),
-            ];
-            elPipe.innerHTML = rows.join('');
-            requestAnimationFrame(() => {
-                document.querySelectorAll('[data-pipe-fill]').forEach((el) => {
-                    el.style.width = (el.getAttribute('data-pipe-fill') || '0') + '%';
-                });
+<script>
+(function () {
+    var url = {{ (supabase_url or '')|tojson }};
+    var key = {{ (supabase_anon_key or '')|tojson }};
+    if (url && key && window.supabase) {
+        window._supabase = window.supabase.createClient(url, key);
+    } else {
+        window._supabase = null;
+    }
+    function waitForAuthSession(maxAttempts, delayMs) {
+        var sb = window._supabase;
+        if (!sb || !sb.auth || typeof sb.auth.getSession !== 'function') return Promise.resolve(null);
+        var remaining = Number(maxAttempts || 0);
+        function readSession() {
+            return sb.auth.getSession().then(function (r) {
+                return (r && r.data && r.data.session) ? r.data.session : null;
             });
         }
-
-        function pipeRow(label, count, total) {
-            const pct = Math.round((count / Math.max(1, total)) * 100);
-            return `
-                <div class="pipe-row">
-                    <div>
-                        <div class="pipe-name">${escapeHtml(label)}</div>
-                        <div class="pipe-bar"><div class="pipe-fill" data-pipe-fill="${pct}"></div></div>
-                    </div>
-                    <div class="pipe-meta">
-                        <div class="pipe-count mono">${count}</div>
-                        <div class="pipe-pct">${pct}%</div>
-                    </div>
-                </div>
-            `;
-        }
-
-        function renderCategoryOptions() {
-            const values = new Set();
-            interests.forEach((i) => { if (i.category) values.add(String(i.category)); });
-            const current = categoryEl.value;
-            const options = [''].concat(Array.from(values).sort());
-            categoryEl.innerHTML = options.map((v) => `<option value="${escapeHtml(v)}">${v ? escapeHtml(v) : 'All Categories'}</option>`).join('');
-            categoryEl.value = options.includes(current) ? current : '';
-        }
-
-        function renderProjectOptions() {
-            const current = projectEl.value;
-            const opts = [''].concat(projects.map((p) => String(p.id)));
-            projectEl.innerHTML = opts.map((id) => {
-                if (!id) return '<option value="">All Projects</option>';
-                const name = (projectById.get(String(id)) || {}).name || ('Project #' + id);
-                return `<option value="${escapeHtml(id)}">${escapeHtml(name)}</option>`;
-            }).join('');
-            projectEl.value = opts.includes(current) ? current : '';
-        }
-
-        function applyFilters() {
-            const q = String(qEl.value || '').trim().toLowerCase();
-            const status = String(statusEl.value || '').trim().toLowerCase();
-            const category = String(categoryEl.value || '').trim().toLowerCase();
-            const project = String(projectEl.value || '').trim();
-
-            filtered = interests.filter((i) => {
-                if (status && String(i.status || '').toLowerCase() !== status) return false;
-                if (category && String(i.category || '').toLowerCase() !== category) return false;
-                if (project && String(i.panorama_id || '') !== project) return false;
-                if (q) {
-                    const hay = [
-                        i.customer_name,
-                        i.customer_email,
-                        i.customer_phone,
-                        i.category,
-                        (projectById.get(String(i.panorama_id)) || {}).name,
-                        (Array.isArray(i.plots) ? i.plots.map((p) => p && p.name).join(' ') : ''),
-                    ].join(' ').toLowerCase();
-                    if (!hay.includes(q)) return false;
-                }
-                return true;
+        function step() {
+            return readSession().then(function (session) {
+                if (session) return session;
+                remaining--;
+                if (remaining <= 0) return null;
+                return new Promise(function (resolve) { setTimeout(resolve, delayMs); }).then(step);
             });
         }
-
-        function renderTable() {
-            const rows = filtered;
-            elMeta.textContent = rows.length + (rows.length === 1 ? ' result' : ' results');
-            elEmpty.style.display = (rows.length === 0) ? '' : 'none';
-
-            elTbody.innerHTML = rows.map((i) => {
-                const project = projectById.get(String(i.panorama_id));
-                const projectName = project && project.name ? project.name : ('Project #' + i.panorama_id);
-                const plots = Array.isArray(i.plots) ? i.plots : [];
-                const plotLabel = plots.length ? (plots.length === 1 ? (plots[0].name || '1 plot') : (plots.length + ' plots')) : '—';
-                const created = fmtDate(i.created_at);
-                const time = fmtTime(i.created_at);
-                const st = String(i.status || 'new').toLowerCase();
-                return `
-                    <tr data-id="${escapeHtml(i.id)}">
-                        <td class="mono">${escapeHtml(created)}<div class="subtle">${escapeHtml(time)}</div></td>
-                        <td><div style="font-weight:800;">${escapeHtml(i.customer_name || '—')}</div><div class="subtle">${escapeHtml(plotLabel)}</div></td>
-                        <td><div>${escapeHtml(i.customer_email || '—')}</div><div class="subtle mono">${escapeHtml(i.customer_phone || '')}</div></td>
-                        <td>${escapeHtml(i.category || '—')}</td>
-                        <td><div style="font-weight:800;">${escapeHtml(projectName)}</div><div class="subtle mono">#${escapeHtml(i.panorama_id)}</div></td>
-                        <td><span class="pill ${escapeHtml(st)}"><span class="dot"></span><span>${escapeHtml(st || 'new')}</span></span></td>
-                    </tr>
-                `;
-            }).join('');
-
-            elTbody.querySelectorAll('tr[data-id]').forEach((tr) => {
-                tr.addEventListener('click', () => {
-                    const id = tr.getAttribute('data-id');
-                    const item = interests.find((x) => String(x.id) === String(id));
-                    if (item) openDrawer(item);
-                });
-            });
-        }
-
-        function showDrawerMsg(text, type) {
-            if (!dMsg) return;
-            dMsg.textContent = text || '';
-            dMsg.className = 'msg' + (type === 'error' ? ' error' : '');
-            dMsg.style.display = text ? '' : 'none';
-        }
-
-        function openDrawer(item) {
-            selected = item;
-            const project = projectById.get(String(item.panorama_id));
-            const projectName = project && project.name ? project.name : ('Project #' + item.panorama_id);
-
-            dTitle.textContent = item.customer_name || 'Lead';
-            dSubtitle.textContent = `${projectName} • ${fmtDate(item.created_at)} ${fmtTime(item.created_at)}`.trim();
-
-            dContact.innerHTML = [
-                kvRow('Email', item.customer_email || '—'),
-                kvRow('Phone', item.customer_phone || '—'),
-            ].join('');
-
-            const plots = Array.isArray(item.plots) ? item.plots : [];
-            const plotNames = plots.map((p) => p && p.name ? p.name : '').filter(Boolean);
-            dInterest.innerHTML = [
-                kvRow('Category', item.category || '—'),
-                kvRow('Project', projectName),
-                kvRow('Plots', plotNames.length ? plotNames.join(', ') : '—'),
-            ].join('');
-
-            dStatus.value = String(item.status || 'new').toLowerCase();
-            dNotes.value = String(item.notes || '');
-            showDrawerMsg('');
-
-            drawerBackdrop.classList.add('visible');
-            drawer.classList.add('visible');
-            drawer.setAttribute('aria-hidden', 'false');
-        }
-
-        function kvRow(k, v) {
-            return `<div class="kv-row"><div class="k">${escapeHtml(k)}</div><div class="v">${escapeHtml(v)}</div></div>`;
-        }
-
-        function closeDrawer() {
-            drawerBackdrop.classList.remove('visible');
-            drawer.classList.remove('visible');
-            drawer.setAttribute('aria-hidden', 'true');
-            selected = null;
-        }
-
-        async function saveSelected(partial) {
-            if (!selected) return;
-            btnSave.disabled = true;
-            btnContacted.disabled = true;
-            showDrawerMsg('');
-            try {
-                const headers = await ensureAuthenticated();
-                const r = await fetch('/api/buy-interests/' + encodeURIComponent(String(selected.id)), {
-                    method: 'PATCH',
-                    headers: Object.assign({ 'Content-Type': 'application/json' }, headers || {}),
-                    body: JSON.stringify(partial || {})
-                });
-                const data = await r.json().catch(() => ({}));
-                if (!r.ok) throw new Error((data && data.error) ? data.error : ('Update failed (' + r.status + ')'));
-                showDrawerMsg('Saved.');
-                await loadInterests();
-                const updated = interests.find((x) => String(x.id) === String(selected.id));
-                if (updated) openDrawer(updated);
-            } catch (e) {
-                showDrawerMsg(e.message || 'Failed to save', 'error');
-            } finally {
-                btnSave.disabled = false;
-                btnContacted.disabled = false;
-            }
-        }
-
-        function toCsvValue(value) {
-            let s = String(value == null ? '' : value);
-            // Prevent Excel from auto-evaluating cells as formulas.
-            if (/^[=\-+@]/.test(s)) s = "'" + s;
-            if (/[",\r\n]/.test(s)) return '"' + s.replace(/"/g, '""') + '"';
-            return s;
-        }
-
-        function toExportDateTime(iso) {
-            try {
-                const d = new Date(iso);
-                if (Number.isNaN(d.getTime())) return String(iso || '');
-                const pad = (n) => String(n).padStart(2, '0');
-                return [
-                    d.getFullYear(),
-                    '-',
-                    pad(d.getMonth() + 1),
-                    '-',
-                    pad(d.getDate()),
-                    ' ',
-                    pad(d.getHours()),
-                    ':',
-                    pad(d.getMinutes()),
-                ].join('');
-            } catch (e) {
-                return String(iso || '');
-            }
-        }
-
-        function toStatusLabel(status) {
-            const raw = String(status || '').trim().toLowerCase();
-            if (!raw) return '';
-            return raw.charAt(0).toUpperCase() + raw.slice(1);
-        }
-
-        function downloadCsv(filename, text) {
-            const csvWithBom = '\ufeff' + String(text || '');
-            const blob = new Blob([csvWithBom], { type: 'text/csv;charset=utf-8;' });
-            if (window.navigator && typeof window.navigator.msSaveOrOpenBlob === 'function') {
-                window.navigator.msSaveOrOpenBlob(blob, filename);
-                return;
-            }
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = filename;
-            a.style.display = 'none';
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            setTimeout(() => URL.revokeObjectURL(url), 5000);
-        }
-
-        function exportCsv() {
-            const rows = filtered;
-            if (!rows.length) {
-                if (typeof alert !== 'undefined') alert('No data to export. Adjust filters or add buy interests.');
-                return;
-            }
-            const header = ['Created At', 'Status', 'Category', 'Project ID', 'Project Name', 'Customer Name', 'Customer Email', 'Customer Phone', 'Plot Count', 'Plots', 'Notes'];
-            // Excel (especially on non-US locale settings) may ignore comma delimiters unless this preamble is present.
-            const lines = ['sep=,', header.join(',')];
-            rows.forEach((i) => {
-                const project = projectById.get(String(i.panorama_id));
-                const projectName = (project && project.name) ? project.name : '';
-                const plotNames = Array.isArray(i.plots) ? i.plots.map((p) => (p && p.name) ? p.name : '').filter(Boolean) : [];
-                const plots = plotNames.join('; ');
-                lines.push([
-                    toCsvValue(toExportDateTime(i.created_at || '')),
-                    toCsvValue(toStatusLabel(i.status || '')),
-                    toCsvValue(i.category || ''),
-                    toCsvValue(i.panorama_id || ''),
-                    toCsvValue(projectName),
-                    toCsvValue(i.customer_name || ''),
-                    toCsvValue(i.customer_email || ''),
-                    toCsvValue(i.customer_phone || ''),
-                    toCsvValue(plotNames.length),
-                    toCsvValue(plots),
-                    toCsvValue(i.notes || ''),
-                ].join(','));
-            });
-            const stamp = new Date().toISOString().slice(0, 10);
-            downloadCsv('buy_interests_' + stamp + '.csv', lines.join('\r\n') + '\r\n');
-        }
-
-        function buildReportContent() {
-            if (!reportPrintArea) return;
-            const type = reportTypeEl ? reportTypeEl.value : 'pipeline';
-            const rows = filtered.length ? filtered : interests;
-            const stamp = new Date().toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
-            if (type === 'pipeline') {
-                const c = countByStatus(rows);
-                const total = Math.max(1, c.total);
-                reportPrintArea.innerHTML = [
-                    '<h2>Pipeline summary</h2>',
-                    '<div class="report-meta">Generated ' + escapeHtml(stamp) + '</div>',
-                    '<table><thead><tr><th>Stage</th><th>Count</th><th>%</th></tr></thead><tbody>',
-                    '<tr><td>New</td><td>' + c.new + '</td><td>' + ((c.new / total) * 100).toFixed(1) + '%</td></tr>',
-                    '<tr><td>Contacted</td><td>' + c.contacted + '</td><td>' + ((c.contacted / total) * 100).toFixed(1) + '%</td></tr>',
-                    '<tr><td>Qualified</td><td>' + c.qualified + '</td><td>' + ((c.qualified / total) * 100).toFixed(1) + '%</td></tr>',
-                    '<tr><td>Won</td><td>' + c.won + '</td><td>' + ((c.won / total) * 100).toFixed(1) + '%</td></tr>',
-                    '<tr><td>Lost</td><td>' + c.lost + '</td><td>' + ((c.lost / total) * 100).toFixed(1) + '%</td></tr>',
-                    '<tr><td><strong>Total</strong></td><td><strong>' + c.total + '</strong></td><td>100%</td></tr>',
-                    '</tbody></table>'
-                ].join('');
-            } else {
-                const header = ['Created', 'Customer', 'Email', 'Phone', 'Category', 'Project', 'Status', 'Notes'];
-                let bodyRows = '';
-                rows.forEach(function (i) {
-                    const project = projectById.get(String(i.panorama_id));
-                    const projectName = (project && project.name) ? project.name : '';
-                    bodyRows += '<tr><td>' + escapeHtml(fmtDate(i.created_at)) + '</td><td>' + escapeHtml(i.customer_name || '') + '</td><td>' + escapeHtml(i.customer_email || '') + '</td><td>' + escapeHtml(i.customer_phone || '') + '</td><td>' + escapeHtml(i.category || '') + '</td><td>' + escapeHtml(projectName) + '</td><td>' + escapeHtml(toStatusLabel(i.status || '')) + '</td><td>' + escapeHtml((i.notes || '').slice(0, 80)) + '</td></tr>';
-                });
-                reportPrintArea.innerHTML = [
-                    '<h2>Lead list</h2>',
-                    '<div class="report-meta">Generated ' + escapeHtml(stamp) + ' &middot; ' + rows.length + ' row(s)</div>',
-                    '<table><thead><tr>' + header.map(function (h) { return '<th>' + escapeHtml(h) + '</th>'; }).join('') + '</tr></thead><tbody>',
-                    bodyRows || '<tr><td colspan="8">No data</td></tr>',
-                    '</tbody></table>'
-                ].join('');
-            }
-        }
-
-        function openReportPanel() {
-            buildReportContent();
-            if (reportCard) reportCard.style.display = 'block';
-        }
-
-        async function loadProjects() {
-            const headers = await ensureAuthenticated();
-            const r = await fetch('/api/crm/panoramas', { headers });
-            if (r.status === 401) { window.location.replace('/login'); return; }
-            if (!r.ok) throw new Error('Failed to load projects');
-            const all = await r.json();
-            projects = Array.isArray(all) ? all : [];
-            projectById = new Map(projects.map((p) => [String(p.id), p]));
-            renderProjectOptions();
-        }
-
-        async function loadInterests() {
-            const headers = await ensureAuthenticated();
-            const r = await fetch('/api/buy-interests', { headers });
-            const data = await r.json().catch(() => ([]));
-            if (!r.ok) {
-                const msg = data && data.error ? data.error : ('Failed to load interests (' + r.status + ')');
-                throw new Error(msg);
-            }
-            interests = Array.isArray(data) ? data : [];
-            renderCategoryOptions();
-            applyFilters();
-            renderStats();
-            renderPipeline();
-            renderTable();
-        }
-
-        function resetFilters() {
-            qEl.value = '';
-            statusEl.value = '';
-            categoryEl.value = '';
-            projectEl.value = '';
-            applyFilters();
-            renderStats();
-            renderPipeline();
-            renderTable();
-        }
-
-        qEl.addEventListener('input', () => { applyFilters(); renderStats(); renderPipeline(); renderTable(); });
-        statusEl.addEventListener('change', () => { applyFilters(); renderStats(); renderPipeline(); renderTable(); });
-        categoryEl.addEventListener('change', () => { applyFilters(); renderStats(); renderPipeline(); renderTable(); });
-        projectEl.addEventListener('change', () => { applyFilters(); renderStats(); renderPipeline(); renderTable(); });
-
-        btnClear.addEventListener('click', resetFilters);
-        btnRefresh.addEventListener('click', async () => {
-            btnRefresh.disabled = true;
-            try { await loadProjects(); await loadInterests(); }
-            catch (e) { console.warn(e); }
-            finally { btnRefresh.disabled = false; }
+        return step();
+    }
+    function getAuthHeaders() {
+        return waitForAuthSession(10, 300).then(function (session) {
+            var h = {};
+            if (session && session.access_token) h['Authorization'] = 'Bearer ' + session.access_token;
+            return h;
         });
-        btnExport.addEventListener('click', exportCsv);
-
-        if (btnReports) btnReports.addEventListener('click', openReportPanel);
-        if (reportTypeEl) reportTypeEl.addEventListener('change', buildReportContent);
-        if (btnPrint) btnPrint.addEventListener('click', function () { buildReportContent(); window.print(); });
-        if (btnPdf) btnPdf.addEventListener('click', function () { buildReportContent(); window.print(); });
-        if (btnCloseReport) btnCloseReport.addEventListener('click', function () { if (reportCard) reportCard.style.display = 'none'; });
-
-        drawerClose.addEventListener('click', closeDrawer);
-        drawerBackdrop.addEventListener('click', closeDrawer);
-        document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeDrawer(); });
-
-        btnContacted.addEventListener('click', () => saveSelected({ status: 'contacted' }));
-        btnSave.addEventListener('click', () => saveSelected({ status: dStatus.value, notes: dNotes.value }));
-
-        (async function init() {
-            try {
-                await ensureAuthenticated();
-                await loadProjects();
-                await loadInterests();
-                if (interests.length === 0) {
-                    elEmpty.style.display = '';
-                }
-            } catch (e) {
-                elEmpty.style.display = '';
-                elEmpty.innerHTML = '<strong>CRM unavailable</strong><div>' + escapeHtml(e.message || 'Failed to load CRM') + '</div>';
+    }
+    function ensureAuthenticated() {
+        return getAuthHeaders().then(function (headers) {
+            if (!headers || !headers.Authorization) {
+                throw new Error('Not authenticated');
             }
-        })();
-    </script>
+            return headers;
+        });
+    }
+    window.getAuthHeaders = getAuthHeaders;
+    window.ensureAuthenticated = ensureAuthenticated;
+})();
+</script>
+<script>
+(function() {
+    'use strict';
+
+    // ── Helpers ──
+    function esc(v) {
+        return String(v || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+    }
+    function fmtDate(iso) {
+        try { const d = new Date(iso); return isNaN(d.getTime()) ? String(iso||'—') : d.toLocaleString(undefined,{year:'numeric',month:'short',day:'2-digit'}); } catch(e) { return String(iso||'—'); }
+    }
+    function fmtTime(iso) {
+        try { const d = new Date(iso); return isNaN(d.getTime()) ? '' : d.toLocaleString(undefined,{hour:'2-digit',minute:'2-digit'}); } catch(e) { return ''; }
+    }
+    function kvRow(k,v) { return '<div class="kv-row"><div class="k">'+esc(k)+'</div><div class="v">'+esc(v)+'</div></div>'; }
+    function countByStatus(items) {
+        const c = {new:0,contacted:0,qualified:0,won:0,lost:0,total:0};
+        (items||[]).forEach(i => { const s = String(i.status||'new').toLowerCase(); if(c[s]!==undefined) c[s]++; c.total++; });
+        return c;
+    }
+    function getStatusKey(s) { return String(s||'').toLowerCase().replace(/[^a-z]/g,''); }
+    function toCsvValue(v) {
+        let s = String(v==null?'':v);
+        if(/^[=\-+@]/.test(s)) s="'"+s;
+        if(/[",\r\n]/.test(s)) return '"'+s.replace(/"/g,'""')+'"';
+        return s;
+    }
+    function toExportDateTime(iso) {
+        try { const d=new Date(iso); if(isNaN(d.getTime()))return String(iso||''); const p=n=>String(n).padStart(2,'0'); return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())+' '+p(d.getHours())+':'+p(d.getMinutes()); } catch(e){ return String(iso||''); }
+    }
+    function toStatusLabel(s) { const r=String(s||'').trim().toLowerCase(); return r?r.charAt(0).toUpperCase()+r.slice(1):''; }
+
+    async function api(path, opts) {
+        const headers = await ensureAuthenticated();
+        const o = Object.assign({headers:Object.assign({'Content-Type':'application/json'}, headers)}, opts||{});
+        return fetch(path, o);
+    }
+
+    // ── State ──
+    let userRole = 'user';
+    let projects = [];
+    let projectById = new Map();
+    let interests = [];
+    let filtered = [];
+    let selected = null;
+    let allPlots = [];
+    let orgUsers = [];
+
+    // ── DOM refs ──
+    const $ = id => document.getElementById(id);
+
+    // ── Section switching ──
+    const sidebar = $('crm-sidebar');
+    const sections = document.querySelectorAll('.crm-section');
+    const sidebarLinks = sidebar.querySelectorAll('a[data-section]');
+
+    function switchSection(name) {
+        sections.forEach(s => s.classList.toggle('active', s.id === 'sec-'+name));
+        sidebarLinks.forEach(a => a.classList.toggle('active', a.getAttribute('data-section') === name));
+    }
+
+    sidebarLinks.forEach(a => {
+        a.addEventListener('click', function(e) {
+            e.preventDefault();
+            const sec = this.getAttribute('data-section');
+            switchSection(sec);
+            // Lazy load data for section
+            if (sec === 'panoramas') loadPanoramas();
+            if (sec === 'plots') loadAllPlots();
+            if (sec === 'manage-lock') loadManageLock();
+            if (sec === 'lock-plots') loadLockPlots();
+        });
+    });
+
+    // ── Load user info and set role ──
+    async function loadUserInfo() {
+        try {
+            const r = await api('/api/crm/me');
+            if (r.ok) {
+                const d = await r.json();
+                userRole = d.role || 'user';
+                if (userRole === 'admin' || userRole === 'superadmin') {
+                    $('nav-manage-lock').style.display = '';
+                }
+            }
+        } catch(e) { console.warn('Failed to load user info', e); }
+    }
+
+    // ══════════════════════════════════════════
+    //  INTERESTS SECTION
+    // ══════════════════════════════════════════
+    const elStats = $('stats-grid');
+    const elPipe = $('pipeline');
+    const elTbody = $('tbody');
+    const elEmpty = $('empty');
+    const elMeta = $('results-meta');
+    const qEl = $('q');
+    const statusEl = $('filter-status');
+    const categoryEl = $('filter-category');
+    const projectEl = $('filter-project');
+    const reportCard = $('report-card');
+    const reportTypeEl = $('report-type');
+    const reportPrintArea = $('report-print-area');
+
+    function statCard(label,value,hint) {
+        return '<div class="stat"><div class="label">'+esc(label)+'</div><div class="value mono">'+esc(value)+'</div><div class="hint">'+esc(hint)+'</div></div>';
+    }
+    function renderStats() {
+        const c = countByStatus(filtered.length?filtered:interests);
+        const t = Math.max(1,c.total);
+        elStats.innerHTML = [
+            statCard('Total',c.total,'All captured interests'),
+            statCard('New',c.new,'Uncontacted leads'),
+            statCard('Qualified',c.qualified,'~'+((c.qualified/t)*100).toFixed(0)+'% of total'),
+            statCard('Won / Lost',c.won+' / '+c.lost,'Win '+((c.won/t)*100).toFixed(0)+'% • Lost '+((c.lost/t)*100).toFixed(0)+'%')
+        ].join('');
+    }
+    function pipeRow(label,count,total) {
+        const pct = Math.round((count/Math.max(1,total))*100);
+        return '<div class="pipe-row"><div><div class="pipe-name">'+esc(label)+'</div><div class="pipe-bar"><div class="pipe-fill" data-pipe-fill="'+pct+'"></div></div></div><div class="pipe-meta"><div class="pipe-count mono">'+count+'</div><div class="pipe-pct">'+pct+'%</div></div></div>';
+    }
+    function renderPipeline() {
+        const c = countByStatus(filtered.length?filtered:interests);
+        elPipe.innerHTML = [pipeRow('New',c.new,c.total),pipeRow('Contacted',c.contacted,c.total),pipeRow('Qualified',c.qualified,c.total),pipeRow('Won',c.won,c.total),pipeRow('Lost',c.lost,c.total)].join('');
+        requestAnimationFrame(() => { document.querySelectorAll('[data-pipe-fill]').forEach(el => { el.style.width = (el.getAttribute('data-pipe-fill')||'0')+'%'; }); });
+    }
+    function renderCategoryOptions() {
+        const vals = new Set(); interests.forEach(i => { if(i.category) vals.add(String(i.category)); });
+        const cur = categoryEl.value;
+        const opts = [''].concat(Array.from(vals).sort());
+        categoryEl.innerHTML = opts.map(v => '<option value="'+esc(v)+'">'+(v?esc(v):'All Categories')+'</option>').join('');
+        categoryEl.value = opts.includes(cur)?cur:'';
+    }
+    function renderProjectOptions() {
+        const cur = projectEl.value;
+        const opts = [''].concat(projects.map(p => String(p.id)));
+        projectEl.innerHTML = opts.map(id => {
+            if(!id) return '<option value="">All Projects</option>';
+            const name = (projectById.get(String(id))||{}).name||('Project #'+id);
+            return '<option value="'+esc(id)+'">'+esc(name)+'</option>';
+        }).join('');
+        projectEl.value = opts.includes(cur)?cur:'';
+    }
+    function applyFilters() {
+        const q = String(qEl.value||'').trim().toLowerCase();
+        const status = String(statusEl.value||'').trim().toLowerCase();
+        const category = String(categoryEl.value||'').trim().toLowerCase();
+        const project = String(projectEl.value||'').trim();
+        filtered = interests.filter(i => {
+            if(status && String(i.status||'').toLowerCase()!==status) return false;
+            if(category && String(i.category||'').toLowerCase()!==category) return false;
+            if(project && String(i.panorama_id||'')!==project) return false;
+            if(q) {
+                const hay = [i.customer_name,i.customer_email,i.customer_phone,i.category,(projectById.get(String(i.panorama_id))||{}).name,(Array.isArray(i.plots)?i.plots.map(p=>p&&p.name).join(' '):'')].join(' ').toLowerCase();
+                if(!hay.includes(q)) return false;
+            }
+            return true;
+        });
+    }
+    function renderTable() {
+        elMeta.textContent = filtered.length+(filtered.length===1?' result':' results');
+        elEmpty.style.display = filtered.length===0?'':'none';
+        elTbody.innerHTML = filtered.map(i => {
+            const pj = projectById.get(String(i.panorama_id));
+            const pn = pj&&pj.name?pj.name:('Project #'+i.panorama_id);
+            const plots = Array.isArray(i.plots)?i.plots:[];
+            const pl = plots.length?(plots.length===1?(plots[0].name||'1 plot'):(plots.length+' plots')):'—';
+            const st = String(i.status||'new').toLowerCase();
+            return '<tr data-id="'+esc(i.id)+'"><td class="mono">'+esc(fmtDate(i.created_at))+'<div class="subtle">'+esc(fmtTime(i.created_at))+'</div></td><td><div style="font-weight:800">'+esc(i.customer_name||'—')+'</div><div class="subtle">'+esc(pl)+'</div></td><td><div>'+esc(i.customer_email||'—')+'</div><div class="subtle mono">'+esc(i.customer_phone||'')+'</div></td><td>'+esc(i.category||'—')+'</td><td><div style="font-weight:800">'+esc(pn)+'</div><div class="subtle mono">#'+esc(i.panorama_id)+'</div></td><td><span class="pill '+esc(st)+'"><span class="dot"></span><span>'+esc(st||'new')+'</span></span></td></tr>';
+        }).join('');
+        elTbody.querySelectorAll('tr[data-id]').forEach(tr => {
+            tr.addEventListener('click', () => {
+                const item = interests.find(x => String(x.id)===tr.getAttribute('data-id'));
+                if(item) openDrawer(item);
+            });
+        });
+    }
+    function refreshInterestsUI() { applyFilters(); renderStats(); renderPipeline(); renderTable(); }
+
+    // Drawer
+    const drawerBackdrop = $('drawer-backdrop');
+    const drawer = $('drawer');
+    const dTitle = $('d-title');
+    const dSubtitle = $('d-subtitle');
+    const dContact = $('d-contact');
+    const dInterest = $('d-interest');
+    const dStatus = $('d-status');
+    const dNotes = $('d-notes');
+    const dMsg = $('d-msg');
+    const btnSave = $('btn-save');
+    const btnContacted = $('btn-contacted');
+
+    function showDrawerMsg(text,type) { if(!dMsg)return; dMsg.textContent=text||''; dMsg.className='msg'+(type==='error'?' error':''); dMsg.style.display=text?'':'none'; }
+    function openDrawer(item) {
+        selected = item;
+        const pj = projectById.get(String(item.panorama_id));
+        const pn = pj&&pj.name?pj.name:('Project #'+item.panorama_id);
+        dTitle.textContent = item.customer_name||'Lead';
+        dSubtitle.textContent = pn+' • '+fmtDate(item.created_at)+' '+fmtTime(item.created_at);
+        dContact.innerHTML = [kvRow('Email',item.customer_email||'—'),kvRow('Phone',item.customer_phone||'—')].join('');
+        const plots = Array.isArray(item.plots)?item.plots:[];
+        const plotNames = plots.map(p=>p&&p.name?p.name:'').filter(Boolean);
+        dInterest.innerHTML = [kvRow('Category',item.category||'—'),kvRow('Project',pn),kvRow('Plots',plotNames.length?plotNames.join(', '):'—')].join('');
+        dStatus.value = String(item.status||'new').toLowerCase();
+        dNotes.value = String(item.notes||'');
+        showDrawerMsg('');
+        drawerBackdrop.classList.add('visible');
+        drawer.classList.add('visible');
+        drawer.setAttribute('aria-hidden','false');
+    }
+    function closeDrawer() {
+        drawerBackdrop.classList.remove('visible');
+        drawer.classList.remove('visible');
+        drawer.setAttribute('aria-hidden','true');
+        selected = null;
+    }
+    async function saveSelected(partial) {
+        if(!selected)return;
+        btnSave.disabled=true; btnContacted.disabled=true; showDrawerMsg('');
+        try {
+            const r = await api('/api/buy-interests/'+encodeURIComponent(String(selected.id)),{method:'PATCH',body:JSON.stringify(partial||{})});
+            const data = await r.json().catch(()=>({}));
+            if(!r.ok) throw new Error((data&&data.error)?data.error:('Update failed ('+r.status+')'));
+            showDrawerMsg('Saved.');
+            await loadInterests();
+            const updated = interests.find(x=>String(x.id)===String(selected.id));
+            if(updated) openDrawer(updated);
+        } catch(e) { showDrawerMsg(e.message||'Failed to save','error'); }
+        finally { btnSave.disabled=false; btnContacted.disabled=false; }
+    }
+
+    $('drawer-close').addEventListener('click', closeDrawer);
+    drawerBackdrop.addEventListener('click', closeDrawer);
+    document.addEventListener('keydown', e => { if(e.key==='Escape') closeDrawer(); });
+    btnContacted.addEventListener('click', () => saveSelected({status:'contacted'}));
+    btnSave.addEventListener('click', () => saveSelected({status:dStatus.value,notes:dNotes.value}));
+
+    qEl.addEventListener('input', refreshInterestsUI);
+    statusEl.addEventListener('change', refreshInterestsUI);
+    categoryEl.addEventListener('change', refreshInterestsUI);
+    projectEl.addEventListener('change', refreshInterestsUI);
+    $('btn-clear').addEventListener('click', () => { qEl.value=''; statusEl.value=''; categoryEl.value=''; projectEl.value=''; refreshInterestsUI(); });
+
+    // Export
+    $('btn-export').addEventListener('click', function() {
+        if(!filtered.length){ alert('No data to export.'); return; }
+        const header = ['Created At','Status','Category','Project ID','Project Name','Customer Name','Customer Email','Customer Phone','Plot Count','Plots','Notes'];
+        const lines = ['sep=,',header.join(',')];
+        filtered.forEach(i => {
+            const pj=projectById.get(String(i.panorama_id)); const pn=(pj&&pj.name)?pj.name:'';
+            const plotNames=Array.isArray(i.plots)?i.plots.map(p=>(p&&p.name)?p.name:'').filter(Boolean):[];
+            lines.push([toCsvValue(toExportDateTime(i.created_at||'')),toCsvValue(toStatusLabel(i.status||'')),toCsvValue(i.category||''),toCsvValue(i.panorama_id||''),toCsvValue(pn),toCsvValue(i.customer_name||''),toCsvValue(i.customer_email||''),toCsvValue(i.customer_phone||''),toCsvValue(plotNames.length),toCsvValue(plotNames.join('; ')),toCsvValue(i.notes||'')].join(','));
+        });
+        const stamp = new Date().toISOString().slice(0,10);
+        const csv = '\ufeff'+lines.join('\r\n')+'\r\n';
+        const blob = new Blob([csv],{type:'text/csv;charset=utf-8;'});
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a'); a.href=url; a.download='buy_interests_'+stamp+'.csv'; a.style.display='none'; document.body.appendChild(a); a.click(); document.body.removeChild(a);
+        setTimeout(()=>URL.revokeObjectURL(url),5000);
+    });
+
+    // Reports
+    function buildReportContent() {
+        if(!reportPrintArea) return;
+        const type = reportTypeEl?reportTypeEl.value:'pipeline';
+        const rows = filtered.length?filtered:interests;
+        const stamp = new Date().toLocaleString(undefined,{dateStyle:'medium',timeStyle:'short'});
+        if(type==='pipeline') {
+            const c = countByStatus(rows); const t=Math.max(1,c.total);
+            reportPrintArea.innerHTML = '<h2>Pipeline summary</h2><div class="report-meta">Generated '+esc(stamp)+'</div><table><thead><tr><th>Stage</th><th>Count</th><th>%</th></tr></thead><tbody><tr><td>New</td><td>'+c.new+'</td><td>'+((c.new/t)*100).toFixed(1)+'%</td></tr><tr><td>Contacted</td><td>'+c.contacted+'</td><td>'+((c.contacted/t)*100).toFixed(1)+'%</td></tr><tr><td>Qualified</td><td>'+c.qualified+'</td><td>'+((c.qualified/t)*100).toFixed(1)+'%</td></tr><tr><td>Won</td><td>'+c.won+'</td><td>'+((c.won/t)*100).toFixed(1)+'%</td></tr><tr><td>Lost</td><td>'+c.lost+'</td><td>'+((c.lost/t)*100).toFixed(1)+'%</td></tr><tr><td><strong>Total</strong></td><td><strong>'+c.total+'</strong></td><td>100%</td></tr></tbody></table>';
+        } else {
+            const header = ['Created','Customer','Email','Phone','Category','Project','Status','Notes'];
+            let body = '';
+            rows.forEach(i => {
+                const pj=projectById.get(String(i.panorama_id)); const pn=(pj&&pj.name)?pj.name:'';
+                body += '<tr><td>'+esc(fmtDate(i.created_at))+'</td><td>'+esc(i.customer_name||'')+'</td><td>'+esc(i.customer_email||'')+'</td><td>'+esc(i.customer_phone||'')+'</td><td>'+esc(i.category||'')+'</td><td>'+esc(pn)+'</td><td>'+esc(toStatusLabel(i.status||''))+'</td><td>'+esc((i.notes||'').slice(0,80))+'</td></tr>';
+            });
+            reportPrintArea.innerHTML = '<h2>Lead list</h2><div class="report-meta">Generated '+esc(stamp)+' &middot; '+rows.length+' row(s)</div><table><thead><tr>'+header.map(h=>'<th>'+esc(h)+'</th>').join('')+'</tr></thead><tbody>'+(body||'<tr><td colspan="8">No data</td></tr>')+'</tbody></table>';
+        }
+    }
+    $('btn-reports').addEventListener('click', () => { buildReportContent(); reportCard.style.display='block'; });
+    if(reportTypeEl) reportTypeEl.addEventListener('change', buildReportContent);
+    $('btn-print').addEventListener('click', () => { buildReportContent(); window.print(); });
+    $('btn-pdf').addEventListener('click', () => { buildReportContent(); window.print(); });
+    $('btn-close-report').addEventListener('click', () => { reportCard.style.display='none'; });
+
+    async function loadProjects() {
+        const r = await api('/api/crm/panoramas');
+        if(!r.ok) throw new Error('Failed to load projects');
+        const all = await r.json();
+        projects = Array.isArray(all)?all:[];
+        projectById = new Map(projects.map(p=>[String(p.id),p]));
+        renderProjectOptions();
+    }
+    async function loadInterests() {
+        const r = await api('/api/buy-interests');
+        const data = await r.json().catch(()=>[]);
+        if(!r.ok) throw new Error((data&&data.error)?data.error:('Failed ('+r.status+')'));
+        interests = Array.isArray(data)?data:[];
+        renderCategoryOptions();
+        refreshInterestsUI();
+    }
+
+    $('btn-refresh').addEventListener('click', async function() {
+        this.disabled=true;
+        try { await loadProjects(); await loadInterests(); } catch(e){ console.warn(e); }
+        finally { this.disabled=false; }
+    });
+
+    // ══════════════════════════════════════════
+    //  PANORAMAS SECTION
+    // ══════════════════════════════════════════
+    let panoramasLoaded = false;
+    function renderPanoramaTable() {
+        const tbody = $('panorama-tbody');
+        const empty = $('panorama-empty');
+        if(!projects.length) { tbody.innerHTML=''; empty.style.display=''; return; }
+        empty.style.display='none';
+        tbody.innerHTML = projects.map(p => {
+            return '<tr><td class="mono">'+esc(p.id)+'</td><td style="font-weight:700">'+esc(p.name||'Unnamed')+'</td><td class="mono">—</td><td><button class="btn" data-open-panorama="'+esc(p.id)+'">Open</button></td></tr>';
+        }).join('');
+        tbody.querySelectorAll('[data-open-panorama]').forEach(btn => {
+            btn.addEventListener('click', () => openPanoramaModal(btn.getAttribute('data-open-panorama')));
+        });
+    }
+    async function loadPanoramas() {
+        if(panoramasLoaded) { renderPanoramaTable(); return; }
+        try { await loadProjects(); panoramasLoaded=true; renderPanoramaTable(); } catch(e){ console.warn(e); }
+    }
+
+    // Panorama modal
+    const modalBackdrop = $('panorama-modal-backdrop');
+    const modalTabs = document.querySelectorAll('.crm-modal-tab');
+    let currentPanoramaId = null;
+
+    modalTabs.forEach(tab => {
+        tab.addEventListener('click', () => {
+            modalTabs.forEach(t => t.classList.toggle('active', t===tab));
+            document.querySelectorAll('.crm-modal-panel').forEach(p => p.classList.toggle('active', p.id===tab.getAttribute('data-panel')));
+        });
+    });
+    $('panorama-modal-close').addEventListener('click', () => { modalBackdrop.classList.remove('visible'); });
+    modalBackdrop.addEventListener('click', e => { if(e.target===modalBackdrop) modalBackdrop.classList.remove('visible'); });
+
+    async function openPanoramaModal(panoramaId) {
+        currentPanoramaId = panoramaId;
+        const pj = projectById.get(String(panoramaId));
+        $('panorama-modal-title').textContent = (pj&&pj.name)?pj.name:('Panorama #'+panoramaId);
+        modalBackdrop.classList.add('visible');
+        // Reset to plots tab
+        modalTabs.forEach(t => t.classList.toggle('active', t.getAttribute('data-panel')==='modal-plots'));
+        document.querySelectorAll('.crm-modal-panel').forEach(p => p.classList.toggle('active', p.id==='modal-plots'));
+        loadPanoramaMarkers(panoramaId);
+    }
+
+    async function loadPanoramaMarkers(panoramaId) {
+        const plotsTbody = $('modal-plots-tbody');
+        const markersTbody = $('modal-markers-tbody');
+        const plotsLoading = $('modal-plots-loading');
+        const markersLoading = $('modal-markers-loading');
+        plotsTbody.innerHTML=''; markersTbody.innerHTML='';
+        plotsLoading.style.display=''; markersLoading.style.display='';
+        try {
+            const r = await api('/api/crm/panoramas/'+encodeURIComponent(panoramaId)+'/markers');
+            const markers = await r.json();
+            plotsLoading.style.display='none'; markersLoading.style.display='none';
+            if(!Array.isArray(markers)||!markers.length) {
+                plotsTbody.innerHTML='<tr><td colspan="4" class="empty">No plots/markers found</td></tr>';
+                markersTbody.innerHTML='<tr><td colspan="5" class="empty">No markers found</td></tr>';
+                return;
+            }
+            // Render plots tab (same data, focus on name/status/description)
+            plotsTbody.innerHTML = markers.map(m => {
+                const sk = getStatusKey(m.status);
+                const statusClass = sk==='sold'?'status-pill--sold':sk==='hold'?'status-pill--hold':'status-pill--available';
+                return '<tr data-marker-id="'+esc(m.id)+'"><td><input class="inline-edit" value="'+esc(m.name||'')+'" data-field="name" data-id="'+esc(m.id)+'"></td><td><span class="status-pill '+statusClass+'">'+esc(m.status||'available')+'</span></td><td><input class="inline-edit" value="'+esc(m.description||'')+'" data-field="description" data-id="'+esc(m.id)+'"></td><td><button class="btn" data-save-marker="'+esc(m.id)+'">Save</button></td></tr>';
+            }).join('');
+            // Render markers tab
+            markersTbody.innerHTML = markers.map(m => {
+                return '<tr><td style="font-weight:700">'+esc(m.name||'—')+'</td><td><select class="inline-edit-select" data-field="status" data-id="'+esc(m.id)+'"><option value="available"'+(getStatusKey(m.status)==='available'?' selected':'')+'>Available</option><option value="hold"'+(getStatusKey(m.status)==='hold'?' selected':'')+'>Hold</option><option value="sold"'+(getStatusKey(m.status)==='sold'?' selected':'')+'>Sold</option></select></td><td>'+esc(m.marker_style||'default')+'</td><td class="mono">'+esc((m.latitude||'—')+' / '+(m.longitude||'—'))+'</td><td><button class="btn" data-save-marker="'+esc(m.id)+'">Save</button></td></tr>';
+            }).join('');
+            // Wire up save buttons
+            document.querySelectorAll('[data-save-marker]').forEach(btn => {
+                btn.addEventListener('click', async () => {
+                    const mid = btn.getAttribute('data-save-marker');
+                    const upd = {};
+                    document.querySelectorAll('[data-id="'+mid+'"]').forEach(el => {
+                        upd[el.getAttribute('data-field')] = el.value;
+                    });
+                    btn.disabled=true; btn.textContent='Saving…';
+                    try {
+                        const r = await api('/api/crm/markers/'+encodeURIComponent(mid),{method:'PUT',body:JSON.stringify(upd)});
+                        if(!r.ok) { const d=await r.json().catch(()=>({})); throw new Error(d.error||'Failed'); }
+                        btn.textContent='Saved!';
+                        setTimeout(()=>{btn.textContent='Save'; btn.disabled=false;},1500);
+                    } catch(e) { btn.textContent='Error'; setTimeout(()=>{btn.textContent='Save'; btn.disabled=false;},2000); }
+                });
+            });
+        } catch(e) {
+            plotsLoading.style.display='none'; markersLoading.style.display='none';
+            plotsTbody.innerHTML='<tr><td colspan="4" class="empty">Failed to load: '+esc(e.message)+'</td></tr>';
+        }
+    }
+
+    // ══════════════════════════════════════════
+    //  PLOTS SECTION (cross-panorama)
+    // ══════════════════════════════════════════
+    let plotsLoaded = false;
+    const plotSearch = $('plot-search');
+    const plotPanoFilter = $('plot-panorama-filter');
+    const plotStatusFilter = $('plot-status-filter');
+
+    async function loadAllPlots() {
+        if(!plotsLoaded) {
+            try {
+                const r = await api('/api/crm/plots');
+                const data = await r.json();
+                allPlots = Array.isArray(data)?data:[];
+                plotsLoaded = true;
+                // Populate panorama filter
+                const panoSet = new Map();
+                allPlots.forEach(p => { if(p.panorama_id && p.panorama_name) panoSet.set(String(p.panorama_id), p.panorama_name); });
+                plotPanoFilter.innerHTML = '<option value="">All Panoramas</option>'+Array.from(panoSet.entries()).map(([id,name])=>'<option value="'+esc(id)+'">'+esc(name)+'</option>').join('');
+            } catch(e) { console.warn(e); }
+        }
+        renderPlotsTable();
+    }
+    function renderPlotsTable() {
+        const q = String(plotSearch.value||'').trim().toLowerCase();
+        const pano = String(plotPanoFilter.value||'');
+        const status = String(plotStatusFilter.value||'').toLowerCase();
+        let rows = allPlots;
+        if(q) rows = rows.filter(p => (p.name||'').toLowerCase().includes(q)||(p.description||'').toLowerCase().includes(q));
+        if(pano) rows = rows.filter(p => String(p.panorama_id)===pano);
+        if(status) rows = rows.filter(p => getStatusKey(p.status)===status);
+        const tbody = $('plots-tbody');
+        const empty = $('plots-empty');
+        if(!rows.length) { tbody.innerHTML=''; empty.style.display=''; return; }
+        empty.style.display='none';
+        tbody.innerHTML = rows.map(p => {
+            const sk = getStatusKey(p.status);
+            const sc = sk==='sold'?'status-pill--sold':sk==='hold'?'status-pill--hold':'status-pill--available';
+            return '<tr><td><input class="inline-edit" value="'+esc(p.name||'')+'" data-field="name" data-pid="'+esc(p.id)+'"></td><td style="font-weight:600">'+esc(p.panorama_name||'#'+p.panorama_id)+'</td><td><select class="inline-edit-select" data-field="status" data-pid="'+esc(p.id)+'"><option value="available"'+(sk==='available'?' selected':'')+'>Available</option><option value="hold"'+(sk==='hold'?' selected':'')+'>Hold</option><option value="sold"'+(sk==='sold'?' selected':'')+'>Sold</option></select></td><td><input class="inline-edit" value="'+esc(p.description||'')+'" data-field="description" data-pid="'+esc(p.id)+'"></td><td><button class="btn" data-save-plot="'+esc(p.id)+'">Save</button></td></tr>';
+        }).join('');
+        tbody.querySelectorAll('[data-save-plot]').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                const pid = btn.getAttribute('data-save-plot');
+                const upd = {};
+                document.querySelectorAll('[data-pid="'+pid+'"]').forEach(el => {
+                    upd[el.getAttribute('data-field')] = el.value;
+                });
+                btn.disabled=true; btn.textContent='Saving…';
+                try {
+                    const r = await api('/api/plots/'+encodeURIComponent(pid),{method:'PUT',body:JSON.stringify(upd)});
+                    if(!r.ok) { const d=await r.json().catch(()=>({})); throw new Error(d.error||'Failed'); }
+                    // Update local data
+                    const idx = allPlots.findIndex(x=>String(x.id)===String(pid));
+                    if(idx>=0) Object.assign(allPlots[idx], upd);
+                    btn.textContent='Saved!';
+                    setTimeout(()=>{btn.textContent='Save'; btn.disabled=false;},1500);
+                } catch(e) { btn.textContent='Error'; setTimeout(()=>{btn.textContent='Save'; btn.disabled=false;},2000); }
+            });
+        });
+    }
+    plotSearch.addEventListener('input', renderPlotsTable);
+    plotPanoFilter.addEventListener('change', renderPlotsTable);
+    plotStatusFilter.addEventListener('change', renderPlotsTable);
+
+    // ══════════════════════════════════════════
+    //  MANAGE LOCK SECTION (admin only)
+    // ══════════════════════════════════════════
+    const lockPanoSelect = $('lock-panorama-select');
+    let lockAccessData = [];
+
+    async function loadManageLock() {
+        // Populate panorama select
+        if(!projects.length) await loadProjects();
+        lockPanoSelect.innerHTML = '<option value="">Select Panorama</option>'+projects.map(p=>'<option value="'+esc(p.id)+'">'+esc(p.name||'#'+p.id)+'</option>').join('');
+        // Load org users
+        try {
+            const r = await api('/api/crm/org-users');
+            if(r.ok) { orgUsers = await r.json(); orgUsers = Array.isArray(orgUsers)?orgUsers:[]; }
+        } catch(e) { console.warn(e); }
+        // Load existing access
+        try {
+            const r = await api('/api/crm/lock-access');
+            if(r.ok) { lockAccessData = await r.json(); lockAccessData = Array.isArray(lockAccessData)?lockAccessData:[]; }
+        } catch(e) { console.warn(e); }
+        renderLockAccessList();
+    }
+
+    lockPanoSelect.addEventListener('change', renderLockAccessList);
+
+    function renderLockAccessList() {
+        const panoId = lockPanoSelect.value;
+        const list = $('lock-access-list');
+        const empty = $('lock-access-empty');
+        const meta = $('lock-access-meta');
+        if(!panoId) { list.innerHTML=''; empty.style.display='none'; meta.textContent='Select a panorama above'; return; }
+        if(!orgUsers.length) { list.innerHTML=''; empty.style.display=''; meta.textContent='0 users'; return; }
+        empty.style.display='none';
+        meta.textContent = orgUsers.length+' user'+(orgUsers.length===1?'':'s');
+        list.innerHTML = orgUsers.map(u => {
+            const hasAccess = lockAccessData.some(a => String(a.panorama_id)===String(panoId) && String(a.user_id)===String(u.id));
+            return '<div class="lock-user-row"><div class="lock-user-info"><div class="lock-user-name">'+esc(u.name||u.email||'User')+'</div><div class="lock-user-email">'+esc(u.email||'')+'</div></div><label class="toggle-switch"><input type="checkbox" data-user-id="'+esc(u.id)+'" data-panorama-id="'+esc(panoId)+'"'+(hasAccess?' checked':'')+'><span class="slider"></span></label></div>';
+        }).join('');
+        list.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+            cb.addEventListener('change', async () => {
+                const uid = cb.getAttribute('data-user-id');
+                const pid = cb.getAttribute('data-panorama-id');
+                cb.disabled=true;
+                try {
+                    if(cb.checked) {
+                        const r = await api('/api/crm/lock-access',{method:'POST',body:JSON.stringify({user_id:uid,panorama_id:pid})});
+                        if(!r.ok) { cb.checked=false; throw new Error('Failed to grant'); }
+                        const d = await r.json().catch(()=>({}));
+                        if(d.id) lockAccessData.push(d);
+                    } else {
+                        const r = await api('/api/crm/lock-access',{method:'DELETE',body:JSON.stringify({user_id:uid,panorama_id:pid})});
+                        if(!r.ok) { cb.checked=true; throw new Error('Failed to revoke'); }
+                        lockAccessData = lockAccessData.filter(a => !(String(a.panorama_id)===String(pid) && String(a.user_id)===String(uid)));
+                    }
+                } catch(e) { console.warn(e); }
+                finally { cb.disabled=false; }
+            });
+        });
+    }
+
+    // ══════════════════════════════════════════
+    //  LOCK PLOTS SECTION
+    // ══════════════════════════════════════════
+    let lockablePlots = [];
+
+    async function loadLockPlots() {
+        const tbody = $('lockplots-tbody');
+        const empty = $('lockplots-empty');
+        const loading = $('lockplots-loading');
+        tbody.innerHTML=''; empty.style.display='none'; loading.style.display='';
+        try {
+            const r = await api('/api/crm/lockable-plots');
+            const data = await r.json();
+            lockablePlots = Array.isArray(data)?data:[];
+            loading.style.display='none';
+            if(!lockablePlots.length) { empty.style.display=''; return; }
+            renderLockPlotsTable();
+        } catch(e) {
+            loading.style.display='none';
+            empty.style.display='';
+            empty.innerHTML='<strong>Error</strong><div>'+esc(e.message)+'</div>';
+        }
+    }
+
+    function renderLockPlotsTable() {
+        const tbody = $('lockplots-tbody');
+        const empty = $('lockplots-empty');
+        if(!lockablePlots.length) { tbody.innerHTML=''; empty.style.display=''; return; }
+        empty.style.display='none';
+        tbody.innerHTML = lockablePlots.map(p => {
+            const isLocked = !!p.lock;
+            const lockLabel = isLocked?'Locked':'Unlocked';
+            const lockClass = isLocked?'lock-pill--locked':'lock-pill--unlocked';
+            const lockedFor = isLocked?(p.lock.locked_for_name||p.lock.locked_for_email||'—'):'';
+            const panoName = p.panorama_name||'#'+p.panorama_id;
+            const sk = getStatusKey(p.status);
+            const sc = sk==='sold'?'status-pill--sold':sk==='hold'?'status-pill--hold':'status-pill--available';
+
+            // Build locked-for dropdown: buy interest users + manual entry
+            let lockedForHtml = '';
+            if(isLocked) {
+                lockedForHtml = '<span style="font-weight:600;font-size:0.85rem">'+esc(lockedFor)+'</span>';
+            } else {
+                lockedForHtml = '<select class="inline-edit-select locked-for-select" data-lockfor-plot="'+esc(p.id)+'">';
+                lockedForHtml += '<option value="">Select customer…</option>';
+                // Show users who have buy interest for this plot
+                const plotInterests = interests.filter(i => {
+                    if(!Array.isArray(i.plots)) return false;
+                    return i.plots.some(ip => String(ip.id)===String(p.id) || String(ip.name)===String(p.name));
+                });
+                const seen = new Set();
+                plotInterests.forEach(i => {
+                    const key = (i.customer_email||i.customer_name||'').toLowerCase();
+                    if(key && !seen.has(key)) {
+                        seen.add(key);
+                        lockedForHtml += '<option value="'+esc(i.customer_name||'')+'" data-email="'+esc(i.customer_email||'')+'">'+esc(i.customer_name||i.customer_email)+'</option>';
+                    }
+                });
+                lockedForHtml += '<option value="__manual__">Manual entry…</option>';
+                lockedForHtml += '</select>';
+            }
+
+            const actionBtn = isLocked
+                ? '<button class="btn danger" data-unlock-plot="'+esc(p.id)+'">Unlock</button>'
+                : '<button class="btn primary" data-lock-plot="'+esc(p.id)+'">Lock</button>';
+
+            return '<tr><td style="font-weight:700">'+esc(p.name||'—')+'</td><td>'+esc(panoName)+'</td><td><span class="status-pill '+sc+'">'+esc(p.status||'available')+'</span></td><td><span class="lock-pill '+lockClass+'">'+esc(lockLabel)+'</span></td><td>'+lockedForHtml+'</td><td>'+actionBtn+'</td></tr>';
+        }).join('');
+
+        // Wire up lock/unlock buttons
+        tbody.querySelectorAll('[data-lock-plot]').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                const plotId = btn.getAttribute('data-lock-plot');
+                const sel = document.querySelector('[data-lockfor-plot="'+plotId+'"]');
+                let lockedForName = '';
+                let lockedForEmail = '';
+                if(sel) {
+                    if(sel.value === '__manual__') {
+                        lockedForName = prompt('Enter customer name:');
+                        if(!lockedForName) return;
+                        lockedForEmail = prompt('Enter customer email (optional):') || '';
+                    } else {
+                        lockedForName = sel.value;
+                        const opt = sel.selectedOptions[0];
+                        lockedForEmail = opt?opt.getAttribute('data-email')||'':'';
+                    }
+                }
+                btn.disabled=true; btn.textContent='Locking…';
+                try {
+                    const r = await api('/api/crm/plots/'+encodeURIComponent(plotId)+'/lock',{method:'POST',body:JSON.stringify({locked_for_name:lockedForName,locked_for_email:lockedForEmail})});
+                    if(!r.ok) { const d=await r.json().catch(()=>({})); throw new Error(d.error||'Failed'); }
+                    await loadLockPlots();
+                } catch(e) { alert(e.message); btn.textContent='Lock'; btn.disabled=false; }
+            });
+        });
+        tbody.querySelectorAll('[data-unlock-plot]').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                const plotId = btn.getAttribute('data-unlock-plot');
+                btn.disabled=true; btn.textContent='Unlocking…';
+                try {
+                    const r = await api('/api/crm/plots/'+encodeURIComponent(plotId)+'/lock',{method:'DELETE'});
+                    if(!r.ok) { const d=await r.json().catch(()=>({})); throw new Error(d.error||'Failed'); }
+                    await loadLockPlots();
+                } catch(e) { alert(e.message); btn.textContent='Unlock'; btn.disabled=false; }
+            });
+        });
+
+        // Handle manual entry select change
+        tbody.querySelectorAll('.locked-for-select').forEach(sel => {
+            sel.addEventListener('change', function() {
+                if(this.value === '__manual__') {
+                    const name = prompt('Enter customer name:');
+                    if(name) {
+                        const opt = document.createElement('option');
+                        opt.value = name;
+                        opt.textContent = name;
+                        opt.setAttribute('data-email', '');
+                        this.insertBefore(opt, this.querySelector('[value="__manual__"]'));
+                        this.value = name;
+                    } else {
+                        this.value = '';
+                    }
+                }
+            });
+        });
+    }
+
+    // ══════════════════════════════════════════
+    //  INIT
+    // ══════════════════════════════════════════
+    (async function init() {
+        try {
+            await ensureAuthenticated();
+            await loadUserInfo();
+            await loadProjects();
+            await loadInterests();
+            if(interests.length === 0) elEmpty.style.display = '';
+        } catch(e) {
+            elEmpty.style.display = '';
+            elEmpty.innerHTML = '<strong>CRM unavailable</strong><div>'+esc(e.message||'Failed to load CRM')+'</div>';
+        }
+    })();
+})();
+</script>
 {% endblock %}
