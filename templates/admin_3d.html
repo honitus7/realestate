@@ -2904,7 +2904,7 @@
                     }
                     if (this.linkColumnsSupported && this.isLinkColumnError(result.error)) {
                         this.linkColumnsSupported = false;
-                        this.showToast('Run supabase_migration_panorama_links.sql in Supabase to enable marker panorama links.', 'error');
+                        this.showToast('Run db/schema.sql in Supabase to enable marker panorama links.', 'error');
                         delete payload.linked_panorama_id;
                         changed = true;
                     }
@@ -3204,7 +3204,7 @@
                     }
                     if (this.linkColumnsSupported && this.isLinkColumnError(result.error)) {
                         this.linkColumnsSupported = false;
-                        this.showToast('Run supabase_migration_panorama_links.sql in Supabase to enable marker panorama links.', 'error');
+                        this.showToast('Run db/schema.sql in Supabase to enable marker panorama links.', 'error');
                         delete payload.linked_panorama_id;
                         changed = true;
                     }
@@ -4513,7 +4513,7 @@
                         ? null
                         : Number(rawPersisted);
                     if (!Number.isFinite(persisted) || Number(persisted) !== Number(requestedLinkedPanoramaId)) {
-                        showToast('Linked panorama was not saved. Run supabase_migration_panorama_links.sql in Supabase.', 'error');
+                        showToast('Linked panorama was not saved. Run db/schema.sql in Supabase.', 'error');
                     }
                 }
             } catch (error) {

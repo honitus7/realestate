@@ -184,7 +184,7 @@ def delete_workspace(sb, workspace_id, user_id):
 
 
 def get_workspace_schema_error_response():
-    return {'error': 'Workspace schema missing. Run supabase_migration_workspaces.sql in Supabase SQL Editor.'}, 503
+    return {'error': 'Workspace schema missing. Run db/schema.sql in Supabase SQL Editor.'}, 503
 
 
 def is_workspace_schema_missing(exc):

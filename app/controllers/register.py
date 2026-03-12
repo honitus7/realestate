@@ -580,7 +580,7 @@ def register_routes(app):
         except Exception as e:
             msg = str(e)
             if 'image_filename' in msg.lower() and ('does not exist' in msg.lower() or 'column' in msg.lower()):
-                return jsonify({'error': 'image_filename column missing. Run supabase_migration_image_s3.sql in Supabase SQL Editor.'}), 503
+                return jsonify({'error': 'image_filename column missing. Run db/schema.sql in Supabase SQL Editor.'}), 503
             return jsonify({'error': msg}), 500
 
     @app.route('/api/public/plots/<int:plot_id>/image', methods=['GET'])
@@ -607,7 +607,7 @@ def register_routes(app):
         except Exception as e:
             msg = str(e).lower()
             if ('image_filename' in msg or 'image_content_type' in msg) and ('does not exist' in msg or 'column' in msg):
-                return jsonify({'error': 'image_filename column missing. Run supabase_migration_image_s3.sql in Supabase SQL Editor.'}), 503
+                return jsonify({'error': 'image_filename column missing. Run db/schema.sql in Supabase SQL Editor.'}), 503
             return jsonify({'error': 'Not found'}), 404
         if panorama_id is None or not get_panorama_by_id(sb, panorama_id):
             return jsonify({'error': 'Not found'}), 404
@@ -737,7 +737,7 @@ def register_routes(app):
         except Exception as e:
             msg = str(e).lower()
             if 'image_filename' in msg and ('does not exist' in msg or 'column' in msg):
-                return jsonify({'error': 'image_filename column missing. Run supabase_migration_image_s3.sql in Supabase SQL Editor.'}), 503
+                return jsonify({'error': 'image_filename column missing. Run db/schema.sql in Supabase SQL Editor.'}), 503
             return jsonify({'error': 'Marker not found'}), 404
         plot_id = str(row.get('plot_id') or '').strip()
         try:
@@ -801,7 +801,7 @@ def register_routes(app):
         except Exception as e:
             msg = str(e).lower()
             if 'voiceover_filename' in msg and ('does not exist' in msg or 'column' in msg):
-                return jsonify({'error': 'voiceover_filename column missing. Run supabase_migration_marker_voiceover.sql in Supabase SQL Editor.'}), 503
+                return jsonify({'error': 'voiceover_filename column missing. Run db/schema.sql in Supabase SQL Editor.'}), 503
             return jsonify({'error': 'Marker not found'}), 404
         plot_id = str(row.get('plot_id') or '').strip()
         try:
@@ -890,7 +890,7 @@ def register_routes(app):
         except Exception as e:
             msg = str(e)
             if 'buy_interests' in msg and ('does not exist' in msg.lower() or 'relation' in msg.lower()):
-                return jsonify({'error': 'buy_interests table not found. Run supabase_migration_buy_interests.sql in Supabase SQL Editor.'}), 503
+                return jsonify({'error': 'buy_interests table not found. Run db/schema.sql in Supabase SQL Editor.'}), 503
             return jsonify({'error': msg}), 500
         if not plots_snapshot:
             return jsonify({'error': 'No valid plots found for this panorama'}), 400
@@ -915,7 +915,7 @@ def register_routes(app):
         except Exception as e:
             msg = str(e)
             if 'buy_interests' in msg and ('does not exist' in msg.lower() or 'relation' in msg.lower()):
-                return jsonify({'error': 'buy_interests table not found. Run supabase_migration_buy_interests.sql in Supabase SQL Editor.'}), 503
+                return jsonify({'error': 'buy_interests table not found. Run db/schema.sql in Supabase SQL Editor.'}), 503
             return jsonify({'error': msg}), 500
 
     # ----- API: require Authorization Bearer token -----
@@ -1684,7 +1684,7 @@ def register_routes(app):
             return jsonify({'success': True, 'label_longitude': lon_f, 'label_latitude': lat_f})
         except Exception as e:
             if 'label_longitude' in str(e).lower() or 'label_latitude' in str(e).lower():
-                return jsonify({'error': 'Plot label position not supported. Run supabase_migration_plot_label_position.sql.'}), 503
+                return jsonify({'error': 'Plot label position not supported. Run db/schema.sql in Supabase SQL Editor.'}), 503
             return jsonify({'error': str(e)}), 500
 
     @app.route('/api/plots/<int:plot_id>/image', methods=['GET'])
@@ -1708,7 +1708,7 @@ def register_routes(app):
         except Exception as e:
             msg = str(e).lower()
             if 'image_filename' in msg and ('does not exist' in msg or 'column' in msg):
-                return jsonify({'error': 'image_filename column missing. Run supabase_migration_image_s3.sql in Supabase SQL Editor.'}), 503
+                return jsonify({'error': 'image_filename column missing. Run db/schema.sql in Supabase SQL Editor.'}), 503
             return jsonify({'error': 'Not found'}), 404
         panorama, _ = get_panorama_with_access(sb, panorama_id, user_id)
         if not panorama:
@@ -1812,7 +1812,7 @@ def register_routes(app):
         except Exception as e:
             msg = str(e).lower()
             if 'image_filename' in msg and ('does not exist' in msg or 'column' in msg):
-                return jsonify({'error': 'image_filename column missing. Run supabase_migration_image_s3.sql in Supabase SQL Editor.'}), 503
+                return jsonify({'error': 'image_filename column missing. Run db/schema.sql in Supabase SQL Editor.'}), 503
             return jsonify({'error': 'Not found'}), 404
         panorama, access_type = get_panorama_with_access(sb, panorama_id, user_id)
         if not panorama or not can_edit_plots(access_type):
@@ -1865,7 +1865,7 @@ def register_routes(app):
             except Exception as e:
                 msg = str(e).lower()
                 if 'image_filename' in msg and ('does not exist' in msg or 'column' in msg):
-                    return jsonify({'error': 'image_filename column missing. Run supabase_migration_image_s3.sql in Supabase SQL Editor.'}), 503
+                    return jsonify({'error': 'image_filename column missing. Run db/schema.sql in Supabase SQL Editor.'}), 503
                 return jsonify({'error': str(e)}), 500
             if old_filename and old_filename != filename:
                 delete_plot_from_s3(old_filename)
@@ -1917,7 +1917,7 @@ def register_routes(app):
         except Exception as e:
             msg = str(e).lower()
             if 'image_filename' in msg and ('does not exist' in msg or 'column' in msg):
-                return jsonify({'error': 'image_filename column missing. Run supabase_migration_image_s3.sql in Supabase SQL Editor.'}), 503
+                return jsonify({'error': 'image_filename column missing. Run db/schema.sql in Supabase SQL Editor.'}), 503
             return jsonify({'error': str(e)}), 500
         if old_filename and old_filename != filename:
             delete_plot_from_s3(old_filename)
@@ -1937,7 +1937,7 @@ def register_routes(app):
         except Exception as e:
             msg = str(e).lower()
             if 'image_filename' in msg and ('does not exist' in msg or 'column' in msg):
-                return jsonify({'error': 'image_filename column missing. Run supabase_migration_image_s3.sql in Supabase SQL Editor.'}), 503
+                return jsonify({'error': 'image_filename column missing. Run db/schema.sql in Supabase SQL Editor.'}), 503
             return jsonify({'error': 'Marker not found'}), 404
         plot_id = str(row.get('plot_id') or '').strip()
         if not plot_id:
@@ -2005,7 +2005,7 @@ def register_routes(app):
         except Exception as e:
             msg = str(e).lower()
             if 'voiceover_filename' in msg and ('does not exist' in msg or 'column' in msg):
-                return jsonify({'error': 'voiceover_filename column missing. Run supabase_migration_marker_voiceover.sql in Supabase SQL Editor.'}), 503
+                return jsonify({'error': 'voiceover_filename column missing. Run db/schema.sql in Supabase SQL Editor.'}), 503
             return jsonify({'error': 'Marker not found'}), 404
         plot_id = str(row.get('plot_id') or '').strip()
         if not plot_id:
@@ -2041,7 +2041,7 @@ def register_routes(app):
         except Exception as e:
             msg = str(e).lower()
             if 'voiceover_filename' in msg and ('does not exist' in msg or 'column' in msg):
-                return jsonify({'error': 'voiceover_filename column missing. Run supabase_migration_marker_voiceover.sql in Supabase SQL Editor.'}), 503
+                return jsonify({'error': 'voiceover_filename column missing. Run db/schema.sql in Supabase SQL Editor.'}), 503
             return jsonify({'error': 'Marker not found'}), 404
         plot_id = str(row.get('plot_id') or '').strip()
         if not plot_id:
@@ -2186,7 +2186,7 @@ def register_routes(app):
         except Exception as e:
             msg = str(e).lower()
             if 'image_filename' in msg and ('does not exist' in msg or 'column' in msg):
-                return jsonify({'error': 'image_filename column missing. Run supabase_migration_image_s3.sql in Supabase SQL Editor.'}), 503
+                return jsonify({'error': 'image_filename column missing. Run db/schema.sql in Supabase SQL Editor.'}), 503
             return jsonify({'error': 'Marker not found'}), 404
         plot_id = str(row.get('plot_id') or '').strip()
         if not plot_id:
@@ -2256,7 +2256,7 @@ def register_routes(app):
             except Exception as e:
                 msg = str(e).lower()
                 if 'image_filename' in msg and ('does not exist' in msg or 'column' in msg):
-                    return jsonify({'error': 'image_filename column missing. Run supabase_migration_image_s3.sql in Supabase SQL Editor.'}), 503
+                    return jsonify({'error': 'image_filename column missing. Run db/schema.sql in Supabase SQL Editor.'}), 503
                 return jsonify({'error': str(e)}), 500
             if old_filename and old_filename != filename:
                 delete_marker_from_s3(old_filename)
@@ -2298,7 +2298,7 @@ def register_routes(app):
         except Exception as e:
             msg = str(e).lower()
             if 'image_filename' in msg and ('does not exist' in msg or 'column' in msg):
-                return jsonify({'error': 'image_filename column missing. Run supabase_migration_image_s3.sql in Supabase SQL Editor.'}), 503
+                return jsonify({'error': 'image_filename column missing. Run db/schema.sql in Supabase SQL Editor.'}), 503
             return jsonify({'error': str(e)}), 500
         if old_filename and old_filename != filename:
             delete_marker_from_s3(old_filename)
@@ -2426,7 +2426,7 @@ def register_routes(app):
             except Exception as e:
                 msg = str(e)
                 if 'organizations' in msg and ('does not exist' in msg.lower() or 'relation' in msg.lower()):
-                    return jsonify({'error': 'organizations table not found. Run supabase_migration_orgs.sql in Supabase SQL Editor.'}), 503
+                    return jsonify({'error': 'organizations table not found. Run db/schema.sql in Supabase SQL Editor.'}), 503
             if org and org.get('name'):
                 org['slug'] = slugify_org_name(org.get('name'))
         out_profile = {
@@ -2457,7 +2457,7 @@ def register_routes(app):
         except Exception as e:
             msg = str(e)
             if 'organizations' in msg and ('does not exist' in msg.lower() or 'relation' in msg.lower()):
-                return jsonify({'error': 'organizations table not found. Run supabase_migration_orgs.sql in Supabase SQL Editor.'}), 503
+                return jsonify({'error': 'organizations table not found. Run db/schema.sql in Supabase SQL Editor.'}), 503
             return jsonify({'error': msg}), 500
 
     @app.route('/api/orgs', methods=['POST'])
@@ -2488,7 +2488,7 @@ def register_routes(app):
         except Exception as e:
             msg = str(e)
             if 'organizations' in msg and ('does not exist' in msg.lower() or 'relation' in msg.lower()):
-                return jsonify({'error': 'organizations table not found. Run supabase_migration_orgs.sql in Supabase SQL Editor.'}), 503
+                return jsonify({'error': 'organizations table not found. Run db/schema.sql in Supabase SQL Editor.'}), 503
             if 'duplicate' in msg.lower() or 'already exists' in msg.lower() or 'unique' in msg.lower():
                 return jsonify({'error': 'Organization name already exists'}), 409
             return jsonify({'error': msg}), 500
@@ -2523,7 +2523,7 @@ def register_routes(app):
         except Exception as e:
             msg = str(e)
             if 'organizations' in msg and ('does not exist' in msg.lower() or 'relation' in msg.lower()):
-                return jsonify({'error': 'organizations table not found. Run supabase_migration_orgs.sql in Supabase SQL Editor.'}), 503
+                return jsonify({'error': 'organizations table not found. Run db/schema.sql in Supabase SQL Editor.'}), 503
             return jsonify({'error': msg}), 500
 
     # ----- Superadmin: assign org/role to users -----
@@ -2558,9 +2558,9 @@ def register_routes(app):
             if 'profiles' in msg and ('does not exist' in msg.lower() or 'relation' in msg.lower()):
                 return jsonify({'error': 'profiles table not found'}), 503
             if 'org_id' in msg.lower() and ('does not exist' in msg.lower() or 'column' in msg.lower()):
-                return jsonify({'error': 'org_id column missing. Run supabase_migration_orgs.sql in Supabase SQL Editor.'}), 503
+                return jsonify({'error': 'org_id column missing. Run db/schema.sql in Supabase SQL Editor.'}), 503
             if 'organizations' in msg and ('does not exist' in msg.lower() or 'relation' in msg.lower()):
-                return jsonify({'error': 'organizations table not found. Run supabase_migration_orgs.sql in Supabase SQL Editor.'}), 503
+                return jsonify({'error': 'organizations table not found. Run db/schema.sql in Supabase SQL Editor.'}), 503
             return jsonify({'error': msg}), 500
         if 'org_id' in upd:
             new_org_id = upd.get('org_id')
@@ -2656,7 +2656,7 @@ def register_routes(app):
         except Exception as e:
             msg = str(e)
             if 'org_id' in msg.lower() and ('does not exist' in msg.lower() or 'column' in msg.lower()):
-                return jsonify({'error': 'org_id column missing. Run supabase_migration_orgs.sql in Supabase SQL Editor.'}), 503
+                return jsonify({'error': 'org_id column missing. Run db/schema.sql in Supabase SQL Editor.'}), 503
             return jsonify({'error': msg}), 500
 
     @app.route('/api/panoramas/<int:panorama_id>/access', methods=['GET'])
@@ -2713,7 +2713,7 @@ def register_routes(app):
             except Exception as e:
                 msg = str(e).lower()
                 if 'org_id' in msg and ('does not exist' in msg or 'column' in msg):
-                    return jsonify({'error': 'org_id column missing. Run supabase_migration_orgs.sql in Supabase SQL Editor.'}), 503
+                    return jsonify({'error': 'org_id column missing. Run db/schema.sql in Supabase SQL Editor.'}), 503
                 caller_org = None
                 target_org = None
             if not caller_org or not target_org:
@@ -2773,9 +2773,9 @@ def register_routes(app):
         except Exception as e:
             msg = str(e)
             if 'org_id' in msg.lower() and ('does not exist' in msg.lower() or 'column' in msg.lower()):
-                return jsonify({'error': 'org_id column missing. Run supabase_migration_orgs.sql in Supabase SQL Editor.'}), 503
+                return jsonify({'error': 'org_id column missing. Run db/schema.sql in Supabase SQL Editor.'}), 503
             if 'role' in msg.lower() and 'check' in msg.lower():
-                return jsonify({'error': 'profiles.role constraint does not allow this value. Run supabase_migration_orgs.sql.'}), 503
+                return jsonify({'error': 'profiles.role constraint does not allow this value. Run db/schema.sql in Supabase SQL Editor.'}), 503
             return jsonify({'error': msg}), 500
 
     @app.route('/api/crm/panoramas', methods=['GET'])
@@ -2892,7 +2892,7 @@ def register_routes(app):
         except Exception as e:
             msg = str(e)
             if 'buy_interests' in msg and ('does not exist' in msg.lower() or 'relation' in msg.lower()):
-                return jsonify({'error': 'buy_interests table not found. Run supabase_migration_buy_interests.sql in Supabase SQL Editor.'}), 503
+                return jsonify({'error': 'buy_interests table not found. Run db/schema.sql in Supabase SQL Editor.'}), 503
             return jsonify({'error': msg}), 500
         if not plots_snapshot:
             return jsonify({'error': 'No valid plots found for this panorama'}), 400
@@ -2917,7 +2917,7 @@ def register_routes(app):
         except Exception as e:
             msg = str(e)
             if 'buy_interests' in msg and ('does not exist' in msg.lower() or 'relation' in msg.lower()):
-                return jsonify({'error': 'buy_interests table not found. Run supabase_migration_buy_interests.sql in Supabase SQL Editor.'}), 503
+                return jsonify({'error': 'buy_interests table not found. Run db/schema.sql in Supabase SQL Editor.'}), 503
             return jsonify({'error': msg}), 500
 
     @app.route('/api/buy-interests', methods=['GET'])
@@ -2964,7 +2964,7 @@ def register_routes(app):
         except Exception as e:
             msg = str(e)
             if 'buy_interests' in msg and ('does not exist' in msg.lower() or 'relation' in msg.lower()):
-                return jsonify({'error': 'buy_interests table not found. Run supabase_migration_buy_interests.sql in Supabase SQL Editor.'}), 503
+                return jsonify({'error': 'buy_interests table not found. Run db/schema.sql in Supabase SQL Editor.'}), 503
             return jsonify({'error': msg}), 500
 
     @app.route('/api/buy-interests/<interest_id>', methods=['PUT', 'PATCH'])
@@ -2990,7 +2990,7 @@ def register_routes(app):
         except Exception as e:
             msg = str(e)
             if 'buy_interests' in msg and ('does not exist' in msg.lower() or 'relation' in msg.lower()):
-                return jsonify({'error': 'buy_interests table not found. Run supabase_migration_buy_interests.sql in Supabase SQL Editor.'}), 503
+                return jsonify({'error': 'buy_interests table not found. Run db/schema.sql in Supabase SQL Editor.'}), 503
             return jsonify({'error': msg}), 500
         data = request.get_json(silent=True) or {}
         upd = {}
@@ -3010,7 +3010,7 @@ def register_routes(app):
         except Exception as e:
             msg = str(e)
             if 'buy_interests' in msg and ('does not exist' in msg.lower() or 'relation' in msg.lower()):
-                return jsonify({'error': 'buy_interests table not found. Run supabase_migration_buy_interests.sql in Supabase SQL Editor.'}), 503
+                return jsonify({'error': 'buy_interests table not found. Run db/schema.sql in Supabase SQL Editor.'}), 503
             return jsonify({'error': msg}), 500
 
     # ----- CRM extended endpoints -----
@@ -3137,7 +3137,7 @@ def register_routes(app):
         except Exception as e:
             msg = str(e)
             if 'plot_lock_access' in msg and ('does not exist' in msg.lower() or 'relation' in msg.lower()):
-                return jsonify({'error': 'plot_lock_access table not found. Run supabase_migration_plot_locks.sql in Supabase SQL Editor.'}), 503
+                return jsonify({'error': 'plot_lock_access table not found. Run db/schema.sql in Supabase SQL Editor.'}), 503
             return jsonify({'error': msg}), 500
 
     @app.route('/api/crm/lock-access', methods=['POST'])
@@ -3167,7 +3167,7 @@ def register_routes(app):
         except Exception as e:
             msg = str(e)
             if 'plot_lock_access' in msg and ('does not exist' in msg.lower() or 'relation' in msg.lower()):
-                return jsonify({'error': 'plot_lock_access table not found. Run supabase_migration_plot_locks.sql.'}), 503
+                return jsonify({'error': 'plot_lock_access table not found. Run db/schema.sql in Supabase SQL Editor.'}), 503
             return jsonify({'error': msg}), 500
 
     @app.route('/api/crm/lock-access', methods=['DELETE'])
@@ -3271,7 +3271,7 @@ def register_routes(app):
         except Exception as e:
             msg = str(e)
             if 'plot_locks' in msg and ('does not exist' in msg.lower() or 'relation' in msg.lower()):
-                return jsonify({'error': 'plot_locks table not found. Run supabase_migration_plot_locks.sql.'}), 503
+                return jsonify({'error': 'plot_locks table not found. Run db/schema.sql in Supabase SQL Editor.'}), 503
             return jsonify({'error': msg}), 500
 
     @app.route('/api/crm/plots/<int:plot_id>/lock', methods=['DELETE'])

@@ -652,7 +652,7 @@
         function renderWorkspaces() {
             if (!workspaceList) return;
             if (!workspaceFeatureReady) {
-                workspaceList.innerHTML = '<div class="empty-state" style="padding:0.8rem;"><div class="empty-text">Workspace migration required</div><div class="empty-hint">Run supabase_migration_workspaces.sql</div></div>';
+                workspaceList.innerHTML = '<div class="empty-state" style="padding:0.8rem;"><div class="empty-text">Workspace schema required</div><div class="empty-hint">Run db/schema.sql in Supabase SQL Editor</div></div>';
                 return;
             }
 
