@@ -2,6 +2,8 @@
 Application factory. Creates Flask app, loads config, registers blueprints.
 """
 import os
+import sys
+import traceback
 
 from flask import Flask
 
@@ -27,23 +29,32 @@ except ImportError:
 
 
 def create_app():
-    from app import config as app_config
+    try:
+        from app import config as app_config
 
-    app = Flask(
-        __name__,
-        static_folder=os.path.join(_ROOT, 'static'),
-        template_folder=os.path.join(_ROOT, 'templates'),
-    )
-    app.secret_key = app_config.SECRET_KEY or os.urandom(24).hex()
-    app.config['UPLOAD_FOLDER'] = app_config.UPLOAD_FOLDER
-    app.config['MAX_CONTENT_LENGTH'] = app_config.MAX_CONTENT_LENGTH
+        app = Flask(
+            __name__,
+            static_folder=os.path.join(_ROOT, 'static'),
+            template_folder=os.path.join(_ROOT, 'templates'),
+        )
+        app.secret_key = app_config.SECRET_KEY or os.urandom(24).hex()
+        app.config['UPLOAD_FOLDER'] = app_config.UPLOAD_FOLDER
+        app.config['MAX_CONTENT_LENGTH'] = app_config.MAX_CONTENT_LENGTH
 
-    os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
-    os.makedirs(os.path.join(_ROOT, 'templates'), exist_ok=True)
-    os.makedirs(os.path.join(_ROOT, 'static'), exist_ok=True)
+        os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+        os.makedirs(os.path.join(_ROOT, 'templates'), exist_ok=True)
+        os.makedirs(os.path.join(_ROOT, 'static'), exist_ok=True)
 
-    # Register all routes (controllers)
-    from app.controllers.register import register_routes
-    register_routes(app)
+        # Register all routes (controllers)
+        from app.controllers.register import register_routes
+        register_routes(app)
 
-    return app
+        return app
+    except Exception:
+        traceback.print_exc(file=sys.stderr)
+        sys.stderr.flush()
+        raise
+
+
+# Expose app for gunicorn: "gunicorn app:app" loads the app package and needs this attribute
+app = create_app()
