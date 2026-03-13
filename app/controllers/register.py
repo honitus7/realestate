@@ -238,6 +238,11 @@ def register_routes(app):
         resp.headers['Pragma'] = 'no-cache'
         return resp
 
+    @app.route('/explore')
+    @app.route('/portal')
+    def customer_portal():
+        return render_template('portal.html', **auth_ctx())
+
     @app.route('/organizations')
     def organizations_page():
         return render_template('organizations.html', **auth_ctx())
@@ -896,6 +901,207 @@ def register_routes(app):
                 return jsonify({'error': 'buy_interests table not found. Run db/schema.sql in Supabase SQL Editor.'}), 503
             return jsonify({'error': msg}), 500
 
+    # ── Portal API: public project listing with aggregated plot data ──
+    @app.route('/api/public/portal/projects', methods=['GET'])
+    def public_portal_projects():
+        sb = get_supabase()
+        if not sb:
+            return jsonify({'error': 'Database not configured'}), 503
+        try:
+            q = request.args.get('q', '').strip()
+            city = request.args.get('city', '').strip()
+            project_type = request.args.get('type', '').strip()
+            sort = request.args.get('sort', 'newest').strip()
+            page = max(1, int(request.args.get('page', 1)))
+            per_page = min(50, max(1, int(request.args.get('per_page', 12))))
+            offset_val = (page - 1) * per_page
+
+            select_fields = (
+                'id, name, filename, is_360, location_address, location_city, location_state, '
+                'location_lat, location_lng, rera_registration, launch_date, possession_date, '
+                'builder_name, project_type, total_area, description, amenities, '
+                'contact_phone, contact_email, google_maps_link, org_id, created_at, updated_at'
+            )
+            query = sb.table('panoramas').select(select_fields)
+            # Only published panoramas
+            try:
+                query = query.eq('is_published', True)
+            except Exception:
+                pass
+
+            if city:
+                query = query.ilike('location_city', f'%{city}%')
+            if project_type:
+                query = query.eq('project_type', project_type)
+            if q:
+                query = query.or_(
+                    f'name.ilike.%{q}%,location_address.ilike.%{q}%,location_city.ilike.%{q}%,'
+                    f'builder_name.ilike.%{q}%,description.ilike.%{q}%,rera_registration.ilike.%{q}%'
+                )
+
+            if sort == 'price_low' or sort == 'price_high':
+                query = query.order('created_at', desc=True)
+            elif sort == 'oldest':
+                query = query.order('created_at', desc=False)
+            else:
+                query = query.order('created_at', desc=True)
+
+            result = query.range(offset_val, offset_val + per_page - 1).execute()
+            rows = list(result.data or [])
+        except Exception as e:
+            msg = str(e).lower()
+            if 'does not exist' in msg or 'column' in msg or '42703' in msg:
+                # Portal columns not yet added — fallback to basic fields
+                try:
+                    fallback_q = sb.table('panoramas').select('id, name, filename, is_360, org_id, created_at, updated_at')
+                    fallback_q = fallback_q.order('created_at', desc=True)
+                    fallback_q = fallback_q.range(offset_val, offset_val + per_page - 1)
+                    result = fallback_q.execute()
+                    rows = list(result.data or [])
+                except Exception:
+                    return jsonify({'projects': [], 'total': 0, 'page': page, 'per_page': per_page, 'cities': []})
+            else:
+                return jsonify({'error': str(e)}), 500
+
+        # Fetch plot aggregates for these panoramas in one batch
+        panorama_ids = [r['id'] for r in rows if r.get('id')]
+        plot_stats = {}
+        if panorama_ids:
+            try:
+                plots_result = sb.table('plots').select(
+                    'panorama_id, id, price, status'
+                ).in_('panorama_id', panorama_ids).execute()
+                for plot in (plots_result.data or []):
+                    pid = plot.get('panorama_id')
+                    if pid not in plot_stats:
+                        plot_stats[pid] = {'count': 0, 'prices': [], 'available': 0, 'sold': 0, 'hold': 0}
+                    stats = plot_stats[pid]
+                    stats['count'] += 1
+                    status = (plot.get('status') or '').lower()
+                    if status == 'available':
+                        stats['available'] += 1
+                    elif status == 'sold':
+                        stats['sold'] += 1
+                    elif status in ('on_hold', 'reserved'):
+                        stats['hold'] += 1
+                    price_str = str(plot.get('price') or '').strip()
+                    if price_str:
+                        try:
+                            numeric = float(''.join(c for c in price_str if c.isdigit() or c == '.'))
+                            if numeric > 0:
+                                stats['prices'].append(numeric)
+                        except (ValueError, TypeError):
+                            pass
+            except Exception:
+                pass
+
+        # Fetch org names for theming
+        org_ids = list(set(r.get('org_id') for r in rows if r.get('org_id')))
+        org_map = {}
+        if org_ids:
+            try:
+                org_result = sb.table('organizations').select('id, name, accent_color').in_('id', org_ids).execute()
+                for org in (org_result.data or []):
+                    org_map[org['id']] = org
+            except Exception:
+                pass
+
+        projects = []
+        for row in rows:
+            pid = row.get('id')
+            stats = plot_stats.get(pid, {'count': 0, 'prices': [], 'available': 0, 'sold': 0, 'hold': 0})
+            prices = stats['prices']
+            avg_price = sum(prices) / len(prices) if prices else 0
+            min_price = min(prices) if prices else 0
+            max_price = max(prices) if prices else 0
+            org = org_map.get(row.get('org_id'), {})
+            amenities = row.get('amenities') or []
+            if isinstance(amenities, str):
+                try:
+                    amenities = json.loads(amenities)
+                except Exception:
+                    amenities = []
+
+            projects.append({
+                'id': pid,
+                'name': row.get('name', ''),
+                'filename': row.get('filename', ''),
+                'is_360': bool(row.get('is_360')),
+                'location_address': row.get('location_address', ''),
+                'location_city': row.get('location_city', ''),
+                'location_state': row.get('location_state', ''),
+                'location_lat': row.get('location_lat'),
+                'location_lng': row.get('location_lng'),
+                'rera_registration': row.get('rera_registration', ''),
+                'launch_date': str(row.get('launch_date') or ''),
+                'possession_date': row.get('possession_date', ''),
+                'builder_name': row.get('builder_name', ''),
+                'project_type': row.get('project_type', 'residential'),
+                'total_area': row.get('total_area', ''),
+                'description': row.get('description', ''),
+                'amenities': amenities,
+                'contact_phone': row.get('contact_phone', ''),
+                'contact_email': row.get('contact_email', ''),
+                'google_maps_link': row.get('google_maps_link', ''),
+                'org_name': org.get('name', ''),
+                'org_accent': org.get('accent_color', '#c9a962'),
+                'plot_count': stats['count'],
+                'available_plots': stats['available'],
+                'sold_plots': stats['sold'],
+                'hold_plots': stats['hold'],
+                'avg_price': round(avg_price, 2),
+                'min_price': round(min_price, 2),
+                'max_price': round(max_price, 2),
+                'created_at': str(row.get('created_at') or ''),
+                'updated_at': str(row.get('updated_at') or ''),
+            })
+
+        # Get total count for pagination
+        total = len(projects)
+        if len(rows) == per_page:
+            # There might be more
+            try:
+                count_q = sb.table('panoramas').select('id', count='exact')
+                try:
+                    count_q = count_q.eq('is_published', True)
+                except Exception:
+                    pass
+                if city:
+                    count_q = count_q.ilike('location_city', f'%{city}%')
+                if project_type:
+                    count_q = count_q.eq('project_type', project_type)
+                if q:
+                    count_q = count_q.or_(
+                        f'name.ilike.%{q}%,location_address.ilike.%{q}%,location_city.ilike.%{q}%,'
+                        f'builder_name.ilike.%{q}%,description.ilike.%{q}%'
+                    )
+                count_result = count_q.execute()
+                total = getattr(count_result, 'count', None) or len(projects)
+            except Exception:
+                total = offset_val + len(projects) + 1
+
+        # Get distinct cities for filter dropdown
+        cities = []
+        try:
+            city_result = sb.table('panoramas').select('location_city').eq('is_published', True).execute()
+            city_set = set()
+            for r in (city_result.data or []):
+                c = (r.get('location_city') or '').strip()
+                if c and c not in city_set:
+                    city_set.add(c)
+                    cities.append(c)
+            cities.sort()
+        except Exception:
+            pass
+
+        return jsonify({
+            'projects': projects,
+            'total': total,
+            'page': page,
+            'per_page': per_page,
+            'cities': cities,
+        })
+
     # ----- API: require Authorization Bearer token -----
     @app.route('/api/panoramas', methods=['GET'])
     @require_auth
@@ -1357,6 +1563,31 @@ def register_routes(app):
                 'is_360': is_360,
                 'image_content_type': image_content_type,
             }
+            # Portal fields (optional — gracefully ignored if columns don't exist yet)
+            portal_text_fields = [
+                'builder_name', 'project_type', 'location_address', 'location_city',
+                'location_state', 'google_maps_link', 'rera_registration', 'total_area',
+                'launch_date', 'possession_date', 'description', 'contact_phone',
+                'contact_email', 'brochure_url',
+            ]
+            for f in portal_text_fields:
+                val = str(payload.get(f) or '').strip()
+                if val:
+                    insert_row[f] = val
+            for coord in ('location_lat', 'location_lng'):
+                try:
+                    v = float(payload.get(coord, ''))
+                    insert_row[coord] = v
+                except (TypeError, ValueError):
+                    pass
+            if str(payload.get('is_published', '')).lower() == 'true':
+                insert_row['is_published'] = True
+            try:
+                amenities_raw = payload.get('amenities', '')
+                if amenities_raw:
+                    insert_row['amenities'] = json.loads(amenities_raw) if isinstance(amenities_raw, str) else amenities_raw
+            except (json.JSONDecodeError, TypeError):
+                pass
             try:
                 r = sb.table('panoramas').insert(insert_row).execute()
             except Exception as e:
@@ -1460,8 +1691,32 @@ def register_routes(app):
             update_fields['name'] = name
         if use_animated_icons is not None:
             update_fields['use_animated_icons'] = use_animated_icons
+        # Portal fields update
+        portal_text_fields = [
+            'builder_name', 'project_type', 'location_address', 'location_city',
+            'location_state', 'google_maps_link', 'rera_registration', 'total_area',
+            'launch_date', 'possession_date', 'description', 'contact_phone',
+            'contact_email', 'brochure_url',
+        ]
+        for f in portal_text_fields:
+            if payload.get(f) is not None:
+                update_fields[f] = str(payload.get(f, '')).strip()
+        for coord in ('location_lat', 'location_lng'):
+            if payload.get(coord) is not None:
+                try:
+                    update_fields[coord] = float(payload[coord])
+                except (TypeError, ValueError):
+                    pass
+        if payload.get('is_published') is not None:
+            update_fields['is_published'] = str(payload['is_published']).lower() in ('true', '1')
+        if payload.get('amenities') is not None:
+            try:
+                raw = payload['amenities']
+                update_fields['amenities'] = json.loads(raw) if isinstance(raw, str) else raw
+            except (json.JSONDecodeError, TypeError):
+                pass
         if len(update_fields) <= 1:
-            return jsonify({'error': 'Provide name and/or use_animated_icons'}), 400
+            return jsonify({'error': 'Provide at least one field to update'}), 400
         try:
             response = sb.table('panoramas').update(update_fields).eq('id', panorama_id).execute()
             err = getattr(response, 'error', None)

@@ -25,6 +25,10 @@
                 <span class="sidebar-icon" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>
                 <span class="sidebar-text">Add user</span>
             </a>
+            <a href="/explore" class="sidebar-link" data-page="explore" aria-label="Customer Portal" target="_blank">
+                <span class="sidebar-icon" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span>
+                <span class="sidebar-text">Customer Portal</span>
+            </a>
             <a href="/crm" class="sidebar-link" id="nav-crm" data-page="crm" style="display:none;" aria-label="Customer Relation">
                 <span class="sidebar-icon" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>
                 <span class="sidebar-text">Customer Relation</span>
@@ -102,7 +106,7 @@
             <!-- Two columns: Folders (left) | Projects (right) -->
             <div class="dashboard-two-col">
                 <aside class="dashboard-folders-col" aria-label="Folders">
-                    <h2 class="dashboard-section-title">Folders</h2>
+                    <h2 class="dashboard-section-title">PROJECTS</h2>
                     <div class="dashboard-folders-scroll">
                         <div class="workspace-list" id="workspace-list">
                             <div class="folder-card-skeleton"></div>
@@ -112,7 +116,7 @@
                     </div>
                 </aside>
                 <section class="dashboard-projects-col" aria-label="Projects">
-                    <h2 class="dashboard-section-title">Projects</h2>
+                    <h2 class="dashboard-section-title">360° Pano List</h2>
                     <div class="dashboard-projects-scroll">
                         <div id="projects-container" class="projects-container-transition">
                             <div class="projects-grid" id="projects-skeleton">
@@ -163,6 +167,99 @@
                                 <div style="font-size: 0.7rem; color: var(--color-muted); margin-top: 0.25rem; margin-left: 1.75rem;">Enable for full 360-degree spherical panoramas</div>
                             </div>
                         </div>
+
+                        <!-- Collapsible Project Details Section -->
+                        <details class="upload-details-section" id="upload-details-toggle">
+                            <summary style="font-size: 0.82rem; font-weight: 600; color: var(--color-text); cursor: pointer; padding: 0.5rem 0; user-select: none;">
+                                Project Details (for Customer Portal)
+                                <span style="font-size: 0.68rem; color: var(--color-muted); margin-left: 0.5rem;">optional</span>
+                            </summary>
+                            <div style="display: grid; gap: 0.75rem; margin-top: 0.5rem;">
+                                <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
+                                    <div class="form-group">
+                                        <label class="form-label">Builder / Developer Name</label>
+                                        <input type="text" class="form-input" id="upload-builder-name" placeholder="e.g., DLF Group">
+                                    </div>
+                                    <div class="form-group">
+                                        <label class="form-label">Project Type</label>
+                                        <select class="form-input" id="upload-project-type">
+                                            <option value="residential">Residential</option>
+                                            <option value="commercial">Commercial</option>
+                                            <option value="plotted">Plotted Development</option>
+                                            <option value="villa">Villa / Row House</option>
+                                            <option value="mixed">Mixed Use</option>
+                                            <option value="farmland">Farm Land</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Location Address</label>
+                                    <input type="text" class="form-input" id="upload-location-address" placeholder="e.g., Sector 42, Gurugram, Haryana">
+                                </div>
+                                <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
+                                    <div class="form-group">
+                                        <label class="form-label">City</label>
+                                        <input type="text" class="form-input" id="upload-location-city" placeholder="e.g., Gurugram">
+                                    </div>
+                                    <div class="form-group">
+                                        <label class="form-label">State</label>
+                                        <input type="text" class="form-input" id="upload-location-state" placeholder="e.g., Haryana">
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Google Maps Link</label>
+                                    <input type="url" class="form-input" id="upload-google-maps-link" placeholder="Paste Google Maps link — coordinates will be auto-extracted">
+                                    <div style="font-size: 0.68rem; color: var(--color-muted); margin-top: 0.2rem;" id="maps-link-status"></div>
+                                </div>
+                                <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
+                                    <div class="form-group">
+                                        <label class="form-label">RERA Registration No.</label>
+                                        <input type="text" class="form-input" id="upload-rera" placeholder="e.g., RERA12345678">
+                                    </div>
+                                    <div class="form-group">
+                                        <label class="form-label">Total Project Area</label>
+                                        <input type="text" class="form-input" id="upload-total-area" placeholder="e.g., 25 Acres">
+                                    </div>
+                                </div>
+                                <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
+                                    <div class="form-group">
+                                        <label class="form-label">Launch Date</label>
+                                        <input type="date" class="form-input" id="upload-launch-date">
+                                    </div>
+                                    <div class="form-group">
+                                        <label class="form-label">Possession Date</label>
+                                        <input type="text" class="form-input" id="upload-possession-date" placeholder="e.g., Dec 2026">
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Description</label>
+                                    <textarea class="form-input" id="upload-description" rows="2" placeholder="Brief project description for customers..." style="resize: vertical;"></textarea>
+                                </div>
+                                <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
+                                    <div class="form-group">
+                                        <label class="form-label">Contact Phone</label>
+                                        <input type="tel" class="form-input" id="upload-contact-phone" placeholder="+91 98765 43210">
+                                    </div>
+                                    <div class="form-group">
+                                        <label class="form-label">Contact Email</label>
+                                        <input type="email" class="form-input" id="upload-contact-email" placeholder="sales@builder.com">
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Amenities</label>
+                                    <input type="text" class="form-input" id="upload-amenities" placeholder="Comma-separated: Swimming Pool, Gym, Clubhouse, Park...">
+                                    <div style="font-size: 0.68rem; color: var(--color-muted); margin-top: 0.2rem;">Enter amenities separated by commas</div>
+                                </div>
+                                <div class="form-group">
+                                    <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                                        <input type="checkbox" id="upload-is-published" style="width: auto; cursor: pointer;">
+                                        <span style="font-size: 0.85rem; color: var(--color-text);">Publish on Customer Portal</span>
+                                    </label>
+                                    <div style="font-size: 0.7rem; color: var(--color-muted); margin-top: 0.25rem; margin-left: 1.75rem;">Make this project visible to customers on the public portal</div>
+                                </div>
+                            </div>
+                        </details>
+
                         <div class="form-actions">
                             <button class="btn btn-secondary" id="cancel-upload">Cancel</button>
                             <button class="btn btn-primary" id="start-upload">Create Project</button>
@@ -433,6 +530,77 @@
             if (filterType) filterType.addEventListener('change', onSearchOrFilterChange);
             if (filterDate) filterDate.addEventListener('change', onSearchOrFilterChange);
         })();
+
+        /* ── Portal fields helper: extract coords from Google Maps link & append all portal fields ── */
+        function extractCoordsFromGoogleMapsLink(link) {
+            if (!link) return null;
+            // Pattern: @lat,lng or !3d<lng>!4d<lat> or q=lat,lng or place/lat,lng
+            var m = link.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/);
+            if (m) return { lat: parseFloat(m[1]), lng: parseFloat(m[2]) };
+            m = link.match(/!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)/);
+            if (m) return { lat: parseFloat(m[1]), lng: parseFloat(m[2]) };
+            m = link.match(/q=(-?\d+\.\d+),(-?\d+\.\d+)/);
+            if (m) return { lat: parseFloat(m[1]), lng: parseFloat(m[2]) };
+            m = link.match(/place\/(-?\d+\.\d+),(-?\d+\.\d+)/);
+            if (m) return { lat: parseFloat(m[1]), lng: parseFloat(m[2]) };
+            return null;
+        }
+        (function() {
+            var mapsInput = document.getElementById('upload-google-maps-link');
+            var mapsStatus = document.getElementById('maps-link-status');
+            if (mapsInput && mapsStatus) {
+                mapsInput.addEventListener('input', function() {
+                    var coords = extractCoordsFromGoogleMapsLink(mapsInput.value);
+                    if (coords) {
+                        mapsStatus.textContent = 'Coordinates detected: ' + coords.lat.toFixed(6) + ', ' + coords.lng.toFixed(6);
+                        mapsStatus.style.color = 'var(--color-available)';
+                    } else if (mapsInput.value.trim()) {
+                        mapsStatus.textContent = 'Could not extract coordinates — they will be ignored';
+                        mapsStatus.style.color = 'var(--warning)';
+                    } else {
+                        mapsStatus.textContent = '';
+                    }
+                });
+            }
+        })();
+
+        function appendPortalFields(formData) {
+            var fields = [
+                ['builder_name', 'upload-builder-name'],
+                ['project_type', 'upload-project-type'],
+                ['location_address', 'upload-location-address'],
+                ['location_city', 'upload-location-city'],
+                ['location_state', 'upload-location-state'],
+                ['rera_registration', 'upload-rera'],
+                ['total_area', 'upload-total-area'],
+                ['launch_date', 'upload-launch-date'],
+                ['possession_date', 'upload-possession-date'],
+                ['description', 'upload-description'],
+                ['contact_phone', 'upload-contact-phone'],
+                ['contact_email', 'upload-contact-email'],
+                ['brochure_url', ''],
+            ];
+            fields.forEach(function(f) {
+                var el = f[1] ? document.getElementById(f[1]) : null;
+                if (el && el.value.trim()) formData.append(f[0], el.value.trim());
+            });
+            var mapsLink = (document.getElementById('upload-google-maps-link') || {}).value || '';
+            if (mapsLink.trim()) {
+                formData.append('google_maps_link', mapsLink.trim());
+                var coords = extractCoordsFromGoogleMapsLink(mapsLink);
+                if (coords) {
+                    formData.append('location_lat', String(coords.lat));
+                    formData.append('location_lng', String(coords.lng));
+                }
+            }
+            var amenitiesRaw = (document.getElementById('upload-amenities') || {}).value || '';
+            if (amenitiesRaw.trim()) {
+                var amenities = amenitiesRaw.split(',').map(function(s) { return s.trim(); }).filter(Boolean);
+                formData.append('amenities', JSON.stringify(amenities));
+            }
+            var isPublished = (document.getElementById('upload-is-published') || {}).checked;
+            formData.append('is_published', String(!!isPublished));
+        }
 
         let dashboardInitStarted = false;
 
@@ -1009,6 +1177,7 @@
                         finalize.append('width', String(selectedImageWidth || 0));
                         finalize.append('height', String(selectedImageHeight || 0));
                         if (workspaceId) finalize.append('workspace_id', workspaceId);
+                        appendPortalFields(finalize);
 
                         const finResp = await fetch('/api/panoramas', { method: 'POST', headers: headers, body: finalize });
                         const finPayload = await finResp.json().catch(() => null);
