@@ -40,6 +40,20 @@ def create_app():
         app.secret_key = app_config.SECRET_KEY or os.urandom(24).hex()
         app.config['UPLOAD_FOLDER'] = app_config.UPLOAD_FOLDER
         app.config['MAX_CONTENT_LENGTH'] = app_config.MAX_CONTENT_LENGTH
+        app.config['SEND_FILE_MAX_AGE_DEFAULT'] = getattr(app_config, 'SEND_FILE_MAX_AGE_DEFAULT', 86400)
+        app.config['JSON_SORT_KEYS'] = getattr(app_config, 'JSON_SORT_KEYS', False)
+        app.config['COMPRESS_MIN_SIZE'] = getattr(app_config, 'COMPRESS_MIN_SIZE', 500)
+        app.config['COMPRESS_LEVEL'] = getattr(app_config, 'COMPRESS_LEVEL', 6)
+        app.config['COMPRESS_MIMETYPES'] = getattr(app_config, 'COMPRESS_MIMETYPES', [
+            'text/html', 'text/css', 'text/xml', 'application/json',
+            'application/javascript', 'text/javascript', 'image/svg+xml',
+        ])
+
+        try:
+            from flask_compress import Compress
+            Compress(app)
+        except ImportError:
+            pass
 
         os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
         os.makedirs(os.path.join(_ROOT, 'templates'), exist_ok=True)
