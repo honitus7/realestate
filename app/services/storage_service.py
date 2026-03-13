@@ -25,6 +25,8 @@ _s3_signed_url_cache = {}
 
 PANORAMA_THUMB_MAX_DIMENSION = 400
 PANORAMA_THUMB_JPEG_QUALITY = 82
+# Max bytes to load for on-the-fly thumb (avoids OOM on 512MB dyno when many thumbs requested)
+MAX_PANORAMA_THUMB_READ_BYTES = int(os.environ.get('MAX_PANORAMA_THUMB_READ_BYTES', str(20 * 1024 * 1024)))  # 20MB
 MARKER_IMAGE_MAX_DIMENSION = 1200
 MARKER_IMAGE_THUMB_SIZE = 200
 MARKER_IMAGE_JPEG_QUALITY = 85
@@ -85,7 +87,7 @@ def panorama_thumb_object_key(filename):
 
 
 def generate_panorama_thumb_bytes(raw_bytes):
-    if not raw_bytes:
+    if not raw_bytes or len(raw_bytes) > MAX_PANORAMA_THUMB_READ_BYTES:
         return None
     try:
         img = Image.open(io.BytesIO(raw_bytes))

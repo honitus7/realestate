@@ -49,6 +49,7 @@ from app.services.storage_service import (
     get_panorama_thumb_s3_url,
     generate_panorama_thumb_bytes,
     upload_panorama_thumb_to_s3,
+    MAX_PANORAMA_THUMB_READ_BYTES,
     plot_object_key,
     get_plot_s3_url,
     delete_plot_from_s3,
@@ -439,7 +440,7 @@ def register_routes(app):
                 try:
                     obj = client.get_object(Bucket=SUPABASE_S3_BUCKET, Key=key)
                     body = obj.get('Body')
-                    data = body.read() if body else b''
+                    data = body.read(MAX_PANORAMA_THUMB_READ_BYTES) if body else b''
                     if body:
                         try:
                             body.close()
@@ -458,7 +459,7 @@ def register_routes(app):
             if os.path.isfile(local_path):
                 try:
                     with open(local_path, 'rb') as f:
-                        data = f.read()
+                        data = f.read(MAX_PANORAMA_THUMB_READ_BYTES)
                     thumb_bytes = generate_panorama_thumb_bytes(data)
                     if thumb_bytes:
                         return Response(thumb_bytes, mimetype='image/jpeg', headers={'Cache-Control': 'private, max-age=86400'})
@@ -1311,7 +1312,7 @@ def register_routes(app):
             try:
                 obj = client.get_object(Bucket=SUPABASE_S3_BUCKET, Key=panorama_object_key(filename))
                 body = obj.get('Body')
-                data = body.read() if body else b''
+                data = body.read(MAX_PANORAMA_THUMB_READ_BYTES) if body else b''
                 if body:
                     try:
                         body.close()
