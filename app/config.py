@@ -7,6 +7,17 @@ import os
 SECRET_KEY = os.environ.get('FLASK_SECRET_KEY', '')
 UPLOAD_FOLDER = 'uploads'
 MAX_CONTENT_LENGTH = int(os.environ.get('MAX_UPLOAD_BYTES', str(50 * 1024 * 1024)))  # 50MB
+# Performance: cache static files (seconds); 1 day default
+SEND_FILE_MAX_AGE_DEFAULT = int(os.environ.get('SEND_FILE_MAX_AGE_DEFAULT', str(86400)))
+# Slightly faster JSON responses (no key sorting)
+JSON_SORT_KEYS = False
+# Compression: min size in bytes to compress (Flask-Compress)
+COMPRESS_MIN_SIZE = int(os.environ.get('COMPRESS_MIN_SIZE', '500'))
+COMPRESS_LEVEL = int(os.environ.get('COMPRESS_LEVEL', '6'))
+COMPRESS_MIMETYPES = [
+    'text/html', 'text/css', 'text/xml', 'application/json',
+    'application/javascript', 'text/javascript', 'image/svg+xml',
+]
 
 # Supabase
 SUPABASE_URL = os.environ.get('SUPABASE_URL', '').rstrip('/')
