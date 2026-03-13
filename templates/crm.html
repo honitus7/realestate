@@ -1078,10 +1078,11 @@
             btn.addEventListener('click', () => openEditProjectModal(btn.getAttribute('data-edit-details')));
         });
     }
-    async function loadPanoramas() {
-        if(panoramasLoaded) { renderPanoramaTable(); return; }
-        try { await loadProjects(); panoramasLoaded=true; renderPanoramaTable(); } catch(e){ console.warn(e); }
+    async function loadPanoramas(force) {
+        if(panoramasLoaded && !force) { renderPanoramaTable(); return; }
+        try { panoramasLoaded=false; await loadProjects(); panoramasLoaded=true; renderPanoramaTable(); } catch(e){ console.warn(e); }
     }
+    window.loadPanoramas = function() { return loadPanoramas(true); };
 
     // Panorama modal
     const modalBackdrop = $('panorama-modal-backdrop');
@@ -1900,7 +1901,7 @@
                 }
                 close();
                 // Refresh panorama table
-                if (typeof loadPanoramas === 'function') loadPanoramas();
+                if (typeof window.loadPanoramas === 'function') window.loadPanoramas();
             } catch (e) {
                 errorEl.textContent = e.message || 'Failed to save';
                 errorEl.style.display = 'block';

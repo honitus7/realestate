@@ -132,21 +132,29 @@ body {
     display: flex;
     align-items: center;
     gap: 0.65rem;
-    padding: 0.5rem 0.6rem 0.5rem 0.85rem;
-    border-radius: 14px;
-    border: 1px solid rgba(22, 35, 56, 0.1);
-    background: rgba(255, 255, 255, 0.72);
-    backdrop-filter: blur(18px) saturate(160%);
-    -webkit-backdrop-filter: blur(18px) saturate(160%);
-    box-shadow: 0 4px 24px rgba(7, 25, 52, 0.1), 0 1px 3px rgba(7, 25, 52, 0.06);
-    pointer-events: auto;
-    width: min (100%, 720px);
+    padding: 0;
+    border: none;
+    background: transparent;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    box-shadow: none;
+    pointer-events: none;
+    width: 100%;
 }
 
 .header-left {
     display: flex;
     align-items: center;
     flex-shrink: 0;
+    gap: 0.35rem;
+    padding: 0.35rem 0.65rem;
+    border-radius: 12px;
+    border: 1px solid rgba(22, 35, 56, 0.08);
+    background: rgba(255, 255, 255, 0.72);
+    backdrop-filter: blur(18px) saturate(160%);
+    -webkit-backdrop-filter: blur(18px) saturate(160%);
+    box-shadow: 0 2px 12px rgba(7, 25, 52, 0.08);
+    pointer-events: auto;
 }
 
 .project-badge {
@@ -192,6 +200,7 @@ body {
     position: relative;
     width: 100%;
     max-width: 420px;
+    pointer-events: auto;
 }
 
 .search-icon {
@@ -207,15 +216,18 @@ body {
 .search-plot-input {
     width: 100%;
     height: 38px;
-    border: 1px solid rgba(22, 35, 56, 0.1);
-    border-radius: 10px;
+    border: 1px solid rgba(22, 35, 56, 0.08);
+    border-radius: 12px;
     padding: 0 0.85rem 0 2.5rem;
     outline: none;
     font-family: var(--font-body);
     font-weight: 600;
     font-size: 0.82rem;
     color: #1a2e4d;
-    background: rgba(245, 248, 252, 0.8);
+    background: rgba(255, 255, 255, 0.72);
+    backdrop-filter: blur(18px) saturate(160%);
+    -webkit-backdrop-filter: blur(18px) saturate(160%);
+    box-shadow: 0 2px 12px rgba(7, 25, 52, 0.08);
     transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
 }
 
@@ -334,6 +346,14 @@ body {
     align-items: center;
     gap: 0.3rem;
     flex-shrink: 0;
+    padding: 0.3rem 0.45rem;
+    border-radius: 12px;
+    border: 1px solid rgba(22, 35, 56, 0.08);
+    background: rgba(255, 255, 255, 0.72);
+    backdrop-filter: blur(18px) saturate(160%);
+    -webkit-backdrop-filter: blur(18px) saturate(160%);
+    box-shadow: 0 2px 12px rgba(7, 25, 52, 0.08);
+    pointer-events: auto;
 }
 
 .hdr-action-btn {
@@ -409,112 +429,100 @@ body {
     display: none;
 }
 
-.panorama-nav-shell {
-    position: fixed;
-    top: 76px;
-    left: 14px;
-    z-index: 21;
-    width: min(300px, calc(100vw - 28px));
-    pointer-events: auto;
-    display: flex;
-    align-items: flex-start;
-    gap: 0.55rem;
-}
-
-.panorama-nav-toggle {
+/* Panorama nav – header-integrated dropdown */
+.panorama-nav-toggle-btn {
     flex-shrink: 0;
-    min-height: 36px;
-    padding: 0.45rem 0.68rem;
-    border: 1px solid rgba(22, 35, 56, 0.1);
-    background: rgba(255, 255, 255, 0.72);
-    color: #1a2e4d;
-    box-shadow: 0 4px 16px rgba(22, 35, 56, 0.08);
-    border-radius: 10px;
-    font-size: 0.66rem;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    font-weight: 800;
-    display: inline-flex;
-    align-items: center;
-    gap: 0.4rem;
-    cursor: pointer;
-    transition: background 0.2s ease, border-color 0.2s ease;
-    backdrop-filter: blur(16px) saturate(150%);
-    -webkit-backdrop-filter: blur(16px) saturate(150%);
 }
 
-.panorama-nav-toggle:hover {
-    background: rgba(255, 255, 255, 0.88);
+.panorama-nav-toggle-btn.active {
+    background: rgba(22, 35, 56, 0.1);
+    color: #1a2e4d;
     border-color: rgba(22, 35, 56, 0.2);
 }
 
-.panorama-nav-toggle-icon {
-    width: 16px;
-    text-align: center;
-    font-size: 0.86rem;
-    line-height: 1;
+.panorama-nav-shell {
+    position: fixed;
+    top: 0px;
+    left: 0;
+    bottom: 0;
+    z-index: 21;
+    pointer-events: none;
+    padding: 0;
 }
 
 .panorama-nav-panel {
-    width: 100%;
-    border: 1px solid rgba(22, 35, 56, 0.1);
-    background: rgba(255, 255, 255, 0.82);
-    border-radius: 14px;
-    box-shadow: 0 8px 28px rgba(7, 25, 52, 0.12);
-    backdrop-filter: blur(18px) saturate(150%);
-    -webkit-backdrop-filter: blur(18px) saturate(150%);
+    width: min(285px, calc(100vw - 28px));
+    height: 100vh;
+    border: none;
+    border-right: 1px solid rgba(22, 35, 56, 0.06);
+    background: rgba(255, 255, 255, 0.52);
+    border-radius: 0;
+    box-shadow: none;
     color: #1a2e4d;
-    transition: opacity 0.22s ease, transform 0.22s ease, visibility 0.22s ease;
+    transition: transform 0.32s cubic-bezier(0.4, 0, 0.2, 1), visibility 0.32s ease;
     transform-origin: left top;
+    display: flex;
+    flex-direction: column;
+    pointer-events: auto;
+    overflow: hidden;
 }
 
 .panorama-nav-shell.is-collapsed .panorama-nav-panel {
-    opacity: 0;
     visibility: hidden;
     pointer-events: none;
-    transform: translateX(-8px) scale(0.985);
+    transform: translateX(-100%);
+}
+
+/* Absorbed project badge at top of panel */
+.panorama-nav-absorbed-header {
+    padding: 0.6rem 0.85rem;
+    border-bottom: 1px solid rgba(22, 35, 56, 0.08);
+    background: transparent;
+}
+
+.panorama-nav-absorbed-header .project-badge-name {
+    font-size: 0.88rem;
 }
 
 .panorama-nav-head {
-    padding: 0.65rem 0.78rem 0.52rem;
-    border-bottom: 1px solid rgba(22, 35, 56, 0.08);
-    background: rgba(245, 248, 252, 0.5);
-    border-radius: 14px 14px 0 0;
+    padding: 0.5rem 0.85rem 0.4rem;
+    border-bottom: 1px solid rgba(22, 35, 56, 0.06);
 }
 
 .panorama-nav-title {
-    font-size: 0.68rem;
+    font-size: 0.6rem;
     letter-spacing: 0.12em;
     text-transform: uppercase;
     font-weight: 800;
-    color: #1a2e4d;
-}
-
-.panorama-nav-subtitle {
-    margin-top: 0.15rem;
-    font-size: 0.58rem;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
     color: #7a8ba8;
 }
 
+.panorama-nav-subtitle {
+    margin-top: 0.12rem;
+    font-size: 0.52rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: #a0aec0;
+}
+
 .panorama-nav-list {
-    max-height: min(58vh, 420px);
+    flex: 1;
+    min-height: 0;
     overflow-y: auto;
     overscroll-behavior: contain;
-    padding: 0.35rem;
+    padding: 0.25rem 0;
 }
 
 .panorama-nav-list::-webkit-scrollbar {
-    width: 8px;
+    width: 6px;
 }
 
 .panorama-nav-list::-webkit-scrollbar-track {
-    background: rgba(22, 35, 56, 0.06);
+    background: rgba(22, 35, 56, 0.03);
 }
 
 .panorama-nav-list::-webkit-scrollbar-thumb {
-    background: rgba(22, 35, 56, 0.2);
+    background: rgba(22, 35, 56, 0.14);
     border-radius: 4px;
 }
 
@@ -524,15 +532,15 @@ body {
     background: transparent;
     text-align: left;
     cursor: pointer;
-    padding: 0.56rem 0.62rem;
-    border-radius: 8px;
-    color: var(--color-text);
-    border-bottom: 1px solid rgba(22, 35, 56, 0.08);
+    padding: 0.55rem 0.85rem;
+    border-radius: 0;
+    color: #1a2e4d;
+    border-bottom: 1px solid rgba(22, 35, 56, 0.06);
     transition: background 0.18s ease;
     font-family: var(--font-body);
     display: flex;
     flex-direction: column;
-    gap: 0.18rem;
+    gap: 0.12rem;
 }
 
 .panorama-nav-item:last-child {
@@ -540,34 +548,45 @@ body {
 }
 
 .panorama-nav-item:hover {
-    background: rgba(22, 35, 56, 0.06);
+    background: rgba(22, 35, 56, 0.05);
 }
 
 .panorama-nav-item.active {
     cursor: default;
-    background: rgba(22, 35, 56, 0.1);
+    background: rgba(22, 35, 56, 0.08);
 }
 
 .panorama-nav-item-name {
-    font-size: 0.79rem;
+    font-size: 0.76rem;
     line-height: 1.34;
     letter-spacing: 0.03em;
-    font-weight: 700;
+    font-weight: 600;
+    color: #1a2e4d;
 }
 
 .panorama-nav-item-meta {
-    font-size: 0.58rem;
+    font-size: 0.52rem;
     text-transform: uppercase;
     letter-spacing: 0.12em;
-    color: var(--color-muted);
+    color: #7a8ba8;
 }
 
 .panorama-nav-empty {
-    padding: 0.75rem 0.62rem;
-    font-size: 0.66rem;
+    padding: 0.75rem 0.85rem;
+    font-size: 0.62rem;
     letter-spacing: 0.08em;
     text-transform: uppercase;
-    color: var(--color-muted);
+    color: #a0aec0;
+}
+
+/* Fade header-left when panorama panel is open (absorbed into panel) */
+.header-left {
+    transition: opacity 0.3s ease;
+}
+
+body.panorama-nav-expanded .header-left {
+    opacity: 0;
+    pointer-events: none;
 }
 
 .viewer-action-btn {
@@ -727,8 +746,6 @@ body.overlays-hidden .header-center {
 }
 
 body.overlays-hidden .header {
-    background: rgba(255, 255, 255, 0.45);
-    box-shadow: none;
     justify-content: flex-end;
 }
 
@@ -2524,25 +2541,16 @@ body.overlays-hidden .psv-glass-marker .marker-photo-name {
         padding: 0.6rem 0.5rem;
     }
 
-    .panorama-nav-shell {
-        top: 62px;
-        left: 8px;
-        width: min(82vw, 280px);
-        gap: 0.4rem;
-    }
-
-    .panorama-nav-toggle {
-        min-height: 32px;
-        padding: 0.4rem 0.6rem;
-        font-size: 0.6rem;
-    }
-
-    .panorama-nav-list {
-        max-height: min(50vh, 300px);
+    .panorama-nav-panel {
+        width: min(82vw, 240px);
     }
 
     .panorama-nav-item-name {
-        font-size: 0.74rem;
+        font-size: 0.72rem;
+    }
+
+    .panorama-nav-absorbed-header .project-badge-name {
+        font-size: 0.78rem;
     }
 
     .details-modal .modal {

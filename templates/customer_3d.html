@@ -50,6 +50,14 @@
     <div class="ui-overlay">
         <header class="header">
             <div class="header-left">
+                <button id="panorama-nav-toggle" class="hdr-action-btn panorama-nav-toggle-btn" type="button"
+                    aria-expanded="false" aria-controls="panorama-nav-panel" title="Panorama List">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="15" height="100" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/>
+                        <rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/>
+                    </svg>
+                </button>
                 <div class="project-badge">
                     <span class="project-badge-name">{{ panorama.name }}</span>
                     <span class="project-badge-dot"></span>
@@ -90,12 +98,14 @@
         </header>
     </div>
     <div class="panorama-nav-shell is-collapsed" id="panorama-nav-shell">
-        <button id="panorama-nav-toggle" class="panorama-nav-toggle" type="button" aria-expanded="false"
-            aria-controls="panorama-nav-panel">
-            <span class="panorama-nav-toggle-icon" id="panorama-nav-toggle-icon">☰</span>
-            <span>Panorama List</span>
-        </button>
         <aside class="panorama-nav-panel" id="panorama-nav-panel">
+            <div class="panorama-nav-absorbed-header">
+                <div class="project-badge">
+                    <span class="project-badge-name">{{ panorama.name }}</span>
+                    <span class="project-badge-dot"></span>
+                    <span class="project-badge-label">360° Explorer</span>
+                </div>
+            </div>
             <div class="panorama-nav-head">
                 <div class="panorama-nav-title">Panorama List</div>
                 <div class="panorama-nav-subtitle" id="panorama-nav-subtitle">Linked 360 views</div>
@@ -327,7 +337,6 @@
         const fullscreenBtn = document.getElementById('fullscreen-btn');
         const panoramaNavShell = document.getElementById('panorama-nav-shell');
         const panoramaNavToggle = document.getElementById('panorama-nav-toggle');
-        const panoramaNavToggleIcon = document.getElementById('panorama-nav-toggle-icon');
         const panoramaNavList = document.getElementById('panorama-nav-list');
         const panoramaNavSubtitle = document.getElementById('panorama-nav-subtitle');
         const enterPlotPanoramaBtn = document.getElementById('enter-plot-panorama');
@@ -698,8 +707,12 @@
         function setPanoramaMenuOpen(nextOpen, persist = true) {
             panoramaMenuOpen = Boolean(nextOpen);
             if (panoramaNavShell) panoramaNavShell.classList.toggle('is-collapsed', !panoramaMenuOpen);
-            if (panoramaNavToggle) panoramaNavToggle.setAttribute('aria-expanded', panoramaMenuOpen ? 'true' : 'false');
-            if (panoramaNavToggleIcon) panoramaNavToggleIcon.textContent = panoramaMenuOpen ? '✕' : '☰';
+            if (panoramaNavToggle) {
+                panoramaNavToggle.setAttribute('aria-expanded', panoramaMenuOpen ? 'true' : 'false');
+                panoramaNavToggle.classList.toggle('active', panoramaMenuOpen);
+            }
+            // Absorb header-left project badge into panel when expanded
+            document.body.classList.toggle('panorama-nav-expanded', panoramaMenuOpen);
             if (!persist) return;
             try {
                 if (window.localStorage) localStorage.setItem(PANORAMA_MENU_PREF_KEY, panoramaMenuOpen ? '1' : '0');
@@ -709,8 +722,15 @@
         (function initPanoramaMenu() {
             if (!panoramaNavShell || !panoramaNavToggle) return;
             setPanoramaMenuOpen(getInitialPanoramaMenuOpen(), false);
-            panoramaNavToggle.addEventListener('click', () => {
+            panoramaNavToggle.addEventListener('click', (e) => {
+                e.stopPropagation();
                 setPanoramaMenuOpen(!panoramaMenuOpen, true);
+            });
+            // Close on click outside
+            document.addEventListener('click', (e) => {
+                if (!panoramaMenuOpen) return;
+                if (panoramaNavShell.contains(e.target) || panoramaNavToggle.contains(e.target)) return;
+                setPanoramaMenuOpen(false, true);
             });
             refreshPanoramaMenu().catch(() => { });
         })();
@@ -2061,6 +2081,10 @@
         function setOverlaysHidden(hidden) {
             overlaysHidden = Boolean(hidden);
             document.body.classList.toggle('overlays-hidden', overlaysHidden);
+            // Sync absorbed header state with overlay visibility
+            if (!overlaysHidden && panoramaMenuOpen) {
+                document.body.classList.add('panorama-nav-expanded');
+            }
             if (toggleOverlaysBtn) {
                 toggleOverlaysBtn.title = overlaysHidden ? 'Show overlays' : 'Toggle overlays';
                 toggleOverlaysBtn.innerHTML = overlaysHidden
@@ -2069,6 +2093,8 @@
             }
             if (!overlaysHidden) return;
 
+            // Also remove absorbed header state when hiding overlays
+            document.body.classList.remove('panorama-nav-expanded');
             hideSearchDropdown();
             if (plotDetailsModal && plotDetailsModal.classList.contains('visible')) {
                 closePlotDetails();

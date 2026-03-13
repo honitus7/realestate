@@ -162,8 +162,31 @@ def register_routes(app):
                         return _fetch_panorama_ids(sb, lambda q: q.eq('org_id', caller_org))
             except Exception:
                 pass
-        # Regular users: only see panoramas they have been granted lock access to
+        # Regular users: see panoramas they created, have client access to, or have lock access to
         ids = set()
+        # 1. Panoramas the user owns (created)
+        try:
+            owned = sb.table('panoramas').select('id').eq('user_id', user_id).execute()
+            for row in (owned.data or []):
+                try:
+                    ids.add(int(row.get('id')))
+                except Exception:
+                    pass
+        except Exception:
+            pass
+        # 2. Panoramas with client access via panorama_access
+        try:
+            access_rows = sb.table('panorama_access').select('panorama_id, access_type').eq('user_id', user_id).execute()
+            for row in (access_rows.data or []):
+                try:
+                    at = str(row.get('access_type') or '').lower()
+                    if at in ('owner', 'client'):
+                        ids.add(int(row.get('panorama_id')))
+                except Exception:
+                    pass
+        except Exception:
+            pass
+        # 3. Panoramas with lock access
         try:
             lock_access = sb.table('plot_lock_access').select('panorama_id').eq('user_id', user_id).execute()
             for row in (lock_access.data or []):
@@ -920,15 +943,24 @@ def register_routes(app):
             select_fields = (
                 'id, name, filename, is_360, location_address, location_city, location_state, '
                 'location_lat, location_lng, rera_registration, launch_date, possession_date, '
-                'builder_name, project_type, total_area, description, amenities, '
+                'builder_name, project_type, total_area, description, amenities, is_published, '
                 'contact_phone, contact_email, google_maps_link, org_id, created_at, updated_at'
             )
-            query = sb.table('panoramas').select(select_fields)
-            # Only published panoramas
+            # Check if any panoramas are published; if none, show all
+            published_only = True
             try:
-                query = query.eq('is_published', True)
+                pub_check = sb.table('panoramas').select('id', count='exact').eq('is_published', True).limit(1).execute()
+                pub_count = getattr(pub_check, 'count', None)
+                if pub_count is None:
+                    pub_count = len(pub_check.data or [])
+                if pub_count == 0:
+                    published_only = False
             except Exception:
-                pass
+                published_only = False
+
+            query = sb.table('panoramas').select(select_fields)
+            if published_only:
+                query = query.eq('is_published', True)
 
             if city:
                 query = query.ilike('location_city', f'%{city}%')
@@ -1060,13 +1092,10 @@ def register_routes(app):
         # Get total count for pagination
         total = len(projects)
         if len(rows) == per_page:
-            # There might be more
             try:
                 count_q = sb.table('panoramas').select('id', count='exact')
-                try:
+                if published_only:
                     count_q = count_q.eq('is_published', True)
-                except Exception:
-                    pass
                 if city:
                     count_q = count_q.ilike('location_city', f'%{city}%')
                 if project_type:
@@ -1084,7 +1113,10 @@ def register_routes(app):
         # Get distinct cities for filter dropdown
         cities = []
         try:
-            city_result = sb.table('panoramas').select('location_city').eq('is_published', True).execute()
+            city_q = sb.table('panoramas').select('location_city')
+            if published_only:
+                city_q = city_q.eq('is_published', True)
+            city_result = city_q.execute()
             city_set = set()
             for r in (city_result.data or []):
                 c = (r.get('location_city') or '').strip()
@@ -3026,12 +3058,20 @@ def register_routes(app):
         try:
             for i in range(0, len(panorama_ids), chunk_size):
                 chunk = panorama_ids[i:i + chunk_size]
-                r = (
-                    sb.table('panoramas')
-                    .select('id, name, created_at, updated_at')
-                    .in_('id', chunk)
-                    .execute()
-                )
+                try:
+                    r = (
+                        sb.table('panoramas')
+                        .select('id, name, is_published, created_at, updated_at')
+                        .in_('id', chunk)
+                        .execute()
+                    )
+                except Exception:
+                    r = (
+                        sb.table('panoramas')
+                        .select('id, name, created_at, updated_at')
+                        .in_('id', chunk)
+                        .execute()
+                    )
                 for row in (r.data or []):
                     try:
                         pid = int(row.get('id'))
@@ -3040,6 +3080,7 @@ def register_routes(app):
                     item = {
                         'id': pid,
                         'name': str(row.get('name') or f'Project #{pid}'),
+                        'is_published': bool(row.get('is_published')),
                         'created_at': str(row.get('created_at') or ''),
                         'updated_at': str(row.get('updated_at') or ''),
                     }

@@ -241,6 +241,15 @@
     padding: 1.5rem 2rem 2rem;
 }
 
+/* Top bar: search + filters in one row */
+.dashboard-topbar {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 1.25rem;
+    flex-wrap: wrap;
+}
+
 /* Search bar */
 .dashboard-search-wrap {
     display: flex;
@@ -250,8 +259,8 @@
     border: 1px solid var(--color-border);
     border-radius: var(--radius);
     padding: 0 1rem;
-    margin-bottom: 1.25rem;
-    max-width: 100%;
+    flex: 1;
+    min-width: 200px;
     box-shadow: 0 1px 3px rgba(22, 35, 56, 0.04);
 }
 
@@ -301,30 +310,35 @@
     background: var(--bg-elev-1);
 }
 
-/* Filters row */
+/* Filters (inline with search) */
 .dashboard-filters {
     display: flex;
     align-items: center;
-    gap: 0.75rem;
-    margin-bottom: 1.5rem;
-    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-top: 10px;
+    margin-bottom: 10px;
+    flex-shrink: 0;
+    flex-wrap: nowrap;
 }
 
 .dashboard-filter-select {
-    padding: 0.5rem 0.75rem;
+    padding: 0.4rem 0.6rem;
     border: 1px solid var(--color-border);
     border-radius: var(--radius-sm);
     background: var(--color-bg-elevated);
     color: var(--color-text);
     font-family: var(--font-body);
-    font-size: 0.85rem;
+    font-size: 0.8rem;
     cursor: pointer;
+    max-width: 140px;
 }
 
 .dashboard-filter-btn {
-    padding: 0.5rem 0.9rem;
-    font-size: 0.85rem;
+    padding: 0.4rem 0.75rem;
+    font-size: 0.8rem;
     font-weight: 600;
+    white-space: nowrap;
+    border-radius: var(--radius-sm);
 }
 
 /* Section titles */
@@ -671,8 +685,10 @@
 
 /* Upload modal */
 .upload-modal {
-    max-width: 520px;
+    max-width: 680px !important;
     width: 100%;
+    max-height: 90vh;
+    overflow-y: auto;
 }
 
 .upload-modal-head {
@@ -1150,6 +1166,8 @@
     align-items: center;
     justify-content: center;
     backdrop-filter: blur(5px);
+    overflow-y: auto;
+    padding: 1rem;
 }
 
 .modal-backdrop.visible {
@@ -1163,6 +1181,8 @@
     max-width: 400px;
     width: 90%;
     border: 1px solid var(--color-border);
+    max-height: 90vh;
+    overflow-y: auto;
 }
 
 .modal-title {

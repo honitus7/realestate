@@ -583,7 +583,7 @@
         '</div>';
 
         dom.modalBody.innerHTML = html;
-        dom.modal.hidden = false;
+        dom.modal.classList.add('visible');
         document.body.style.overflow = 'hidden';
     };
 
@@ -595,7 +595,7 @@
     }
 
     function closeModal() {
-        dom.modal.hidden = true;
+        dom.modal.classList.remove('visible');
         document.body.style.overflow = '';
     }
 
@@ -667,7 +667,7 @@
             if (e.target === dom.modal) closeModal();
         });
         document.addEventListener('keydown', function (e) {
-            if (e.key === 'Escape' && !dom.modal.hidden) closeModal();
+            if (e.key === 'Escape' && dom.modal.classList.contains('visible')) closeModal();
         });
 
         // Sticky nav on scroll
