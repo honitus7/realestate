@@ -444,6 +444,16 @@
                     <input class="toolbar-search" id="q-client-address" style="width:100%;min-width:0;" placeholder="Address">
                 </div>
             </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;">
+                <div class="q-field">
+                    <label class="drawer-field-label">Builder / Seller Name</label>
+                    <input class="toolbar-search" id="q-builder-name" style="width:100%;min-width:0;" placeholder="e.g. Sri Sai Real Estate">
+                </div>
+                <div class="q-field">
+                    <label class="drawer-field-label">Broker / Agent Name</label>
+                    <input class="toolbar-search" id="q-broker-name" style="width:100%;min-width:0;" placeholder="e.g. PropMark Realty">
+                </div>
+            </div>
             <div class="q-field">
                 <label class="drawer-field-label">Project / Property Name</label>
                 <input class="toolbar-search" id="q-project-name" style="width:100%;min-width:0;" placeholder="Project name">
@@ -485,20 +495,13 @@
             <div class="msg" id="q-msg" style="display:none;"></div>
         </div>
         <div style="display:flex;gap:0.65rem;justify-content:flex-end;padding:1rem 1.5rem;border-top:1px solid var(--color-border);background:var(--color-surface-strong);">
-            <button class="btn" id="q-download-btn" type="button">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                Download PDF
-            </button>
-            <button class="btn" id="q-whatsapp-btn" type="button" style="color:#25d366;border-color:rgba(37,211,102,0.3);">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
-                Share via WhatsApp
+            <button class="btn primary" id="q-preview-btn" type="button">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                Preview Quotation
             </button>
         </div>
     </div>
 </div>
-
-<!-- Hidden quotation render area -->
-<div id="quotation-render" style="position:fixed;left:-9999px;top:0;width:794px;background:#fff;font-family:'Syne',sans-serif;color:#162338;"></div>
 
 {% endblock %}
 {% block scripts %}
@@ -1345,17 +1348,388 @@
     (async function init() {
         try {
             await ensureAuthenticated();
-            await loadUserInfo();
-            await loadProjects();
-            await loadInterests();
-            if(interests.length === 0) {
+            // Fire all initial loads in parallel — don't block interests on projects/userInfo
+            const interestsP = loadInterests().then(() => {
+                if(interests.length === 0) $('kanban-empty').style.display = '';
+            }).catch(e => {
                 $('kanban-empty').style.display = '';
-            }
+                $('kanban-empty').innerHTML = '<svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" opacity="0.35"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg><strong>CRM unavailable</strong><div>'+esc(e.message||'Failed to load CRM')+'</div>';
+            });
+            const projectsP = loadProjects().then(() => {
+                // Re-render interests with real project names now that projects are loaded
+                if(interests.length) refreshInterestsUI();
+            }).catch(e => console.warn('Projects load failed:', e));
+            const userP = loadUserInfo().catch(e => console.warn('User info load failed:', e));
+            await Promise.all([interestsP, projectsP, userP]);
         } catch(e) {
             $('kanban-empty').style.display = '';
             $('kanban-empty').innerHTML = '<svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" opacity="0.35"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg><strong>CRM unavailable</strong><div>'+esc(e.message||'Failed to load CRM')+'</div>';
         }
     })();
+})();
+</script>
+<script>
+(function() {
+    'use strict';
+
+    // ══════════════════════════════════════════
+    //  QUOTATION GENERATOR — Preview in new tab
+    // ══════════════════════════════════════════
+    const qModal = document.getElementById('quotation-modal-backdrop');
+    const qClose = document.getElementById('quotation-modal-close');
+    const qPreviewBtn = document.getElementById('q-preview-btn');
+    const qMsg = document.getElementById('q-msg');
+
+    let quotationData = null;
+
+    function showQMsg(text, type) {
+        if (!qMsg) return;
+        qMsg.textContent = text || '';
+        qMsg.className = 'msg' + (type === 'error' ? ' error' : '');
+        qMsg.style.display = text ? '' : 'none';
+    }
+
+    function formatINR(num) {
+        if (!num && num !== 0) return '';
+        const n = parseFloat(String(num).replace(/[^0-9.\-]/g, ''));
+        if (isNaN(n)) return String(num);
+        return n.toLocaleString('en-IN', { maximumFractionDigits: 2 });
+    }
+
+    function fmtDateLocal(d) {
+        const dt = d instanceof Date ? d : new Date();
+        const months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+        return dt.getDate() + ' ' + months[dt.getMonth()] + ' ' + dt.getFullYear();
+    }
+
+    function numberToWords(num) {
+        if (!num || isNaN(num)) return '';
+        const a = ['','One','Two','Three','Four','Five','Six','Seven','Eight','Nine','Ten',
+            'Eleven','Twelve','Thirteen','Fourteen','Fifteen','Sixteen','Seventeen','Eighteen','Nineteen'];
+        const b = ['','','Twenty','Thirty','Forty','Fifty','Sixty','Seventy','Eighty','Ninety'];
+        const g = ['','Thousand','Lakh','Crore'];
+        if (num === 0) return 'Zero';
+        let str = '';
+        const n = Math.floor(Math.abs(num));
+        const parts = [];
+        let rem = n;
+        parts.push(rem % 1000); rem = Math.floor(rem / 1000);
+        while (rem > 0) { parts.push(rem % 100); rem = Math.floor(rem / 100); }
+        for (let i = parts.length - 1; i >= 0; i--) {
+            const p = parts[i];
+            if (p === 0) continue;
+            let w = '';
+            if (p < 20) w = a[p];
+            else if (p < 100) w = b[Math.floor(p/10)] + (p%10 ? ' ' + a[p%10] : '');
+            else w = a[Math.floor(p/100)] + ' Hundred' + (p%100 ? ' and ' + (p%100 < 20 ? a[p%100] : b[Math.floor((p%100)/10)] + (p%100%10 ? ' ' + a[p%100%10] : '')) : '');
+            str += (str ? ' ' : '') + w + (g[i] ? ' ' + g[i] : '');
+        }
+        return str + ' Rupees Only';
+    }
+
+    function escQ(v) {
+        return String(v || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    // Open quotation modal - called from drawer
+    document.getElementById('btn-quotation').addEventListener('click', function() {
+        const drawer = document.getElementById('drawer');
+        if (!drawer.classList.contains('visible')) return;
+
+        const titleEl = document.getElementById('d-title');
+        const clientName = titleEl ? titleEl.textContent : '';
+
+        const contactDiv = document.getElementById('d-contact');
+        let email = '', phone = '';
+        if (contactDiv) {
+            const vals = contactDiv.querySelectorAll('.v');
+            if (vals[0]) email = vals[0].textContent.trim();
+            if (vals[1]) phone = vals[1].textContent.trim();
+            if (email === '\u2014') email = '';
+            if (phone === '\u2014') phone = '';
+        }
+
+        const subtitleEl = document.getElementById('d-subtitle');
+        let projectName = '';
+        if (subtitleEl) {
+            const txt = subtitleEl.textContent.trim();
+            const parts = txt.split('\u00b7');
+            if (parts.length >= 2) projectName = parts[0].replace(/new|contacted|qualified|won|lost/gi,'').trim();
+        }
+
+        const plotsDiv = document.getElementById('d-plots');
+        const plotChips = plotsDiv ? plotsDiv.querySelectorAll('.drawer-plot-chip') : [];
+        const plots = [];
+        plotChips.forEach(chip => {
+            const name = chip.querySelector('.drawer-plot-name');
+            const metas = chip.querySelectorAll('.drawer-plot-meta');
+            plots.push({
+                name: name ? name.textContent.trim() : 'Plot',
+                area: metas[0] ? metas[0].textContent.trim() : '',
+                price: metas[1] ? metas[1].textContent.trim() : ''
+            });
+        });
+
+        document.getElementById('q-client-name').value = clientName || '';
+        document.getElementById('q-client-phone').value = phone || '';
+        document.getElementById('q-client-email').value = email || '';
+        document.getElementById('q-client-address').value = '';
+        document.getElementById('q-builder-name').value = '';
+        document.getElementById('q-broker-name').value = '';
+        document.getElementById('q-project-name').value = projectName || '';
+        document.getElementById('q-base-price').value = '';
+        document.getElementById('q-total-amount').value = '';
+        document.getElementById('q-validity').value = '30';
+        document.getElementById('q-notes').value = '';
+        showQMsg('');
+
+        const plotsList = document.getElementById('q-plots-list');
+        if (plots.length) {
+            plotsList.innerHTML = plots.map(function(p) {
+                return '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:0.5rem;padding:0.5rem 0.65rem;background:var(--color-surface-strong);border-radius:8px;">' +
+                '<div><span style="font-size:0.7rem;color:var(--color-text-soft);display:block;">Plot Name</span><strong style="font-size:0.82rem;">' + escQ(p.name) + '</strong></div>' +
+                '<div><span style="font-size:0.7rem;color:var(--color-text-soft);display:block;">Area</span><span style="font-size:0.82rem;">' + escQ(p.area || '\u2014') + '</span></div>' +
+                '<div><span style="font-size:0.7rem;color:var(--color-text-soft);display:block;">Price</span><span style="font-size:0.82rem;">' + escQ(p.price || '\u2014') + '</span></div>' +
+                '</div>';
+            }).join('');
+        } else {
+            plotsList.innerHTML = '<div style="color:var(--color-text-soft);font-size:0.82rem;">No plots attached to this lead</div>';
+        }
+
+        quotationData = { clientName, email, phone, projectName, plots };
+        qModal.classList.add('visible');
+    });
+
+    // Close modal
+    qClose.addEventListener('click', function() { qModal.classList.remove('visible'); });
+    qModal.addEventListener('click', function(e) { if (e.target === qModal) qModal.classList.remove('visible'); });
+
+    // Build full standalone HTML page for the quotation preview
+    function buildPreviewPage() {
+        var clientName = document.getElementById('q-client-name').value.trim();
+        var clientPhone = document.getElementById('q-client-phone').value.trim();
+        var clientEmail = document.getElementById('q-client-email').value.trim();
+        var clientAddress = document.getElementById('q-client-address').value.trim();
+        var builderName = document.getElementById('q-builder-name').value.trim();
+        var brokerName = document.getElementById('q-broker-name').value.trim();
+        var projectName = document.getElementById('q-project-name').value.trim();
+        var basePrice = document.getElementById('q-base-price').value.trim();
+        var totalAmount = document.getElementById('q-total-amount').value.trim();
+        var paymentTerms = document.getElementById('q-payment-terms').value;
+        var validity = document.getElementById('q-validity').value.trim() || '30';
+        var notes = document.getElementById('q-notes').value.trim();
+
+        if (!clientName) { showQMsg('Client name is required', 'error'); return null; }
+        if (!totalAmount) { showQMsg('Total amount is required', 'error'); return null; }
+
+        var today = fmtDateLocal(new Date());
+        var validUntil = fmtDateLocal(new Date(Date.now() + parseInt(validity) * 86400000));
+        var refNo = 'QTN-' + Date.now().toString(36).toUpperCase();
+        var totalNum = parseFloat(totalAmount.replace(/[^0-9.]/g, ''));
+        var amtWords = numberToWords(totalNum);
+        var plots = quotationData ? quotationData.plots : [];
+
+        var plotRows = '';
+        if (plots.length) {
+            for (var i = 0; i < plots.length; i++) {
+                plotRows += '<tr>' +
+                    '<td>' + (i+1) + '</td>' +
+                    '<td style="font-weight:600;">' + escQ(plots[i].name) + '</td>' +
+                    '<td>' + escQ(plots[i].area || '\u2014') + '</td>' +
+                    '<td style="text-align:right;">' + escQ(plots[i].price || '\u2014') + '</td>' +
+                    '</tr>';
+            }
+        } else {
+            plotRows = '<tr><td colspan="4" style="color:#888;">As per discussion</td></tr>';
+        }
+
+        // WhatsApp URL for share button
+        var waPhone = clientPhone.replace(/[^0-9+]/g, '').replace(/^\+/, '');
+        var waMessage = 'Hello ' + clientName + ',\n\n' +
+            'Thank you for your interest in ' + (projectName || 'our property') + '.\n\n' +
+            'Please find the quotation details below:\n' +
+            'Total Amount: \u20b9' + totalAmount + '\n\n' +
+            'The detailed quotation PDF has been generated for your reference. We look forward to hearing from you.\n\n' +
+            'Best Regards';
+        var waURL = waPhone
+            ? 'https://wa.me/' + waPhone + '?text=' + encodeURIComponent(waMessage)
+            : 'https://wa.me/?text=' + encodeURIComponent(waMessage);
+
+        return '<!DOCTYPE html>' +
+'<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">' +
+'<title>Quotation - ' + escQ(clientName) + '</title>' +
+'<style>' +
+'*{margin:0;padding:0;box-sizing:border-box;}' +
+'body{background:#e8eaed;font-family:"Segoe UI",Tahoma,Geneva,Verdana,sans-serif;color:#1a1a2e;}' +
+/* Toolbar - hidden when printing */
+'.q-toolbar{position:sticky;top:0;z-index:100;background:rgba(26,26,46,0.97);backdrop-filter:blur(12px);padding:12px 24px;display:flex;align-items:center;justify-content:space-between;gap:12px;border-bottom:1px solid rgba(255,255,255,0.08);}' +
+'.q-toolbar-title{color:#fff;font-size:14px;font-weight:600;opacity:0.85;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}' +
+'.q-toolbar-actions{display:flex;gap:10px;flex-shrink:0;}' +
+'.q-tb-btn{display:inline-flex;align-items:center;gap:7px;padding:8px 18px;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;transition:all 0.15s ease;}' +
+'.q-tb-btn.download{background:#0f3460;color:#fff;}' +
+'.q-tb-btn.download:hover{background:#1a4a8a;}' +
+'.q-tb-btn.whatsapp{background:#25d366;color:#fff;}' +
+'.q-tb-btn.whatsapp:hover{background:#1fb855;}' +
+'.q-tb-btn svg{flex-shrink:0;}' +
+/* Page container */
+'.q-page-wrap{max-width:840px;margin:32px auto;padding:0 20px 48px;}' +
+'.q-page{background:#fff;border-radius:8px;box-shadow:0 2px 24px rgba(0,0,0,0.10);overflow:hidden;}' +
+/* Quotation content */
+'.q-header{background:linear-gradient(135deg,#1a1a2e 0%,#16213e 50%,#0f3460 100%);color:#fff;padding:36px 44px 32px;position:relative;overflow:hidden;}' +
+'.q-header-circle1{position:absolute;top:-30px;right:-30px;width:120px;height:120px;background:rgba(255,255,255,0.05);border-radius:50%;}' +
+'.q-header-circle2{position:absolute;bottom:-20px;right:60px;width:80px;height:80px;background:rgba(255,255,255,0.03);border-radius:50%;}' +
+'.q-header-inner{display:flex;justify-content:space-between;align-items:flex-start;position:relative;z-index:1;}' +
+'.q-title{font-size:30px;font-weight:800;letter-spacing:-0.5px;margin-bottom:4px;}' +
+'.q-subtitle{font-size:11px;color:rgba(255,255,255,0.6);letter-spacing:2px;text-transform:uppercase;}' +
+'.q-ref-label{font-size:11px;color:rgba(255,255,255,0.5);}' +
+'.q-ref-val{font-size:13px;font-weight:700;letter-spacing:0.5px;color:#e2b86d;}' +
+/* Two column info */
+'.q-info-row{display:flex;border-bottom:2px solid #f0f0f0;}' +
+'.q-info-col{flex:1;padding:26px 44px;}' +
+'.q-info-col+.q-info-col{border-left:1px solid #f0f0f0;}' +
+'.q-section-label{font-size:9px;text-transform:uppercase;letter-spacing:1.5px;color:#0f3460;font-weight:700;margin-bottom:10px;}' +
+'.q-info-name{font-size:16px;font-weight:700;color:#1a1a2e;margin-bottom:4px;}' +
+'.q-info-detail{font-size:12px;color:#555;margin-bottom:2px;}' +
+/* Table */
+'.q-table-wrap{padding:26px 44px 18px;}' +
+'.q-table{width:100%;border-collapse:collapse;border:1px solid #eee;}' +
+'.q-table thead th{padding:11px 16px;text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:1px;color:#0f3460;font-weight:700;background:#f8f9fb;border-bottom:2px solid #e8e8e8;}' +
+'.q-table thead th:last-child{text-align:right;}' +
+'.q-table tbody td{padding:11px 16px;border-bottom:1px solid #eee;font-size:12px;}' +
+'.q-table tbody td:last-child{text-align:right;}' +
+'.q-table tfoot td{padding:13px 16px;font-weight:800;font-size:13px;color:#1a1a2e;border-top:2px solid #0f3460;background:#f8f9fb;}' +
+'.q-table tfoot td:last-child{text-align:right;font-size:15px;color:#0f3460;}' +
+'.q-words{font-size:11px;color:#666;margin-top:8px;font-style:italic;padding:0 44px;}' +
+/* Cards row */
+'.q-cards{padding:10px 44px 22px;display:flex;gap:20px;}' +
+'.q-card{flex:1;background:#f8f9fb;border-radius:8px;padding:16px 20px;border-left:3px solid #0f3460;}' +
+'.q-card.gold{border-left-color:#e2b86d;}' +
+'.q-card-label{font-size:9px;text-transform:uppercase;letter-spacing:1.5px;color:#0f3460;font-weight:700;margin-bottom:6px;}' +
+'.q-card-val{font-size:13px;font-weight:600;color:#1a1a2e;}' +
+/* Notes */
+'.q-notes-wrap{padding:6px 44px 22px;}' +
+'.q-notes-box{font-size:12px;color:#444;background:#fffdf5;border:1px solid #f0e6c8;border-radius:6px;padding:14px 18px;white-space:pre-wrap;}' +
+/* Terms */
+'.q-terms-wrap{padding:10px 44px 22px;}' +
+'.q-terms{font-size:11px;color:#666;line-height:1.7;}' +
+'.q-terms div{margin-bottom:3px;}' +
+/* Signatures */
+'.q-sig-row{display:flex;justify-content:space-between;padding:22px 44px 14px;border-top:1px solid #eee;}' +
+'.q-sig{text-align:center;}' +
+'.q-sig-line{width:180px;border-bottom:1px solid #ccc;margin-bottom:6px;height:50px;}' +
+'.q-sig-label{font-size:11px;color:#888;}' +
+/* Footer */
+'.q-footer{background:#1a1a2e;color:rgba(255,255,255,0.5);padding:16px 44px;font-size:10px;text-align:center;}' +
+/* Print styles */
+'@media print{' +
+  '.q-toolbar{display:none!important;}' +
+  'body{background:#fff!important;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;}' +
+  '.q-page-wrap{margin:0!important;padding:0!important;max-width:none!important;}' +
+  '.q-page{box-shadow:none!important;border-radius:0!important;}' +
+  '.q-header{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;}' +
+  '.q-footer{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;}' +
+  '.q-table tfoot td,.q-table thead th,.q-card{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;}' +
+'}' +
+'</style></head><body>' +
+/* Toolbar */
+'<div class="q-toolbar">' +
+  '<div class="q-toolbar-title">Quotation' + (builderName ? ' \u2014 ' + escQ(builderName) : '') + ' | ' + escQ(clientName) + '</div>' +
+  '<div class="q-toolbar-actions">' +
+    '<button class="q-tb-btn download" onclick="window.print()">' +
+      '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>' +
+      'Save as PDF' +
+    '</button>' +
+    '<a class="q-tb-btn whatsapp" href="' + escQ(waURL) + '" target="_blank" rel="noopener">' +
+      '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>' +
+      'Share via WhatsApp' +
+    '</a>' +
+  '</div>' +
+'</div>' +
+/* Quotation page */
+'<div class="q-page-wrap"><div class="q-page">' +
+/* Header */
+'<div class="q-header">' +
+  '<div class="q-header-circle1"></div><div class="q-header-circle2"></div>' +
+  '<div class="q-header-inner">' +
+    '<div><div class="q-title">QUOTATION' + (builderName ? ' <span style="font-size:20px;font-weight:600;opacity:0.85;">\u2014 ' + escQ(builderName) + '</span>' : '') + '</div><div class="q-subtitle">Property Price Estimate</div></div>' +
+    '<div style="text-align:right;">' +
+      '<div class="q-ref-label">Reference No.</div>' +
+      '<div class="q-ref-val">' + escQ(refNo) + '</div>' +
+      '<div class="q-ref-label" style="margin-top:6px;">Date</div>' +
+      '<div style="font-size:12px;font-weight:600;color:#fff;">' + escQ(today) + '</div>' +
+    '</div>' +
+  '</div>' +
+'</div>' +
+/* Info row */
+'<div class="q-info-row">' +
+  '<div class="q-info-col">' +
+    '<div class="q-section-label">Quotation To</div>' +
+    '<div class="q-info-name">' + escQ(clientName) + '</div>' +
+    (clientPhone ? '<div class="q-info-detail">Phone: ' + escQ(clientPhone) + '</div>' : '') +
+    (clientEmail ? '<div class="q-info-detail">Email: ' + escQ(clientEmail) + '</div>' : '') +
+    (clientAddress ? '<div class="q-info-detail">' + escQ(clientAddress) + '</div>' : '') +
+  '</div>' +
+  '<div class="q-info-col">' +
+    '<div class="q-section-label">Property Details</div>' +
+    '<div class="q-info-name">' + escQ(projectName || 'N/A') + '</div>' +
+    (builderName ? '<div class="q-info-detail">Builder: ' + escQ(builderName) + '</div>' : '') +
+    (brokerName ? '<div class="q-info-detail">Broker: ' + escQ(brokerName) + '</div>' : '') +
+    (basePrice ? '<div class="q-info-detail">Base Price: \u20b9' + escQ(formatINR(basePrice)) + '</div>' : '') +
+    '<div class="q-info-detail">Category: Real Estate</div>' +
+  '</div>' +
+'</div>' +
+/* Table */
+'<div class="q-table-wrap">' +
+  '<div class="q-section-label">Plot Breakdown</div>' +
+  '<table class="q-table"><thead><tr>' +
+    '<th>S.No</th><th>Plot</th><th>Area</th><th>Price</th>' +
+  '</tr></thead><tbody>' + plotRows + '</tbody>' +
+  '<tfoot><tr>' +
+    '<td colspan="3">Total Amount</td>' +
+    '<td>\u20b9' + escQ(formatINR(totalAmount)) + '</td>' +
+  '</tr></tfoot></table>' +
+'</div>' +
+(amtWords ? '<div class="q-words">Amount in words: ' + escQ(amtWords) + '</div>' : '') +
+/* Cards */
+'<div class="q-cards">' +
+  '<div class="q-card"><div class="q-card-label">Payment Terms</div><div class="q-card-val">' + escQ(paymentTerms) + '</div></div>' +
+  '<div class="q-card gold"><div class="q-card-label">Valid Until</div><div class="q-card-val">' + escQ(validUntil) + '</div></div>' +
+'</div>' +
+/* Notes */
+(notes ? '<div class="q-notes-wrap"><div class="q-section-label">Additional Terms &amp; Notes</div><div class="q-notes-box">' + escQ(notes) + '</div></div>' : '') +
+/* Terms */
+'<div class="q-terms-wrap">' +
+  '<div class="q-section-label">Standard Terms &amp; Conditions</div>' +
+  '<div class="q-terms">' +
+    '<div>1. This quotation is valid for ' + escQ(validity) + ' days from the date of issue.</div>' +
+    '<div>2. Prices are subject to change based on government regulations and applicable taxes.</div>' +
+    '<div>3. Registration charges, stamp duty, GST and other statutory charges are extra as applicable.</div>' +
+    '<div>4. Possession and documentation will be as per the terms agreed upon at the time of booking.</div>' +
+    '<div>5. This is a computer-generated quotation and does not constitute a legal agreement.</div>' +
+  '</div>' +
+'</div>' +
+/* Signatures */
+'<div class="q-sig-row">' +
+  '<div class="q-sig"><div class="q-sig-line"></div><div class="q-sig-label">Client Signature</div></div>' +
+  '<div class="q-sig"><div class="q-sig-line"></div><div class="q-sig-label">Authorized Signature</div></div>' +
+'</div>' +
+/* Footer */
+'<div class="q-footer">This is a system-generated quotation. For queries, please contact the issuing office.</div>' +
+'</div></div>' + /* end q-page, q-page-wrap */
+'</body></html>';
+    }
+
+    // Preview: open quotation in a new tab
+    qPreviewBtn.addEventListener('click', function() {
+        showQMsg('');
+        var pageHTML = buildPreviewPage();
+        if (!pageHTML) return;
+        var w = window.open('', '_blank');
+        if (!w) { showQMsg('Pop-up blocked — please allow pop-ups for this site.', 'error'); return; }
+        w.document.write(pageHTML);
+        w.document.close();
+        qModal.classList.remove('visible');
+    });
 })();
 </script>
 {% endblock %}
