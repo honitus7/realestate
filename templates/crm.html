@@ -1811,15 +1811,63 @@
         if (m) return { lat: parseFloat(m[1]), lng: parseFloat(m[2]) };
         m = link.match(/q=(-?\d+\.\d+),(-?\d+\.\d+)/);
         if (m) return { lat: parseFloat(m[1]), lng: parseFloat(m[2]) };
+        m = link.match(/place\/(-?\d+\.\d+),(-?\d+\.\d+)/);
+        if (m) return { lat: parseFloat(m[1]), lng: parseFloat(m[2]) };
         return null;
+    }
+
+    var _resolveTimer = null;
+    var _lastResolvedCoords = null;
+    function resolveAndFill(link) {
+        _lastResolvedCoords = null;
+        var coords = extractCoords(link);
+        if (coords) {
+            _lastResolvedCoords = coords;
+            mapsStatus.textContent = 'Coords: ' + coords.lat.toFixed(6) + ', ' + coords.lng.toFixed(6);
+            mapsStatus.style.color = 'var(--color-available)';
+            return;
+        }
+        if (!link.trim()) { mapsStatus.textContent = ''; return; }
+        // Check if it's a short URL that needs server-side resolution
+        if (link.match(/goo\.gl\//i) || link.match(/maps\.app\./i)) {
+            mapsStatus.textContent = 'Resolving short link...';
+            mapsStatus.style.color = 'var(--muted)';
+            window.getAuthHeaders().then(function(headers) {
+                headers['Content-Type'] = 'application/json';
+                return fetch('/api/resolve-maps-link', {
+                    method: 'POST', headers: headers,
+                    body: JSON.stringify({ link: link })
+                });
+            }).then(function(r) { return r.json(); }).then(function(data) {
+                if (data.lat != null && data.lng != null) {
+                    _lastResolvedCoords = { lat: data.lat, lng: data.lng };
+                    mapsStatus.textContent = 'Coords: ' + data.lat.toFixed(6) + ', ' + data.lng.toFixed(6);
+                    mapsStatus.style.color = 'var(--color-available)';
+                    // Auto-fill address, city, state if empty
+                    var addrEl = document.getElementById('ep-location-address');
+                    var cityEl = document.getElementById('ep-location-city');
+                    var stateEl = document.getElementById('ep-location-state');
+                    if (addrEl && !addrEl.value.trim() && data.address) addrEl.value = data.address;
+                    if (cityEl && !cityEl.value.trim() && data.city) cityEl.value = data.city;
+                    if (stateEl && !stateEl.value.trim() && data.state) stateEl.value = data.state;
+                } else {
+                    mapsStatus.textContent = data.error || 'Could not extract coordinates';
+                    mapsStatus.style.color = 'var(--warning)';
+                }
+            }).catch(function() {
+                mapsStatus.textContent = 'Could not resolve link';
+                mapsStatus.style.color = 'var(--warning)';
+            });
+        } else {
+            mapsStatus.textContent = 'Could not extract coordinates';
+            mapsStatus.style.color = 'var(--warning)';
+        }
     }
 
     if (mapsInput) {
         mapsInput.addEventListener('input', function() {
-            var coords = extractCoords(mapsInput.value);
-            if (coords) { mapsStatus.textContent = 'Coords: ' + coords.lat.toFixed(6) + ', ' + coords.lng.toFixed(6); mapsStatus.style.color = 'var(--color-available)'; }
-            else if (mapsInput.value.trim()) { mapsStatus.textContent = 'Could not extract coordinates'; mapsStatus.style.color = 'var(--warning)'; }
-            else { mapsStatus.textContent = ''; }
+            clearTimeout(_resolveTimer);
+            _resolveTimer = setTimeout(function() { resolveAndFill(mapsInput.value); }, 500);
         });
     }
 
@@ -1869,7 +1917,7 @@
                 var headers = await window.getAuthHeaders();
                 headers['Content-Type'] = 'application/json';
                 var mapsLink = document.getElementById('ep-google-maps-link').value.trim();
-                var coords = extractCoords(mapsLink);
+                var coords = extractCoords(mapsLink) || _lastResolvedCoords;
                 var amenitiesRaw = document.getElementById('ep-amenities').value.trim();
                 var amenities = amenitiesRaw ? amenitiesRaw.split(',').map(function(s) { return s.trim(); }).filter(Boolean) : [];
                 var body = {

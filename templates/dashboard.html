@@ -84,7 +84,7 @@
                     <option value="recent">Recent</option>
                     <option value="oldest">Oldest first</option>
                 </select>
-                <button type="button" class="dashboard-filter-btn" id="create-workspace-btn">New Folder</button>
+                <button type="button" class="dashboard-filter-btn" id="create-workspace-btn">New Project</button>
             </div>
 
             <!-- Recents: horizontal scroll of panorama cards -->
@@ -154,8 +154,16 @@
                         </div>
                         <div class="form-row">
                             <div class="form-group">
-                                <label class="form-label">Project Name</label>
-                                <input type="text" class="form-input" id="project-name" placeholder="e.g., Sunset Valley Estate">
+                                <label class="form-label">360° Pano Name</label>
+                                <input type="text" class="form-input" id="project-name" placeholder="e.g., Sunset Valley Estate" value="Untitled">
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label class="form-label">Add to Project (Folder)</label>
+                                <select class="form-input" id="upload-workspace-select">
+                                    <option value="">Unfiled</option>
+                                </select>
                             </div>
                         </div>
                         <div class="form-row">
@@ -233,7 +241,7 @@
                                 </div>
                                 <div class="form-group">
                                     <label class="form-label">Description</label>
-                                    <textarea class="form-input" id="upload-description" rows="2" placeholder="Brief project description for customers..." style="resize: vertical;"></textarea>
+                                    <textarea class="form-input" id="upload-description" rows="2" placeholder="Brief 360° panorama description for customers..." style="resize: vertical;"></textarea>
                                 </div>
                                 <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
                                     <div class="form-group">
@@ -255,14 +263,14 @@
                                         <input type="checkbox" id="upload-is-published" style="width: auto; cursor: pointer;">
                                         <span style="font-size: 0.85rem; color: var(--color-text);">Publish on Customer Portal</span>
                                     </label>
-                                    <div style="font-size: 0.7rem; color: var(--color-muted); margin-top: 0.25rem; margin-left: 1.75rem;">Make this project visible to customers on the public portal</div>
+                                    <div style="font-size: 0.7rem; color: var(--color-muted); margin-top: 0.25rem; margin-left: 1.75rem;">Make this 360° panorama visible to customers on the public portal</div>
                                 </div>
                             </div>
                         </details>
 
                         <div class="form-actions">
                             <button class="btn btn-secondary" id="cancel-upload">Cancel</button>
-                            <button class="btn btn-primary" id="start-upload">Create Project</button>
+                            <button class="btn btn-primary" id="start-upload">Create 360° Panorama</button>
                         </div>
                     </div>
                     <div class="upload-progress" id="upload-progress">
@@ -277,7 +285,7 @@
     <!-- Delete Confirmation Modal -->
     <div class="modal-backdrop" id="delete-modal">
         <div class="modal">
-            <div class="modal-title">Delete Project?</div>
+            <div class="modal-title">Delete 360° Panorama?</div>
             <div class="modal-text">This will permanently delete this panorama and all its plot markings. This action
                 cannot be undone.</div>
             <div class="modal-actions">
@@ -308,10 +316,10 @@
     <!-- Create Workspace Modal -->
     <div class="modal-backdrop" id="create-workspace-modal">
         <div class="modal">
-            <div class="modal-title">Create Folder</div>
-            <div class="modal-text" style="margin-bottom: 1rem;">Create a new workspace folder to organize panoramas.</div>
+            <div class="modal-title">Create Project</div>
+            <div class="modal-text" style="margin-bottom: 1rem;">Create a new workspace Project to organize panoramas.</div>
             <div class="form-group" style="margin-bottom: 1rem;">
-                <label class="form-label" for="workspace-name-input">Folder name</label>
+                <label class="form-label" for="workspace-name-input">Project name</label>
                 <input type="text" id="workspace-name-input" class="form-input" maxlength="120" placeholder="Folder name">
             </div>
             <div id="workspace-create-error" class="msg error" style="display:none; margin-bottom: 1rem;"></div>
@@ -503,6 +511,23 @@
             }
             if (uploadBtn && uploadModal) {
                 uploadBtn.addEventListener('click', function () {
+                    // Populate workspace select with owned folders
+                    var wsSelect = document.getElementById('upload-workspace-select');
+                    if (wsSelect && typeof workspaces !== 'undefined') {
+                        var currentVal = wsSelect.value;
+                        wsSelect.innerHTML = '<option value="">Unfiled</option>';
+                        workspaces.forEach(function(ws) {
+                            if (ws.access_type === 'owner') {
+                                var opt = document.createElement('option');
+                                opt.value = ws.id;
+                                opt.textContent = ws.name || ('Folder #' + ws.id);
+                                wsSelect.appendChild(opt);
+                            }
+                        });
+                        // Pre-select the currently active folder
+                        var activeWsId = getSelectedOwnedWorkspaceId();
+                        wsSelect.value = activeWsId || '';
+                    }
                     uploadModal.classList.add('visible');
                 });
             }
@@ -532,9 +557,9 @@
         })();
 
         /* ── Portal fields helper: extract coords from Google Maps link & append all portal fields ── */
+        var _dashResolvedCoords = null;
         function extractCoordsFromGoogleMapsLink(link) {
             if (!link) return null;
-            // Pattern: @lat,lng or !3d<lng>!4d<lat> or q=lat,lng or place/lat,lng
             var m = link.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/);
             if (m) return { lat: parseFloat(m[1]), lng: parseFloat(m[2]) };
             m = link.match(/!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)/);
@@ -548,13 +573,48 @@
         (function() {
             var mapsInput = document.getElementById('upload-google-maps-link');
             var mapsStatus = document.getElementById('maps-link-status');
+            var _dashResolveTimer = null;
             if (mapsInput && mapsStatus) {
                 mapsInput.addEventListener('input', function() {
-                    var coords = extractCoordsFromGoogleMapsLink(mapsInput.value);
+                    _dashResolvedCoords = null;
+                    clearTimeout(_dashResolveTimer);
+                    var link = mapsInput.value;
+                    var coords = extractCoordsFromGoogleMapsLink(link);
                     if (coords) {
+                        _dashResolvedCoords = coords;
                         mapsStatus.textContent = 'Coordinates detected: ' + coords.lat.toFixed(6) + ', ' + coords.lng.toFixed(6);
                         mapsStatus.style.color = 'var(--color-available)';
-                    } else if (mapsInput.value.trim()) {
+                    } else if (link.trim() && (link.match(/goo\.gl\//i) || link.match(/maps\.app\./i))) {
+                        mapsStatus.textContent = 'Resolving short link...';
+                        mapsStatus.style.color = 'var(--muted)';
+                        _dashResolveTimer = setTimeout(function() {
+                            window.getAuthHeaders().then(function(headers) {
+                                headers['Content-Type'] = 'application/json';
+                                return fetch('/api/resolve-maps-link', {
+                                    method: 'POST', headers: headers,
+                                    body: JSON.stringify({ link: link })
+                                });
+                            }).then(function(r) { return r.json(); }).then(function(data) {
+                                if (data.lat != null && data.lng != null) {
+                                    _dashResolvedCoords = { lat: data.lat, lng: data.lng };
+                                    mapsStatus.textContent = 'Coordinates detected: ' + data.lat.toFixed(6) + ', ' + data.lng.toFixed(6);
+                                    mapsStatus.style.color = 'var(--color-available)';
+                                    var addrEl = document.getElementById('upload-location-address');
+                                    var cityEl = document.getElementById('upload-location-city');
+                                    var stateEl = document.getElementById('upload-location-state');
+                                    if (addrEl && !addrEl.value.trim() && data.address) addrEl.value = data.address;
+                                    if (cityEl && !cityEl.value.trim() && data.city) cityEl.value = data.city;
+                                    if (stateEl && !stateEl.value.trim() && data.state) stateEl.value = data.state;
+                                } else {
+                                    mapsStatus.textContent = data.error || 'Could not extract coordinates';
+                                    mapsStatus.style.color = 'var(--warning)';
+                                }
+                            }).catch(function() {
+                                mapsStatus.textContent = 'Could not resolve link';
+                                mapsStatus.style.color = 'var(--warning)';
+                            });
+                        }, 500);
+                    } else if (link.trim()) {
                         mapsStatus.textContent = 'Could not extract coordinates — they will be ignored';
                         mapsStatus.style.color = 'var(--warning)';
                     } else {
@@ -587,7 +647,7 @@
             var mapsLink = (document.getElementById('upload-google-maps-link') || {}).value || '';
             if (mapsLink.trim()) {
                 formData.append('google_maps_link', mapsLink.trim());
-                var coords = extractCoordsFromGoogleMapsLink(mapsLink);
+                var coords = extractCoordsFromGoogleMapsLink(mapsLink) || _dashResolvedCoords;
                 if (coords) {
                     formData.append('location_lat', String(coords.lat));
                     formData.append('location_lng', String(coords.lng));
@@ -1065,9 +1125,10 @@
             e.stopPropagation();
             if (!selectedFile) return;
 
-            const name = projectName.value.trim() || 'Untitled Project';
+            const name = projectName.value.trim() || 'Untitled';
             const is360 = document.getElementById('is-360').checked;
-            const workspaceId = getSelectedOwnedWorkspaceId();
+            const wsSelect = document.getElementById('upload-workspace-select');
+            const workspaceId = (wsSelect && wsSelect.value) ? wsSelect.value : getSelectedOwnedWorkspaceId();
 
             uploadForm.classList.remove('visible');
             uploadProgress.classList.add('visible');
@@ -1264,7 +1325,7 @@
                 try { URL.revokeObjectURL(previewObjectUrl); } catch (e) { }
                 previewObjectUrl = '';
             }
-            projectName.value = '';
+            projectName.value = 'Untitled';
         }
 
         // Projects (user-scoped; send auth token). Does not render; initializeDashboard renders once after load.
@@ -1346,7 +1407,7 @@
                 var openLabel = isOwner ? 'Open Editor' : (isClient ? 'Open as Client' : 'View');
                 var actions = '<button class="project-btn edit" onclick="openEditor(' + project.id + ')">' + openLabel + '</button>';
                 if (isOwner) {
-                    if (selectedWsId && Boolean(project.is_360)) actions += '<button class="project-btn set-main" onclick="setAsMain(' + project.id + ', event)">Set as main</button>';
+                    if (selectedWsId && Boolean(project.is_360) && !isMain) actions += '<button class="project-btn set-main" onclick="setAsMain(' + project.id + ', event)">Set as main</button>';
                     actions += '<button class="project-btn" onclick="window.location.href=\'/panorama/' + project.id + '/access\'">Manage access</button>';
                     actions += '<button class="project-btn rename" onclick="showRenameModal(' + project.id + ', event)">Rename</button>';
                     actions += '<button class="project-btn delete" onclick="showDeleteModal(' + project.id + ', event)">Delete</button>';
@@ -1360,8 +1421,9 @@
                 var mainBadge = isMain ? '<span class="project-main-badge">Main</span>' : '';
                 var dragAttr = isOwner ? 'draggable=\"true\" ondragstart=\"onProjectDragStart(event,' + project.id + ')\" ondragend=\"onProjectDragEnd(event)\"' : '';
                 var dragClass = isOwner ? ' owner-draggable' : '';
+                var mainClass = isMain ? ' is-main-panorama' : '';
                 return `
-                        <div class="project-card${dragClass}" data-id="${project.id}" ${dragAttr}>
+                        <div class="project-card${dragClass}${mainClass}" data-id="${project.id}" ${dragAttr}>
                             <img src="/uploads/${project.filename}?size=thumb" alt="${escapeHtml(project.name)}" class="project-image loading-placeholder" loading="lazy" decoding="async" onload="this.classList.remove('loading-placeholder')">
                             <div class="project-content">
                                 <div class="project-name">${escapeHtml(project.name)} ${mainBadge}</div>

@@ -3,9 +3,12 @@ Register all Flask routes. Uses app.core and app.services only.
 """
 import json
 import os
+import re
 import time
 import uuid
 from datetime import datetime
+
+import requests as _requests
 
 from flask import request, jsonify, render_template, redirect, Response, send_from_directory, current_app
 from werkzeug.utils import secure_filename
@@ -1652,6 +1655,19 @@ def register_routes(app):
             if not r.data or len(r.data) == 0:
                 raise RuntimeError('Insert failed')
             panorama_id = r.data[0]['id']
+
+            # Auto-set as main if this is a 360 panorama in a folder with no main
+            if workspace_id and is_360:
+                try:
+                    ws_row = get_workspace_by_id(sb, workspace_id)
+                    if ws_row and not ws_row.get('main_panorama_id'):
+                        sb.table('workspaces').update({
+                            'main_panorama_id': panorama_id,
+                            'updated_at': datetime.utcnow().isoformat(),
+                        }).eq('id', workspace_id).execute()
+                except Exception:
+                    pass
+
             return jsonify({
                 'id': panorama_id,
                 'name': name,
@@ -1706,10 +1722,23 @@ def register_routes(app):
         if not sb:
             return jsonify({'error': 'Database not configured'}), 503
         panorama, access_type = get_panorama_with_access(sb, panorama_id, user_id)
+        # Fallback: allow admins / superadmins who have CRM access
+        if not panorama:
+            normalized_role = str(role or 'user').strip().lower()
+            if normalized_role in ('admin', 'superadmin'):
+                crm_ids = _crm_panorama_ids(sb, user_id, role)
+                if panorama_id in crm_ids:
+                    try:
+                        r = sb.table('panoramas').select('*').eq('id', panorama_id).limit(1).execute()
+                        if r.data and len(r.data) > 0:
+                            panorama = r.data[0]
+                            access_type = 'owner'
+                    except Exception:
+                        pass
         if not panorama:
             return jsonify({'error': 'Panorama not found'}), 404
-        if not can_delete_panorama(access_type):
-            return jsonify({'error': 'Only the owner can rename this panorama'}), 403
+        if not can_edit_plots(access_type):
+            return jsonify({'error': 'You do not have permission to edit this panorama'}), 403
         payload = request.get_json(silent=True) or request.form or {}
         name = str(payload.get('name', '')).strip() if payload.get('name') is not None else None
         use_animated_icons = payload.get('use_animated_icons')
@@ -1790,6 +1819,77 @@ def register_routes(app):
             out['use_animated_icons'] = use_animated_icons
         return jsonify(out)
 
+    # ── Resolve Google Maps short links & reverse-geocode ──
+    @app.route('/api/resolve-maps-link', methods=['POST'])
+    @require_auth
+    def resolve_maps_link(user_id, role):
+        payload = request.get_json(silent=True) or {}
+        link = str(payload.get('link') or '').strip()
+        if not link:
+            return jsonify({'error': 'No link provided'}), 400
+
+        # Follow redirects for short URLs (maps.app.goo.gl, goo.gl, etc.)
+        resolved_url = link
+        if 'goo.gl/' in link or 'maps.app.goo.gl/' in link:
+            try:
+                resp = _requests.head(link, allow_redirects=True, timeout=10,
+                                      headers={'User-Agent': 'Mozilla/5.0'})
+                resolved_url = resp.url
+            except Exception:
+                try:
+                    resp = _requests.get(link, allow_redirects=True, timeout=10,
+                                         stream=True,
+                                         headers={'User-Agent': 'Mozilla/5.0'})
+                    resolved_url = resp.url
+                    resp.close()
+                except Exception:
+                    return jsonify({'error': 'Could not resolve short URL'}), 400
+
+        # Extract coordinates from the resolved URL
+        coords = None
+        patterns = [
+            r'@(-?\d+\.\d+),(-?\d+\.\d+)',
+            r'!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)',
+            r'q=(-?\d+\.\d+),(-?\d+\.\d+)',
+            r'place/(-?\d+\.\d+),(-?\d+\.\d+)',
+            r'll=(-?\d+\.\d+),(-?\d+\.\d+)',
+            r'center=(-?\d+\.\d+),(-?\d+\.\d+)',
+        ]
+        for pat in patterns:
+            m = re.search(pat, resolved_url)
+            if m:
+                coords = {'lat': float(m.group(1)), 'lng': float(m.group(2))}
+                break
+
+        if not coords:
+            return jsonify({'error': 'Could not extract coordinates from link', 'resolved_url': resolved_url}), 400
+
+        result = {'lat': coords['lat'], 'lng': coords['lng'], 'resolved_url': resolved_url}
+
+        # Reverse geocode using Nominatim (free, no API key needed)
+        try:
+            geo_resp = _requests.get(
+                'https://nominatim.openstreetmap.org/reverse',
+                params={'lat': coords['lat'], 'lon': coords['lng'], 'format': 'json', 'addressdetails': '1'},
+                headers={'User-Agent': 'RealEstatePanorama/1.0'},
+                timeout=8,
+            )
+            if geo_resp.status_code == 200:
+                geo = geo_resp.json()
+                addr = geo.get('address', {})
+                # Build readable address
+                address_parts = []
+                for key in ('road', 'neighbourhood', 'suburb', 'hamlet', 'village'):
+                    if addr.get(key):
+                        address_parts.append(addr[key])
+                result['address'] = ', '.join(address_parts) if address_parts else geo.get('display_name', '')
+                result['city'] = addr.get('city') or addr.get('town') or addr.get('village') or addr.get('county') or ''
+                result['state'] = addr.get('state') or ''
+        except Exception:
+            pass
+
+        return jsonify(result)
+
     @app.route('/api/panoramas/<int:panorama_id>/workspace', methods=['PATCH', 'PUT'])
     @require_auth
     def move_panorama_to_workspace(user_id, role, panorama_id):
@@ -1833,6 +1933,19 @@ def register_routes(app):
             return jsonify({'error': str(e)}), 500
         row = (r.data or [None])[0] if hasattr(r, 'data') else None
         current_workspace_id = (row or {}).get('workspace_id')
+
+        # Auto-set as main if this is a 360 panorama dropped into a folder with no main
+        if workspace_id and panorama.get('is_360'):
+            try:
+                ws_row = get_workspace_by_id(sb, workspace_id)
+                if ws_row and not ws_row.get('main_panorama_id'):
+                    sb.table('workspaces').update({
+                        'main_panorama_id': panorama_id,
+                        'updated_at': datetime.utcnow().isoformat(),
+                    }).eq('id', workspace_id).execute()
+            except Exception:
+                pass
+
         return jsonify({
             'success': True,
             'panorama': {
