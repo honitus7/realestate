@@ -222,7 +222,7 @@
         if (p.project_type) badges += '<span class="portal-badge portal-badge--type">' + escHtml(projectTypeLabel(p.project_type)) + '</span>';
         if (p.rera_registration) badges += '<span class="portal-badge portal-badge--rera">RERA</span>';
 
-        return '<div class="portal-card" data-id="' + p.id + '" onclick="window.__portalOpenProject(' + p.id + ')">' +
+        return '<div class="portal-card" data-id="' + escHtml(String(p.id)) + '" onclick="window.__portalOpenProject(\'' + String(p.id).replace(/\\/g, '\\\\').replace(/'/g, "\\'") + '\')">' +
             '<div class="portal-card-image">' +
                 '<img data-src="' + escHtml(thumbnailUrl(p.filename)) + '" alt="' + escHtml(p.name) + '" class="lazy-img" loading="lazy">' +
                 '<div class="portal-card-badges">' + badges + '</div>' +
@@ -474,7 +474,7 @@
                     '<strong style="font-size:0.9rem;">' + escHtml(p.name) + '</strong>' +
                     (p.builder_name ? '<div style="font-size:0.72rem;color:#666;">' + escHtml(p.builder_name) + '</div>' : '') +
                     '<div style="font-size:0.75rem;margin-top:0.3rem;">' + (p.plot_count || 0) + ' plots | ' + (p.available_plots || 0) + ' available</div>' +
-                    '<a href="#" onclick="window.__portalOpenProject(' + p.id + ');return false;" style="font-size:0.72rem;color:#c9a962;font-weight:600;">View Details</a>' +
+                    '<a href="#" onclick="window.__portalOpenProject(\'' + String(p.id).replace(/\\/g, '\\\\').replace(/'/g, "\\'") + '\');return false;" style="font-size:0.72rem;color:#c9a962;font-weight:600;">View Details</a>' +
                     '</div>',
             });
             marker.addListener('click', function () {
@@ -497,7 +497,7 @@
         var html = '';
         state.projects.forEach(function (p) {
             var loc = p.location_city || p.location_address || '';
-            html += '<button class="portal-map-item" onclick="window.__portalOpenProject(' + p.id + ')">' +
+            html += '<button class="portal-map-item" onclick="window.__portalOpenProject(\'' + String(p.id).replace(/\\/g, '\\\\').replace(/'/g, "\\'") + '\')">' +
                 '<img class="portal-map-item-thumb" src="' + escHtml(thumbnailUrl(p.filename)) + '" alt="" loading="lazy">' +
                 '<div class="portal-map-item-info">' +
                     '<div class="portal-map-item-name">' + escHtml(p.name) + '</div>' +
@@ -513,7 +513,7 @@
     window.__portalOpenProject = function (id) {
         var project = null;
         for (var i = 0; i < state.projects.length; i++) {
-            if (state.projects[i].id === id) { project = state.projects[i]; break; }
+            if (String(state.projects[i].id) === String(id)) { project = state.projects[i]; break; }
         }
         if (!project) return;
 
@@ -531,7 +531,7 @@
         if (project.location_state) locationParts.push(project.location_state);
 
         // Build view URL
-        var viewUrl = '/customer/' + project.id;
+        var viewUrl = '/customer/project/' + encodeURIComponent(project.id);
 
         var html = '<div class="portal-modal-hero">' +
             '<img src="' + escHtml(fullImageUrl(project.filename)) + '" alt="' + escHtml(project.name) + '" loading="lazy">' +

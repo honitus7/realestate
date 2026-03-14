@@ -40,6 +40,7 @@
         <nav class="crm-sidebar" id="crm-sidebar">
             <div class="sidebar-label">Main</div>
             <a class="active" data-section="interests"><span class="sidebar-icon">&#9733;</span> Interests</a>
+            <a data-section="projects"><span class="sidebar-icon">&#128193;</span> Projects</a>
             <a data-section="panoramas"><span class="sidebar-icon">&#9881;</span> Panoramas</a>
             <a data-section="plots"><span class="sidebar-icon">&#9632;</span> Plots</a>
             <div class="sidebar-divider"></div>
@@ -212,10 +213,32 @@
                 </div>
             </section>
 
+            <!-- ══════════ PROJECTS SECTION ══════════ -->
+            <section class="crm-section" id="sec-projects">
+                <div class="section-header">
+                    <div><h2>Projects</h2><p>Publish projects to Customer Portal and edit details</p></div>
+                </div>
+                <div class="card">
+                    <div class="table-wrap">
+                        <table>
+                            <thead><tr>
+                                <th>Name</th>
+                                <th>Published</th>
+                                <th></th>
+                            </tr></thead>
+                            <tbody id="projects-tbody"></tbody>
+                        </table>
+                        <div class="empty" id="projects-empty" style="display:none;">
+                            <strong>No projects</strong><div>Create a project (folder) from the Dashboard to organize panoramas.</div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
             <!-- ══════════ PANORAMAS SECTION ══════════ -->
             <section class="crm-section" id="sec-panoramas">
                 <div class="section-header">
-                    <div><h2>Panoramas</h2><p>View and manage plots, markers & portal details per panorama</p></div>
+                    <div><h2>Panoramas</h2><p>View and manage plots and markers per panorama</p></div>
                 </div>
                 <div class="card">
                     <div class="table-wrap">
@@ -223,7 +246,6 @@
                             <thead><tr>
                                 <th>ID</th>
                                 <th>Name</th>
-                                <th>Published</th>
                                 <th></th>
                             </tr></thead>
                             <tbody id="panorama-tbody"></tbody>
@@ -694,6 +716,7 @@
             e.preventDefault();
             const sec = this.getAttribute('data-section');
             switchSection(sec);
+            if (sec === 'projects') loadWorkspaces();
             if (sec === 'panoramas') loadPanoramas();
             if (sec === 'plots') loadAllPlots();
             if (sec === 'manage-lock') loadManageLock();
@@ -1054,9 +1077,38 @@
 
     $('btn-refresh').addEventListener('click', async function() {
         this.disabled=true;
-        try { await loadProjects(); await loadInterests(); } catch(e){ console.warn(e); }
+        try { await loadProjects(); await loadWorkspaces(); await loadInterests(); } catch(e){ console.warn(e); }
         finally { this.disabled=false; }
     });
+
+    let workspaces = [];
+    let workspacesLoaded = false;
+    async function loadWorkspaces(force) {
+        if(workspacesLoaded && !force) { renderProjectsTable(); return; }
+        try {
+            const r = await api('/api/workspaces');
+            if(!r.ok) throw new Error('Failed to load workspaces');
+            const data = await r.json();
+            workspaces = Array.isArray(data) ? data : [];
+            workspacesLoaded = true;
+            renderProjectsTable();
+        } catch(e) { console.warn(e); workspaces = []; renderProjectsTable(); }
+    }
+    window.loadWorkspaces = loadWorkspaces;
+    function renderProjectsTable() {
+        const tbody = document.getElementById('projects-tbody');
+        const empty = document.getElementById('projects-empty');
+        if(!tbody) return;
+        if(!workspaces.length) { tbody.innerHTML=''; if(empty) empty.style.display=''; return; }
+        if(empty) empty.style.display='none';
+        tbody.innerHTML = workspaces.map(ws => {
+            const pub = ws.is_published ? '<span style="color:var(--color-available);font-weight:600;font-size:0.75rem;">Yes</span>' : '<span style="color:var(--muted);font-size:0.75rem;">No</span>';
+            return '<tr><td style="font-weight:700">'+esc(ws.name||'Unnamed')+'</td><td>'+pub+'</td><td style="display:flex;gap:0.4rem;"><button class="btn" data-edit-project="'+esc(ws.id)+'">Edit Details</button></td></tr>';
+        }).join('');
+        tbody.querySelectorAll('[data-edit-project]').forEach(btn => {
+            btn.addEventListener('click', () => openEditProjectModal(btn.getAttribute('data-edit-project')));
+        });
+    }
 
     // ══════════════════════════════════════════
     //  PANORAMAS SECTION
@@ -1068,14 +1120,10 @@
         if(!projects.length) { tbody.innerHTML=''; empty.style.display=''; return; }
         empty.style.display='none';
         tbody.innerHTML = projects.map(p => {
-            const pub = p.is_published ? '<span style="color:var(--color-available);font-weight:600;font-size:0.75rem;">Yes</span>' : '<span style="color:var(--muted);font-size:0.75rem;">No</span>';
-            return '<tr><td class="mono">'+esc(p.id)+'</td><td style="font-weight:700">'+esc(p.name||'Unnamed')+'</td><td>'+pub+'</td><td style="display:flex;gap:0.4rem;"><button class="btn" data-open-panorama="'+esc(p.id)+'">Open</button><button class="btn" data-edit-details="'+esc(p.id)+'">Edit Details</button></td></tr>';
+            return '<tr><td class="mono">'+esc(p.id)+'</td><td style="font-weight:700">'+esc(p.name||'Unnamed')+'</td><td style="display:flex;gap:0.4rem;"><button class="btn" data-open-panorama="'+esc(p.id)+'">Open</button></td></tr>';
         }).join('');
         tbody.querySelectorAll('[data-open-panorama]').forEach(btn => {
             btn.addEventListener('click', () => openPanoramaModal(btn.getAttribute('data-open-panorama')));
-        });
-        tbody.querySelectorAll('[data-edit-details]').forEach(btn => {
-            btn.addEventListener('click', () => openEditProjectModal(btn.getAttribute('data-edit-details')));
         });
     }
     async function loadPanoramas(force) {
@@ -1801,7 +1849,7 @@
     var errorEl = document.getElementById('edit-project-error');
     var mapsInput = document.getElementById('ep-google-maps-link');
     var mapsStatus = document.getElementById('ep-maps-status');
-    var editPanoramaId = null;
+    var editWorkspaceId = null;
 
     function extractCoords(link) {
         if (!link) return null;
@@ -1823,27 +1871,19 @@
         var coords = extractCoords(link);
         if (coords) {
             _lastResolvedCoords = coords;
-            mapsStatus.textContent = 'Coords: ' + coords.lat.toFixed(6) + ', ' + coords.lng.toFixed(6);
-            mapsStatus.style.color = 'var(--color-available)';
+            if (mapsStatus) { mapsStatus.textContent = 'Coords: ' + coords.lat.toFixed(6) + ', ' + coords.lng.toFixed(6); mapsStatus.style.color = 'var(--color-available)'; }
             return;
         }
-        if (!link.trim()) { mapsStatus.textContent = ''; return; }
-        // Check if it's a short URL that needs server-side resolution
+        if (!link.trim()) { if (mapsStatus) mapsStatus.textContent = ''; return; }
         if (link.match(/goo\.gl\//i) || link.match(/maps\.app\./i)) {
-            mapsStatus.textContent = 'Resolving short link...';
-            mapsStatus.style.color = 'var(--muted)';
+            if (mapsStatus) { mapsStatus.textContent = 'Resolving short link...'; mapsStatus.style.color = 'var(--muted)'; }
             window.getAuthHeaders().then(function(headers) {
                 headers['Content-Type'] = 'application/json';
-                return fetch('/api/resolve-maps-link', {
-                    method: 'POST', headers: headers,
-                    body: JSON.stringify({ link: link })
-                });
+                return fetch('/api/resolve-maps-link', { method: 'POST', headers: headers, body: JSON.stringify({ link: link }) });
             }).then(function(r) { return r.json(); }).then(function(data) {
                 if (data.lat != null && data.lng != null) {
                     _lastResolvedCoords = { lat: data.lat, lng: data.lng };
-                    mapsStatus.textContent = 'Coords: ' + data.lat.toFixed(6) + ', ' + data.lng.toFixed(6);
-                    mapsStatus.style.color = 'var(--color-available)';
-                    // Auto-fill address, city, state if empty
+                    if (mapsStatus) { mapsStatus.textContent = 'Coords: ' + data.lat.toFixed(6) + ', ' + data.lng.toFixed(6); mapsStatus.style.color = 'var(--color-available)'; }
                     var addrEl = document.getElementById('ep-location-address');
                     var cityEl = document.getElementById('ep-location-city');
                     var stateEl = document.getElementById('ep-location-state');
@@ -1851,16 +1891,13 @@
                     if (cityEl && !cityEl.value.trim() && data.city) cityEl.value = data.city;
                     if (stateEl && !stateEl.value.trim() && data.state) stateEl.value = data.state;
                 } else {
-                    mapsStatus.textContent = data.error || 'Could not extract coordinates';
-                    mapsStatus.style.color = 'var(--warning)';
+                    if (mapsStatus) { mapsStatus.textContent = data.error || 'Could not extract coordinates'; mapsStatus.style.color = 'var(--warning)'; }
                 }
             }).catch(function() {
-                mapsStatus.textContent = 'Could not resolve link';
-                mapsStatus.style.color = 'var(--warning)';
+                if (mapsStatus) { mapsStatus.textContent = 'Could not resolve link'; mapsStatus.style.color = 'var(--warning)'; }
             });
         } else {
-            mapsStatus.textContent = 'Could not extract coordinates';
-            mapsStatus.style.color = 'var(--warning)';
+            if (mapsStatus) { mapsStatus.textContent = 'Could not extract coordinates'; mapsStatus.style.color = 'var(--warning)'; }
         }
     }
 
@@ -1871,17 +1908,16 @@
         });
     }
 
-    function close() { modal.classList.remove('visible'); editPanoramaId = null; }
-    if (closeBtn) closeBtn.addEventListener('click', close);
-    if (cancelBtn) cancelBtn.addEventListener('click', close);
-    if (modal) modal.addEventListener('click', function(e) { if (e.target === modal) close(); });
+    function closeModal() { if (modal) modal.classList.remove('visible'); editWorkspaceId = null; }
+    if (closeBtn) closeBtn.addEventListener('click', closeModal);
+    if (cancelBtn) cancelBtn.addEventListener('click', closeModal);
+    if (modal) modal.addEventListener('click', function(e) { if (e.target === modal) closeModal(); });
 
-    window.openEditProjectModal = function(pid) {
-        editPanoramaId = pid;
-        errorEl.style.display = 'none';
-        // Fetch current panorama details
+    window.openEditProjectModal = function(workspaceId) {
+        editWorkspaceId = workspaceId;
+        if (errorEl) errorEl.style.display = 'none';
         window.getAuthHeaders().then(function(headers) {
-            return fetch('/api/public/panoramas/' + encodeURIComponent(pid));
+            return fetch('/api/workspaces/' + encodeURIComponent(workspaceId), { headers: headers });
         }).then(function(r) { return r.json(); }).then(function(p) {
             document.getElementById('ep-builder-name').value = p.builder_name || '';
             document.getElementById('ep-project-type').value = p.project_type || 'residential';
@@ -1899,18 +1935,19 @@
             var amenities = p.amenities || [];
             document.getElementById('ep-amenities').value = Array.isArray(amenities) ? amenities.join(', ') : '';
             document.getElementById('ep-is-published').checked = !!p.is_published;
-            if (mapsStatus) { mapsStatus.textContent = ''; mapsInput.dispatchEvent(new Event('input')); }
-            modal.classList.add('visible');
+            if (mapsStatus) { mapsStatus.textContent = ''; if (mapsInput) mapsInput.dispatchEvent(new Event('input')); }
+            if (modal) modal.classList.add('visible');
         }).catch(function(err) {
             console.error(err);
-            modal.classList.add('visible');
+            if (errorEl) { errorEl.textContent = 'Failed to load project'; errorEl.style.display = 'block'; }
+            if (modal) modal.classList.add('visible');
         });
     };
 
     if (saveBtn) {
         saveBtn.addEventListener('click', async function() {
-            if (!editPanoramaId) return;
-            errorEl.style.display = 'none';
+            if (!editWorkspaceId) return;
+            if (errorEl) errorEl.style.display = 'none';
             saveBtn.disabled = true;
             saveBtn.textContent = 'Saving...';
             try {
@@ -1929,7 +1966,7 @@
                     google_maps_link: mapsLink,
                     rera_registration: document.getElementById('ep-rera').value.trim(),
                     total_area: document.getElementById('ep-total-area').value.trim(),
-                    launch_date: document.getElementById('ep-launch-date').value,
+                    launch_date: document.getElementById('ep-launch-date').value || null,
                     possession_date: document.getElementById('ep-possession-date').value.trim(),
                     description: document.getElementById('ep-description').value.trim(),
                     contact_phone: document.getElementById('ep-contact-phone').value.trim(),
@@ -1938,7 +1975,7 @@
                     is_published: document.getElementById('ep-is-published').checked,
                 };
                 if (coords) { body.location_lat = coords.lat; body.location_lng = coords.lng; }
-                var resp = await fetch('/api/panoramas/' + encodeURIComponent(editPanoramaId), {
+                var resp = await fetch('/api/workspaces/' + encodeURIComponent(editWorkspaceId), {
                     method: 'PATCH',
                     headers: headers,
                     body: JSON.stringify(body),
@@ -1947,12 +1984,10 @@
                     var err = await resp.json().catch(function() { return {}; });
                     throw new Error(err.error || 'Save failed');
                 }
-                close();
-                // Refresh panorama table
-                if (typeof window.loadPanoramas === 'function') window.loadPanoramas();
+                closeModal();
+                if (typeof window.loadWorkspaces === 'function') window.loadWorkspaces(true);
             } catch (e) {
-                errorEl.textContent = e.message || 'Failed to save';
-                errorEl.style.display = 'block';
+                if (errorEl) { errorEl.textContent = e.message || 'Failed to save'; errorEl.style.display = 'block'; }
             } finally {
                 saveBtn.disabled = false;
                 saveBtn.textContent = 'Save Details';

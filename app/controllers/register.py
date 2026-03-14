@@ -43,6 +43,7 @@ from app.services.workspace_service import (
     delete_workspace as ws_delete_workspace,
     get_workspace_schema_error_response,
     is_workspace_schema_missing,
+    project_fields_from_payload,
 )
 from app.services.storage_service import (
     use_s3,
@@ -452,6 +453,23 @@ def register_routes(app):
             initial_panorama_id=initial_panorama_id,
             **auth_ctx()
         )
+
+    @app.route('/customer/project/<workspace_id>')
+    def customer_project_view(workspace_id):
+        sb = get_supabase()
+        if not sb:
+            return "Database not configured", 503
+        workspace = get_workspace_by_id(sb, workspace_id)
+        if not workspace or not workspace.get('is_published'):
+            return "Project not found", 404
+        main_id = workspace.get('main_panorama_id')
+        if not main_id:
+            return "Project has no main panorama", 404
+        panorama = get_panorama_by_id(sb, main_id)
+        if not panorama:
+            return "Panorama not found", 404
+        org_name, canonical_slug = get_org_name_and_slug_for_panorama(sb, panorama)
+        return redirect(f"/customer/{canonical_slug}/full-view/{main_id}", code=302)
 
     @app.route('/uploads/<filename>')
     def uploaded_file(filename):
@@ -928,43 +946,20 @@ def register_routes(app):
                 return jsonify({'error': 'buy_interests table not found. Run db/schema.sql in Supabase SQL Editor.'}), 503
             return jsonify({'error': msg}), 500
 
-    # ── Portal API: public project listing with aggregated plot data ──
     @app.route('/api/public/portal/projects', methods=['GET'])
     def public_portal_projects():
         sb = get_supabase()
         if not sb:
             return jsonify({'error': 'Database not configured'}), 503
+        q = request.args.get('q', '').strip()
+        city = request.args.get('city', '').strip()
+        project_type = request.args.get('type', '').strip()
+        sort = request.args.get('sort', 'newest').strip()
+        page = max(1, int(request.args.get('page', 1)))
+        per_page = min(50, max(1, int(request.args.get('per_page', 12))))
+        offset_val = (page - 1) * per_page
         try:
-            q = request.args.get('q', '').strip()
-            city = request.args.get('city', '').strip()
-            project_type = request.args.get('type', '').strip()
-            sort = request.args.get('sort', 'newest').strip()
-            page = max(1, int(request.args.get('page', 1)))
-            per_page = min(50, max(1, int(request.args.get('per_page', 12))))
-            offset_val = (page - 1) * per_page
-
-            select_fields = (
-                'id, name, filename, is_360, location_address, location_city, location_state, '
-                'location_lat, location_lng, rera_registration, launch_date, possession_date, '
-                'builder_name, project_type, total_area, description, amenities, is_published, '
-                'contact_phone, contact_email, google_maps_link, org_id, created_at, updated_at'
-            )
-            # Check if any panoramas are published; if none, show all
-            published_only = True
-            try:
-                pub_check = sb.table('panoramas').select('id', count='exact').eq('is_published', True).limit(1).execute()
-                pub_count = getattr(pub_check, 'count', None)
-                if pub_count is None:
-                    pub_count = len(pub_check.data or [])
-                if pub_count == 0:
-                    published_only = False
-            except Exception:
-                published_only = False
-
-            query = sb.table('panoramas').select(select_fields)
-            if published_only:
-                query = query.eq('is_published', True)
-
+            query = sb.table('workspaces').select('*').eq('is_published', True)
             if city:
                 query = query.ilike('location_city', f'%{city}%')
             if project_type:
@@ -974,39 +969,47 @@ def register_routes(app):
                     f'name.ilike.%{q}%,location_address.ilike.%{q}%,location_city.ilike.%{q}%,'
                     f'builder_name.ilike.%{q}%,description.ilike.%{q}%,rera_registration.ilike.%{q}%'
                 )
-
-            if sort == 'price_low' or sort == 'price_high':
-                query = query.order('created_at', desc=True)
-            elif sort == 'oldest':
+            if sort == 'oldest':
                 query = query.order('created_at', desc=False)
             else:
                 query = query.order('created_at', desc=True)
-
             result = query.range(offset_val, offset_val + per_page - 1).execute()
             rows = list(result.data or [])
         except Exception as e:
             msg = str(e).lower()
             if 'does not exist' in msg or 'column' in msg or '42703' in msg:
-                # Portal columns not yet added — fallback to basic fields
-                try:
-                    fallback_q = sb.table('panoramas').select('id, name, filename, is_360, org_id, created_at, updated_at')
-                    fallback_q = fallback_q.order('created_at', desc=True)
-                    fallback_q = fallback_q.range(offset_val, offset_val + per_page - 1)
-                    result = fallback_q.execute()
-                    rows = list(result.data or [])
-                except Exception:
-                    return jsonify({'projects': [], 'total': 0, 'page': page, 'per_page': per_page, 'cities': []})
-            else:
-                return jsonify({'error': str(e)}), 500
+                return jsonify({'projects': [], 'total': 0, 'page': page, 'per_page': per_page, 'cities': []})
+            return jsonify({'error': str(e)}), 500
 
-        # Fetch plot aggregates for these panoramas in one batch
-        panorama_ids = [r['id'] for r in rows if r.get('id')]
+        workspace_ids = [str(r.get('id')) for r in rows if r.get('id')]
+        main_pano_ids = [r.get('main_panorama_id') for r in rows if r.get('main_panorama_id')]
+        main_panos = {}
+        if main_pano_ids:
+            try:
+                pano_r = sb.table('panoramas').select('id, filename, is_360').in_('id', main_pano_ids).execute()
+                for p in (pano_r.data or []):
+                    main_panos[int(p.get('id'))] = p
+            except Exception:
+                pass
+
+        panorama_ids = []
+        ws_to_panos = {}
+        try:
+            panos_r = sb.table('panoramas').select('id, workspace_id').in_('workspace_id', workspace_ids).execute()
+            for p in (panos_r.data or []):
+                ws_id = str(p.get('workspace_id') or '')
+                if ws_id not in ws_to_panos:
+                    ws_to_panos[ws_id] = []
+                pid = p.get('id')
+                ws_to_panos[ws_id].append(pid)
+                panorama_ids.append(pid)
+        except Exception:
+            pass
+
         plot_stats = {}
         if panorama_ids:
             try:
-                plots_result = sb.table('plots').select(
-                    'panorama_id, id, price, status'
-                ).in_('panorama_id', panorama_ids).execute()
+                plots_result = sb.table('plots').select('panorama_id, id, price, status').in_('panorama_id', panorama_ids).execute()
                 for plot in (plots_result.data or []):
                     pid = plot.get('panorama_id')
                     if pid not in plot_stats:
@@ -1031,7 +1034,18 @@ def register_routes(app):
             except Exception:
                 pass
 
-        # Fetch org names for theming
+        ws_plot_stats = {}
+        for ws_id, pano_ids in ws_to_panos.items():
+            agg = {'count': 0, 'prices': [], 'available': 0, 'sold': 0, 'hold': 0}
+            for pid in pano_ids:
+                s = plot_stats.get(pid, {})
+                agg['count'] += s.get('count', 0)
+                agg['available'] += s.get('available', 0)
+                agg['sold'] += s.get('sold', 0)
+                agg['hold'] += s.get('hold', 0)
+                agg['prices'].extend(s.get('prices', []))
+            ws_plot_stats[ws_id] = agg
+
         org_ids = list(set(r.get('org_id') for r in rows if r.get('org_id')))
         org_map = {}
         if org_ids:
@@ -1044,8 +1058,10 @@ def register_routes(app):
 
         projects = []
         for row in rows:
-            pid = row.get('id')
-            stats = plot_stats.get(pid, {'count': 0, 'prices': [], 'available': 0, 'sold': 0, 'hold': 0})
+            ws_id = str(row.get('id'))
+            main_id = row.get('main_panorama_id')
+            main_pano = main_panos.get(int(main_id), {}) if main_id else {}
+            stats = ws_plot_stats.get(ws_id, {'count': 0, 'prices': [], 'available': 0, 'sold': 0, 'hold': 0})
             prices = stats['prices']
             avg_price = sum(prices) / len(prices) if prices else 0
             min_price = min(prices) if prices else 0
@@ -1059,10 +1075,11 @@ def register_routes(app):
                     amenities = []
 
             projects.append({
-                'id': pid,
+                'id': ws_id,
+                'main_panorama_id': int(main_id) if main_id else None,
                 'name': row.get('name', ''),
-                'filename': row.get('filename', ''),
-                'is_360': bool(row.get('is_360')),
+                'filename': main_pano.get('filename', ''),
+                'is_360': bool(main_pano.get('is_360')),
                 'location_address': row.get('location_address', ''),
                 'location_city': row.get('location_city', ''),
                 'location_state': row.get('location_state', ''),
@@ -1092,13 +1109,10 @@ def register_routes(app):
                 'updated_at': str(row.get('updated_at') or ''),
             })
 
-        # Get total count for pagination
         total = len(projects)
         if len(rows) == per_page:
             try:
-                count_q = sb.table('panoramas').select('id', count='exact')
-                if published_only:
-                    count_q = count_q.eq('is_published', True)
+                count_q = sb.table('workspaces').select('id', count='exact').eq('is_published', True)
                 if city:
                     count_q = count_q.ilike('location_city', f'%{city}%')
                 if project_type:
@@ -1113,12 +1127,9 @@ def register_routes(app):
             except Exception:
                 total = offset_val + len(projects) + 1
 
-        # Get distinct cities for filter dropdown
         cities = []
         try:
-            city_q = sb.table('panoramas').select('location_city')
-            if published_only:
-                city_q = city_q.eq('is_published', True)
+            city_q = sb.table('workspaces').select('location_city').eq('is_published', True)
             city_result = city_q.execute()
             city_set = set()
             for r in (city_result.data or []):
@@ -1203,7 +1214,7 @@ def register_routes(app):
             return jsonify({'error': str(e)}), 500
 
     @app.route('/api/workspaces', methods=['POST'])
-    @require_auth
+    @require_admin
     def create_workspace(user_id, role):
         sb = get_supabase()
         if not sb:
@@ -1214,8 +1225,9 @@ def register_routes(app):
             return jsonify({'error': 'name is required'}), 400
         if len(name) > 120:
             return jsonify({'error': 'name must be 120 characters or fewer'}), 400
+        project_fields = project_fields_from_payload(payload)
         try:
-            ws = ws_create_workspace(sb, user_id, name)
+            ws = ws_create_workspace(sb, user_id, name, **project_fields)
             return jsonify({'success': True, 'workspace': ws}), 201
         except Exception as e:
             if is_workspace_schema_missing(e):
@@ -1225,8 +1237,31 @@ def register_routes(app):
                 return jsonify({'error': 'Workspace name already exists'}), 409
             return jsonify({'error': str(e)}), 500
 
-    @app.route('/api/workspaces/<workspace_id>', methods=['PATCH', 'PUT'])
+    @app.route('/api/workspaces/<workspace_id>', methods=['GET'])
     @require_auth
+    def get_workspace(user_id, role, workspace_id):
+        sb = get_supabase()
+        if not sb:
+            return jsonify({'error': 'Database not configured'}), 503
+        try:
+            workspace = get_workspace_by_id(sb, workspace_id)
+        except Exception as e:
+            if is_workspace_schema_missing(e):
+                return _ws_error_response()
+            return jsonify({'error': str(e)}), 500
+        if not workspace:
+            return jsonify({'error': 'Workspace not found'}), 404
+        access = 'owner' if str(workspace.get('user_id') or '') == str(user_id) else None
+        if access is None:
+            shared = sb.table('workspace_access').select('access_type').eq('workspace_id', workspace_id).eq('user_id', user_id).limit(1).execute()
+            if not (shared.data and len(shared.data) > 0):
+                return jsonify({'error': 'Workspace not found'}), 404
+            access = (shared.data[0].get('access_type') or 'viewer')
+        ws = serialize_workspace_row(workspace, access)
+        return jsonify(ws)
+
+    @app.route('/api/workspaces/<workspace_id>', methods=['PATCH', 'PUT'])
+    @require_admin
     def rename_workspace(user_id, role, workspace_id):
         sb = get_supabase()
         if not sb:
@@ -1239,8 +1274,9 @@ def register_routes(app):
                 main_panorama_id = int(main_panorama_id)
             except (TypeError, ValueError):
                 main_panorama_id = None
-        if not name and main_panorama_id is None:
-            return jsonify({'error': 'name or main_panorama_id is required'}), 400
+        project_fields = project_fields_from_payload(payload)
+        if not name and main_panorama_id is None and not project_fields:
+            return jsonify({'error': 'Provide at least one field to update'}), 400
         if name is not None and len(name) > 120:
             return jsonify({'error': 'name must be 120 characters or fewer'}), 400
         try:
@@ -1254,7 +1290,7 @@ def register_routes(app):
         if str(workspace.get('user_id') or '') != str(user_id):
             return jsonify({'error': 'Only workspace owner can update'}), 403
         try:
-            ws = ws_update_workspace(sb, workspace_id, user_id, name=name, main_panorama_id=main_panorama_id)
+            ws = ws_update_workspace(sb, workspace_id, user_id, name=name, main_panorama_id=main_panorama_id, **project_fields)
             return jsonify({'success': True, 'workspace': ws})
         except ValueError as ve:
             err = str(ve)
@@ -1272,7 +1308,7 @@ def register_routes(app):
             return jsonify({'error': str(e)}), 500
 
     @app.route('/api/workspaces/<workspace_id>', methods=['DELETE'])
-    @require_auth
+    @require_admin
     def delete_workspace(user_id, role, workspace_id):
         sb = get_supabase()
         if not sb:
@@ -1406,7 +1442,7 @@ def register_routes(app):
             return jsonify({'error': str(e)}), 500
 
     @app.route('/api/panoramas/upload-url', methods=['POST'])
-    @require_auth
+    @require_admin
     def create_panorama_upload_url(user_id, role):
         if not use_s3():
             return jsonify({'error': 'Supabase S3 is not configured'}), 503
@@ -1463,7 +1499,7 @@ def register_routes(app):
         })
 
     @app.route('/api/panoramas', methods=['POST'])
-    @require_auth
+    @require_admin
     def create_panorama(user_id, role):
         def _coerce_dim(value):
             try:
@@ -1599,31 +1635,6 @@ def register_routes(app):
                 'is_360': is_360,
                 'image_content_type': image_content_type,
             }
-            # Portal fields (optional — gracefully ignored if columns don't exist yet)
-            portal_text_fields = [
-                'builder_name', 'project_type', 'location_address', 'location_city',
-                'location_state', 'google_maps_link', 'rera_registration', 'total_area',
-                'launch_date', 'possession_date', 'description', 'contact_phone',
-                'contact_email', 'brochure_url',
-            ]
-            for f in portal_text_fields:
-                val = str(payload.get(f) or '').strip()
-                if val:
-                    insert_row[f] = val
-            for coord in ('location_lat', 'location_lng'):
-                try:
-                    v = float(payload.get(coord, ''))
-                    insert_row[coord] = v
-                except (TypeError, ValueError):
-                    pass
-            if str(payload.get('is_published', '')).lower() == 'true':
-                insert_row['is_published'] = True
-            try:
-                amenities_raw = payload.get('amenities', '')
-                if amenities_raw:
-                    insert_row['amenities'] = json.loads(amenities_raw) if isinstance(amenities_raw, str) else amenities_raw
-            except (json.JSONDecodeError, TypeError):
-                pass
             try:
                 r = sb.table('panoramas').insert(insert_row).execute()
             except Exception as e:
@@ -1691,7 +1702,7 @@ def register_routes(app):
             return jsonify({'error': str(e)}), 500
 
     @app.route('/api/panoramas/<int:panorama_id>', methods=['DELETE'])
-    @require_auth
+    @require_admin
     def delete_panorama(user_id, role, panorama_id):
         sb = get_supabase()
         if not sb:
@@ -1747,36 +1758,12 @@ def register_routes(app):
         update_fields = {'updated_at': datetime.utcnow().isoformat()}
         if name is not None:
             if not name:
-                return jsonify({'error': 'Project name is required'}), 400
+                return jsonify({'error': 'Name is required'}), 400
             if len(name) > 120:
-                return jsonify({'error': 'Project name must be 120 characters or fewer'}), 400
+                return jsonify({'error': 'Name must be 120 characters or fewer'}), 400
             update_fields['name'] = name
         if use_animated_icons is not None:
             update_fields['use_animated_icons'] = use_animated_icons
-        # Portal fields update
-        portal_text_fields = [
-            'builder_name', 'project_type', 'location_address', 'location_city',
-            'location_state', 'google_maps_link', 'rera_registration', 'total_area',
-            'launch_date', 'possession_date', 'description', 'contact_phone',
-            'contact_email', 'brochure_url',
-        ]
-        for f in portal_text_fields:
-            if payload.get(f) is not None:
-                update_fields[f] = str(payload.get(f, '')).strip()
-        for coord in ('location_lat', 'location_lng'):
-            if payload.get(coord) is not None:
-                try:
-                    update_fields[coord] = float(payload[coord])
-                except (TypeError, ValueError):
-                    pass
-        if payload.get('is_published') is not None:
-            update_fields['is_published'] = str(payload['is_published']).lower() in ('true', '1')
-        if payload.get('amenities') is not None:
-            try:
-                raw = payload['amenities']
-                update_fields['amenities'] = json.loads(raw) if isinstance(raw, str) else raw
-            except (json.JSONDecodeError, TypeError):
-                pass
         if len(update_fields) <= 1:
             return jsonify({'error': 'Provide at least one field to update'}), 400
         try:
@@ -1891,7 +1878,7 @@ def register_routes(app):
         return jsonify(result)
 
     @app.route('/api/panoramas/<int:panorama_id>/workspace', methods=['PATCH', 'PUT'])
-    @require_auth
+    @require_admin
     def move_panorama_to_workspace(user_id, role, panorama_id):
         sb = get_supabase()
         if not sb:
@@ -3171,20 +3158,12 @@ def register_routes(app):
         try:
             for i in range(0, len(panorama_ids), chunk_size):
                 chunk = panorama_ids[i:i + chunk_size]
-                try:
-                    r = (
-                        sb.table('panoramas')
-                        .select('id, name, is_published, created_at, updated_at')
-                        .in_('id', chunk)
-                        .execute()
-                    )
-                except Exception:
-                    r = (
-                        sb.table('panoramas')
-                        .select('id, name, created_at, updated_at')
-                        .in_('id', chunk)
-                        .execute()
-                    )
+                r = (
+                    sb.table('panoramas')
+                    .select('id, name, created_at, updated_at')
+                    .in_('id', chunk)
+                    .execute()
+                )
                 for row in (r.data or []):
                     try:
                         pid = int(row.get('id'))
@@ -3192,8 +3171,7 @@ def register_routes(app):
                         continue
                     item = {
                         'id': pid,
-                        'name': str(row.get('name') or f'Project #{pid}'),
-                        'is_published': bool(row.get('is_published')),
+                        'name': str(row.get('name') or f'Panorama #{pid}'),
                         'created_at': str(row.get('created_at') or ''),
                         'updated_at': str(row.get('updated_at') or ''),
                     }

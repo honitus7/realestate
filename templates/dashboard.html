@@ -10,7 +10,7 @@
         <button type="button" class="sidebar-toggle" id="sidebar-toggle" aria-label="Toggle sidebar">
             <span class="sidebar-toggle-icon"></span>
         </button>
-        <div class="sidebar-upload-wrap">
+        <div class="sidebar-upload-wrap" id="sidebar-upload-wrap" style="display:none;">
             <button type="button" class="sidebar-upload-btn" id="sidebar-upload-btn" aria-label="Upload panorama">
                 <span class="sidebar-upload-icon">+</span>
             </button>
@@ -84,7 +84,7 @@
                     <option value="recent">Recent</option>
                     <option value="oldest">Oldest first</option>
                 </select>
-                <button type="button" class="dashboard-filter-btn" id="create-workspace-btn">New Project</button>
+                <button type="button" class="dashboard-filter-btn" id="create-workspace-btn" style="display:none;">New Project</button>
             </div>
 
             <!-- Recents: horizontal scroll of panorama cards -->
@@ -176,98 +176,6 @@
                             </div>
                         </div>
 
-                        <!-- Collapsible Project Details Section -->
-                        <details class="upload-details-section" id="upload-details-toggle">
-                            <summary style="font-size: 0.82rem; font-weight: 600; color: var(--color-text); cursor: pointer; padding: 0.5rem 0; user-select: none;">
-                                Project Details (for Customer Portal)
-                                <span style="font-size: 0.68rem; color: var(--color-muted); margin-left: 0.5rem;">optional</span>
-                            </summary>
-                            <div style="display: grid; gap: 0.75rem; margin-top: 0.5rem;">
-                                <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
-                                    <div class="form-group">
-                                        <label class="form-label">Builder / Developer Name</label>
-                                        <input type="text" class="form-input" id="upload-builder-name" placeholder="e.g., DLF Group">
-                                    </div>
-                                    <div class="form-group">
-                                        <label class="form-label">Project Type</label>
-                                        <select class="form-input" id="upload-project-type">
-                                            <option value="residential">Residential</option>
-                                            <option value="commercial">Commercial</option>
-                                            <option value="plotted">Plotted Development</option>
-                                            <option value="villa">Villa / Row House</option>
-                                            <option value="mixed">Mixed Use</option>
-                                            <option value="farmland">Farm Land</option>
-                                        </select>
-                                    </div>
-                                </div>
-                                <div class="form-group">
-                                    <label class="form-label">Location Address</label>
-                                    <input type="text" class="form-input" id="upload-location-address" placeholder="e.g., Sector 42, Gurugram, Haryana">
-                                </div>
-                                <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
-                                    <div class="form-group">
-                                        <label class="form-label">City</label>
-                                        <input type="text" class="form-input" id="upload-location-city" placeholder="e.g., Gurugram">
-                                    </div>
-                                    <div class="form-group">
-                                        <label class="form-label">State</label>
-                                        <input type="text" class="form-input" id="upload-location-state" placeholder="e.g., Haryana">
-                                    </div>
-                                </div>
-                                <div class="form-group">
-                                    <label class="form-label">Google Maps Link</label>
-                                    <input type="url" class="form-input" id="upload-google-maps-link" placeholder="Paste Google Maps link — coordinates will be auto-extracted">
-                                    <div style="font-size: 0.68rem; color: var(--color-muted); margin-top: 0.2rem;" id="maps-link-status"></div>
-                                </div>
-                                <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
-                                    <div class="form-group">
-                                        <label class="form-label">RERA Registration No.</label>
-                                        <input type="text" class="form-input" id="upload-rera" placeholder="e.g., RERA12345678">
-                                    </div>
-                                    <div class="form-group">
-                                        <label class="form-label">Total Project Area</label>
-                                        <input type="text" class="form-input" id="upload-total-area" placeholder="e.g., 25 Acres">
-                                    </div>
-                                </div>
-                                <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
-                                    <div class="form-group">
-                                        <label class="form-label">Launch Date</label>
-                                        <input type="date" class="form-input" id="upload-launch-date">
-                                    </div>
-                                    <div class="form-group">
-                                        <label class="form-label">Possession Date</label>
-                                        <input type="text" class="form-input" id="upload-possession-date" placeholder="e.g., Dec 2026">
-                                    </div>
-                                </div>
-                                <div class="form-group">
-                                    <label class="form-label">Description</label>
-                                    <textarea class="form-input" id="upload-description" rows="2" placeholder="Brief 360° panorama description for customers..." style="resize: vertical;"></textarea>
-                                </div>
-                                <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
-                                    <div class="form-group">
-                                        <label class="form-label">Contact Phone</label>
-                                        <input type="tel" class="form-input" id="upload-contact-phone" placeholder="+91 98765 43210">
-                                    </div>
-                                    <div class="form-group">
-                                        <label class="form-label">Contact Email</label>
-                                        <input type="email" class="form-input" id="upload-contact-email" placeholder="sales@builder.com">
-                                    </div>
-                                </div>
-                                <div class="form-group">
-                                    <label class="form-label">Amenities</label>
-                                    <input type="text" class="form-input" id="upload-amenities" placeholder="Comma-separated: Swimming Pool, Gym, Clubhouse, Park...">
-                                    <div style="font-size: 0.68rem; color: var(--color-muted); margin-top: 0.2rem;">Enter amenities separated by commas</div>
-                                </div>
-                                <div class="form-group">
-                                    <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
-                                        <input type="checkbox" id="upload-is-published" style="width: auto; cursor: pointer;">
-                                        <span style="font-size: 0.85rem; color: var(--color-text);">Publish on Customer Portal</span>
-                                    </label>
-                                    <div style="font-size: 0.7rem; color: var(--color-muted); margin-top: 0.25rem; margin-left: 1.75rem;">Make this 360° panorama visible to customers on the public portal</div>
-                                </div>
-                            </div>
-                        </details>
-
                         <div class="form-actions">
                             <button class="btn btn-secondary" id="cancel-upload">Cancel</button>
                             <button class="btn btn-primary" id="start-upload">Create 360° Panorama</button>
@@ -315,13 +223,92 @@
 
     <!-- Create Workspace Modal -->
     <div class="modal-backdrop" id="create-workspace-modal">
-        <div class="modal">
+        <div class="modal" style="max-width: 640px; max-height: 90vh; overflow-y: auto;">
             <div class="modal-title">Create Project</div>
-            <div class="modal-text" style="margin-bottom: 1rem;">Create a new workspace Project to organize panoramas.</div>
+            <div class="modal-text" style="margin-bottom: 1rem;">Create a new project to organize panoramas. Add optional details for the Customer Portal.</div>
             <div class="form-group" style="margin-bottom: 1rem;">
                 <label class="form-label" for="workspace-name-input">Project name</label>
-                <input type="text" id="workspace-name-input" class="form-input" maxlength="120" placeholder="Folder name">
+                <input type="text" id="workspace-name-input" class="form-input" maxlength="120" placeholder="e.g. Sunset Valley Estate">
             </div>
+            <details class="upload-details-section" style="margin-bottom: 1rem;">
+                <summary style="font-size: 0.82rem; font-weight: 600; cursor: pointer; padding: 0.5rem 0;">Project details (optional)</summary>
+                <div style="display: grid; gap: 0.75rem; margin-top: 0.75rem;">
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
+                        <div class="form-group">
+                            <label class="form-label">Builder name</label>
+                            <input type="text" class="form-input" id="ws-builder-name" maxlength="200">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Project type</label>
+                            <select class="form-input" id="ws-project-type">
+                                <option value="residential">Residential</option>
+                                <option value="commercial">Commercial</option>
+                                <option value="plotted">Plotted</option>
+                                <option value="villa">Villa</option>
+                                <option value="mixed">Mixed Use</option>
+                                <option value="farmland">Farm Land</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Location address</label>
+                        <input type="text" class="form-input" id="ws-location-address" maxlength="500">
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
+                        <div class="form-group">
+                            <label class="form-label">City</label>
+                            <input type="text" class="form-input" id="ws-location-city" maxlength="120">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">State</label>
+                            <input type="text" class="form-input" id="ws-location-state" maxlength="120">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Google Maps link</label>
+                        <input type="url" class="form-input" id="ws-google-maps-link" placeholder="Paste link — coordinates auto-extracted">
+                        <div style="font-size: 0.68rem; color: var(--color-muted); margin-top: 0.2rem;" id="ws-maps-status"></div>
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
+                        <div class="form-group">
+                            <label class="form-label">RERA registration</label>
+                            <input type="text" class="form-input" id="ws-rera" maxlength="100">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Total area</label>
+                            <input type="text" class="form-input" id="ws-total-area" maxlength="100">
+                        </div>
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
+                        <div class="form-group">
+                            <label class="form-label">Launch date</label>
+                            <input type="date" class="form-input" id="ws-launch-date">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Possession date</label>
+                            <input type="text" class="form-input" id="ws-possession-date" maxlength="80">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Description</label>
+                        <textarea class="form-input" id="ws-description" rows="2" style="resize: vertical;" maxlength="5000"></textarea>
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
+                        <div class="form-group">
+                            <label class="form-label">Contact phone</label>
+                            <input type="tel" class="form-input" id="ws-contact-phone" maxlength="50">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Contact email</label>
+                            <input type="email" class="form-input" id="ws-contact-email" maxlength="200">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Amenities (comma-separated)</label>
+                        <input type="text" class="form-input" id="ws-amenities" placeholder="e.g. Pool, Gym, Clubhouse" maxlength="500">
+                    </div>
+                </div>
+            </details>
             <div id="workspace-create-error" class="msg error" style="display:none; margin-bottom: 1rem;"></div>
             <div class="modal-actions">
                 <button class="btn btn-secondary" id="cancel-create-workspace">Cancel</button>
@@ -425,6 +412,11 @@
                         var orgsEl = document.getElementById('nav-orgs');
                         if (usersEl) usersEl.style.display = (role === 'admin' || role === 'superadmin') ? '' : 'none';
                         if (orgsEl) orgsEl.style.display = (role === 'superadmin') ? '' : 'none';
+                        var isAdmin = role === 'admin' || role === 'superadmin';
+                        var uploadWrap = document.getElementById('sidebar-upload-wrap');
+                        var createBtn = document.getElementById('create-workspace-btn');
+                        if (uploadWrap) uploadWrap.style.display = isAdmin ? '' : 'none';
+                        if (createBtn) createBtn.style.display = isAdmin ? '' : 'none';
                         updateCrmNavVisibility();
                     })
                     .catch(function () { });
@@ -556,8 +548,6 @@
             if (filterDate) filterDate.addEventListener('change', onSearchOrFilterChange);
         })();
 
-        /* ── Portal fields helper: extract coords from Google Maps link & append all portal fields ── */
-        var _dashResolvedCoords = null;
         function extractCoordsFromGoogleMapsLink(link) {
             if (!link) return null;
             var m = link.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/);
@@ -570,38 +560,33 @@
             if (m) return { lat: parseFloat(m[1]), lng: parseFloat(m[2]) };
             return null;
         }
+
         (function() {
-            var mapsInput = document.getElementById('upload-google-maps-link');
-            var mapsStatus = document.getElementById('maps-link-status');
-            var _dashResolveTimer = null;
+            var mapsInput = document.getElementById('ws-google-maps-link');
+            var mapsStatus = document.getElementById('ws-maps-status');
+            var _wsResolveTimer = null;
             if (mapsInput && mapsStatus) {
                 mapsInput.addEventListener('input', function() {
-                    _dashResolvedCoords = null;
-                    clearTimeout(_dashResolveTimer);
-                    var link = mapsInput.value;
+                    clearTimeout(_wsResolveTimer);
+                    var link = mapsInput.value.trim();
                     var coords = extractCoordsFromGoogleMapsLink(link);
                     if (coords) {
-                        _dashResolvedCoords = coords;
-                        mapsStatus.textContent = 'Coordinates detected: ' + coords.lat.toFixed(6) + ', ' + coords.lng.toFixed(6);
+                        mapsStatus.textContent = 'Coordinates: ' + coords.lat.toFixed(6) + ', ' + coords.lng.toFixed(6);
                         mapsStatus.style.color = 'var(--color-available)';
-                    } else if (link.trim() && (link.match(/goo\.gl\//i) || link.match(/maps\.app\./i))) {
-                        mapsStatus.textContent = 'Resolving short link...';
+                    } else if (link && (link.match(/goo\.gl\//i) || link.match(/maps\.app\./i))) {
+                        mapsStatus.textContent = 'Resolving...';
                         mapsStatus.style.color = 'var(--muted)';
-                        _dashResolveTimer = setTimeout(function() {
+                        _wsResolveTimer = setTimeout(function() {
                             window.getAuthHeaders().then(function(headers) {
                                 headers['Content-Type'] = 'application/json';
-                                return fetch('/api/resolve-maps-link', {
-                                    method: 'POST', headers: headers,
-                                    body: JSON.stringify({ link: link })
-                                });
+                                return fetch('/api/resolve-maps-link', { method: 'POST', headers: headers, body: JSON.stringify({ link: link }) });
                             }).then(function(r) { return r.json(); }).then(function(data) {
                                 if (data.lat != null && data.lng != null) {
-                                    _dashResolvedCoords = { lat: data.lat, lng: data.lng };
-                                    mapsStatus.textContent = 'Coordinates detected: ' + data.lat.toFixed(6) + ', ' + data.lng.toFixed(6);
+                                    mapsStatus.textContent = 'Coordinates: ' + data.lat.toFixed(6) + ', ' + data.lng.toFixed(6);
                                     mapsStatus.style.color = 'var(--color-available)';
-                                    var addrEl = document.getElementById('upload-location-address');
-                                    var cityEl = document.getElementById('upload-location-city');
-                                    var stateEl = document.getElementById('upload-location-state');
+                                    var addrEl = document.getElementById('ws-location-address');
+                                    var cityEl = document.getElementById('ws-location-city');
+                                    var stateEl = document.getElementById('ws-location-state');
                                     if (addrEl && !addrEl.value.trim() && data.address) addrEl.value = data.address;
                                     if (cityEl && !cityEl.value.trim() && data.city) cityEl.value = data.city;
                                     if (stateEl && !stateEl.value.trim() && data.state) stateEl.value = data.state;
@@ -614,8 +599,8 @@
                                 mapsStatus.style.color = 'var(--warning)';
                             });
                         }, 500);
-                    } else if (link.trim()) {
-                        mapsStatus.textContent = 'Could not extract coordinates — they will be ignored';
+                    } else if (link) {
+                        mapsStatus.textContent = 'Could not extract coordinates';
                         mapsStatus.style.color = 'var(--warning)';
                     } else {
                         mapsStatus.textContent = '';
@@ -624,42 +609,52 @@
             }
         })();
 
-        function appendPortalFields(formData) {
-            var fields = [
-                ['builder_name', 'upload-builder-name'],
-                ['project_type', 'upload-project-type'],
-                ['location_address', 'upload-location-address'],
-                ['location_city', 'upload-location-city'],
-                ['location_state', 'upload-location-state'],
-                ['rera_registration', 'upload-rera'],
-                ['total_area', 'upload-total-area'],
-                ['launch_date', 'upload-launch-date'],
-                ['possession_date', 'upload-possession-date'],
-                ['description', 'upload-description'],
-                ['contact_phone', 'upload-contact-phone'],
-                ['contact_email', 'upload-contact-email'],
-                ['brochure_url', ''],
+        function getCreateProjectPayload() {
+            var name = (document.getElementById('workspace-name-input') || {}).value;
+            if (!name || !name.trim()) return null;
+            var payload = { name: name.trim() };
+            var pairs = [
+                ['builder_name', 'ws-builder-name'],
+                ['project_type', 'ws-project-type'],
+                ['location_address', 'ws-location-address'],
+                ['location_city', 'ws-location-city'],
+                ['location_state', 'ws-location-state'],
+                ['google_maps_link', 'ws-google-maps-link'],
+                ['rera_registration', 'ws-rera'],
+                ['total_area', 'ws-total-area'],
+                ['launch_date', 'ws-launch-date'],
+                ['possession_date', 'ws-possession-date'],
+                ['description', 'ws-description'],
+                ['contact_phone', 'ws-contact-phone'],
+                ['contact_email', 'ws-contact-email']
             ];
-            fields.forEach(function(f) {
-                var el = f[1] ? document.getElementById(f[1]) : null;
-                if (el && el.value.trim()) formData.append(f[0], el.value.trim());
+            pairs.forEach(function(p) {
+                var el = document.getElementById(p[1]);
+                if (el && el.value && String(el.value).trim()) payload[p[0]] = String(el.value).trim();
             });
-            var mapsLink = (document.getElementById('upload-google-maps-link') || {}).value || '';
+            var amenitiesEl = document.getElementById('ws-amenities');
+            if (amenitiesEl && amenitiesEl.value && String(amenitiesEl.value).trim()) {
+                payload.amenities = String(amenitiesEl.value).trim().split(',').map(function(s) { return s.trim(); }).filter(Boolean);
+            }
+            var mapsLink = (document.getElementById('ws-google-maps-link') || {}).value || '';
             if (mapsLink.trim()) {
-                formData.append('google_maps_link', mapsLink.trim());
-                var coords = extractCoordsFromGoogleMapsLink(mapsLink) || _dashResolvedCoords;
+                var coords = extractCoordsFromGoogleMapsLink(mapsLink);
                 if (coords) {
-                    formData.append('location_lat', String(coords.lat));
-                    formData.append('location_lng', String(coords.lng));
+                    payload.location_lat = coords.lat;
+                    payload.location_lng = coords.lng;
                 }
             }
-            var amenitiesRaw = (document.getElementById('upload-amenities') || {}).value || '';
-            if (amenitiesRaw.trim()) {
-                var amenities = amenitiesRaw.split(',').map(function(s) { return s.trim(); }).filter(Boolean);
-                formData.append('amenities', JSON.stringify(amenities));
-            }
-            var isPublished = (document.getElementById('upload-is-published') || {}).checked;
-            formData.append('is_published', String(!!isPublished));
+            return payload;
+        }
+
+        function clearCreateProjectOptionalFields() {
+            var ids = ['ws-builder-name', 'ws-project-type', 'ws-location-address', 'ws-location-city', 'ws-location-state', 'ws-google-maps-link', 'ws-rera', 'ws-total-area', 'ws-launch-date', 'ws-possession-date', 'ws-description', 'ws-contact-phone', 'ws-contact-email', 'ws-amenities'];
+            ids.forEach(function(id) {
+                var el = document.getElementById(id);
+                if (el) { el.value = ''; if (id === 'ws-project-type') el.value = 'residential'; }
+            });
+            var status = document.getElementById('ws-maps-status');
+            if (status) status.textContent = '';
         }
 
         let dashboardInitStarted = false;
@@ -909,10 +904,12 @@
                 var isOwner = String(ws.access_type || 'owner') === 'owner';
                 var count = countByWorkspace[workspaceId] || 0;
                 if (!isOwner && count === 0) return;
-                items += '<div class="folder-card folder-card--owned ' + (selectedWorkspaceKey === wsKey ? 'active' : '') + '" onclick="setWorkspaceSelection(\'' + wsKey + '\')" ondragover="onWorkspaceDragOver(event)" ondragleave="onWorkspaceDragLeave(event)" ondrop="onWorkspaceDrop(event,\'' + wsKey + '\')">';
+                var isDashboardAdmin = currentUserRole === 'admin' || currentUserRole === 'superadmin';
+                var dragDropAttr = (isOwner && isDashboardAdmin) ? ' ondragover="onWorkspaceDragOver(event)" ondragleave="onWorkspaceDragLeave(event)" ondrop="onWorkspaceDrop(event,\'' + wsKey + '\')"' : '';
+                items += '<div class="folder-card folder-card--owned ' + (selectedWorkspaceKey === wsKey ? 'active' : '') + '" onclick="setWorkspaceSelection(\'' + wsKey + '\')"' + dragDropAttr + '>';
                 items += '<div class="folder-card-head"><span class="folder-card-title">' + escapeHtml(ws.name || 'Workspace') + '</span><span class="folder-card-count">' + count + '</span></div>';
                 items += '<p class="folder-card-subtitle">' + (isOwner ? 'Owned folder' : ('Shared: ' + escapeHtml(ws.access_type || 'viewer'))) + '</p>';
-                if (isOwner) {
+                if (isOwner && isDashboardAdmin) {
                     items += '<div class="folder-card-actions">';
                     items += '<button type="button" class="folder-card-btn" onclick="event.stopPropagation(); shareFullView(\'' + workspaceId + '\')">Share Full View</button>';
                     items += '<button type="button" class="folder-card-btn" onclick="event.stopPropagation(); window.location.href=\'/workspace/' + workspaceId + '/access\'">Manage access</button>';
@@ -947,6 +944,7 @@
         function openCreateWorkspaceModal() {
             if (!createWorkspaceModal) return;
             if (workspaceNameInput) workspaceNameInput.value = '';
+            clearCreateProjectOptionalFields();
             showWorkspaceCreateError('');
             createWorkspaceModal.classList.add('visible');
             if (workspaceNameInput) workspaceNameInput.focus();
@@ -1238,7 +1236,6 @@
                         finalize.append('width', String(selectedImageWidth || 0));
                         finalize.append('height', String(selectedImageHeight || 0));
                         if (workspaceId) finalize.append('workspace_id', workspaceId);
-                        appendPortalFields(finalize);
 
                         const finResp = await fetch('/api/panoramas', { method: 'POST', headers: headers, body: finalize });
                         const finPayload = await finResp.json().catch(() => null);
@@ -1384,12 +1381,14 @@
 
         function renderProjects() {
             const visibleProjects = getFilteredProjects();
+            var isDashboardAdmin = currentUserRole === 'admin' || currentUserRole === 'superadmin';
+            var emptyHint = isDashboardAdmin ? 'Upload a panorama or drag an existing one into this folder' : 'Projects you have access to will appear here';
             if (visibleProjects.length === 0) {
                 projectsContainer.innerHTML = `
                     <div class="empty-state">
                         <div class="empty-icon">🗺️</div>
                         <div class="empty-text">No projects in this view</div>
-                        <div class="empty-hint">Upload a panorama or drag an existing one into this folder</div>
+                        <div class="empty-hint">` + emptyHint + `</div>
                     </div>
                 `;
                 return;
@@ -1404,9 +1403,10 @@
                 var at = accessType(project);
                 var isOwner = at === 'owner';
                 var isClient = at === 'client';
+                var isMain = mainPanoramaId && String(project.id) === mainPanoramaId;
                 var openLabel = isOwner ? 'Open Editor' : (isClient ? 'Open as Client' : 'View');
                 var actions = '<button class="project-btn edit" onclick="openEditor(' + project.id + ')">' + openLabel + '</button>';
-                if (isOwner) {
+                if (isOwner && isDashboardAdmin) {
                     if (selectedWsId && Boolean(project.is_360) && !isMain) actions += '<button class="project-btn set-main" onclick="setAsMain(' + project.id + ', event)">Set as main</button>';
                     actions += '<button class="project-btn" onclick="window.location.href=\'/panorama/' + project.id + '/access\'">Manage access</button>';
                     actions += '<button class="project-btn rename" onclick="showRenameModal(' + project.id + ', event)">Rename</button>';
@@ -1417,10 +1417,9 @@
                     var ws = getWorkspaceById(project.workspace_id);
                     workspaceName = ws && ws.name ? ws.name : 'Workspace';
                 }
-                var isMain = mainPanoramaId && String(project.id) === mainPanoramaId;
                 var mainBadge = isMain ? '<span class="project-main-badge">Main</span>' : '';
-                var dragAttr = isOwner ? 'draggable=\"true\" ondragstart=\"onProjectDragStart(event,' + project.id + ')\" ondragend=\"onProjectDragEnd(event)\"' : '';
-                var dragClass = isOwner ? ' owner-draggable' : '';
+                var dragAttr = (isOwner && isDashboardAdmin) ? 'draggable=\"true\" ondragstart=\"onProjectDragStart(event,' + project.id + ')\" ondragend=\"onProjectDragEnd(event)\"' : '';
+                var dragClass = (isOwner && isDashboardAdmin) ? ' owner-draggable' : '';
                 var mainClass = isMain ? ' is-main-panorama' : '';
                 return `
                         <div class="project-card${dragClass}${mainClass}" data-id="${project.id}" ${dragAttr}>
@@ -1670,10 +1669,10 @@
 
         if (confirmCreateWorkspace) {
             confirmCreateWorkspace.addEventListener('click', async () => {
-                const name = (workspaceNameInput ? workspaceNameInput.value : '').trim();
+                const payload = getCreateProjectPayload();
                 showWorkspaceCreateError('');
-                if (!name) {
-                    showWorkspaceCreateError('Folder name is required');
+                if (!payload) {
+                    showWorkspaceCreateError('Project name is required');
                     return;
                 }
                 confirmCreateWorkspace.disabled = true;
@@ -1683,19 +1682,19 @@
                     const response = await fetch('/api/workspaces', {
                         method: 'POST',
                         headers,
-                        body: JSON.stringify({ name: name }),
+                        body: JSON.stringify(payload),
                     });
                     if (!response.ok) {
                         const err = await response.json().catch(() => null);
-                        throw new Error((err && err.error) || 'Failed to create folder');
+                        throw new Error((err && err.error) || 'Failed to create project');
                     }
                     closeCreateWorkspaceModal();
-                    showToast('Folder created', 'success');
+                    showToast('Project created', 'success');
                     await loadWorkspaces();
                     renderWorkspaces();
                     renderProjects();
                 } catch (error) {
-                    showWorkspaceCreateError(error.message || 'Failed to create folder');
+                    showWorkspaceCreateError(error.message || 'Failed to create project');
                 } finally {
                     confirmCreateWorkspace.disabled = false;
                 }

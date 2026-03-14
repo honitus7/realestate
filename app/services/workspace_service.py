@@ -1,6 +1,7 @@
 """
 Workspace: CRUD, access, main_panorama_id. Helpers for serialization and permissions.
 """
+import json
 from datetime import datetime
 
 from app.core.auth import get_profile
@@ -26,7 +27,7 @@ def serialize_workspace_row(row, access_type='owner'):
         out['user_id'] = str(out.get('user_id'))
     if out.get('org_id') is not None:
         out['org_id'] = str(out.get('org_id'))
-    for k in ('created_at', 'updated_at'):
+    for k in ('created_at', 'updated_at', 'launch_date'):
         if out.get(k):
             out[k] = str(out.get(k))
     if out.get('main_panorama_id') is not None:
@@ -36,6 +37,8 @@ def serialize_workspace_row(row, access_type='owner'):
             out['main_panorama_id'] = None
     else:
         out['main_panorama_id'] = None
+    if 'is_published' in out:
+        out['is_published'] = bool(out.get('is_published'))
     out['access_type'] = access_type
     return out
 
@@ -76,12 +79,10 @@ def can_manage_workspace(sb, workspace, user_id, role):
 
 
 def list_workspaces(sb, user_id):
-    """Return list of workspaces (owned + shared) with panorama_count. Raises on schema error."""
-    owned_cols = 'id, user_id, org_id, name, created_at, updated_at'
     try:
-        owned = sb.table('workspaces').select(owned_cols + ', main_panorama_id').eq('user_id', user_id).order('updated_at', desc=True).execute()
+        owned = sb.table('workspaces').select('*').eq('user_id', user_id).order('updated_at', desc=True).execute()
     except Exception:
-        owned = sb.table('workspaces').select(owned_cols).eq('user_id', user_id).order('updated_at', desc=True).execute()
+        owned = sb.table('workspaces').select('id, user_id, org_id, name, created_at, updated_at, main_panorama_id').eq('user_id', user_id).order('updated_at', desc=True).execute()
 
     shared_acc = sb.table('workspace_access').select('workspace_id, access_type').eq('user_id', user_id).execute()
     out = []
@@ -99,11 +100,10 @@ def list_workspaces(sb, user_id):
         shared_map[str(wsid)] = str(row.get('access_type') or 'viewer')
 
     if shared_map:
-        shared_cols = 'id, user_id, org_id, name, created_at, updated_at'
         try:
-            shared_rows = sb.table('workspaces').select(shared_cols + ', main_panorama_id').in_('id', list(shared_map.keys())).execute()
+            shared_rows = sb.table('workspaces').select('*').in_('id', list(shared_map.keys())).execute()
         except Exception:
-            shared_rows = sb.table('workspaces').select(shared_cols).in_('id', list(shared_map.keys())).execute()
+            shared_rows = sb.table('workspaces').select('id, user_id, org_id, name, created_at, updated_at, main_panorama_id').in_('id', list(shared_map.keys())).execute()
         for row in (shared_rows.data or []):
             wsid = str(row.get('id'))
             access_type = shared_map.get(wsid, 'viewer')
@@ -126,7 +126,43 @@ def list_workspaces(sb, user_id):
     return out
 
 
-def create_workspace(sb, user_id, name):
+_PROJECT_KEYS = (
+    'location_address', 'location_city', 'location_state', 'location_lat', 'location_lng',
+    'google_maps_link', 'rera_registration', 'launch_date', 'possession_date', 'builder_name',
+    'project_type', 'total_area', 'description', 'amenities', 'is_published',
+    'brochure_url', 'contact_phone', 'contact_email',
+)
+
+
+def project_fields_from_payload(payload):
+    out = {}
+    for k in _PROJECT_KEYS:
+        if k not in payload or payload[k] is None:
+            continue
+        v = payload[k]
+        if k == 'location_lat' or k == 'location_lng':
+            try:
+                out[k] = float(v)
+            except (TypeError, ValueError):
+                pass
+        elif k == 'launch_date':
+            out[k] = str(v).strip() or None
+        elif k == 'amenities':
+            if isinstance(v, list):
+                out[k] = v
+            elif isinstance(v, str):
+                try:
+                    out[k] = json.loads(v)
+                except Exception:
+                    out[k] = []
+        elif k == 'is_published':
+            out[k] = str(v).lower() in ('true', '1')
+        else:
+            out[k] = str(v).strip() if v else ''
+    return out
+
+
+def create_workspace(sb, user_id, name, **project_fields):
     if not name or len(name) > 120:
         raise ValueError('name required and max 120 chars')
     now = datetime.utcnow().isoformat()
@@ -143,17 +179,26 @@ def create_workspace(sb, user_id, name):
         'created_at': now,
         'updated_at': now,
     }
-    r = sb.table('workspaces').insert(row).execute()
+    for k in _PROJECT_KEYS:
+        if k in project_fields and project_fields[k] is not None:
+            row[k] = project_fields[k]
+    try:
+        r = sb.table('workspaces').insert(row).execute()
+    except Exception:
+        for k in list(row.keys()):
+            if k in _PROJECT_KEYS:
+                del row[k]
+        r = sb.table('workspaces').insert(row).execute()
     created = (r.data or [None])[0]
     return serialize_workspace_row(created or row, 'owner')
 
 
-def update_workspace(sb, workspace_id, user_id, name=None, main_panorama_id=None):
+def update_workspace(sb, workspace_id, user_id, name=None, main_panorama_id=None, **project_fields):
     workspace = get_workspace_by_id(sb, workspace_id)
     if not workspace:
         return None
     if str(workspace.get('user_id') or '') != str(user_id):
-        return None  # caller should 403
+        return None
     update_fields = {'updated_at': datetime.utcnow().isoformat()}
     if name is not None:
         if len(name) > 120:
@@ -169,7 +214,16 @@ def update_workspace(sb, workspace_id, user_id, name=None, main_panorama_id=None
             if not bool(pano.get('is_360')):
                 raise ValueError('Main must be 360')
             update_fields['main_panorama_id'] = main_panorama_id
-    sb.table('workspaces').update(update_fields).eq('id', workspace_id).execute()
+    for k in _PROJECT_KEYS:
+        if k in project_fields:
+            update_fields[k] = project_fields[k]
+    try:
+        sb.table('workspaces').update(update_fields).eq('id', workspace_id).execute()
+    except Exception:
+        for k in list(update_fields.keys()):
+            if k in _PROJECT_KEYS:
+                del update_fields[k]
+        sb.table('workspaces').update(update_fields).eq('id', workspace_id).execute()
     merged = dict(workspace)
     merged.update(update_fields)
     return serialize_workspace_row(merged, 'owner')
