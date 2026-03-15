@@ -44,6 +44,8 @@ from app.services.workspace_service import (
     get_workspace_schema_error_response,
     is_workspace_schema_missing,
     project_fields_from_payload,
+    update_customer_config as ws_update_customer_config,
+    get_customer_config as ws_get_customer_config,
 )
 from app.services.storage_service import (
     use_s3,
@@ -295,6 +297,61 @@ def register_routes(app):
         org_name, org_slug = get_org_name_and_slug_for_panorama(sb, panorama)
         return render_template('editor.html', panorama=panorama, mode='admin', org_name=org_name, org_slug=org_slug, **auth_ctx())
 
+    @app.route('/customer/edit/<workspace_id>')
+    def customer_edit_view(workspace_id):
+        sb = get_supabase()
+        if not sb:
+            return "Database not configured", 503
+        workspace = get_workspace_by_id(sb, workspace_id)
+        if not workspace:
+            return "Workspace not found", 404
+        main_id = workspace.get('main_panorama_id')
+        panorama = None
+        if main_id:
+            panorama = get_panorama_by_id(sb, main_id)
+        if not panorama:
+            try:
+                r = sb.table('panoramas').select('*').eq('workspace_id', workspace_id).eq('is_360', True).order('id').limit(1).execute()
+                if r.data and len(r.data) > 0:
+                    panorama = dict(r.data[0])
+            except Exception:
+                pass
+        if not panorama:
+            return "No 360 panorama in this workspace", 404
+        org_name, canonical_slug = get_org_name_and_slug_for_panorama(sb, panorama)
+        workspace_panoramas = []
+        try:
+            r = sb.table('panoramas').select('id, name, filename').eq('workspace_id', workspace_id).eq('is_360', True).order('id').execute()
+            rows = list(r.data or [])
+            if main_id is not None:
+                mid = int(main_id)
+                def sort_key(p):
+                    pid = p.get('id')
+                    if pid == mid:
+                        return (0, pid or 0)
+                    return (1, pid or 0)
+                rows.sort(key=sort_key)
+            for p in rows:
+                workspace_panoramas.append({
+                    'id': p.get('id'),
+                    'name': (p.get('name') or '').strip() or ('Panorama #' + str(p.get('id') or '')),
+                    'filename': p.get('filename') or '',
+                })
+        except Exception:
+            pass
+        return render_template(
+            'customer_edit.html',
+            panorama=panorama,
+            org_name=org_name,
+            org_slug=canonical_slug,
+            workspace_id=workspace_id,
+            workspace_name=workspace.get('name', ''),
+            workspace_panoramas=workspace_panoramas,
+            initial_panorama_id=panorama.get('id'),
+            customer_view_config={},
+            **auth_ctx()
+        )
+
     @app.route('/customer/<int:panorama_id>')
     def customer(panorama_id):
         sb = get_supabase()
@@ -388,6 +445,13 @@ def register_routes(app):
             p_param = request.args.get('p')
             query = ('?p=' + p_param) if p_param else ''
             return redirect(f"/customer/{canonical_slug}/full-view/{panorama_id}{query}", code=302)
+        customer_view_config = {}
+        workspace_id = (panorama or {}).get('workspace_id')
+        if workspace_id:
+            try:
+                customer_view_config = ws_get_customer_config(sb, workspace_id) or {}
+            except Exception:
+                pass
         return render_template(
             'customer_3d.html',
             panorama=panorama,
@@ -396,6 +460,7 @@ def register_routes(app):
             full_view=False,
             workspace_panoramas=[],
             initial_panorama_id=None,
+            customer_view_config=customer_view_config,
             **auth_ctx()
         )
 
@@ -444,6 +509,12 @@ def register_routes(app):
                     initial_panorama_id = pid
             except (TypeError, ValueError):
                 pass
+        customer_view_config = {}
+        if workspace_id:
+            try:
+                customer_view_config = ws_get_customer_config(sb, workspace_id) or {}
+            except Exception:
+                pass
         return render_template(
             'full_view_3d.html',
             panorama=panorama,
@@ -451,6 +522,7 @@ def register_routes(app):
             org_slug=canonical_slug,
             workspace_panoramas=workspace_panoramas,
             initial_panorama_id=initial_panorama_id,
+            customer_view_config=customer_view_config,
             **auth_ctx()
         )
 
@@ -1332,6 +1404,45 @@ def register_routes(app):
             if is_workspace_schema_missing(e):
                 return _ws_error_response()
             return jsonify({'error': str(e)}), 500
+
+    @app.route('/api/workspaces/<workspace_id>/customer-config', methods=['GET'])
+    @require_admin
+    def get_workspace_customer_config(user_id, role, workspace_id):
+        sb = get_supabase()
+        if not sb:
+            return jsonify({'error': 'Database not configured'}), 503
+        try:
+            workspace = get_workspace_by_id(sb, workspace_id)
+        except Exception as e:
+            if is_workspace_schema_missing(e):
+                return _ws_error_response()
+            return jsonify({'error': str(e)}), 500
+        if not workspace:
+            return jsonify({'error': 'Workspace not found'}), 404
+        if not can_manage_workspace(sb, workspace, user_id, role):
+            return jsonify({'error': 'Forbidden'}), 403
+        config = ws_get_customer_config(sb, workspace_id)
+        return jsonify({'success': True, 'config': config or {}})
+
+    @app.route('/api/workspaces/<workspace_id>/customer-config', methods=['PATCH', 'PUT'])
+    @require_admin
+    def update_workspace_customer_config(user_id, role, workspace_id):
+        sb = get_supabase()
+        if not sb:
+            return jsonify({'error': 'Database not configured'}), 503
+        payload = request.get_json(silent=True) or {}
+        config = payload.get('config')
+        if not isinstance(config, dict):
+            return jsonify({'error': 'config must be a JSON object'}), 400
+        try:
+            result = ws_update_customer_config(sb, workspace_id, user_id, role, config)
+        except Exception as e:
+            if is_workspace_schema_missing(e):
+                return _ws_error_response()
+            return jsonify({'error': str(e)}), 500
+        if not result:
+            return jsonify({'error': 'Workspace not found or forbidden'}), 404
+        return jsonify({'success': True, 'config': config})
 
     @app.route('/api/workspaces/<workspace_id>/access', methods=['GET'])
     @require_auth

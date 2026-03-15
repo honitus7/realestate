@@ -5,6 +5,124 @@
     var WORKSPACE_PANORAMAS = Array.isArray(config.workspacePanoramas) ? config.workspacePanoramas : [];
     var ORG_SLUG = String(config.orgSlug || '').trim();
     var INITIAL_PANORAMA_ID = config.initialPanoramaId != null ? Number(config.initialPanoramaId) : null;
+    var CV_CONFIG = window.CUSTOMER_VIEW_CONFIG || {};
+
+    function hexToRgba_fv(hex, alpha) {
+        var r = parseInt(hex.slice(1, 3), 16);
+        var g = parseInt(hex.slice(3, 5), 16);
+        var b = parseInt(hex.slice(5, 7), 16);
+        return 'rgba(' + r + ',' + g + ',' + b + ',' + alpha + ')';
+    }
+
+    function applyCustomerViewConfig_fv() {
+        if (!CV_CONFIG || typeof CV_CONFIG !== 'object' || Object.keys(CV_CONFIG).length === 0) return;
+
+        var t = CV_CONFIG.theme || {};
+        var tr = CV_CONFIG.transparency || {};
+        var hdr = CV_CONFIG.header || {};
+        var badge = CV_CONFIG.projectBadge || {};
+        var btns = CV_CONFIG.buttons || {};
+        var sb = CV_CONFIG.searchBar || {};
+        var sl = CV_CONFIG.statusLegend || {};
+        var pl = CV_CONFIG.panoramaList || {};
+        var ep = CV_CONFIG.elementPositions || {};
+
+        var headerEl = document.querySelector('.header');
+        var gradientEl = document.querySelector('.overlay-gradient');
+        var legendEl = document.querySelector('.status-legend');
+        var navShell = document.querySelector('.panorama-nav-shell');
+        var projectInfo = document.querySelector('.project-info');
+        var projectName = document.querySelector('.project-name');
+        var projectSubtitle = document.querySelector('.project-subtitle');
+        var uiOverlay = document.querySelector('.ui-overlay');
+
+        if (t.primaryColor && projectName) projectName.style.color = t.primaryColor;
+        if (t.headerBg && projectInfo) projectInfo.style.background = hexToRgba_fv(t.headerBg, tr.header !== undefined ? tr.header : 0.93);
+        if (t.headerTextColor && projectInfo) projectInfo.style.color = t.headerTextColor;
+
+        var actionBtns = document.querySelectorAll('.viewer-action-btn');
+        if ((t.buttonBg || t.buttonTextColor) && actionBtns.length) {
+            actionBtns.forEach(function (btn) {
+                if (t.buttonBg) btn.style.background = hexToRgba_fv(t.buttonBg, 0.94);
+                if (t.buttonTextColor) btn.style.color = t.buttonTextColor;
+            });
+        }
+
+        if (tr.overlayGradient !== undefined && gradientEl) gradientEl.style.opacity = tr.overlayGradient;
+        if (tr.statusLegend !== undefined && legendEl) legendEl.style.opacity = tr.statusLegend;
+        if (tr.panoramaNav !== undefined && navShell) {
+            var panel = navShell.querySelector('.panorama-nav-panel');
+            if (panel && !(pl.panelBg)) panel.style.background = hexToRgba_fv('#0a1220', tr.panoramaNav);
+        }
+
+        if (hdr.font && projectInfo) projectInfo.style.fontFamily = hdr.font + ', sans-serif';
+
+        if (badge.visible === false && projectInfo) projectInfo.style.display = 'none';
+        if (badge.customText && projectName) projectName.textContent = badge.customText;
+        if (badge.customLabel && projectSubtitle) projectSubtitle.textContent = badge.customLabel;
+        if (badge.font && projectInfo) projectInfo.style.fontFamily = badge.font + ', sans-serif';
+        if (badge.fontSize && projectName) projectName.style.fontSize = badge.fontSize;
+
+        if (btns.fullscreen === false) {
+            var fBtn = document.getElementById('fullscreen-btn');
+            if (fBtn) fBtn.style.display = 'none';
+        }
+        if (btns.viewCart === false) {
+            var cBtn = document.getElementById('cart-btn');
+            if (cBtn) cBtn.style.display = 'none';
+        }
+
+        if (sl.visible === false && legendEl) legendEl.style.display = 'none';
+
+        if (pl.visible === false && navShell) navShell.style.display = 'none';
+        if (pl.position === 'right' && navShell) {
+            navShell.style.left = 'auto';
+            navShell.style.right = '14px';
+        }
+        if (navShell) {
+            var panel = navShell.querySelector('.panorama-nav-panel');
+            var titleElP = navShell.querySelector('.panorama-nav-title');
+            var subtitleElP = navShell.querySelector('#panorama-nav-subtitle');
+            var listElP = navShell.querySelector('.panorama-nav-list');
+            if (panel) {
+                panel.style.display = 'flex';
+                panel.style.flexDirection = 'column';
+                panel.style.height = '100vh';
+                var va = pl.verticalAlign || 'top';
+                panel.style.justifyContent = va === 'center' ? 'center' : va === 'bottom' ? 'flex-end' : 'flex-start';
+                if (pl.panelBg) panel.style.background = hexToRgba_fv(pl.panelBg, tr.panoramaNav !== undefined ? tr.panoramaNav : 0.72);
+            }
+            if (titleElP) {
+                if (pl.title) titleElP.textContent = pl.title;
+                if (pl.titleFont) titleElP.style.fontFamily = pl.titleFont + ', sans-serif';
+                if (pl.titleFontSize) titleElP.style.fontSize = pl.titleFontSize;
+                if (pl.titleColor) titleElP.style.color = pl.titleColor;
+            }
+            if (subtitleElP) {
+                if (pl.subheaderFont) subtitleElP.style.fontFamily = pl.subheaderFont + ', sans-serif';
+                if (pl.subheaderFontSize) subtitleElP.style.fontSize = pl.subheaderFontSize;
+                if (pl.subheaderColor) subtitleElP.style.color = pl.subheaderColor;
+                if (pl.subheader != null && pl.subheader !== '') subtitleElP.textContent = pl.subheader;
+            }
+            if (listElP) {
+                if (pl.itemFont) listElP.style.fontFamily = pl.itemFont + ', sans-serif';
+                if (pl.itemFontSize) listElP.style.fontSize = pl.itemFontSize;
+                if (pl.itemColor) listElP.style.color = pl.itemColor;
+            }
+        }
+
+        if (ep.statusLegend && ep.statusLegend.x !== null && ep.statusLegend.y !== null && legendEl) {
+            legendEl.style.left = ep.statusLegend.x + 'px';
+            legendEl.style.top = ep.statusLegend.y + 'px';
+            legendEl.style.bottom = 'auto';
+            legendEl.style.right = 'auto';
+            legendEl.style.transform = 'none';
+        }
+        if (ep.panoramaNav && ep.panoramaNav.x !== null && ep.panoramaNav.y !== null && navShell) {
+            navShell.style.left = ep.panoramaNav.x + 'px';
+            navShell.style.top = ep.panoramaNav.y + 'px';
+        }
+    }
 
     if (!WORKSPACE_PANORAMAS.length) {
         document.body.innerHTML = '<p style="padding:2rem;text-align:center;">No connected panoramas. Use the dashboard Share Full View link for a folder with multiple 360° views.</p>';
@@ -296,8 +414,19 @@
         if (!panoramaNavList) return;
         var currentId = String(currentPanoramaId);
         var html = '';
-        for (var i = 0; i < WORKSPACE_PANORAMAS.length; i++) {
-            var p = WORKSPACE_PANORAMAS[i];
+        var ordered = WORKSPACE_PANORAMAS.slice();
+        var cvOrder = (CV_CONFIG && CV_CONFIG.panoramaList && CV_CONFIG.panoramaList.order) || [];
+        if (cvOrder.length > 0) {
+            ordered.sort(function (a, b) {
+                var ai = cvOrder.findIndex(function (id) { return String(id) === String(a.id); });
+                var bi = cvOrder.findIndex(function (id) { return String(id) === String(b.id); });
+                if (ai === -1) ai = 9999;
+                if (bi === -1) bi = 9999;
+                return ai - bi;
+            });
+        }
+        for (var i = 0; i < ordered.length; i++) {
+            var p = ordered[i];
             var id = String(p.id);
             var name = (p.name || 'Panorama #' + id).trim();
             var active = id === currentId ? ' active' : '';
@@ -591,6 +720,7 @@
 
         viewer.on('ready', function () {
             if (loading) loading.classList.add('hidden');
+            applyCustomerViewConfig_fv();
             renderPanoramaList();
             backBtn.hidden = historyStack.length === 0;
 

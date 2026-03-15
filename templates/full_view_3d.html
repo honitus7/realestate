@@ -383,6 +383,7 @@
             workspacePanoramas: {{ (workspace_panoramas or [])|tojson }},
             initialPanoramaId: {{ initial_panorama_id if initial_panorama_id is not none else 'null' }}
         };
+        window.CUSTOMER_VIEW_CONFIG = {{ (customer_view_config or {}) | tojson }};
     </script>
     <script src="/static/js/full_view3d.js"></script>
 </body>

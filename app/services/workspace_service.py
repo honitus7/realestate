@@ -39,6 +39,15 @@ def serialize_workspace_row(row, access_type='owner'):
         out['main_panorama_id'] = None
     if 'is_published' in out:
         out['is_published'] = bool(out.get('is_published'))
+    if 'panaroma_menu_config' in out:
+        cfg = out.get('panaroma_menu_config')
+        if isinstance(cfg, str):
+            try:
+                out['panaroma_menu_config'] = json.loads(cfg)
+            except Exception:
+                out['panaroma_menu_config'] = {}
+        elif not isinstance(cfg, dict):
+            out['panaroma_menu_config'] = {}
     out['access_type'] = access_type
     return out
 
@@ -243,3 +252,33 @@ def get_workspace_schema_error_response():
 
 def is_workspace_schema_missing(exc):
     return _is_workspace_schema_missing(exc)
+
+
+def update_customer_config(sb, workspace_id, user_id, role, config):
+    workspace = get_workspace_by_id(sb, workspace_id)
+    if not workspace:
+        return None
+    if not can_manage_workspace(sb, workspace, user_id, role):
+        return None
+    if not isinstance(config, dict):
+        raise ValueError('config must be a JSON object')
+    sb.table('workspaces').update({
+        'panaroma_menu_config': json.dumps(config),
+        'updated_at': datetime.utcnow().isoformat(),
+    }).eq('id', workspace_id).execute()
+    merged = dict(workspace)
+    merged['panaroma_menu_config'] = config
+    return serialize_workspace_row(merged, 'owner')
+
+
+def get_customer_config(sb, workspace_id):
+    workspace = get_workspace_by_id(sb, workspace_id)
+    if not workspace:
+        return None
+    cfg = workspace.get('panaroma_menu_config')
+    if isinstance(cfg, str):
+        try:
+            return json.loads(cfg)
+        except Exception:
+            return {}
+    return cfg if isinstance(cfg, dict) else {}

@@ -910,7 +910,11 @@
                 items += '<div class="folder-card-head"><span class="folder-card-title">' + escapeHtml(ws.name || 'Workspace') + '</span><span class="folder-card-count">' + count + '</span></div>';
                 items += '<p class="folder-card-subtitle">' + (isOwner ? 'Owned folder' : ('Shared: ' + escapeHtml(ws.access_type || 'viewer'))) + '</p>';
                 if (isOwner && isDashboardAdmin) {
+                    var hasMainPano = !!getMainPanoramaIdForWorkspace(workspaceId);
                     items += '<div class="folder-card-actions">';
+                    if (hasMainPano) {
+                        items += '<button type="button" class="folder-card-btn" onclick="event.stopPropagation(); window.location.href=\'/customer/edit/' + workspaceId + '\'">Set Customer View</button>';
+                    }
                     items += '<button type="button" class="folder-card-btn" onclick="event.stopPropagation(); shareFullView(\'' + workspaceId + '\')">Share Full View</button>';
                     items += '<button type="button" class="folder-card-btn" onclick="event.stopPropagation(); window.location.href=\'/workspace/' + workspaceId + '/access\'">Manage access</button>';
                     items += '<button type="button" class="folder-card-btn" onclick="event.stopPropagation(); showRenameWorkspaceModal(\'' + workspaceId + '\')">Rename</button>';

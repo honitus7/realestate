@@ -107,8 +107,11 @@
                 </div>
             </div>
             <div class="panorama-nav-head">
-                <div class="panorama-nav-title">Panorama List</div>
-                <div class="panorama-nav-subtitle" id="panorama-nav-subtitle">Linked 360 views</div>
+                <div class="panorama-nav-head-text">
+                    <div class="panorama-nav-title">Panorama List</div>
+                    <div class="panorama-nav-subtitle" id="panorama-nav-subtitle">Linked 360 views</div>
+                </div>
+                <button type="button" class="panorama-nav-collapse-btn" id="panorama-nav-collapse" title="Close" aria-label="Close panorama list">×</button>
             </div>
             <div class="panorama-nav-list" id="panorama-nav-list"></div>
         </aside>
@@ -303,6 +306,169 @@
         const FULL_VIEW = {{ (full_view or false)| tojson }};
         const WORKSPACE_PANORAMAS = {{ (workspace_panoramas or[])| tojson }};
         const INITIAL_PANORAMA_ID = {{ initial_panorama_id if initial_panorama_id is not none else 'null' }};
+        const CUSTOMER_VIEW_CONFIG = {{ (customer_view_config or {}) | tojson }};
+
+        function hexToRgba_cv(hex, alpha) {
+            var r = parseInt(hex.slice(1, 3), 16);
+            var g = parseInt(hex.slice(3, 5), 16);
+            var b = parseInt(hex.slice(5, 7), 16);
+            return 'rgba(' + r + ',' + g + ',' + b + ',' + alpha + ')';
+        }
+
+        function applyCustomerViewConfig() {
+            var cfg = CUSTOMER_VIEW_CONFIG;
+            if (!cfg || typeof cfg !== 'object' || Object.keys(cfg).length === 0) return;
+
+            var t = cfg.theme || {};
+            var tr = cfg.transparency || {};
+            var hdr = cfg.header || {};
+            var badge = cfg.projectBadge || {};
+            var btns = cfg.buttons || {};
+            var sb = cfg.searchBar || {};
+            var sl = cfg.statusLegend || {};
+            var pl = cfg.panoramaList || {};
+            var ep = cfg.elementPositions || {};
+
+            var headerEl = document.querySelector('.ui-overlay .header');
+            var gradientEl = document.querySelector('.overlay-gradient');
+            var legendEl = document.getElementById('status-legend');
+            var navShell = document.getElementById('panorama-nav-shell');
+            var badgeEl = document.querySelector('.project-badge');
+            var badgeName = document.querySelector('.project-badge-name');
+            var badgeLabel = document.querySelector('.project-badge-label');
+            var searchShell = document.getElementById('plot-search-shell');
+            var navToggle = document.getElementById('panorama-nav-toggle');
+            var backBtn = document.getElementById('back-btn');
+            var exportBtn = document.getElementById('export-plots-btn');
+            var overlaysBtn = document.getElementById('toggle-overlays-btn');
+            var fullscreenBtn = document.getElementById('fullscreen-btn');
+            var cartBtn = document.getElementById('view-cart-btn');
+            var uiOverlay = document.querySelector('.ui-overlay');
+
+            if (t.primaryColor && badgeName) badgeName.style.color = t.primaryColor;
+            var headerLeft = headerEl && headerEl.querySelector('.header-left');
+            var headerRight = headerEl && headerEl.querySelector('.header-right');
+            var searchInputEl = document.getElementById('plot-search-input');
+            var headerAlpha = tr.header !== undefined ? tr.header : 0.93;
+            if (headerEl) {
+                headerEl.style.background = 'transparent';
+                if (t.headerTextColor) headerEl.style.color = t.headerTextColor;
+                if (hdr.font) headerEl.style.fontFamily = hdr.font + ', sans-serif';
+                if (hdr.fontSize) headerEl.style.fontSize = hdr.fontSize;
+            }
+            if (headerLeft) {
+                var hideHeaderLeft = badge.visible === false && btns.panoramaNavToggle === false;
+                headerLeft.style.display = hideHeaderLeft ? 'none' : '';
+                if (t.headerBg) {
+                    headerLeft.style.background = hexToRgba_cv(t.headerBg, headerAlpha);
+                    headerLeft.style.color = t.headerTextColor || '';
+                    headerLeft.style.backdropFilter = 'blur(18px) saturate(160%)';
+                    headerLeft.style.webkitBackdropFilter = 'blur(18px) saturate(160%)';
+                }
+            }
+            if (headerRight) {
+                var allRightHidden = btns.backBtn === false && btns.exportPlots === false && btns.toggleOverlays === false && btns.fullscreen === false && btns.viewCart === false;
+                headerRight.style.display = allRightHidden ? 'none' : '';
+                if (t.headerBg) {
+                    headerRight.style.background = hexToRgba_cv(t.headerBg, headerAlpha);
+                    headerRight.style.color = t.buttonTextColor || '';
+                    headerRight.style.backdropFilter = 'blur(18px) saturate(160%)';
+                    headerRight.style.webkitBackdropFilter = 'blur(18px) saturate(160%)';
+                }
+            }
+            if (searchShell) searchShell.style.background = 'transparent';
+            if (searchInputEl && t.headerBg) {
+                searchInputEl.style.background = hexToRgba_cv(t.headerBg, headerAlpha);
+                searchInputEl.style.color = t.headerTextColor || '';
+                searchInputEl.style.borderColor = 'rgba(22, 35, 56, 0.08)';
+            }
+            if (headerEl && (t.buttonBg || t.buttonTextColor)) {
+                headerEl.querySelectorAll('.hdr-action-btn, .hdr-cart-btn').forEach(function (btn) {
+                    btn.style.background = 'transparent';
+                    if (t.buttonTextColor) btn.style.color = t.buttonTextColor;
+                });
+            }
+
+            if (tr.overlayGradient !== undefined && gradientEl) gradientEl.style.opacity = tr.overlayGradient;
+            if (legendEl) {
+                legendEl.style.background = hexToRgba_cv(sl.bg || '#f7f9fd', tr.statusLegend !== undefined ? tr.statusLegend : 0.85);
+                if (sl.color) legendEl.style.color = sl.color;
+            }
+            if (tr.panoramaNav !== undefined && navShell) {
+                var panel = navShell.querySelector('.panorama-nav-panel');
+                if (panel && !(cfg.panoramaList && cfg.panoramaList.panelBg)) panel.style.background = hexToRgba_cv('#0a1220', tr.panoramaNav);
+            }
+
+            if (hdr.position === 'bottom' && uiOverlay) {
+                uiOverlay.style.top = 'auto';
+                uiOverlay.style.bottom = '0';
+            }
+
+            if (badge.visible === false && badgeEl) badgeEl.style.display = 'none';
+            if (badge.customText && badgeName) badgeName.textContent = badge.customText;
+            if (badge.customLabel && badgeLabel) badgeLabel.textContent = badge.customLabel;
+            if (badge.font && badgeEl) badgeEl.style.fontFamily = badge.font + ', sans-serif';
+            if (badge.fontSize && badgeName) badgeName.style.fontSize = badge.fontSize;
+
+            if (btns.panoramaNavToggle === false && navToggle) navToggle.style.display = 'none';
+            if (btns.backBtn === false && backBtn) backBtn.style.display = 'none';
+            if (btns.exportPlots === false && exportBtn) exportBtn.style.display = 'none';
+            if (btns.toggleOverlays === false && overlaysBtn) overlaysBtn.style.display = 'none';
+            if (btns.fullscreen === false && fullscreenBtn) fullscreenBtn.style.display = 'none';
+            if (btns.viewCart === false && cartBtn) cartBtn.style.display = 'none';
+
+            if (sb.visible === false && searchShell) searchShell.style.display = 'none';
+            if (sl.visible === false && legendEl) legendEl.style.display = 'none';
+
+            if (pl.visible === false && navShell) navShell.style.display = 'none';
+            if (pl.position === 'right' && navShell) {
+                navShell.style.left = 'auto';
+                navShell.style.right = '14px';
+            }
+            if (navShell) {
+                var panel = navShell.querySelector('.panorama-nav-panel');
+                var titleElP = navShell.querySelector('.panorama-nav-title');
+                var subtitleElP = navShell.querySelector('#panorama-nav-subtitle');
+                var listElP = navShell.querySelector('.panorama-nav-list');
+                if (panel) {
+                    panel.style.display = 'flex';
+                    panel.style.flexDirection = 'column';
+                    panel.style.height = '100vh';
+                    var va = pl.verticalAlign || 'top';
+                    panel.style.justifyContent = va === 'center' ? 'center' : va === 'bottom' ? 'flex-end' : 'flex-start';
+                    if (pl.panelBg) panel.style.background = hexToRgba_cv(pl.panelBg, tr.panoramaNav !== undefined ? tr.panoramaNav : 0.72);
+                }
+                if (titleElP) {
+                    if (pl.title) titleElP.textContent = pl.title;
+                    if (pl.titleFont) titleElP.style.fontFamily = pl.titleFont + ', sans-serif';
+                    if (pl.titleFontSize) titleElP.style.fontSize = pl.titleFontSize;
+                    if (pl.titleColor) titleElP.style.color = pl.titleColor;
+                }
+                if (subtitleElP) {
+                    if (pl.subheaderFont) subtitleElP.style.fontFamily = pl.subheaderFont + ', sans-serif';
+                    if (pl.subheaderFontSize) subtitleElP.style.fontSize = pl.subheaderFontSize;
+                    if (pl.subheaderColor) subtitleElP.style.color = pl.subheaderColor;
+                }
+                if (listElP) {
+                    if (pl.itemFont) listElP.style.fontFamily = pl.itemFont + ', sans-serif';
+                    if (pl.itemFontSize) listElP.style.fontSize = pl.itemFontSize;
+                    if (pl.itemColor) listElP.style.color = pl.itemColor;
+                }
+            }
+
+            if (ep.statusLegend && ep.statusLegend.x !== null && ep.statusLegend.y !== null && legendEl) {
+                legendEl.style.position = 'fixed';
+                legendEl.style.left = ep.statusLegend.x + 'px';
+                legendEl.style.top = ep.statusLegend.y + 'px';
+                legendEl.style.bottom = 'auto';
+                legendEl.style.right = 'auto';
+            }
+            if (ep.panoramaNav && ep.panoramaNav.x !== null && ep.panoramaNav.y !== null && navShell) {
+                navShell.style.position = 'fixed';
+                navShell.style.left = ep.panoramaNav.x + 'px';
+                navShell.style.top = ep.panoramaNav.y + 'px';
+            }
+        }
 
         const loading = document.getElementById('loading');
         const shareBtn = document.getElementById('share-btn');
@@ -628,20 +794,41 @@
 
         function renderPanoramaMenu(entriesMap) {
             if (!panoramaNavList) return;
-            const currentId = String(PANORAMA_ID);
+            var pl = CUSTOMER_VIEW_CONFIG && CUSTOMER_VIEW_CONFIG.panoramaList;
+            var navShell = document.getElementById('panorama-nav-shell');
+            var panel = navShell ? navShell.querySelector('.panorama-nav-panel') : null;
+            if (panel && pl) {
+                panel.style.display = 'flex';
+                panel.style.flexDirection = 'column';
+                panel.style.height = '100vh';
+                var va = pl.verticalAlign || 'top';
+                panel.style.justifyContent = va === 'center' ? 'center' : va === 'bottom' ? 'flex-end' : 'flex-start';
+            }
+            const currentId = FULL_VIEW ? String(currentFullViewPanoramaId) : String(PANORAMA_ID);
             const map = entriesMap instanceof Map ? entriesMap : buildPanoramaMenuEntries();
             const current = map.get(currentId) || { id: currentId, sources: new Set(['current']) };
             const others = Array.from(map.values()).filter((entry) => entry && String(entry.id) !== currentId);
 
-            others.sort((a, b) => {
-                return getPanoramaMenuName(a.id).localeCompare(getPanoramaMenuName(b.id));
-            });
+            var cvOrder = (pl && Array.isArray(pl.order) && pl.order.length > 0) ? pl.order : [];
+            if (cvOrder.length > 0) {
+                others.sort((a, b) => {
+                    var ai = cvOrder.findIndex(function (id) { return String(id) === String(a.id); });
+                    var bi = cvOrder.findIndex(function (id) { return String(id) === String(b.id); });
+                    if (ai === -1) ai = 9999;
+                    if (bi === -1) bi = 9999;
+                    return ai - bi;
+                });
+            } else {
+                others.sort((a, b) => {
+                    return getPanoramaMenuName(a.id).localeCompare(getPanoramaMenuName(b.id));
+                });
+            }
 
             if (panoramaNavSubtitle) {
                 const linkedCount = others.length;
-                panoramaNavSubtitle.textContent = linkedCount
-                    ? `${linkedCount} linked view${linkedCount === 1 ? '' : 's'}`
-                    : 'No linked views yet';
+                const pl = CUSTOMER_VIEW_CONFIG && CUSTOMER_VIEW_CONFIG.panoramaList;
+                if (pl && pl.subheader != null && pl.subheader !== '') panoramaNavSubtitle.textContent = pl.subheader;
+                else panoramaNavSubtitle.textContent = linkedCount ? `${linkedCount} linked view${linkedCount === 1 ? '' : 's'}` : 'No linked views yet';
             }
 
             const currentHtml = `
@@ -726,6 +913,8 @@
                 e.stopPropagation();
                 setPanoramaMenuOpen(!panoramaMenuOpen, true);
             });
+            const panoramaNavCollapse = document.getElementById('panorama-nav-collapse');
+            if (panoramaNavCollapse) panoramaNavCollapse.addEventListener('click', () => setPanoramaMenuOpen(false, true));
             // Close on click outside
             document.addEventListener('click', (e) => {
                 if (!panoramaMenuOpen) return;
@@ -2659,6 +2848,7 @@
 
             viewer.on('ready', () => {
                 loading.classList.add('hidden');
+                applyCustomerViewConfig();
                 const indexPromise = FULL_VIEW ? Promise.resolve([]) : loadPanoramaIndex().catch(() => []);
                 const plotsPromise = loadPlots();
                 const markersPromise = markerManager.loadMarkers()

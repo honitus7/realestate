@@ -487,6 +487,38 @@ body {
 .panorama-nav-head {
     padding: 0.5rem 0.85rem 0.4rem;
     border-bottom: 1px solid rgba(22, 35, 56, 0.06);
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.5rem;
+}
+
+.panorama-nav-head-text {
+    min-width: 0;
+    flex: 1;
+}
+
+.panorama-nav-collapse-btn {
+    flex-shrink: 0;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    border: 1px solid rgba(22, 35, 56, 0.12);
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.6);
+    color: #5d6f8f;
+    font-size: 1.25rem;
+    line-height: 1;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.15s ease, color 0.15s ease;
+}
+
+.panorama-nav-collapse-btn:hover {
+    background: rgba(22, 35, 56, 0.08);
+    color: #1a2e4d;
 }
 
 .panorama-nav-title {
