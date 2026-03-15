@@ -669,12 +669,16 @@
                     applyConfig();
                 });
                 frag.appendChild(rowItemSize);
-                var ordered = config.panoramaList.order && Array.isArray(config.panoramaList.order) && config.panoramaList.order.length > 0
-                    ? config.panoramaList.order.map(function (id) { return WORKSPACE_PANORAMAS.find(function (p) { return String(p.id) === String(id); }); }).filter(Boolean)
-                    : WORKSPACE_PANORAMAS.slice();
-                WORKSPACE_PANORAMAS.forEach(function (p) {
-                    if (!ordered.find(function (o) { return o && String(o.id) === String(p.id); })) ordered.push(p);
-                });
+                var configOrder = config.panoramaList && config.panoramaList.order;
+                var ordered;
+                if (configOrder && configOrder.length > 0) {
+                    ordered = configOrder.map(function (id) { return WORKSPACE_PANORAMAS.find(function (p) { return String(p.id) === String(id); }); }).filter(Boolean);
+                    WORKSPACE_PANORAMAS.forEach(function (p) {
+                        if (!ordered.find(function (o) { return o && String(o.id) === String(p.id); })) ordered.push(p);
+                    });
+                } else {
+                    ordered = WORKSPACE_PANORAMAS.slice().sort(function (a, b) { return (a.name || '').localeCompare(b.name || ''); });
+                }
                 var rowOrder = document.createElement('div');
                 rowOrder.className = 'ce-opt-row ce-pano-order-wrap';
                 rowOrder.innerHTML = '<label class="ce-opt-label">Arrange order</label>';
@@ -830,12 +834,16 @@
         function renderPanoramaNavList() {
             var listEl = document.getElementById('cv-panorama-nav-list');
             var subtitleEl = document.getElementById('cv-panorama-nav-subtitle');
-            var ordered = config.panoramaList.order && config.panoramaList.order.length > 0
-                ? config.panoramaList.order.map(function (id) { return WORKSPACE_PANORAMAS.find(function (p) { return String(p.id) === String(id); }); }).filter(Boolean)
-                : WORKSPACE_PANORAMAS.slice();
-            WORKSPACE_PANORAMAS.forEach(function (p) {
-                if (!ordered.find(function (o) { return o && String(o.id) === String(p.id); })) ordered.push(p);
-            });
+            var configOrder = config.panoramaList && config.panoramaList.order;
+            var ordered;
+            if (configOrder && configOrder.length > 0) {
+                ordered = configOrder.map(function (id) { return WORKSPACE_PANORAMAS.find(function (p) { return String(p.id) === String(id); }); }).filter(Boolean);
+                WORKSPACE_PANORAMAS.forEach(function (p) {
+                    if (!ordered.find(function (o) { return o && String(o.id) === String(p.id); })) ordered.push(p);
+                });
+            } else {
+                ordered = WORKSPACE_PANORAMAS.slice().sort(function (a, b) { return (a.name || '').localeCompare(b.name || ''); });
+            }
             if (subtitleEl) subtitleEl.textContent = config.panoramaList.subheader != null && config.panoramaList.subheader !== '' ? config.panoramaList.subheader : ordered.length + ' panorama' + (ordered.length !== 1 ? 's' : '');
             if (!listEl) return;
             listEl.innerHTML = '';

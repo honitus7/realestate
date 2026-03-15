@@ -307,6 +307,18 @@
         const WORKSPACE_PANORAMAS = {{ (workspace_panoramas or[])| tojson }};
         const INITIAL_PANORAMA_ID = {{ initial_panorama_id if initial_panorama_id is not none else 'null' }};
         const CUSTOMER_VIEW_CONFIG = {{ (customer_view_config or {}) | tojson }};
+        var WORKSPACE_ID = {% if workspace_id is not none %}{{ workspace_id|tojson }}{% else %}null{% endif %};
+
+        function deepMergeCvConfig(target, source) {
+            if (!source || typeof source !== 'object') return;
+            Object.keys(source).forEach(function (key) {
+                if (source[key] && typeof source[key] === 'object' && !Array.isArray(source[key]) && target[key] && typeof target[key] === 'object') {
+                    deepMergeCvConfig(target[key], source[key]);
+                } else {
+                    target[key] = source[key];
+                }
+            });
+        }
 
         function hexToRgba_cv(hex, alpha) {
             var r = parseInt(hex.slice(1, 3), 16);
@@ -794,7 +806,8 @@
 
         function renderPanoramaMenu(entriesMap) {
             if (!panoramaNavList) return;
-            var pl = CUSTOMER_VIEW_CONFIG && CUSTOMER_VIEW_CONFIG.panoramaList;
+            var cfg = (typeof CUSTOMER_VIEW_CONFIG === 'string') ? (function () { try { return JSON.parse(CUSTOMER_VIEW_CONFIG); } catch (e) { return {}; } })() : (CUSTOMER_VIEW_CONFIG || {});
+            var pl = cfg.panoramaList;
             var navShell = document.getElementById('panorama-nav-shell');
             var panel = navShell ? navShell.querySelector('.panorama-nav-panel') : null;
             if (panel && pl) {
@@ -806,12 +819,12 @@
             }
             const currentId = FULL_VIEW ? String(currentFullViewPanoramaId) : String(PANORAMA_ID);
             const map = entriesMap instanceof Map ? entriesMap : buildPanoramaMenuEntries();
-            const current = map.get(currentId) || { id: currentId, sources: new Set(['current']) };
-            const others = Array.from(map.values()).filter((entry) => entry && String(entry.id) !== currentId);
+            const all = Array.from(map.values()).filter((entry) => entry);
 
-            var cvOrder = (pl && Array.isArray(pl.order) && pl.order.length > 0) ? pl.order : [];
+            var orderArr = (pl && pl.order);
+            var cvOrder = (Array.isArray(orderArr) && orderArr.length > 0) ? orderArr : [];
             if (cvOrder.length > 0) {
-                others.sort((a, b) => {
+                all.sort((a, b) => {
                     var ai = cvOrder.findIndex(function (id) { return String(id) === String(a.id); });
                     var bi = cvOrder.findIndex(function (id) { return String(id) === String(b.id); });
                     if (ai === -1) ai = 9999;
@@ -819,35 +832,25 @@
                     return ai - bi;
                 });
             } else {
-                others.sort((a, b) => {
-                    return getPanoramaMenuName(a.id).localeCompare(getPanoramaMenuName(b.id));
-                });
+                all.sort((a, b) => getPanoramaMenuName(a.id).localeCompare(getPanoramaMenuName(b.id)));
             }
 
             if (panoramaNavSubtitle) {
-                const linkedCount = others.length;
-                const pl = CUSTOMER_VIEW_CONFIG && CUSTOMER_VIEW_CONFIG.panoramaList;
                 if (pl && pl.subheader != null && pl.subheader !== '') panoramaNavSubtitle.textContent = pl.subheader;
-                else panoramaNavSubtitle.textContent = linkedCount ? `${linkedCount} linked view${linkedCount === 1 ? '' : 's'}` : 'No linked views yet';
+                else panoramaNavSubtitle.textContent = all.length ? `${all.length} linked view${all.length === 1 ? '' : 's'}` : 'No linked views yet';
             }
 
-            const currentHtml = `
-                <div class="panorama-nav-item active" aria-current="page">
-                    <span class="panorama-nav-item-name">${escapeHtml(getPanoramaMenuName(current.id))}</span>
-                    <span class="panorama-nav-item-meta">${escapeHtml(panoramaMenuSourceLabel(current))}</span>
-                </div>
-            `;
+            const itemsHtml = all.map((entry) => {
+                const isCurrent = String(entry.id) === currentId;
+                const name = escapeHtml(getPanoramaMenuName(entry.id));
+                const meta = escapeHtml(panoramaMenuSourceLabel(entry));
+                if (isCurrent) {
+                    return `<div class="panorama-nav-item active" aria-current="page"><span class="panorama-nav-item-name">${name}</span><span class="panorama-nav-item-meta">${meta}</span></div>`;
+                }
+                return `<button class="panorama-nav-item" type="button" data-panorama-id="${escapeHtml(entry.id)}"><span class="panorama-nav-item-name">${name}</span><span class="panorama-nav-item-meta">${meta}</span></button>`;
+            }).join('');
 
-            const linkedHtml = others.map((entry) => `
-                <button class="panorama-nav-item" type="button" data-panorama-id="${escapeHtml(entry.id)}">
-                    <span class="panorama-nav-item-name">${escapeHtml(getPanoramaMenuName(entry.id))}</span>
-                    <span class="panorama-nav-item-meta">${escapeHtml(panoramaMenuSourceLabel(entry))}</span>
-                </button>
-            `).join('');
-
-            panoramaNavList.innerHTML = currentHtml + linkedHtml + (
-                others.length ? '' : '<div class="panorama-nav-empty">No linked panoramas available yet.</div>'
-            );
+            panoramaNavList.innerHTML = itemsHtml + (all.length ? '' : '<div class="panorama-nav-empty">No linked panoramas available yet.</div>');
 
             panoramaNavList.querySelectorAll('button[data-panorama-id]').forEach((btn) => {
                 btn.addEventListener('click', () => {
@@ -2847,29 +2850,32 @@
             markerManager.init(viewer, markersPlugin);
 
             viewer.on('ready', () => {
-                loading.classList.add('hidden');
-                applyCustomerViewConfig();
-                const indexPromise = FULL_VIEW ? Promise.resolve([]) : loadPanoramaIndex().catch(() => []);
-                const plotsPromise = loadPlots();
-                const markersPromise = markerManager.loadMarkers()
-                    .then(() => updateSearchDropdown(plotSearchInput ? plotSearchInput.value : ''))
-                    .catch(() => { });
-                Promise.all([indexPromise, plotsPromise, markersPromise])
-                    .then(() => {
-                        refreshPanoramaMenu().catch(() => { });
-                        if (FULL_VIEW && INITIAL_PANORAMA_ID && INITIAL_PANORAMA_ID !== PANORAMA_ID && getWorkspacePanoramaById(INITIAL_PANORAMA_ID)) {
-                            switchToPanoramaInView(INITIAL_PANORAMA_ID, true);
-                        }
-                        const runPrefetch = () => prefetchLinkedPanoramas().catch(() => { });
-                        if (typeof requestIdleCallback === 'function') {
-                            requestIdleCallback(runPrefetch, { timeout: 2500 });
-                        } else {
-                            setTimeout(runPrefetch, 1200);
-                        }
-                    })
-                    .catch(() => { });
-                scheduleAutoRotateResume(AUTO_ROTATE_BOOT_DELAY_MS);
-                setTimeout(() => markerManager.updateViewportFocus(), 250);
+                var configPromise = WORKSPACE_ID ? fetch('/api/workspaces/' + WORKSPACE_ID + '/customer-view-config').then(function (r) { return r.json(); }).then(function (data) { if (data && data.config && typeof data.config === 'object') deepMergeCvConfig(CUSTOMER_VIEW_CONFIG, data.config); }).catch(function () {}) : Promise.resolve();
+                configPromise.then(function () {
+                    loading.classList.add('hidden');
+                    applyCustomerViewConfig();
+                    const indexPromise = FULL_VIEW ? Promise.resolve([]) : loadPanoramaIndex().catch(() => []);
+                    const plotsPromise = loadPlots();
+                    const markersPromise = markerManager.loadMarkers()
+                        .then(() => updateSearchDropdown(plotSearchInput ? plotSearchInput.value : ''))
+                        .catch(() => { });
+                    Promise.all([indexPromise, plotsPromise, markersPromise])
+                        .then(() => {
+                            refreshPanoramaMenu().catch(() => { });
+                            if (FULL_VIEW && INITIAL_PANORAMA_ID && INITIAL_PANORAMA_ID !== PANORAMA_ID && getWorkspacePanoramaById(INITIAL_PANORAMA_ID)) {
+                                switchToPanoramaInView(INITIAL_PANORAMA_ID, true);
+                            }
+                            const runPrefetch = () => prefetchLinkedPanoramas().catch(() => { });
+                            if (typeof requestIdleCallback === 'function') {
+                                requestIdleCallback(runPrefetch, { timeout: 2500 });
+                            } else {
+                                setTimeout(runPrefetch, 1200);
+                            }
+                        })
+                        .catch(() => { });
+                    scheduleAutoRotateResume(AUTO_ROTATE_BOOT_DELAY_MS);
+                    setTimeout(() => markerManager.updateViewportFocus(), 250);
+                });
             });
 
             viewer.on('position-updated', () => markerManager.updateViewportFocus());

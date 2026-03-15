@@ -275,10 +275,14 @@ def get_customer_config(sb, workspace_id):
     workspace = get_workspace_by_id(sb, workspace_id)
     if not workspace:
         return None
-    cfg = workspace.get('panaroma_menu_config')
+    cfg = workspace.get('panaroma_menu_config') or workspace.get('panorama_menu_config')
+    if cfg is None:
+        return {}
     if isinstance(cfg, str):
         try:
             return json.loads(cfg)
         except Exception:
             return {}
-    return cfg if isinstance(cfg, dict) else {}
+    if isinstance(cfg, dict):
+        return cfg
+    return {}

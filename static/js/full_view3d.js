@@ -415,7 +415,7 @@
         var currentId = String(currentPanoramaId);
         var html = '';
         var ordered = WORKSPACE_PANORAMAS.slice();
-        var cvOrder = (CV_CONFIG && CV_CONFIG.panoramaList && CV_CONFIG.panoramaList.order) || [];
+        var cvOrder = (CV_CONFIG && CV_CONFIG.panoramaList && CV_CONFIG.panoramaList.order && CV_CONFIG.panoramaList.order.length > 0) ? CV_CONFIG.panoramaList.order : [];
         if (cvOrder.length > 0) {
             ordered.sort(function (a, b) {
                 var ai = cvOrder.findIndex(function (id) { return String(id) === String(a.id); });
@@ -424,6 +424,8 @@
                 if (bi === -1) bi = 9999;
                 return ai - bi;
             });
+        } else {
+            ordered.sort(function (a, b) { return (a.name || '').localeCompare(b.name || ''); });
         }
         for (var i = 0; i < ordered.length; i++) {
             var p = ordered[i];

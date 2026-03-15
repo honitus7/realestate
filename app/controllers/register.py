@@ -10,7 +10,7 @@ from datetime import datetime
 
 import requests as _requests
 
-from flask import request, jsonify, render_template, redirect, Response, send_from_directory, current_app
+from flask import request, jsonify, render_template, redirect, Response, send_from_directory, current_app, make_response
 from werkzeug.utils import secure_filename
 from werkzeug.exceptions import RequestEntityTooLarge
 from itsdangerous import BadSignature, SignatureExpired
@@ -452,7 +452,7 @@ def register_routes(app):
                 customer_view_config = ws_get_customer_config(sb, workspace_id) or {}
             except Exception:
                 pass
-        return render_template(
+        resp = make_response(render_template(
             'customer_3d.html',
             panorama=panorama,
             org_name=org_name,
@@ -460,9 +460,12 @@ def register_routes(app):
             full_view=False,
             workspace_panoramas=[],
             initial_panorama_id=None,
+            workspace_id=workspace_id,
             customer_view_config=customer_view_config,
             **auth_ctx()
-        )
+        ))
+        resp.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate'
+        return resp
 
     @app.route('/customer/<org_slug>/full-view/<int:panorama_id>')
     def customer_full_view(org_slug, panorama_id):
@@ -1404,6 +1407,22 @@ def register_routes(app):
             if is_workspace_schema_missing(e):
                 return _ws_error_response()
             return jsonify({'error': str(e)}), 500
+
+    @app.route('/api/workspaces/<workspace_id>/customer-view-config', methods=['GET'])
+    def get_workspace_customer_view_config_public(workspace_id):
+        sb = get_supabase()
+        if not sb:
+            return jsonify({'error': 'Database not configured'}), 503
+        try:
+            workspace = get_workspace_by_id(sb, workspace_id)
+        except Exception as e:
+            if is_workspace_schema_missing(e):
+                return _ws_error_response()
+            return jsonify({'error': str(e)}), 500
+        if not workspace:
+            return jsonify({'error': 'Workspace not found'}), 404
+        config = ws_get_customer_config(sb, workspace_id)
+        return jsonify({'success': True, 'config': config or {}})
 
     @app.route('/api/workspaces/<workspace_id>/customer-config', methods=['GET'])
     @require_admin
