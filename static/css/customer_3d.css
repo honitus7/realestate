@@ -170,7 +170,6 @@ body {
     font-weight: 700;
     color: #1a2e4d;
     letter-spacing: 0.01em;
-    text-transform: uppercase;
 }
 
 .project-badge-dot {
@@ -185,7 +184,6 @@ body {
     font-size: 0.62rem;
     font-weight: 700;
     letter-spacing: 0.1em;
-    text-transform: uppercase;
     color: #7a8ba8;
 }
 
@@ -449,6 +447,30 @@ body {
     pointer-events: none;
     padding: 0;
 }
+.panorama-nav-shell.pos-left {
+    top: 0;
+    left: 0;
+    right: auto;
+    bottom: 0;
+}
+.panorama-nav-shell.pos-right {
+    top: 0;
+    right: 0;
+    left: auto;
+    bottom: 0;
+}
+.panorama-nav-shell.pos-top {
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: auto;
+}
+.panorama-nav-shell.pos-bottom {
+    bottom: 0;
+    left: 0;
+    right: 0;
+    top: auto;
+}
 
 .panorama-nav-panel {
     width: min(285px, calc(100vw - 28px));
@@ -466,11 +488,59 @@ body {
     pointer-events: auto;
     overflow: hidden;
 }
+.panorama-nav-shell.pos-right .panorama-nav-panel {
+    margin-left: auto;
+    border-right: none;
+    border-left: 1px solid rgba(22, 35, 56, 0.06);
+}
+.panorama-nav-shell.pos-top .panorama-nav-panel,
+.panorama-nav-shell.pos-bottom .panorama-nav-panel {
+    width: 100vw;
+    height: min(238px, 46vh);
+    border-left: none;
+    border-right: none;
+}
+.panorama-nav-shell.pos-top .panorama-nav-panel {
+    border-bottom: 1px solid rgba(22, 35, 56, 0.08);
+}
+.panorama-nav-shell.pos-bottom .panorama-nav-panel {
+    margin-top: auto;
+    border-top: 1px solid rgba(22, 35, 56, 0.08);
+}
+.panorama-nav-shell.pos-top .panorama-nav-list,
+.panorama-nav-shell.pos-bottom .panorama-nav-list {
+    display: flex;
+    gap: 0.45rem;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding: 0.5rem 0.7rem;
+    align-items: stretch;
+}
+.panorama-nav-shell.pos-top .panorama-nav-item,
+.panorama-nav-shell.pos-bottom .panorama-nav-item {
+    min-width: 180px;
+    width: 180px;
+    border: 1px solid rgba(22, 35, 56, 0.08);
+    border-radius: 10px;
+}
+.panorama-nav-shell.pos-top .panorama-nav-empty,
+.panorama-nav-shell.pos-bottom .panorama-nav-empty {
+    padding: 0.7rem 0.2rem;
+}
 
 .panorama-nav-shell.is-collapsed .panorama-nav-panel {
     visibility: hidden;
     pointer-events: none;
     transform: translateX(-100%);
+}
+.panorama-nav-shell.pos-right.is-collapsed .panorama-nav-panel {
+    transform: translateX(100%);
+}
+.panorama-nav-shell.pos-top.is-collapsed .panorama-nav-panel {
+    transform: translateY(-100%);
+}
+.panorama-nav-shell.pos-bottom.is-collapsed .panorama-nav-panel {
+    transform: translateY(100%);
 }
 
 /* Absorbed project badge at top of panel */
@@ -524,7 +594,6 @@ body {
 .panorama-nav-title {
     font-size: 0.6rem;
     letter-spacing: 0.12em;
-    text-transform: uppercase;
     font-weight: 800;
     color: #7a8ba8;
 }
@@ -533,7 +602,6 @@ body {
     margin-top: 0.12rem;
     font-size: 0.52rem;
     letter-spacing: 0.06em;
-    text-transform: uppercase;
     color: #a0aec0;
 }
 
@@ -572,7 +640,9 @@ body {
     font-family: var(--font-body);
     display: flex;
     flex-direction: column;
+    justify-content: center;
     gap: 0.12rem;
+    min-height: 56px;
 }
 
 .panorama-nav-item:last-child {

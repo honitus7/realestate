@@ -399,7 +399,23 @@ def register_routes(app):
         if err:
             return err
         org_name, org_slug = get_org_name_and_slug_for_panorama(sb, panorama)
-        return render_template('admin_3d.html', panorama=panorama, org_name=org_name, org_slug=org_slug, **auth_ctx())
+        workspace_panoramas = []
+        customer_view_config = {}
+        workspace_id = (panorama or {}).get('workspace_id')
+        if workspace_id:
+            try:
+                r = sb.table('panoramas').select('id, name, filename').eq('workspace_id', workspace_id).eq('is_360', True).order('id').execute()
+                rows = list(r.data or [])
+                for p in rows:
+                    workspace_panoramas.append({
+                        'id': p.get('id'),
+                        'name': (p.get('name') or '').strip() or ('Panorama #' + str(p.get('id') or '')),
+                        'filename': p.get('filename') or '',
+                    })
+                customer_view_config = ws_get_customer_config(sb, workspace_id) or {}
+            except Exception:
+                pass
+        return render_template('admin_3d.html', panorama=panorama, org_name=org_name, org_slug=org_slug, workspace_id=workspace_id, workspace_panoramas=workspace_panoramas, customer_view_config=customer_view_config, **auth_ctx())
 
     @app.route('/client/3d/<int:panorama_id>')
     def client_3d(panorama_id):

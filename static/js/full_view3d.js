@@ -104,11 +104,20 @@
                 if (pl.subheaderColor) subtitleElP.style.color = pl.subheaderColor;
                 if (pl.subheader != null && pl.subheader !== '') subtitleElP.textContent = pl.subheader;
             }
-            if (listElP) {
-                if (pl.itemFont) listElP.style.fontFamily = pl.itemFont + ', sans-serif';
-                if (pl.itemFontSize) listElP.style.fontSize = pl.itemFontSize;
-                if (pl.itemColor) listElP.style.color = pl.itemColor;
-            }
+        if (listElP) {
+            var itemFont = (pl.itemFont || 'Syne') + ', sans-serif';
+            listElP.style.fontFamily = itemFont;
+            if (pl.itemFontSize) listElP.style.fontSize = pl.itemFontSize;
+            if (pl.itemColor) listElP.style.color = pl.itemColor;
+            listElP.querySelectorAll('.panorama-nav-item').forEach(function (el) {
+                el.style.fontFamily = itemFont;
+                if (pl.itemColor) el.style.color = pl.itemColor;
+            });
+            listElP.querySelectorAll('.panorama-nav-item-name').forEach(function (el) {
+                el.style.fontFamily = itemFont;
+                if (pl.itemColor) el.style.color = pl.itemColor;
+            });
+        }
         }
 
         if (ep.statusLegend && ep.statusLegend.x !== null && ep.statusLegend.y !== null && legendEl) {
@@ -587,6 +596,16 @@
         if (el) el.textContent = hold;
         el = document.getElementById('status-count-sold');
         if (el) el.textContent = sold;
+        var legendEl = document.getElementById('status-legend');
+        if (legendEl) {
+            if (!total) {
+                legendEl.style.display = 'none';
+            } else {
+                var slCfg = CV_CONFIG.statusLegend || {};
+                if (slCfg.visible === false) legendEl.style.display = 'none';
+                else legendEl.style.display = '';
+            }
+        }
     }
 
     function loadMarkers(panoramaId) {

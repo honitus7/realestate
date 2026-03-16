@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link
-        href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Syne:wght@400;500;600;700&display=swap"
+        href="https://fonts.googleapis.com/css2?family=Abel&family=Abril+Fatface&family=Acme&family=Alfa+Slab+One&family=Amatic+SC:wght@400;700&family=Anton&family=Archivo:wght@400;500;600;700&family=Archivo+Black&family=Bebas+Neue&family=Bitter:wght@400;700&family=Bodoni+Moda:wght@400;700&family=Bree+Serif&family=Cabin:wght@400;500;600;700&family=Caveat:wght@400;700&family=Cinzel:wght@400;700&family=Comfortaa:wght@400;700&family=Cormorant:wght@400;600;700&family=Crimson+Text:wght@400;600;700&family=Dancing+Script:wght@400;700&family=DM+Sans:wght@400;500;700&family=Domine:wght@400;700&family=Dosis:wght@400;600;700&family=EB+Garamond:wght@400;600;700&family=Exo+2:wght@400;600;700&family=Fira+Sans:wght@400;500;600;700&family=Fjalla+One&family=Francois+One&family=Fredoka:wght@400;600&family=Gloria+Hallelujah&family=Great+Vibes&family=Heebo:wght@400;500;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Serif:wght@400;600;700&family=Inconsolata:wght@400;700&family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600;700&family=Josefin+Sans:wght@400;600;700&family=Josefin+Slab:wght@400;600;700&family=Jost:wght@400;500;600;700&family=Kanit:wght@400;600;700&family=Karla:wght@400;600;700&family=Kaushan+Script&family=Kreon:wght@400;600;700&family=Lato:wght@400;700&family=League+Spartan:wght@400;600;700&family=Libre+Baskerville:wght@400;700&family=Libre+Franklin:wght@400;600;700&family=Lobster&family=Lora:wght@400;600;700&family=Manrope:wght@400;500;600;700&family=Merriweather:wght@400;700&family=Montserrat:wght@400;500;600;700&family=Mukta:wght@400;600;700&family=Nunito:wght@400;600;700&family=Open+Sans:wght@400;600;700&family=Oswald:wght@400;600;700&family=Outfit:wght@400;500;600;700&family=Overpass:wght@400;600;700&family=Pacifico&family=Passion+One&family=Patua+One&family=Permanent+Marker&family=Playfair+Display:wght@400;600;700&family=Poppins:wght@400;500;600;700&family=PT+Sans:wght@400;700&family=PT+Serif:wght@400;700&family=Quicksand:wght@400;600;700&family=Raleway:wght@400;500;600;700&family=Red+Hat+Display:wght@400;500;600;700&family=Righteous&family=Roboto:wght@400;500;700&family=Roboto+Condensed:wght@400;700&family=Roboto+Mono:wght@400;700&family=Roboto+Slab:wght@400;700&family=Rock+Salt&family=Rubik:wght@400;500;600;700&family=Rufina:wght@400;700&family=Source+Sans+3:wght@400;600;700&family=Source+Serif+4:wght@400;600;700&family=Space+Grotesk:wght@400;500;600;700&family=Space+Mono:wght@400;700&family=Spectral:wght@400;600;700&family=Spectral+SC:wght@400;700&family=Syne:wght@400;500;600;700&family=Tajawal:wght@400;700&family=Taviraj:wght@400;600;700&family=Tinos:wght@400;700&family=Titillium+Web:wght@400;600;700&family=Ubuntu:wght@400;500;700&family=Unbounded:wght@400;700&family=Urbanist:wght@400;600;700&family=Work+Sans:wght@400;500;600;700&family=Yanone+Kaffeesatz:wght@400;700&family=Yeseva+One&family=Zilla+Slab:wght@400;600;700&display=swap"
         rel="stylesheet">
     <link rel="stylesheet" href="/static/vendor/photo-sphere-viewer/photo-sphere-viewer.css">
     <link rel="stylesheet" href="/static/vendor/photo-sphere-viewer/plugins/markers.css">
@@ -116,7 +116,7 @@
             <div class="panorama-nav-list" id="panorama-nav-list"></div>
         </aside>
     </div>
-    <div class="status-legend" id="status-legend">
+    <div class="status-legend" id="status-legend" style="display:none;">
         <div class="legend-head">
             <span>Plot Range</span>
             <span class="legend-total" id="status-count-total">0</span>
@@ -327,6 +327,48 @@
             return 'rgba(' + r + ',' + g + ',' + b + ',' + alpha + ')';
         }
 
+        function applyPanoramaItemStylesCv(pl, listEl) {
+            if (!listEl) return;
+            var cfg = pl || {};
+            var x = cfg.itemAlignX || 'left';
+            var y = cfg.itemAlignY || 'center';
+            var xMap = { left: 'flex-start', center: 'center', right: 'flex-end' };
+            var yMap = { top: 'flex-start', center: 'center', bottom: 'flex-end' };
+            var textAlign = x === 'center' ? 'center' : x === 'right' ? 'right' : 'left';
+            var itemFont = (cfg.itemFont || 'Syne') + ', sans-serif';
+            listEl.style.fontFamily = itemFont;
+            if (cfg.itemFontSize) listEl.style.fontSize = cfg.itemFontSize;
+            if (cfg.itemColor) listEl.style.color = cfg.itemColor;
+            var navShell = listEl.closest('.panorama-nav-shell');
+            var isHorizontal = navShell && (navShell.classList.contains('pos-top') || navShell.classList.contains('pos-bottom'));
+            if (isHorizontal) {
+                listEl.style.alignItems = yMap[y] || 'center';
+            } else {
+                listEl.style.display = 'flex';
+                listEl.style.flexDirection = 'column';
+                listEl.style.justifyContent = yMap[y] || 'center';
+                listEl.style.minHeight = '0';
+            }
+            listEl.style.transform = y === 'center' ? 'translateY(-35x)' : 'none';
+            listEl.querySelectorAll('.panorama-nav-item').forEach(function (el) {
+                el.style.fontFamily = itemFont;
+                el.style.alignItems = xMap[x] || 'flex-start';
+                el.style.justifyContent = yMap[y] || 'center';
+                el.style.textAlign = textAlign;
+            });
+            listEl.querySelectorAll('.panorama-nav-item-name').forEach(function (el) {
+                el.style.fontFamily = itemFont;
+                if (cfg.itemColor) el.style.color = cfg.itemColor;
+                el.style.textAlign = textAlign;
+            });
+            listEl.querySelectorAll('.panorama-nav-item-meta').forEach(function (el) {
+                el.style.fontFamily = itemFont;
+                if (cfg.itemColor) el.style.color = cfg.itemColor;
+                if (cfg.itemColor) el.style.opacity = '0.8';
+                el.style.textAlign = textAlign;
+            });
+        }
+
         function applyCustomerViewConfig() {
             var cfg = CUSTOMER_VIEW_CONFIG;
             if (!cfg || typeof cfg !== 'object' || Object.keys(cfg).length === 0) return;
@@ -433,11 +475,9 @@
             if (sl.visible === false && legendEl) legendEl.style.display = 'none';
 
             if (pl.visible === false && navShell) navShell.style.display = 'none';
-            if (pl.position === 'right' && navShell) {
-                navShell.style.left = 'auto';
-                navShell.style.right = '14px';
-            }
             if (navShell) {
+                navShell.classList.remove('pos-left', 'pos-right', 'pos-top', 'pos-bottom');
+                navShell.classList.add('pos-' + (pl.position || 'left'));
                 var panel = navShell.querySelector('.panorama-nav-panel');
                 var titleElP = navShell.querySelector('.panorama-nav-title');
                 var subtitleElP = navShell.querySelector('#panorama-nav-subtitle');
@@ -445,9 +485,7 @@
                 if (panel) {
                     panel.style.display = 'flex';
                     panel.style.flexDirection = 'column';
-                    panel.style.height = '100vh';
-                    var va = pl.verticalAlign || 'top';
-                    panel.style.justifyContent = va === 'center' ? 'center' : va === 'bottom' ? 'flex-end' : 'flex-start';
+                    panel.style.justifyContent = 'flex-start';
                     if (pl.panelBg) panel.style.background = hexToRgba_cv(pl.panelBg, tr.panoramaNav !== undefined ? tr.panoramaNav : 0.72);
                 }
                 if (titleElP) {
@@ -455,19 +493,32 @@
                     if (pl.titleFont) titleElP.style.fontFamily = pl.titleFont + ', sans-serif';
                     if (pl.titleFontSize) titleElP.style.fontSize = pl.titleFontSize;
                     if (pl.titleColor) titleElP.style.color = pl.titleColor;
+                    titleElP.style.textAlign = pl.titleAlign || 'left';
                 }
                 if (subtitleElP) {
                     if (pl.subheaderFont) subtitleElP.style.fontFamily = pl.subheaderFont + ', sans-serif';
                     if (pl.subheaderFontSize) subtitleElP.style.fontSize = pl.subheaderFontSize;
                     if (pl.subheaderColor) subtitleElP.style.color = pl.subheaderColor;
+                    subtitleElP.style.textAlign = pl.subheaderAlign || 'left';
                 }
                 if (listElP) {
-                    if (pl.itemFont) listElP.style.fontFamily = pl.itemFont + ', sans-serif';
-                    if (pl.itemFontSize) listElP.style.fontSize = pl.itemFontSize;
-                    if (pl.itemColor) listElP.style.color = pl.itemColor;
+                    applyPanoramaItemStylesCv(pl, listElP);
                 }
             }
 
+            if (ep.header && ep.header.x !== null && ep.header.y !== null && headerEl) {
+                headerEl.style.position = 'fixed';
+                headerEl.style.left = ep.header.x + 'px';
+                headerEl.style.top = ep.header.y + 'px';
+                headerEl.style.right = 'auto';
+                headerEl.style.bottom = 'auto';
+            } else if (headerEl) {
+                headerEl.style.position = '';
+                headerEl.style.left = '';
+                headerEl.style.top = '';
+                headerEl.style.right = '';
+                headerEl.style.bottom = '';
+            }
             if (ep.statusLegend && ep.statusLegend.x !== null && ep.statusLegend.y !== null && legendEl) {
                 legendEl.style.position = 'fixed';
                 legendEl.style.left = ep.statusLegend.x + 'px';
@@ -479,6 +530,16 @@
                 navShell.style.position = 'fixed';
                 navShell.style.left = ep.panoramaNav.x + 'px';
                 navShell.style.top = ep.panoramaNav.y + 'px';
+                navShell.style.right = 'auto';
+                navShell.style.bottom = 'auto';
+                navShell.style.transform = 'none';
+            } else if (navShell) {
+                navShell.style.position = '';
+                navShell.style.left = '';
+                navShell.style.top = '';
+                navShell.style.right = '';
+                navShell.style.bottom = '';
+                navShell.style.transform = '';
             }
         }
 
@@ -537,6 +598,7 @@
         let panoramaMenuRefreshToken = 0;
         let panoramaMenuOpen = false;
         let markerManager = null;
+        let workspaceContextPromise = null;
         const PANORAMA_MENU_PREF_KEY = 'customer_panorama_menu_open_v1';
         let fullViewHistoryStack = [];
         let currentFullViewPanoramaId = PANORAMA_ID;
@@ -588,6 +650,35 @@
                 }
             } catch (e) { }
             return null;
+        }
+
+        function getWorkspaceContext() {
+            if (workspaceContextPromise) return workspaceContextPromise;
+            workspaceContextPromise = (async () => {
+                if (Array.isArray(WORKSPACE_PANORAMAS) && WORKSPACE_PANORAMAS.length > 0) {
+                    const list = WORKSPACE_PANORAMAS.filter(function (p) { return p && p.id != null; });
+                    const ids = list.map(function (p) { return String(p.id); });
+                    var inWorkspace = ids.indexOf(String(PANORAMA_ID)) !== -1 || ids.indexOf(String(currentFullViewPanoramaId)) !== -1;
+                    return { inWorkspace: inWorkspace, panoramas: list };
+                }
+                await loadPanoramaIndex().catch(function () { });
+                if (!Array.isArray(panoramaIndexCache)) return { inWorkspace: false, panoramas: [] };
+                var currentId = FULL_VIEW ? String(currentFullViewPanoramaId) : String(PANORAMA_ID);
+                var currentMeta = getPanoramaMeta(currentId);
+                var currentWorkspaceId = currentMeta && currentMeta.workspace_id != null ? String(currentMeta.workspace_id) : null;
+                if (!currentWorkspaceId) return { inWorkspace: false, panoramas: [] };
+                var list = panoramaIndexCache.filter(function (row) {
+                    if (!row || !row.id) return false;
+                    if (!row.is_360) return false;
+                    var rowWorkspaceId = row.workspace_id != null ? String(row.workspace_id) : null;
+                    return rowWorkspaceId === currentWorkspaceId;
+                }).map(function (row) {
+                    return { id: row.id, name: (row.name || '').trim() || ('Panorama #' + String(row.id)), filename: row.filename || '' };
+                });
+                var inWs = list.some(function (p) { return String(p.id) === currentId; });
+                return { inWorkspace: inWs, panoramas: list };
+            })();
+            return workspaceContextPromise;
         }
 
         const NAV_STACK_KEY = 're_customer_nav_stack_v1';
@@ -734,25 +825,46 @@
             }
         }
 
-        function buildPanoramaMenuEntries() {
+        async function buildPanoramaMenuEntriesAsync() {
             const currentId = FULL_VIEW ? String(currentFullViewPanoramaId) : String(PANORAMA_ID);
             const map = new Map();
             map.set(currentId, { id: currentId, sources: new Set(['current']) });
-
-            if (FULL_VIEW && Array.isArray(WORKSPACE_PANORAMAS) && WORKSPACE_PANORAMAS.length > 0) {
-                WORKSPACE_PANORAMAS.forEach(function (p) {
+            var cfg = (typeof CUSTOMER_VIEW_CONFIG === 'string') ? (function () { try { return JSON.parse(CUSTOMER_VIEW_CONFIG); } catch (e) { return {}; } })() : (CUSTOMER_VIEW_CONFIG || {});
+            var pl = cfg.panoramaList || {};
+            var hiddenArr = Array.isArray(pl.hidden) ? pl.hidden : [];
+            var hidden = new Set(hiddenArr.map(function (id) { return String(id); }));
+            const ctx = await getWorkspaceContext();
+            if (ctx.inWorkspace && Array.isArray(ctx.panoramas) && ctx.panoramas.length > 0) {
+                ctx.panoramas.forEach(function (p) {
                     if (!p || p.id == null) return;
                     const id = String(p.id);
-                    if (id === currentId) return;
+                    if (hidden.has(id)) return;
                     let entry = map.get(id);
-                    if (!entry) { entry = { id: id, sources: new Set(['index']) }; map.set(id, entry); }
+                    if (!entry) {
+                        entry = { id: id, sources: new Set(['index']) };
+                        map.set(id, entry);
+                    } else {
+                        entry.sources.add('index');
+                    }
                 });
+                (plots || []).forEach(function (plot) {
+                    var raw = plot && Object.prototype.hasOwnProperty.call(plot, 'linked_panorama_id') ? plot.linked_panorama_id : null;
+                    var id = raw != null ? String(raw) : null;
+                    if (id && map.has(id)) map.get(id).sources.add('plot');
+                });
+                if (markerManager && markerManager.markerMap) {
+                    markerManager.markerMap.forEach(function (marker) {
+                        var raw = marker && Object.prototype.hasOwnProperty.call(marker, 'linked_panorama_id') ? marker.linked_panorama_id : null;
+                        var id = raw != null ? String(raw) : null;
+                        if (id && map.has(id)) map.get(id).sources.add('marker');
+                    });
+                }
                 return map;
             }
-
-            const add = (rawId, source) => {
+            const add = function (rawId, source) {
                 const id = normalizePanoramaId(rawId);
                 if (!id || id === currentId) return;
+                if (hidden.has(id)) return;
                 let entry = map.get(id);
                 if (!entry) {
                     entry = { id: id, sources: new Set() };
@@ -760,36 +872,16 @@
                 }
                 if (source) entry.sources.add(source);
             };
-
-            (plots || []).forEach((plot) => {
-                const raw = plot && Object.prototype.hasOwnProperty.call(plot, 'linked_panorama_id')
-                    ? plot.linked_panorama_id
-                    : null;
+            (plots || []).forEach(function (plot) {
+                const raw = plot && Object.prototype.hasOwnProperty.call(plot, 'linked_panorama_id') ? plot.linked_panorama_id : null;
                 add(raw, 'plot');
             });
-
             if (markerManager && markerManager.markerMap) {
-                markerManager.markerMap.forEach((marker) => {
-                    const raw = marker && Object.prototype.hasOwnProperty.call(marker, 'linked_panorama_id')
-                        ? marker.linked_panorama_id
-                        : null;
+                markerManager.markerMap.forEach(function (marker) {
+                    const raw = marker && Object.prototype.hasOwnProperty.call(marker, 'linked_panorama_id') ? marker.linked_panorama_id : null;
                     add(raw, 'marker');
                 });
             }
-
-            if (Array.isArray(panoramaIndexCache)) {
-                const currentMeta = getPanoramaMeta(currentId);
-                const currentWorkspaceId = currentMeta && currentMeta.workspace_id != null ? String(currentMeta.workspace_id) : null;
-                panoramaIndexCache.forEach((row) => {
-                    if (!row || !row.id) return;
-                    if (!Boolean(row.is_360)) return;
-                    const rowWorkspaceId = row.workspace_id != null ? String(row.workspace_id) : null;
-                    const sameFolder = (currentWorkspaceId == null && rowWorkspaceId == null) || (currentWorkspaceId && rowWorkspaceId === currentWorkspaceId);
-                    if (!sameFolder) return;
-                    add(row.id, 'index');
-                });
-            }
-
             return map;
         }
 
@@ -810,12 +902,14 @@
             var pl = cfg.panoramaList;
             var navShell = document.getElementById('panorama-nav-shell');
             var panel = navShell ? navShell.querySelector('.panorama-nav-panel') : null;
+            if (navShell) {
+                navShell.classList.remove('pos-left', 'pos-right', 'pos-top', 'pos-bottom');
+                navShell.classList.add('pos-' + ((pl && pl.position) || 'left'));
+            }
             if (panel && pl) {
                 panel.style.display = 'flex';
                 panel.style.flexDirection = 'column';
-                panel.style.height = '100vh';
-                var va = pl.verticalAlign || 'top';
-                panel.style.justifyContent = va === 'center' ? 'center' : va === 'bottom' ? 'flex-end' : 'flex-start';
+                panel.style.justifyContent = 'flex-start';
             }
             const currentId = FULL_VIEW ? String(currentFullViewPanoramaId) : String(PANORAMA_ID);
             const map = entriesMap instanceof Map ? entriesMap : buildPanoramaMenuEntries();
@@ -851,6 +945,7 @@
             }).join('');
 
             panoramaNavList.innerHTML = itemsHtml + (all.length ? '' : '<div class="panorama-nav-empty">No linked panoramas available yet.</div>');
+            applyPanoramaItemStylesCv(pl || {}, panoramaNavList);
 
             panoramaNavList.querySelectorAll('button[data-panorama-id]').forEach((btn) => {
                 btn.addEventListener('click', () => {
@@ -865,19 +960,18 @@
         }
 
         async function refreshPanoramaMenu() {
-            const baseEntries = buildPanoramaMenuEntries();
+            const baseEntries = await buildPanoramaMenuEntriesAsync();
             renderPanoramaMenu(baseEntries);
-
             if (FULL_VIEW) return;
-            const idsToResolve = Array.from(baseEntries.keys()).filter((id) => {
+            const idsToResolve = Array.from(baseEntries.keys()).filter(function (id) {
                 return String(id) !== String(PANORAMA_ID) && !getPanoramaMeta(id);
             });
             if (!idsToResolve.length) return;
-
             const token = ++panoramaMenuRefreshToken;
-            await Promise.all(idsToResolve.map((id) => ensurePanoramaMeta(id)));
+            await Promise.all(idsToResolve.map(function (id) { return ensurePanoramaMeta(id); }));
             if (token !== panoramaMenuRefreshToken) return;
-            renderPanoramaMenu(buildPanoramaMenuEntries());
+            const entriesWithMeta = await buildPanoramaMenuEntriesAsync();
+            renderPanoramaMenu(entriesWithMeta);
         }
 
         function getInitialPanoramaMenuOpen() {
@@ -1340,6 +1434,17 @@
             if (totalMeta) {
                 totalMeta.textContent = `${counts.total} ${counts.total === 1 ? 'Plot' : 'Plots'}`;
             }
+            const legendEl = document.getElementById('status-legend');
+            if (legendEl) {
+                if (!counts.total) {
+                    legendEl.style.display = 'none';
+                } else {
+                    var cfg = (typeof CUSTOMER_VIEW_CONFIG === 'string') ? (function () { try { return JSON.parse(CUSTOMER_VIEW_CONFIG); } catch (e) { return {}; } })() : (CUSTOMER_VIEW_CONFIG || {});
+                    var sl = cfg.statusLegend || {};
+                    if (sl.visible === false) legendEl.style.display = 'none';
+                    else legendEl.style.display = '';
+                }
+            }
         }
 
         async function loadPlots(panoramaId) {
@@ -1353,7 +1458,6 @@
                 updateStatusLegend();
                 renderPlots();
                 updateSearchDropdown(plotSearchInput ? plotSearchInput.value : '');
-                refreshPanoramaMenu().catch(() => { });
             } catch (error) {
                 console.error('Failed to load plots:', error);
             }

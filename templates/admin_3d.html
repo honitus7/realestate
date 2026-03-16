@@ -1430,6 +1430,12 @@
                             <span class="tool-icon">✏️</span>
                             <span id="edit-toggle-text">Edit Mode</span>
                         </button>
+                        {% if panorama.workspace_id %}
+                        <button class="tool-item" id="pano-visibility-btn" type="button">
+                            <span class="tool-icon">📃</span>
+                            <span>Panorama visibility</span>
+                        </button>
+                        {% endif %}
                     </div>
                 </div>
             </div>
@@ -1604,6 +1610,17 @@
         </div>
     </div>
 
+    <div class="modal-backdrop" id="pano-visibility-modal" hidden>
+        <div class="modal">
+            <div class="modal-title">Panorama visibility</div>
+            <div class="modal-body" id="pano-visibility-body"></div>
+            <div class="modal-actions">
+                <button class="modal-btn secondary" id="pano-visibility-cancel">Cancel</button>
+                <button class="modal-btn primary" id="pano-visibility-save">Save</button>
+            </div>
+        </div>
+    </div>
+
     <aside class="floating-panel marker-sidebar" id="marker-sidebar">
         <div class="panel-header">
             <span class="panel-title">Markers</span>
@@ -1713,6 +1730,9 @@
         const PANORAMA_ID = {{ panorama.id }};
         const IS_360 = 1; // Always 360 for 3D routes
         const ORG_SLUG = {{ (org_slug or '')|tojson }};
+        const WORKSPACE_ID = {{ (workspace_id or 'null')|tojson }};
+        const WORKSPACE_PANORAMAS = {{ (workspace_panoramas or [])|tojson }};
+        let CUSTOMER_VIEW_CONFIG = {{ (customer_view_config or {})|tojson }};
 
         const loading = document.getElementById('loading');
         const editToggle = document.getElementById('edit-toggle');
@@ -1729,6 +1749,13 @@
         const editPanelToggle = document.getElementById('edit-panel-toggle');
         const formModalToggle = document.getElementById('form-modal-toggle');
         const formModal = plotFormModal ? plotFormModal.querySelector('.modal') : null;
+        const panoVisibilityBtn = document.getElementById('pano-visibility-btn');
+        const panoVisibilityModal = document.getElementById('pano-visibility-modal');
+        const panoVisibilityBody = document.getElementById('pano-visibility-body');
+        const panoVisibilitySave = document.getElementById('pano-visibility-save');
+        const panoVisibilityCancel = document.getElementById('pano-visibility-cancel');
+        let panoVisibilityWorkspaceId = null;
+        let panoVisibilityConfig = null;
 
         // (Collapse/Expand handled by tools-dropdown IIFE below)
 
@@ -1827,6 +1854,13 @@
             Object.entries(MARKER_ICON_GROUPS).flatMap(([prefix, names]) => names.map((name) => `${prefix}:${name}`))
         );
 
+        function getCustomerViewConfigObject(cfg) {
+            var out = cfg && typeof cfg === 'object' ? cfg : {};
+            if (!out.panoramaList || typeof out.panoramaList !== 'object') out.panoramaList = {};
+            if (!Array.isArray(out.panoramaList.hidden)) out.panoramaList.hidden = [];
+            return out;
+        }
+
         function normalizeMarkerColorHex(value) {
             const raw = String(value || '').trim();
             const match = raw.match(/^#([0-9a-fA-F]{6})$/);
@@ -1839,6 +1873,42 @@
             const g = parseInt(hex.slice(2, 4), 16);
             const b = parseInt(hex.slice(4, 6), 16);
             return `${r}, ${g}, ${b}`;
+        }
+
+        async function openPanoramaVisibility() {
+            if (!panoVisibilityModal || !panoVisibilityBody) return;
+            if (!WORKSPACE_ID || !Array.isArray(WORKSPACE_PANORAMAS) || !WORKSPACE_PANORAMAS.length) {
+                panoVisibilityWorkspaceId = null;
+                panoVisibilityConfig = null;
+                panoVisibilityBody.innerHTML = '<div class="edit-instruction" style="font-style:italic;">No workspace panoramas found.</div>';
+            } else {
+                panoVisibilityWorkspaceId = String(WORKSPACE_ID);
+                panoVisibilityConfig = getCustomerViewConfigObject(CUSTOMER_VIEW_CONFIG);
+                const hiddenSet = new Set((panoVisibilityConfig.panoramaList.hidden || []).map(function (id) { return String(id); }));
+                panoVisibilityBody.innerHTML = '';
+                WORKSPACE_PANORAMAS.forEach(function (row) {
+                    if (!row || row.id == null) return;
+                    const id = String(row.id);
+                    const name = (row.name || '').trim() || ('Panorama #' + id);
+                    const rowEl = document.createElement('div');
+                    rowEl.className = 'tool-item';
+                    rowEl.innerHTML =
+                        '<span class="tool-item-left">' +
+                            '<span class="tool-icon">◉</span>' +
+                            '<span>' + name + '</span>' +
+                        '</span>' +
+                        '<label class="mini-toggle">' +
+                            '<input type="checkbox" class="pano-hide-toggle" data-pano-id="' + id + '"' + (hiddenSet.has(id) ? ' checked' : '') + '>' +
+                            '<span class="mini-toggle-slider"></span>' +
+                        '</label>';
+                    panoVisibilityBody.appendChild(rowEl);
+                });
+                if (!panoVisibilityBody.children.length) {
+                    panoVisibilityBody.innerHTML = '<div class="edit-instruction" style="font-style:italic;">No workspace panoramas found.</div>';
+                }
+            }
+            panoVisibilityModal.classList.add('visible');
+            panoVisibilityModal.removeAttribute('hidden');
         }
 
         async function loadPlots() {
@@ -1862,6 +1932,59 @@
                 renderPlots();
                 updatePlotsList();
             }
+        }
+
+        if (panoVisibilityBtn) {
+            panoVisibilityBtn.addEventListener('click', function () {
+                openPanoramaVisibility();
+            });
+        }
+        if (panoVisibilityCancel) {
+            panoVisibilityCancel.addEventListener('click', function () {
+                if (panoVisibilityModal) {
+                    panoVisibilityModal.classList.remove('visible');
+                    panoVisibilityModal.setAttribute('hidden', '');
+                }
+            });
+        }
+        if (panoVisibilitySave) {
+            panoVisibilitySave.addEventListener('click', async function () {
+                if (!panoVisibilityWorkspaceId || !panoVisibilityConfig) {
+                    if (panoVisibilityModal) {
+                        panoVisibilityModal.classList.remove('visible');
+                        panoVisibilityModal.setAttribute('hidden', '');
+                    }
+                    return;
+                }
+                const boxes = panoVisibilityBody ? panoVisibilityBody.querySelectorAll('.pano-hide-toggle') : [];
+                const hidden = [];
+                boxes.forEach(function (cb) {
+                    const id = cb.getAttribute('data-pano-id');
+                    if (cb.checked && id) hidden.push(id);
+                });
+                panoVisibilityConfig = getCustomerViewConfigObject(panoVisibilityConfig);
+                panoVisibilityConfig.panoramaList.hidden = hidden;
+                try {
+                    const headers = await (window.getAuthHeaders ? window.getAuthHeaders() : Promise.resolve({}));
+                    headers['Content-Type'] = 'application/json';
+                    const res = await fetch('/api/workspaces/' + encodeURIComponent(panoVisibilityWorkspaceId) + '/customer-config', {
+                        method: 'PATCH',
+                        headers: headers,
+                        body: JSON.stringify({ config: panoVisibilityConfig })
+                    });
+                    if (!res.ok) throw new Error('Failed');
+                    const data = await res.json().catch(function () { return {}; });
+                    if (data && data.config) {
+                        panoVisibilityConfig = getCustomerViewConfigObject(data.config);
+                    }
+                    if (panoVisibilityModal) {
+                        panoVisibilityModal.classList.remove('visible');
+                        panoVisibilityModal.setAttribute('hidden', '');
+                    }
+                } catch (e) {
+                    if (typeof showToast === 'function') showToast('Failed to save visibility', 'error');
+                }
+            });
         }
 
         async function updatePlotLabelPosition(plotId, longitude, latitude) {

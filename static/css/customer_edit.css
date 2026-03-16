@@ -83,6 +83,40 @@
     flex-direction: column;
     pointer-events: auto;
 }
+.ce-element-modal.ce-modal-panorama {
+    width: 680px;
+}
+.ce-modal-pano-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: auto auto;
+    gap: 1rem 1.5rem;
+    align-content: start;
+}
+.ce-modal-section {
+    background: rgba(22, 35, 56, 0.04);
+    border-radius: 10px;
+    padding: 0.9rem 1rem;
+    border: 1px solid rgba(22, 35, 56, 0.08);
+}
+.ce-modal-section-title {
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: var(--color-muted, #44608a);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-bottom: 0.65rem;
+    padding-bottom: 0.4rem;
+    border-bottom: 1px solid rgba(22, 35, 56, 0.1);
+}
+.ce-modal-section-content {
+    display: flex;
+    flex-direction: column;
+    gap: 0.65rem;
+}
+.ce-modal-section-content .ce-opt-row {
+    margin-bottom: 0;
+}
 .ce-element-modal-header {
     display: flex;
     align-items: center;
@@ -219,6 +253,44 @@
     flex-wrap: wrap;
     gap: 0.35rem;
 }
+.ce-drag-controller {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+}
+.ce-drag-pad {
+    width: 78px;
+    height: 78px;
+    border-radius: 14px;
+    border: 1px solid rgba(22, 35, 56, 0.18);
+    background: linear-gradient(145deg, rgba(22, 35, 56, 0.08), rgba(22, 35, 56, 0.02));
+    position: relative;
+    touch-action: none;
+    user-select: none;
+}
+.ce-drag-pad-guide {
+    position: absolute;
+    inset: 50% auto auto 50%;
+    width: 56px;
+    height: 56px;
+    transform: translate(-50%, -50%);
+    border-radius: 12px;
+    border: 1px dashed rgba(22, 35, 56, 0.22);
+}
+.ce-drag-knob {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 24px;
+    height: 24px;
+    border-radius: 999px;
+    background: #23395f;
+    border: 1px solid rgba(255, 255, 255, 0.4);
+    box-shadow: 0 4px 10px rgba(22, 35, 56, 0.25);
+    transform: translate(0, 0);
+    margin-left: -12px;
+    margin-top: -12px;
+}
 .ce-pos-btn,
 .ce-move-btn {
     padding: 0.4rem 0.6rem;
@@ -241,6 +313,11 @@
 .ce-move-btn:hover {
     border-color: rgba(22, 35, 56, 0.25);
 }
+.ce-move-btn {
+    width: 32px;
+    text-align: center;
+    padding: 0.35rem 0;
+}
 .ce-font-select {
     width: 100%;
     padding: 0.4rem 0.5rem;
@@ -250,7 +327,9 @@
     color: var(--color-text);
     font-size: 0.8rem;
     font-family: inherit;
+    cursor: grab;
 }
+.ce-font-select:active { cursor: grabbing; }
 .ce-editable {
     cursor: pointer;
 }
