@@ -216,6 +216,40 @@
             pointer-events: none;
         }
 
+        .start-view-actions {
+            position: fixed;
+            top: 1rem;
+            right: 1rem;
+            display: flex;
+            gap: 0.45rem;
+            pointer-events: auto;
+            z-index: 40;
+            background: var(--color-bg-elevated);
+            border: 1px solid var(--color-border);
+            border-radius: 20px;
+            padding: 0.35rem 0.4rem;
+            box-shadow: 0 2px 12px rgba(22,35,56,0.10);
+            backdrop-filter: blur(12px);
+        }
+
+        .start-view-btn {
+            padding: 0.45rem 0.75rem;
+            background: transparent;
+            border: none;
+            border-radius: 16px;
+            color: var(--color-text);
+            font-family: var(--font-body);
+            font-size: 0.78rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: background 0.2s;
+            pointer-events: auto;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+        .start-view-btn:hover { background: var(--color-surface); }
+        .start-view-btn:disabled { opacity: 0.55; cursor: not-allowed; }
+
         /* Back button — light card style */
         .back-btn {
             display: flex; align-items: center; gap: 0.4rem;
@@ -842,6 +876,24 @@
         .marker-media-preview { margin-top: 0.45rem; display: none; }
         .marker-media-preview iframe, .marker-media-preview video { width: 100%; border-radius: var(--radius-sm); border: 1px solid var(--color-border); background: var(--color-surface); }
         .marker-media-preview iframe { height: 190px; }
+        .marker-rotation-toggle-group { display: inline-flex; gap: 0.35rem; flex-wrap: wrap; }
+        .marker-rotation-toggle {
+            min-width: 0;
+            padding: 0.35rem 0.6rem;
+            border-radius: var(--radius-sm);
+            border: 1px solid var(--color-border);
+            background: var(--color-bg-elevated);
+            color: var(--color-text);
+            font-size: 0.72rem;
+            font-weight: 600;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+            cursor: pointer;
+        }
+        .marker-rotation-toggle.is-active {
+            border-color: rgba(22,35,56,0.3);
+            background: var(--color-accent-hover, #ebebea);
+        }
         .marker-coordinates { font-size: 0.7rem; color: var(--color-muted); padding: 0.5rem 1.25rem; border-bottom: 1px solid var(--color-border); background: var(--color-surface); }
         .marker-form-actions { display: flex; gap: 0.65rem; justify-content: flex-end; padding: 0.875rem 1.25rem; background: var(--color-surface); border-top: 1px solid var(--color-border); }
         .marker-form-btn { padding: 0.55rem 1.1rem; border-radius: var(--radius-sm); font-size: 0.82rem; font-family: var(--font-body); font-weight: 600; cursor: pointer; border: none; transition: opacity 0.18s; }
@@ -1500,6 +1552,11 @@
             <div class="header-right" id="mode-badge-wrap" style="pointer-events:none;"></div>
         </header>
 
+        <div class="start-view-actions" id="start-view-actions">
+            <button type="button" class="start-view-btn" id="start-view-capture">Capture</button>
+            <button type="button" class="start-view-btn" id="start-view-play">Play</button>
+        </div>
+
         <footer class="footer">
             <div class="zoom-controls">
                 <button class="zoom-btn" id="zoom-in">+</button>
@@ -1764,6 +1821,14 @@
                 <input id="marker-color" type="color" class="marker-form-input marker-color-input" value="#4ade80">
             </div>
             <div class="marker-form-row">
+                <label class="marker-form-label">Marker Rotation</label>
+                <div class="marker-rotation-toggle-group" id="marker-rotation-group">
+                    <button type="button" class="marker-rotation-toggle" data-axis="x">Tilt X</button>
+                    <button type="button" class="marker-rotation-toggle" data-axis="y">Tilt Y</button>
+                    <button type="button" class="marker-rotation-toggle" data-axis="z">Rotate Z</button>
+                </div>
+            </div>
+            <div class="marker-form-row">
                 <label class="marker-form-label" for="marker-image">Image Upload</label>
                 <input id="marker-image" type="file" class="marker-form-input" accept="image/png,image/jpeg,image/jpg,image/webp">
                 <div class="marker-form-helper">Image is uploaded to storage (S3). If it fails, check your Supabase migrations and S3 env vars.</div>
@@ -1794,6 +1859,7 @@
         const WORKSPACE_ID = {{ (workspace_id or 'null')|tojson }};
         const WORKSPACE_PANORAMAS = {{ (workspace_panoramas or [])|tojson }};
         let CUSTOMER_VIEW_CONFIG = {{ (customer_view_config or {})|tojson }};
+        let START_VIEW = {{ (panorama.get('start_view') if panorama else none) | tojson }};
 
         const loading = document.getElementById('loading');
         const editToggle = document.getElementById('edit-toggle');
@@ -1815,6 +1881,8 @@
         const panoVisibilityBody = document.getElementById('pano-visibility-body');
         const panoVisibilitySave = document.getElementById('pano-visibility-save');
         const panoVisibilityCancel = document.getElementById('pano-visibility-cancel');
+        const startViewCaptureBtn = document.getElementById('start-view-capture');
+        const startViewPlayBtn = document.getElementById('start-view-play');
         let panoVisibilityWorkspaceId = null;
         let panoVisibilityConfig = null;
 
@@ -2371,6 +2439,8 @@
                 this.imageColumnsSupported = true;
                 this.voiceoverColumnsSupported = true;
                 this.iconDropdownBound = false;
+                this.rotationSupported = true;
+                this.rotationDefaults = { x: 0, y: 0, z: 0 };
 
                 this.dom = {
                     psvContainer: document.getElementById('psv-container'),
@@ -2415,6 +2485,7 @@
                     voiceoverUploadBtn: document.getElementById('upload-voiceover-btn'),
                     recordVoiceoverBtn: document.getElementById('record-voiceover-btn'),
                     voiceoverStatus: document.getElementById('marker-voiceover-status'),
+                    rotationGroup: document.getElementById('marker-rotation-group'),
                     cancelBtn: document.getElementById('cancel-marker'),
                     saveBtn: document.getElementById('save-marker')
                 };
@@ -2487,6 +2558,16 @@
                 if (d.typeSelect) {
                     d.typeSelect.addEventListener('change', () => this.updateMarkerStyleControls());
                 }
+                if (d.rotationGroup) {
+                    d.rotationGroup.addEventListener('click', (event) => {
+                        const btn = event.target.closest('.marker-rotation-toggle[data-axis]');
+                        if (!btn) return;
+                        const axis = btn.dataset.axis;
+                        if (axis === 'x') this.toggleRotationAxis('x');
+                        else if (axis === 'y') this.toggleRotationAxis('y');
+                        else if (axis === 'z') this.toggleRotationAxis('z');
+                    });
+                }
                 if (!this.iconDropdownBound) {
                     if (d.iconTrigger) {
                         d.iconTrigger.addEventListener('click', () => this.toggleIconPanel());
@@ -2523,6 +2604,7 @@
                 this.setIconValue(DEFAULT_MARKER_ICON, { closePanel: true, rerender: true });
                 if (d.colorInput) d.colorInput.value = DEFAULT_MARKER_COLOR;
                 this.updateMarkerStyleControls();
+                this.updateRotationToggles(this.rotationDefaults);
             }
 
             isSuperMarkerStyle(value) {
@@ -2542,6 +2624,43 @@
                 var override = this.getMarkerTypeOverride();
                 if (override) return override;
                 return this.normalizeMarkerStyle(this.dom.styleSelect ? this.dom.styleSelect.value : DEFAULT_MARKER_STYLE);
+            }
+
+            updateRotationToggles(values) {
+                const d = this.dom;
+                if (!d.rotationGroup) return;
+                const vx = (values && typeof values.x === 'number') ? values.x : 0;
+                const vy = (values && typeof values.y === 'number') ? values.y : 0;
+                const vz = (values && typeof values.z === 'number') ? values.z : 0;
+                d.rotationGroup.querySelectorAll('.marker-rotation-toggle[data-axis]').forEach((btn) => {
+                    const axis = btn.dataset.axis;
+                    let active = false;
+                    if (axis === 'x') active = Math.abs(vx) > 0.0001;
+                    else if (axis === 'y') active = Math.abs(vy) > 0.0001;
+                    else if (axis === 'z') active = Math.abs(vz) > 0.0001;
+                    btn.classList.toggle('is-active', active);
+                });
+            }
+
+            toggleRotationAxis(axis) {
+                if (!this.rotationSupported) return;
+                const m = this.editingMarkerId ? this.markerMap.get(String(this.editingMarkerId)) : null;
+                const base = {
+                    x: (m && typeof m.rotation_x === 'number') ? m.rotation_x : this.rotationDefaults.x,
+                    y: (m && typeof m.rotation_y === 'number') ? m.rotation_y : this.rotationDefaults.y,
+                    z: (m && typeof m.rotation_z === 'number') ? m.rotation_z : this.rotationDefaults.z
+                };
+                const step = Math.PI / 8;
+                if (axis === 'x') base.x = Math.abs(base.x) > 0.0001 ? 0 : step;
+                else if (axis === 'y') base.y = Math.abs(base.y) > 0.0001 ? 0 : step;
+                else if (axis === 'z') base.z = Math.abs(base.z) > 0.0001 ? 0 : step;
+                if (m) {
+                    m.rotation_x = base.x;
+                    m.rotation_y = base.y;
+                    m.rotation_z = base.z;
+                    this.applyMarkerVisualStyle();
+                }
+                this.updateRotationToggles(base);
             }
 
             updateMarkerStyleControls() {
@@ -2988,7 +3107,10 @@
                         marker_color: markerColor,
                         linked_panorama_id: linkedPanoramaId,
                         longitude: Number(this.pendingCoordinates.longitude),
-                        latitude: Number(this.pendingCoordinates.latitude)
+                        latitude: Number(this.pendingCoordinates.latitude),
+                        rotation_x: 0,
+                        rotation_y: 0,
+                        rotation_z: 0
                     };
 
                     const selectedFile = this.dom.imageInput && this.dom.imageInput.files ? this.dom.imageInput.files[0] : null;
@@ -3051,9 +3173,12 @@
                     name: data.name,
                     description: data.description || '',
                     longitude: Number(data.longitude),
-                    latitude: Number(data.latitude)
+                    latitude: Number(data.latitude),
+                    rotation_x: typeof data.rotation_x === 'number' ? data.rotation_x : 0,
+                    rotation_y: typeof data.rotation_y === 'number' ? data.rotation_y : 0,
+                    rotation_z: typeof data.rotation_z === 'number' ? data.rotation_z : 0
                 };
-                const baseCols = ['id', 'plot_id', 'name', 'description', 'longitude', 'latitude', 'status', 'created_at'];
+                const baseCols = ['id', 'plot_id', 'name', 'description', 'longitude', 'latitude', 'rotation_x', 'rotation_y', 'rotation_z', 'status', 'created_at'];
                 const styleCols = ['marker_style', 'marker_icon', 'marker_color'];
                 const linkCols = ['linked_panorama_id'];
                 const imageCols = ['image_filename'];
@@ -3524,6 +3649,9 @@
                     linked_panorama_id: Number.isFinite(linkedPanoramaId) ? linkedPanoramaId : null,
                     longitude: Number(row.longitude || 0),
                     latitude: Number(row.latitude || 0),
+                    rotation_x: Number(row.rotation_x || 0),
+                    rotation_y: Number(row.rotation_y || 0),
+                    rotation_z: Number(row.rotation_z || 0),
                     status: ['sold', 'reserved', 'available'].includes(markerStatus) ? markerStatus : 'available',
                     created_at: row.created_at || ''
                 };
@@ -3558,13 +3686,19 @@
                 const isSuper = markerStyle === SUPER_MARKER_STYLE;
                 const isNavigator = markerStyle === NAVIGATOR_MARKER_STYLE;
                 const isPhoto = this.isPhotoMarkerStyle(markerStyle);
+                const rotX = Number(marker.rotation_x || 0);
+                const rotY = Number(marker.rotation_y || 0);
+                const rotZ = Number(marker.rotation_z || 0);
+                const rotateAttr = (Math.abs(rotX) > 0.0001 || Math.abs(rotY) > 0.0001 || Math.abs(rotZ) > 0.0001)
+                    ? ` data-rotate-x="${this.escapeAttr(rotX)}" data-rotate-y="${this.escapeAttr(rotY)}" data-rotate-z="${this.escapeAttr(rotZ)}"`
+                    : '';
                 const markerHtml = isSuper
-                    ? `<button class="psv-glass-marker marker-super ${statusClass}" type="button" data-marker-id="${this.escapeAttr(marker.id)}" aria-label="${this.escapeAttr(marker.name || 'Marker')}"><span class="marker-callout" aria-hidden="true"><span class="marker-tag">${this.escapeHtml(marker.name || 'Marker')}</span><span class="marker-stem"></span></span><span class="marker-base" aria-hidden="true"><span class="marker-ring-outer"></span><span class="marker-ring-inner"></span></span></button>`
+                    ? `<button class="psv-glass-marker marker-super ${statusClass}" type="button" data-marker-id="${this.escapeAttr(marker.id)}"${rotateAttr} aria-label="${this.escapeAttr(marker.name || 'Marker')}"><span class="marker-callout" aria-hidden="true"><span class="marker-tag">${this.escapeHtml(marker.name || 'Marker')}</span><span class="marker-stem"></span></span><span class="marker-base" aria-hidden="true"><span class="marker-ring-outer"></span><span class="marker-ring-inner"></span></span></button>`
                     : isNavigator
-                    ? `<button class="psv-glass-marker marker-navigator ${statusClass}" type="button" data-marker-id="${this.escapeAttr(marker.id)}" aria-label="${this.escapeAttr(marker.name || 'Marker')}"><span class="marker-nav-base" aria-hidden="true"><span class="marker-nav-ring"></span><span class="marker-nav-chevron"><iconify-icon icon="ph:caret-up"></iconify-icon></span></span></button>`
+                    ? `<button class="psv-glass-marker marker-navigator ${statusClass}" type="button" data-marker-id="${this.escapeAttr(marker.id)}"${rotateAttr} aria-label="${this.escapeAttr(marker.name || 'Marker')}"><span class="marker-nav-base" aria-hidden="true"><span class="marker-nav-ring"></span><span class="marker-nav-chevron"><iconify-icon icon="ph:caret-up"></iconify-icon></span></span></button>`
                     : (isPhoto
                         ? this.buildPhotoMarkerHtml(marker, statusClass)
-                        : `<button class="psv-glass-marker marker-classic ${statusClass} marker-theme-${this.escapeAttr(markerStyle)}" style="--mk-rgb:${this.escapeAttr(markerRgb)};" type="button" data-marker-id="${this.escapeAttr(marker.id)}" aria-label="${this.escapeAttr(marker.name || 'Marker')}"><span class="marker-halo" aria-hidden="true"></span><span class="marker-core" aria-hidden="true"><span class="marker-dot"></span><span class="marker-icon" aria-hidden="true"><iconify-icon icon="${this.escapeAttr(markerIcon)}"></iconify-icon></span></span><span class="marker-pointer" aria-hidden="true"></span></button>`);
+                        : `<button class="psv-glass-marker marker-classic ${statusClass} marker-theme-${this.escapeAttr(markerStyle)}" style="--mk-rgb:${this.escapeAttr(markerRgb)};" type="button" data-marker-id="${this.escapeAttr(marker.id)}"${rotateAttr} aria-label="${this.escapeAttr(marker.name || 'Marker')}"><span class="marker-halo" aria-hidden="true"></span><span class="marker-core" aria-hidden="true"><span class="marker-dot"></span><span class="marker-icon" aria-hidden="true"><iconify-icon icon="${this.escapeAttr(markerIcon)}"></iconify-icon></span></span><span class="marker-pointer" aria-hidden="true"></span></button>`);
                 return {
                     id: markerId,
                     longitude: marker.longitude,
@@ -3618,6 +3752,15 @@
                         if (iconEl) {
                             iconEl.setAttribute('icon', this.normalizeMarkerIcon(marker.marker_icon));
                         }
+                    }
+                    const rotX = Number(marker.rotation_x || 0);
+                    const rotY = Number(marker.rotation_y || 0);
+                    const rotZ = Number(marker.rotation_z || 0);
+                    const baseTransform = '';
+                    if (Math.abs(rotX) > 0.0001 || Math.abs(rotY) > 0.0001 || Math.abs(rotZ) > 0.0001) {
+                        markerEl.style.transform = `${baseTransform} rotateX(${rotX}rad) rotateY(${rotY}rad) rotateZ(${rotZ}rad)`;
+                    } else {
+                        markerEl.style.transform = baseTransform || 'translateZ(0)';
                     }
                 });
             }
@@ -4121,6 +4264,9 @@
                         showToast('Failed to load markers', 'error');
                     });
                 }
+                if (startViewPlayBtn) {
+                    startViewPlayBtn.disabled = !(START_VIEW && typeof START_VIEW === 'object');
+                }
             });
 
             if (markersPlugin) {
@@ -4145,6 +4291,85 @@
             if (zoomControls) {
                 zoomControls.style.display = 'none';
             }
+        }
+
+        function getCurrentStartViewSnapshot() {
+            if (!viewer) return null;
+            let pos = null;
+            try { pos = viewer.getPosition(); } catch (e) { pos = null; }
+            if (!pos || typeof pos.longitude !== 'number' || typeof pos.latitude !== 'number') return null;
+            let zoom = null;
+            try {
+                if (typeof viewer.getZoomLevel === 'function') zoom = viewer.getZoomLevel();
+            } catch (e) { zoom = null; }
+            const out = { longitude: pos.longitude, latitude: pos.latitude };
+            if (typeof zoom === 'number' && Number.isFinite(zoom)) out.zoom = zoom;
+            return out;
+        }
+
+        function playStartView(view) {
+            const v = view || START_VIEW;
+            if (!viewer || !v || typeof v !== 'object') return;
+            const payload = { longitude: Number(v.longitude), latitude: Number(v.latitude) };
+            if (typeof v.zoom === 'number' && Number.isFinite(v.zoom)) payload.zoom = v.zoom;
+            if (!Number.isFinite(payload.longitude) || !Number.isFinite(payload.latitude)) return;
+            try {
+                if (typeof viewer.animate === 'function') {
+                    viewer.animate(Object.assign({ speed: '6rpm' }, payload)).catch(() => { });
+                } else if (typeof viewer.rotate === 'function') {
+                    viewer.rotate({ longitude: payload.longitude, latitude: payload.latitude });
+                }
+            } catch (e) { }
+        }
+
+        async function persistStartView(view) {
+            const body = { start_view: view || null };
+            try {
+                const headers = await (window.getAuthHeaders ? window.getAuthHeaders() : Promise.resolve({}));
+                headers['Content-Type'] = 'application/json';
+                const resp = await fetch(`/api/panoramas/${encodeURIComponent(PANORAMA_ID)}`, {
+                    method: 'PATCH',
+                    headers,
+                    body: JSON.stringify(body)
+                });
+                if (!resp.ok) {
+                    let msg = 'Failed to save start view';
+                    try {
+                        const data = await resp.json();
+                        if (data && data.error) msg = String(data.error);
+                    } catch (e) { }
+                    throw new Error(msg);
+                }
+                const data = await resp.json().catch(() => null);
+                if (data && typeof data === 'object' && 'start_view' in data) {
+                    START_VIEW = data.start_view;
+                } else {
+                    START_VIEW = view;
+                }
+                if (startViewPlayBtn) {
+                    startViewPlayBtn.disabled = !(START_VIEW && typeof START_VIEW === 'object');
+                }
+                return true;
+            } catch (e) {
+                showToast((e && e.message) ? e.message : 'Failed to save start view', 'error');
+                return false;
+            }
+        }
+
+        if (startViewCaptureBtn) {
+            startViewCaptureBtn.addEventListener('click', async () => {
+                const snap = getCurrentStartViewSnapshot();
+                if (!snap) {
+                    showToast('Unable to capture view', 'error');
+                    return;
+                }
+                const ok = await persistStartView(snap);
+                if (ok) showToast('Start view captured', 'success');
+            });
+        }
+
+        if (startViewPlayBtn) {
+            startViewPlayBtn.addEventListener('click', () => playStartView());
         }
 
         function startPsvInit() {

@@ -311,6 +311,7 @@
         const IS_360 = 1; // Always 360 for 3D routes
         const ORG_SLUG = {{ (org_slug or '')| tojson }};
         const USE_ANIMATED_ICONS = {{ (panorama.get('use_animated_icons', false) if panorama else false) | tojson }};
+        const START_VIEW = {{ (panorama.get('start_view') if panorama else none) | tojson }};
         const FULL_VIEW = {{ (full_view or false)| tojson }};
         const WORKSPACE_PANORAMAS = {{ (workspace_panoramas or [])| tojson }};
         const IN_WORKSPACE = Array.isArray(WORKSPACE_PANORAMAS) && WORKSPACE_PANORAMAS.length > 0;
@@ -2164,6 +2165,9 @@
                     linked_panorama_id: Number.isFinite(parsedLinked) ? parsedLinked : null,
                     longitude: Number(row.longitude || 0),
                     latitude: Number(row.latitude || 0),
+                    rotation_x: Number(row.rotation_x || 0),
+                    rotation_y: Number(row.rotation_y || 0),
+                    rotation_z: Number(row.rotation_z || 0),
                     status: ['available', 'sold', 'reserved'].includes(status) ? status : 'available',
                     created_at: row.created_at || ''
                 };
@@ -2195,15 +2199,21 @@
                 const markerIcon = this.normalizeMarkerIcon(marker.marker_icon);
                 const markerRgb = hexToMarkerRgb(marker.marker_color);
                 const animatedClass = (typeof USE_ANIMATED_ICONS !== 'undefined' && USE_ANIMATED_ICONS) ? ' marker-icon-animated' : '';
+                const rotX = Number(marker.rotation_x || 0);
+                const rotY = Number(marker.rotation_y || 0);
+                const rotZ = Number(marker.rotation_z || 0);
+                const rotateAttr = (Math.abs(rotX) > 0.0001 || Math.abs(rotY) > 0.0001 || Math.abs(rotZ) > 0.0001)
+                    ? ` data-rotate-x="${this.escapeAttr(rotX)}" data-rotate-y="${this.escapeAttr(rotY)}" data-rotate-z="${this.escapeAttr(rotZ)}"`
+                    : '';
                 let markerHtml = '';
                 if (markerStyle === 'super') {
-                    markerHtml = `<button class="psv-glass-marker marker-super ${statusClass}${animatedClass}" type="button" data-marker-id="${this.escapeAttr(marker.id)}" aria-label="${this.escapeAttr(marker.name || 'Marker')}"><span class="marker-callout" aria-hidden="true"><span class="marker-tag">${this.escapeHtml(marker.name || 'Marker')}</span><span class="marker-stem"></span></span><span class="marker-base" aria-hidden="true"><span class="marker-ring-outer"></span><span class="marker-ring-inner"></span></span></button>`;
+                    markerHtml = `<button class="psv-glass-marker marker-super ${statusClass}${animatedClass}" type="button" data-marker-id="${this.escapeAttr(marker.id)}"${rotateAttr} aria-label="${this.escapeAttr(marker.name || 'Marker')}"><span class="marker-callout" aria-hidden="true"><span class="marker-tag">${this.escapeHtml(marker.name || 'Marker')}</span><span class="marker-stem"></span></span><span class="marker-base" aria-hidden="true"><span class="marker-ring-outer"></span><span class="marker-ring-inner"></span></span></button>`;
                 } else if (markerStyle === 'navigator') {
-                    markerHtml = `<button class="psv-glass-marker marker-navigator ${statusClass}${animatedClass}" type="button" data-marker-id="${this.escapeAttr(marker.id)}" aria-label="${this.escapeAttr(marker.name || 'Marker')}"><span class="marker-nav-base" aria-hidden="true"><span class="marker-nav-ring"></span><span class="marker-nav-chevron"><iconify-icon icon="ph:caret-up"></iconify-icon></span></span></button>`;
+                    markerHtml = `<button class="psv-glass-marker marker-navigator ${statusClass}${animatedClass}" type="button" data-marker-id="${this.escapeAttr(marker.id)}"${rotateAttr} aria-label="${this.escapeAttr(marker.name || 'Marker')}"><span class="marker-nav-base" aria-hidden="true"><span class="marker-nav-ring"></span><span class="marker-nav-chevron"><iconify-icon icon="ph:caret-up"></iconify-icon></span></span></button>`;
                 } else if (this.isPhotoMarkerStyle(markerStyle)) {
                     markerHtml = this.buildPhotoMarkerHtml(marker, statusClass);
                 } else {
-                    markerHtml = `<button class="psv-glass-marker marker-classic ${statusClass} marker-theme-${this.escapeAttr(markerStyle)}${animatedClass}" style="--mk-rgb:${this.escapeAttr(markerRgb)};" type="button" data-marker-id="${this.escapeAttr(marker.id)}" aria-label="${this.escapeAttr(marker.name || 'Marker')}"><span class="marker-callout" aria-hidden="true"><span class="marker-tag">${this.escapeHtml(marker.name || 'Marker')}</span></span><span class="marker-halo" aria-hidden="true"></span><span class="marker-core" aria-hidden="true"><span class="marker-dot"></span><span class="marker-icon" aria-hidden="true"><iconify-icon icon="${this.escapeAttr(markerIcon)}"></iconify-icon></span></span><span class="marker-pointer" aria-hidden="true"></span></button>`;
+                    markerHtml = `<button class="psv-glass-marker marker-classic ${statusClass} marker-theme-${this.escapeAttr(markerStyle)}${animatedClass}" style="--mk-rgb:${this.escapeAttr(markerRgb)};" type="button" data-marker-id="${this.escapeAttr(marker.id)}"${rotateAttr} aria-label="${this.escapeAttr(marker.name || 'Marker')}"><span class="marker-callout" aria-hidden="true"><span class="marker-tag">${this.escapeHtml(marker.name || 'Marker')}</span></span><span class="marker-halo" aria-hidden="true"></span><span class="marker-core" aria-hidden="true"><span class="marker-dot"></span><span class="marker-icon" aria-hidden="true"><iconify-icon icon="${this.escapeAttr(markerIcon)}"></iconify-icon></span></span><span class="marker-pointer" aria-hidden="true"></span></button>`;
                 }
                 return {
                     id: this.toViewerMarkerId(marker.id),
@@ -3181,6 +3191,21 @@
             if (!psvContainer) return;
             playTransitionSound();
             const imageUrl = '/uploads/{{ panorama.filename }}?size=optimized';
+            var startLon = null;
+            var startLat = null;
+            var startZoom = null;
+            try {
+                if (START_VIEW && typeof START_VIEW === 'object') {
+                    startLon = Number(START_VIEW.longitude);
+                    startLat = Number(START_VIEW.latitude);
+                    startZoom = START_VIEW.zoom !== undefined && START_VIEW.zoom !== null ? Number(START_VIEW.zoom) : null;
+                    if (!Number.isFinite(startLon) || !Number.isFinite(startLat)) {
+                        startLon = null;
+                        startLat = null;
+                    }
+                    if (!Number.isFinite(startZoom)) startZoom = null;
+                }
+            } catch (e) { startLon = null; startLat = null; startZoom = null; }
             viewer = new PhotoSphereViewer.Viewer({
                 container: psvContainer,
                 panorama: imageUrl,
@@ -3192,7 +3217,9 @@
                 autorotateSpeed: '1.1rpm',
                 autorotateLat: '5deg',
                 loadingTxt: '',
-                defaultZoomLvl: 25,
+                defaultZoomLvl: startZoom !== null ? startZoom : 25,
+                defaultLong: startLon !== null ? startLon : 0,
+                defaultLat: startLat !== null ? startLat : 0,
                 maxFov: 100,
                 plugins: [
                     [PhotoSphereViewer.MarkersPlugin, {}]

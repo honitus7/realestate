@@ -86,6 +86,7 @@ create table if not exists public.panoramas (
   height int default 0,
   is_360 boolean default false,
   use_animated_icons boolean default false,
+  start_view jsonb default null,
   image_data text default null,
   image_content_type text default 'image/jpeg',
   created_at timestamptz default now(),
@@ -139,6 +140,9 @@ create table if not exists public.plot_markers (
   linked_panorama_id bigint references public.panoramas(id) on delete set null,
   longitude double precision not null,
   latitude double precision not null,
+  rotation_x double precision default 0,
+  rotation_y double precision default 0,
+  rotation_z double precision default 0,
   created_at timestamptz default now()
 );
 

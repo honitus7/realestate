@@ -833,7 +833,7 @@ def register_routes(app):
         link_columns_supported = True
         image_columns_supported = True
         base_cols = ['id', 'plot_id', 'name', 'description', 'longitude', 'latitude', 'status', 'created_at']
-        style_cols = ['marker_style', 'marker_icon', 'marker_color']
+        style_cols = ['marker_style', 'marker_icon', 'marker_color', 'rotation_x', 'rotation_y', 'rotation_z']
         link_cols = ['linked_panorama_id']
         voiceover_columns_supported = True
 
@@ -2081,6 +2081,7 @@ def register_routes(app):
         payload = request.get_json(silent=True) or request.form or {}
         name = str(payload.get('name', '')).strip() if payload.get('name') is not None else None
         use_animated_icons = payload.get('use_animated_icons')
+        start_view = payload.get('start_view') if 'start_view' in payload else None
         if use_animated_icons is not None:
             use_animated_icons = bool(use_animated_icons) if use_animated_icons not in (True, False) else use_animated_icons
         update_fields = {'updated_at': datetime.utcnow().isoformat()}
@@ -2092,6 +2093,29 @@ def register_routes(app):
             update_fields['name'] = name
         if use_animated_icons is not None:
             update_fields['use_animated_icons'] = use_animated_icons
+        if start_view is not None:
+            if start_view is False:
+                update_fields['start_view'] = None
+            elif start_view is None:
+                update_fields['start_view'] = None
+            elif isinstance(start_view, dict):
+                lon = start_view.get('longitude')
+                lat = start_view.get('latitude')
+                zoom = start_view.get('zoom')
+                try:
+                    lon = float(lon) if lon is not None else None
+                    lat = float(lat) if lat is not None else None
+                    zoom = float(zoom) if zoom is not None else None
+                except Exception:
+                    return jsonify({'error': 'Invalid start_view'}), 400
+                if lon is None or lat is None:
+                    return jsonify({'error': 'start_view must include longitude and latitude'}), 400
+                next_view = {'longitude': lon, 'latitude': lat}
+                if zoom is not None:
+                    next_view['zoom'] = zoom
+                update_fields['start_view'] = next_view
+            else:
+                return jsonify({'error': 'Invalid start_view'}), 400
         if len(update_fields) <= 1:
             return jsonify({'error': 'Provide at least one field to update'}), 400
         try:
@@ -2124,6 +2148,8 @@ def register_routes(app):
                 }
                 if 'use_animated_icons' in row:
                     out['use_animated_icons'] = bool(row.get('use_animated_icons'))
+                if 'start_view' in row:
+                    out['start_view'] = row.get('start_view')
                 return jsonify(out)
         except Exception as e:
             return jsonify({'error': str(e)}), 500
@@ -2132,6 +2158,8 @@ def register_routes(app):
             out['name'] = name
         if use_animated_icons is not None:
             out['use_animated_icons'] = use_animated_icons
+        if start_view is not None:
+            out['start_view'] = update_fields.get('start_view')
         return jsonify(out)
 
     # ── Resolve Google Maps short links & reverse-geocode ──
@@ -3765,7 +3793,7 @@ def register_routes(app):
         if panorama_id not in pano_ids:
             return jsonify({'error': 'Not authorized for this panorama'}), 403
         try:
-            r = sb.table('plot_markers').select('id, plot_id, name, description, status, marker_style, marker_icon, marker_color, longitude, latitude, linked_panorama_id, created_at').eq('plot_id', str(panorama_id)).execute()
+            r = sb.table('plot_markers').select('id, plot_id, name, description, status, marker_style, marker_icon, marker_color, rotation_x, rotation_y, rotation_z, longitude, latitude, linked_panorama_id, created_at').eq('plot_id', str(panorama_id)).execute()
             return jsonify(r.data or [])
         except Exception as e:
             msg = str(e)
@@ -3790,7 +3818,7 @@ def register_routes(app):
         pano_ids = _crm_panorama_ids(sb, user_id, role)
         if panorama_id not in pano_ids:
             return jsonify({'error': 'Not authorized'}), 403
-        allowed = {'name', 'description', 'status', 'marker_icon', 'marker_color'}
+        allowed = {'name', 'description', 'status', 'marker_icon', 'marker_color', 'rotation_x', 'rotation_y', 'rotation_z'}
         upd = {k: v for k, v in data.items() if k in allowed and v is not None}
         if not upd:
             return jsonify({'error': 'No valid fields to update'}), 400
