@@ -3202,10 +3202,10 @@
             markerManager.init(viewer, markersPlugin);
 
             viewer.on('ready', () => {
+                stopLoadingStatusCycle();
+                loading.classList.add('hidden');
                 var configPromise = WORKSPACE_ID ? fetch('/api/workspaces/' + WORKSPACE_ID + '/customer-view-config').then(function (r) { return r.json(); }).then(function (data) { if (data && data.config && typeof data.config === 'object') deepMergeCvConfig(CUSTOMER_VIEW_CONFIG, data.config); }).catch(function () {}) : Promise.resolve();
                 configPromise.then(function () {
-                    stopLoadingStatusCycle();
-                    loading.classList.add('hidden');
                     applyCustomerViewConfig();
                     const indexPromise = IN_WORKSPACE ? Promise.resolve([]) : loadPanoramaIndex().catch(() => []);
                     const plotsPromise = loadPlots();

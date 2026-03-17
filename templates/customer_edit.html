@@ -419,9 +419,9 @@
                     subtitleEl.style.display = hasSub ? '' : 'none';
                     if (hasSub) {
                         subtitleEl.textContent = config.panoramaList.subheader;
-                        subtitleEl.style.fontFamily = (config.panoramaList.subheaderFont || 'Syne') + ', sans-serif';
-                        subtitleEl.style.fontSize = config.panoramaList.subheaderFontSize || '0.52rem';
-                        subtitleEl.style.color = config.panoramaList.subheaderColor || '#a0aec0';
+                    subtitleEl.style.fontFamily = (config.panoramaList.subheaderFont || 'Syne') + ', sans-serif';
+                    subtitleEl.style.fontSize = config.panoramaList.subheaderFontSize || '0.52rem';
+                    subtitleEl.style.color = config.panoramaList.subheaderColor || '#a0aec0';
                         subtitleEl.style.textAlign = config.panoramaList.subheaderAlign || 'left';
                     }
                 }
@@ -911,8 +911,8 @@
                 rowMove.querySelectorAll('.ce-move-btn').forEach(function (btn) {
                     btn.addEventListener('click', function () {
                         setPositionForElement(elementId, parseInt(this.dataset.dx, 10), parseInt(this.dataset.dy, 10));
-                    });
-                });
+                        });
+                        });
                 frag.appendChild(rowMove);
             }
             }

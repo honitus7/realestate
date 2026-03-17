@@ -2666,7 +2666,7 @@ body.overlays-hidden .psv-glass-marker .marker-photo-name {
     }
 
     .header {
-        padding: 0.4rem 0.35rem;
+        padding: 0.4rem 0.6rem;
         flex: 1;
         min-height: 0;
         display: grid;
@@ -2679,8 +2679,8 @@ body.overlays-hidden .psv-glass-marker .marker-photo-name {
 
     .header-left {
         padding: 0.3rem 0.5rem;
-        margin-left: 0;
-        margin-right: 0;
+        margin-left: 0.5rem;
+        margin-right: 0.5rem;
         grid-area: left;
         position: fixed;
         bottom: calc(0.5rem + env(safe-area-inset-bottom, 0px));
@@ -2710,6 +2710,8 @@ body.overlays-hidden .psv-glass-marker .marker-photo-name {
 
     .header-center .search-shell {
         max-width: none;
+        margin-left: 0.5rem;
+        margin-right: 0.5rem;
     }
 
     body.panorama-nav-expanded .header-center {
@@ -2718,8 +2720,8 @@ body.overlays-hidden .psv-glass-marker .marker-photo-name {
 
     .header-right {
         padding: 0.3rem 0.4rem;
-        margin-left: 0;
-        margin-right: 0;
+        margin-left: 0.5rem;
+        margin-right: 0.5rem;
         grid-area: right;
         justify-content: flex-end;
         position: fixed;
@@ -2865,11 +2867,17 @@ body.overlays-hidden .psv-glass-marker .marker-photo-name {
 
 @media (max-width: 480px) {
     .ui-overlay {
-        padding: 0.4rem 0.3rem;
+        padding: 0.4rem 0.5rem;
+    }
+
+    .header {
+        padding: 0.4rem 0.5rem;
     }
 
     .header-left {
         padding: 0.25rem 0.4rem;
+        margin-left: 0.5rem;
+        margin-right: 0.5rem;
     }
 
     .project-badge-name {
@@ -2878,6 +2886,8 @@ body.overlays-hidden .psv-glass-marker .marker-photo-name {
 
     .header-right {
         padding: 0.25rem 0.3rem;
+        margin-left: 0.5rem;
+        margin-right: 0.5rem;
     }
 
     .header-more-btn {
