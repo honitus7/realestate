@@ -456,11 +456,6 @@ def register_routes(app):
             return redirect(f"/customer/{canonical_slug}/{panorama_id}{suffix}", code=302)
         if str(org_slug or '').lower() != str(canonical_slug).lower():
             return redirect(f"/customer/{canonical_slug}/3d/{panorama_id}{suffix}", code=302)
-        full_view = request.args.get('full_view') == '1'
-        if full_view:
-            p_param = request.args.get('p')
-            query = ('?p=' + p_param) if p_param else ''
-            return redirect(f"/customer/{canonical_slug}/full-view/{panorama_id}{query}", code=302)
         customer_view_config = {}
         workspace_id = (panorama or {}).get('workspace_id')
         if workspace_id:
@@ -483,68 +478,6 @@ def register_routes(app):
         resp.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate'
         return resp
 
-    @app.route('/customer/<org_slug>/full-view/<int:panorama_id>')
-    def customer_full_view(org_slug, panorama_id):
-        sb = get_supabase()
-        if not sb:
-            return "Database not configured", 503
-        panorama = get_panorama_by_id(sb, panorama_id)
-        if not panorama:
-            return "Panorama not found", 404
-        org_name, canonical_slug = get_org_name_and_slug_for_panorama(sb, panorama)
-        if not bool((panorama or {}).get('is_360')):
-            return redirect(f"/customer/{canonical_slug}/{panorama_id}", code=302)
-        if str(org_slug or '').lower() != str(canonical_slug).lower():
-            return redirect(f"/customer/{canonical_slug}/full-view/{panorama_id}", code=302)
-        workspace_panoramas = []
-        workspace_id = (panorama or {}).get('workspace_id')
-        if workspace_id:
-            try:
-                r = sb.table('panoramas').select('id, name, filename').eq('workspace_id', workspace_id).eq('is_360', True).order('id').execute()
-                rows = list(r.data or [])
-                ws_row = get_workspace_by_id(sb, workspace_id)
-                main_id = (ws_row or {}).get('main_panorama_id')
-                if main_id is not None:
-                    main_id = int(main_id)
-                def sort_key(p):
-                    pid = p.get('id')
-                    if main_id is not None and pid == main_id:
-                        return (0, pid or 0)
-                    return (1, pid or 0)
-                rows.sort(key=sort_key)
-                for p in rows:
-                    workspace_panoramas.append({
-                        'id': p.get('id'),
-                        'name': (p.get('name') or '').strip() or ('Panorama #' + str(p.get('id') or '')),
-                        'filename': p.get('filename') or '',
-                    })
-            except Exception:
-                pass
-        initial_panorama_id = panorama_id
-        if request.args.get('p'):
-            try:
-                pid = int(request.args.get('p'))
-                if any(p.get('id') == pid for p in workspace_panoramas):
-                    initial_panorama_id = pid
-            except (TypeError, ValueError):
-                pass
-        customer_view_config = {}
-        if workspace_id:
-            try:
-                customer_view_config = ws_get_customer_config(sb, workspace_id) or {}
-            except Exception:
-                pass
-        return render_template(
-            'full_view_3d.html',
-            panorama=panorama,
-            org_name=org_name,
-            org_slug=canonical_slug,
-            workspace_panoramas=workspace_panoramas,
-            initial_panorama_id=initial_panorama_id,
-            customer_view_config=customer_view_config,
-            **auth_ctx()
-        )
-
     @app.route('/customer/project/<workspace_id>')
     def customer_project_view(workspace_id):
         sb = get_supabase()
@@ -560,7 +493,7 @@ def register_routes(app):
         if not panorama:
             return "Panorama not found", 404
         org_name, canonical_slug = get_org_name_and_slug_for_panorama(sb, panorama)
-        return redirect(f"/customer/{canonical_slug}/full-view/{main_id}", code=302)
+        return redirect(f"/customer/{canonical_slug}/3d/{main_id}", code=302)
 
     @app.route('/uploads/<filename>')
     def uploaded_file(filename):

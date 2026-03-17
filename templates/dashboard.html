@@ -800,22 +800,6 @@
             return first360 ? parseInt(first360.id, 10) : null;
         }
 
-        async function shareFullView(workspaceId) {
-            var mainId = getMainPanoramaIdForWorkspace(workspaceId);
-            if (!mainId) {
-                showToast('No 360° panorama in this folder. Add one or set a main panorama.');
-                return;
-            }
-            var slug = orgSlug || 'propmark';
-            var url = window.location.origin + '/customer/' + encodeURIComponent(slug) + '/full-view/' + mainId;
-            try {
-                await navigator.clipboard.writeText(url);
-                showToast('Full View link copied to clipboard');
-            } catch (e) {
-                showToast('Could not copy. Open: ' + url);
-            }
-        }
-
         async function setAsMain(projectId, event) {
             if (event) event.stopPropagation();
             var workspaceId = getSelectedOwnedWorkspaceId();
@@ -915,7 +899,6 @@
                     if (hasMainPano) {
                         items += '<button type="button" class="folder-card-btn" onclick="event.stopPropagation(); window.location.href=\'/customer/edit/' + workspaceId + '\'">Set Customer View</button>';
                     }
-                    items += '<button type="button" class="folder-card-btn" onclick="event.stopPropagation(); shareFullView(\'' + workspaceId + '\')">Share Full View</button>';
                     items += '<button type="button" class="folder-card-btn" onclick="event.stopPropagation(); window.location.href=\'/workspace/' + workspaceId + '/access\'">Manage access</button>';
                     items += '<button type="button" class="folder-card-btn" onclick="event.stopPropagation(); showRenameWorkspaceModal(\'' + workspaceId + '\')">Rename</button>';
                     items += '<button type="button" class="folder-card-btn folder-card-btn--danger" onclick="event.stopPropagation(); showDeleteWorkspaceModal(\'' + workspaceId + '\')">Delete</button>';
