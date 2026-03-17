@@ -39,8 +39,21 @@
     }) ();
     </script>
     <div class="loading-overlay" id="loading">
-        <div class="loading-3d-icon"><iconify-icon icon="ph:sphere" class="loading-sphere"></iconify-icon></div>
-        <div class="loading-text">Loading panorama...</div>
+        <div class="loading-3d-scene">
+            <div class="loading-orb">
+                <div class="loading-orb-core"></div>
+                <div class="loading-orb-ring loading-orb-ring-1"></div>
+                <div class="loading-orb-ring loading-orb-ring-2"></div>
+                <div class="loading-orb-ring loading-orb-ring-3"></div>
+                <div class="loading-orb-particles">
+                    <span></span><span></span><span></span><span></span><span></span><span></span>
+                </div>
+            </div>
+        </div>
+        <div class="loading-status-wrap">
+            <div class="loading-status" id="loading-status">Loading panoramas...</div>
+            <div class="loading-status-dots"><span></span><span></span><span></span></div>
+        </div>
     </div>
 
     <div id="psv-container"></div>
@@ -80,15 +93,18 @@
                 <button id="back-btn" class="hdr-action-btn" type="button" hidden title="Go back">
                     <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
                 </button>
-                <button id="export-plots-btn" class="hdr-action-btn" type="button" title="Export plots">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                </button>
-                <button id="toggle-overlays-btn" class="hdr-action-btn" type="button" title="Toggle overlays">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-                </button>
-                <button id="fullscreen-btn" class="hdr-action-btn" type="button" title="Fullscreen">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
-                </button>
+                <button id="header-more-btn" class="hdr-action-btn header-more-btn" type="button" title="More actions" aria-label="More actions" aria-expanded="false" aria-haspopup="true"><iconify-icon icon="ph:dots-three-vertical"></iconify-icon></button>
+                <div class="header-right-actions" id="header-right-actions">
+                    <button id="export-plots-btn" class="hdr-action-btn" type="button" title="Export plots">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                    </button>
+                    <button id="toggle-overlays-btn" class="hdr-action-btn" type="button" title="Toggle overlays">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                    </button>
+                    <button id="fullscreen-btn" class="hdr-action-btn" type="button" title="Fullscreen">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
+                    </button>
+                </div>
                 <div class="hdr-divider"></div>
                 <button id="view-cart-btn" class="hdr-cart-btn" type="button" title="View cart">
                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
@@ -105,13 +121,13 @@
                     <span class="project-badge-dot"></span>
                     <span class="project-badge-label">360° Explorer</span>
                 </div>
+                <button type="button" class="panorama-nav-collapse-btn" id="panorama-nav-collapse" title="Close" aria-label="Close panorama list"><iconify-icon icon="ph:caret-left"></iconify-icon></button>
             </div>
             <div class="panorama-nav-head">
                 <div class="panorama-nav-head-text">
                     <div class="panorama-nav-title">Panorama List</div>
-                    <div class="panorama-nav-subtitle" id="panorama-nav-subtitle">Linked 360 views</div>
+                    <div class="panorama-nav-subtitle" id="panorama-nav-subtitle"></div>
                 </div>
-                <button type="button" class="panorama-nav-collapse-btn" id="panorama-nav-collapse" title="Close" aria-label="Close panorama list">×</button>
             </div>
             <div class="panorama-nav-list" id="panorama-nav-list"></div>
         </aside>
@@ -143,7 +159,7 @@
 
     <div class="modal-backdrop details-modal" id="plot-details-modal">
         <div class="modal">
-            <button class="modal-close" id="close-details-icon" type="button" aria-label="Close plot details">×</button>
+            <button class="modal-close" id="close-details-icon" type="button" aria-label="Close plot details"><iconify-icon icon="ph:x"></iconify-icon></button>
             <div class="details-header">
                 <div class="details-color" id="details-color"></div>
                 <div class="details-title" id="details-title">Plot Name</div>
@@ -154,17 +170,16 @@
                     <div class="details-media" id="details-media"></div>
                 </div>
 
-                <!-- Right Column: Info -->
                 <div class="details-info-column">
-                    <div class="detail-item">
+                    <div class="detail-item" id="details-price-container">
                         <div class="detail-label">Price</div>
                         <div class="detail-value price" id="details-price">—</div>
                     </div>
-                    <div class="detail-item">
+                    <div class="detail-item" id="details-area-container">
                         <div class="detail-label">Area</div>
                         <div class="detail-value" id="details-area">—</div>
                     </div>
-                    <div class="detail-item">
+                    <div class="detail-item" id="details-status-container">
                         <div class="detail-label">Status</div>
                         <div class="detail-value" id="details-status">—</div>
                     </div>
@@ -185,34 +200,30 @@
 
     <div class="modal-backdrop cart-modal" id="cart-modal">
         <div class="modal">
-            <button class="modal-close" id="close-cart-icon" type="button" aria-label="Close cart">×</button>
-            <div class="cart-header">
-                <div class="cart-kicker">Checkout</div>
-                <div class="cart-title">Your Plot Cart</div>
-                <div class="cart-subtitle" id="cart-subtitle">0 plots selected</div>
-            </div>
-            <div class="cart-grid">
-                <div class="cart-panel">
-                    <div class="cart-panel-head">
-                        <strong>Selected Plots</strong>
-                        <button class="cart-link-btn" id="cart-clear-btn" type="button">Clear</button>
+            <button class="modal-close" id="close-cart-icon" type="button" aria-label="Close cart"><iconify-icon icon="ph:x"></iconify-icon></button>
+            <div class="cart-modal-title">Your Plot Cart</div>
+            <div class="cart-modal-subtitle" id="cart-subtitle">0 plots selected</div>
+            <div class="cart-modal-body">
+                <div class="cart-section">
+                    <div class="cart-section-head">
+                        <span class="cart-section-label">Selected Plots</span>
+                        <button class="cart-clear-btn" id="cart-clear-btn" type="button">Clear</button>
                     </div>
                     <div class="cart-items" id="cart-items"></div>
-                    <div class="cart-empty" id="cart-empty" style="display:none;">No plots added yet. Open a plot and
-                        click “Add to Cart”.</div>
+                    <div class="cart-empty" id="cart-empty" style="display:none;">No plots added yet. Open a plot and click “Add to Cart”.</div>
                 </div>
-                <div class="cart-panel">
-                    <div class="cart-panel-head">
-                        <strong>Your Details</strong>
-                        <span class="subtle" style="margin:0;">Send a buy interest to the project CRM.</span>
+                <div class="cart-section">
+                    <div class="cart-section-head">
+                        <span class="cart-section-label">Your Details</span>
                     </div>
+                    <p class="cart-section-desc">Send a buy interest to the project CRM.</p>
                     <div class="cart-form">
                         <div class="cart-field">
                             <label for="checkout-name">Name</label>
                             <input id="checkout-name" type="text" placeholder="Full name" autocomplete="name">
                         </div>
                         <div class="cart-field">
-                            <label for="checkout-email">Email Id</label>
+                            <label for="checkout-email">Email</label>
                             <input id="checkout-email" type="email" placeholder="you@example.com" autocomplete="email">
                         </div>
                         <div class="cart-field">
@@ -243,12 +254,10 @@
 
     <div class="modal-backdrop share-modal" id="share-modal">
         <div class="modal">
-            <button class="modal-close" id="close-share-icon" type="button" aria-label="Close share modal">×</button>
-            <div class="share-modal-content">
-                <div class="share-modal-title">Share This View</div>
-                <div class="share-modal-subtitle">
-                    Share this link with clients to give them view-only access to this interactive panorama.
-                </div>
+            <button class="modal-close" id="close-share-icon" type="button" aria-label="Close share modal"><iconify-icon icon="ph:x"></iconify-icon></button>
+            <div class="modal-title share-modal-title">Share This View</div>
+            <div class="modal-body share-modal-body">
+                <div class="share-modal-subtitle">Share this link with clients to give them view-only access to this interactive panorama.</div>
                 <div class="share-url-container">
                     <div class="share-url" id="share-url"></div>
                 </div>
@@ -262,8 +271,7 @@
 
     <div class="modal-backdrop details-modal" id="marker-readonly-modal">
         <div class="modal marker-readonly-modal">
-            <button class="marker-modal-close" id="close-marker-readonly-icon" type="button"
-                aria-label="Close marker details">×</button>
+            <button class="marker-modal-close" id="close-marker-readonly-icon" type="button" aria-label="Close marker details"><iconify-icon icon="ph:x"></iconify-icon></button>
             <div class="details-header">
                 <div class="details-color" id="marker-readonly-color"></div>
                 <div class="details-title" id="marker-readonly-name">Marker</div>
@@ -273,7 +281,7 @@
                     <div class="details-media" id="marker-readonly-media"></div>
                 </div>
                 <div class="details-info-column">
-                    <div class="detail-item">
+                    <div class="detail-item" id="marker-readonly-description-container">
                         <div class="detail-label">Description</div>
                         <div class="detail-value description" id="marker-readonly-description">—</div>
                     </div>
@@ -370,7 +378,7 @@
             var textAlign = x === 'center' ? 'center' : x === 'right' ? 'right' : 'left';
             var itemFont = (cfg.itemFont || 'Syne') + ', sans-serif';
             listEl.style.fontFamily = itemFont;
-            if (cfg.itemFontSize) listEl.style.fontSize = cfg.itemFontSize;
+            listEl.style.fontSize = cfg.itemFontSize || '0.76rem';
             if (cfg.itemColor) listEl.style.color = cfg.itemColor;
             var navShell = listEl.closest('.panorama-nav-shell');
             var isHorizontal = navShell && (navShell.classList.contains('pos-top') || navShell.classList.contains('pos-bottom'));
@@ -389,15 +397,11 @@
                 el.style.justifyContent = yMap[y] || 'center';
                 el.style.textAlign = textAlign;
             });
+            var itemFontSize = cfg.itemFontSize || '0.76rem';
             listEl.querySelectorAll('.panorama-nav-item-name').forEach(function (el) {
                 el.style.fontFamily = itemFont;
+                el.style.fontSize = itemFontSize;
                 if (cfg.itemColor) el.style.color = cfg.itemColor;
-                el.style.textAlign = textAlign;
-            });
-            listEl.querySelectorAll('.panorama-nav-item-meta').forEach(function (el) {
-                el.style.fontFamily = itemFont;
-                if (cfg.itemColor) el.style.color = cfg.itemColor;
-                if (cfg.itemColor) el.style.opacity = '0.8';
                 el.style.textAlign = textAlign;
             });
         }
@@ -498,7 +502,28 @@
             if (badge.fontSize && badgeName) badgeName.style.fontSize = badge.fontSize;
 
             if (btns.panoramaNavToggle === false && navToggle) navToggle.style.display = 'none';
-            if (btns.backBtn === false && backBtn) backBtn.style.display = 'none';
+            if (backBtn) {
+                if (btns.backBtn === false) {
+                    backBtn.style.display = 'none';
+                } else {
+                    var nothingToGoBackTo = false;
+                    if (IN_WORKSPACE) {
+                        nothingToGoBackTo = (typeof fullViewHistoryStack !== 'undefined' && fullViewHistoryStack.length === 0);
+                    } else {
+                        var params = new URLSearchParams(window.location.search || '');
+                        var fromId = String(params.get('from') || '').trim();
+                        var canUseFrom = Boolean(fromId && /^[0-9]+$/.test(fromId));
+                        nothingToGoBackTo = !(typeof hasNavStack === 'function' && hasNavStack()) && !canUseFrom;
+                    }
+                    if (nothingToGoBackTo) {
+                        backBtn.style.display = 'none';
+                        backBtn.hidden = true;
+                    } else {
+                        backBtn.style.display = '';
+                        backBtn.hidden = false;
+                    }
+                }
+            }
             if (btns.exportPlots === false && exportBtn) exportBtn.style.display = 'none';
             if (btns.toggleOverlays === false && overlaysBtn) overlaysBtn.style.display = 'none';
             if (btns.fullscreen === false && fullscreenBtn) fullscreenBtn.style.display = 'none';
@@ -529,10 +554,36 @@
                     titleElP.style.textAlign = pl.titleAlign || 'left';
                 }
                 if (subtitleElP) {
-                    if (pl.subheaderFont) subtitleElP.style.fontFamily = pl.subheaderFont + ', sans-serif';
-                    if (pl.subheaderFontSize) subtitleElP.style.fontSize = pl.subheaderFontSize;
-                    if (pl.subheaderColor) subtitleElP.style.color = pl.subheaderColor;
-                    subtitleElP.style.textAlign = pl.subheaderAlign || 'left';
+                    var hasSubP = pl.subheader != null && pl.subheader !== '';
+                    subtitleElP.style.display = hasSubP ? '' : 'none';
+                    if (hasSubP) {
+                        if (pl.subheaderFont) subtitleElP.style.fontFamily = pl.subheaderFont + ', sans-serif';
+                        if (pl.subheaderFontSize) subtitleElP.style.fontSize = pl.subheaderFontSize;
+                        if (pl.subheaderColor) subtitleElP.style.color = pl.subheaderColor;
+                        subtitleElP.style.textAlign = pl.subheaderAlign || 'left';
+                    }
+                }
+                var absorbedHeaderP = navShell.querySelector('.panorama-nav-absorbed-header');
+                if (absorbedHeaderP) {
+                    var absorbedBadgeP = absorbedHeaderP.querySelector('.project-badge');
+                    var absorbedNameP = absorbedHeaderP.querySelector('.project-badge-name');
+                    var absorbedLabelP = absorbedHeaderP.querySelector('.project-badge-label');
+                    var alignP = pl.absorbedHeaderAlign || 'left';
+                    if (absorbedBadgeP) {
+                        absorbedBadgeP.style.flex = '1';
+                        absorbedBadgeP.style.minWidth = '0';
+                        absorbedBadgeP.style.justifyContent = alignP === 'center' ? 'center' : alignP === 'right' ? 'flex-end' : 'flex-start';
+                    }
+                    if (absorbedNameP) {
+                        if (badge.customText) absorbedNameP.textContent = badge.customText;
+                        if (pl.absorbedHeaderFont) absorbedNameP.style.fontFamily = pl.absorbedHeaderFont + ', sans-serif';
+                        if (pl.absorbedHeaderFontSize) absorbedNameP.style.fontSize = pl.absorbedHeaderFontSize;
+                        if (pl.absorbedHeaderColor) absorbedNameP.style.color = pl.absorbedHeaderColor;
+                    }
+                    if (absorbedLabelP) {
+                        if (badge.customLabel) absorbedLabelP.textContent = badge.customLabel;
+                        if (pl.absorbedHeaderFont) absorbedLabelP.style.fontFamily = pl.absorbedHeaderFont + ', sans-serif';
+                    }
                 }
                 if (listElP) {
                     applyPanoramaItemStylesCv(pl, listElP);
@@ -577,6 +628,26 @@
         }
 
         const loading = document.getElementById('loading');
+        const loadingStatusEl = document.getElementById('loading-status');
+        const LOADING_STATUSES = ['Loading panoramas...', 'Mapping plots...', 'Cooking view...', 'Aligning markers...', 'Almost there...'];
+        var loadingStatusIdx = 0;
+        var loadingStatusInterval = null;
+        function startLoadingStatusCycle() {
+            if (loadingStatusInterval) return;
+            if (loadingStatusEl) loadingStatusEl.textContent = LOADING_STATUSES[0];
+            loadingStatusIdx = 0;
+            loadingStatusInterval = setInterval(function () {
+                loadingStatusIdx = (loadingStatusIdx + 1) % LOADING_STATUSES.length;
+                if (loadingStatusEl) loadingStatusEl.textContent = LOADING_STATUSES[loadingStatusIdx];
+            }, 1800);
+        }
+        function stopLoadingStatusCycle() {
+            if (loadingStatusInterval) {
+                clearInterval(loadingStatusInterval);
+                loadingStatusInterval = null;
+            }
+        }
+        startLoadingStatusCycle();
         const shareBtn = document.getElementById('share-btn');
         const shareModal = document.getElementById('share-modal');
         const shareUrl = document.getElementById('share-url');
@@ -834,6 +905,7 @@
             refreshPanoramaMenu();
             if (loading) {
                 loading.classList.remove('hidden');
+                startLoadingStatusCycle();
             }
             const opts = {
                 showLoader: false,
@@ -841,6 +913,7 @@
             };
             if (typeof viewer.setPanorama !== 'function') return Promise.resolve();
             return viewer.setPanorama(url, opts).then(function () {
+                stopLoadingStatusCycle();
                 if (loading) loading.classList.add('hidden');
                 if (markerManager) {
                     markerManager.plotId = id;
@@ -849,6 +922,7 @@
                 loadPlots(id);
                 setTimeout(() => markerManager && markerManager.updateViewportFocus(), 200);
             }).catch(function () {
+                stopLoadingStatusCycle();
                 if (loading) loading.classList.add('hidden');
                 currentFullViewPanoramaId = prevId;
                 refreshPanoramaMenu();
@@ -862,7 +936,8 @@
             if (IN_WORKSPACE && getWorkspacePanoramaById(id)) {
                 fullViewHistoryStack.push(String(currentFullViewPanoramaId));
                 switchToPanoramaInView(id);
-                if (backBtn) backBtn.hidden = false;
+                var btns = getCvConfig().buttons || {};
+                if (backBtn && btns.backBtn !== false) { backBtn.hidden = false; backBtn.style.display = ''; }
             } else {
                 navigateToPanorama(id);
             }
@@ -948,17 +1023,6 @@
             return map;
         }
 
-        function panoramaMenuSourceLabel(entry) {
-            if (!entry || !entry.sources) return 'Linked panorama';
-            if (entry.sources.has('current')) return 'Current View';
-            const fromPlot = entry.sources.has('plot');
-            const fromMarker = entry.sources.has('marker');
-            if (fromPlot && fromMarker) return 'Linked from Plot + Marker';
-            if (fromPlot) return 'Linked from Plot';
-            if (fromMarker) return 'Linked from Marker';
-            return 'Panorama';
-        }
-
         function renderPanoramaMenu(entriesMap) {
             if (!panoramaNavList) return;
             var pl = getCvConfig().panoramaList;
@@ -992,18 +1056,18 @@
             }
 
             if (panoramaNavSubtitle) {
-                if (pl && pl.subheader != null && pl.subheader !== '') panoramaNavSubtitle.textContent = pl.subheader;
-                else panoramaNavSubtitle.textContent = all.length ? `${all.length} linked view${all.length === 1 ? '' : 's'}` : 'No linked views yet';
+                var hasSub = pl && pl.subheader != null && pl.subheader !== '';
+                panoramaNavSubtitle.style.display = hasSub ? '' : 'none';
+                if (hasSub) panoramaNavSubtitle.textContent = pl.subheader;
             }
 
             const itemsHtml = all.map((entry) => {
                 const isCurrent = String(entry.id) === currentId;
                 const name = escapeHtml(getPanoramaMenuName(entry.id));
-                const meta = escapeHtml(panoramaMenuSourceLabel(entry));
                 if (isCurrent) {
-                    return `<div class="panorama-nav-item active" aria-current="page"><span class="panorama-nav-item-name">${name}</span><span class="panorama-nav-item-meta">${meta}</span></div>`;
+                    return `<div class="panorama-nav-item active" aria-current="page"><span class="panorama-nav-item-name">${name}</span></div>`;
                 }
-                return `<button class="panorama-nav-item" type="button" data-panorama-id="${escapeHtml(entry.id)}"><span class="panorama-nav-item-name">${name}</span><span class="panorama-nav-item-meta">${meta}</span></button>`;
+                return `<button class="panorama-nav-item" type="button" data-panorama-id="${escapeHtml(entry.id)}"><span class="panorama-nav-item-name">${name}</span></button>`;
             }).join('');
 
             panoramaNavList.innerHTML = itemsHtml + (all.length ? '' : '<div class="panorama-nav-empty">No linked panoramas available yet.</div>');
@@ -1092,7 +1156,11 @@
 
         function updateFullViewBackButton() {
             if (!backBtn || !IN_WORKSPACE) return;
-            backBtn.hidden = fullViewHistoryStack.length === 0;
+            var cfg = getCvConfig();
+            if (cfg.buttons && cfg.buttons.backBtn === false) return;
+            var empty = fullViewHistoryStack.length === 0;
+            backBtn.hidden = empty;
+            backBtn.style.display = empty ? 'none' : '';
         }
 
         (function initBackButton() {
@@ -1271,7 +1339,7 @@
         const DEFAULT_MARKER_ICON = 'mdi:map-marker-radius';
         const DEFAULT_MARKER_COLOR = '#4ade80';
         const MARKER_STYLE_VALUES = Object.freeze([
-            'super', 'photo', 'glass', 'neon', 'orb', 'pin', 'crystal', 'ring', 'chip', 'beacon', 'gem', 'retro', 'comet', 'minimal'
+            'super', 'navigator', 'photo', 'glass', 'neon', 'orb', 'pin', 'crystal', 'ring', 'chip', 'beacon', 'gem', 'retro', 'comet', 'minimal'
         ]);
 
         function normalizeStatus(status) {
@@ -1575,18 +1643,38 @@
             }
         }
 
+        function isDetailBlank(val) {
+            if (val == null) return true;
+            const s = String(val).trim();
+            return s === '' || s === '—';
+        }
+
         function showPlotDetails(plot) {
             stopAutoRotate();
             activePlotId = plot ? plot.id : null;
             const colors = getStatusColors(plot.status);
             document.getElementById('details-color').style.background = `linear-gradient(135deg, ${colors.start}, ${colors.end})`;
             document.getElementById('details-title').textContent = plot.name;
-            document.getElementById('details-area').textContent = plot.area || '—';
-            document.getElementById('details-price').textContent = plot.price || '—';
-            document.getElementById('details-status').textContent = statusLabels[plot.status] || statusLabels[normalizeStatus(plot.status)] || '—';
+            const areaVal = plot.area || '—';
+            const priceVal = plot.price || '—';
+            const statusVal = statusLabels[plot.status] || statusLabels[normalizeStatus(plot.status)] || '—';
+            document.getElementById('details-area').textContent = areaVal;
+            document.getElementById('details-price').textContent = priceVal;
+            document.getElementById('details-status').textContent = statusVal;
+            const priceContainer = document.getElementById('details-price-container');
+            const areaContainer = document.getElementById('details-area-container');
+            const statusContainer = document.getElementById('details-status-container');
             const descContainer = document.getElementById('details-description-container');
-            descContainer.style.display = plot.description ? 'block' : 'none';
+            if (priceContainer) priceContainer.style.display = isDetailBlank(priceVal) ? 'none' : '';
+            if (areaContainer) areaContainer.style.display = isDetailBlank(areaVal) ? 'none' : '';
+            if (statusContainer) statusContainer.style.display = isDetailBlank(statusVal) ? 'none' : '';
+            if (descContainer) descContainer.style.display = isDetailBlank(plot.description) ? 'none' : '';
             document.getElementById('details-description').textContent = plot.description || '';
+            const modalCard = document.querySelector('#plot-details-modal .modal');
+            if (modalCard) {
+                const visible = [priceVal, areaVal, statusVal, plot.description].filter(function (v) { return !isDetailBlank(v); });
+                modalCard.dataset.attrCount = String(visible.length);
+            }
             renderPlotMedia(plot).then(() => { });
             if (enterPlotPanoramaBtn) {
                 const rawLink = plot && Object.prototype.hasOwnProperty.call(plot, 'linked_panorama_id')
@@ -2106,6 +2194,8 @@
                 let markerHtml = '';
                 if (markerStyle === 'super') {
                     markerHtml = `<button class="psv-glass-marker marker-super ${statusClass}${animatedClass}" type="button" data-marker-id="${this.escapeAttr(marker.id)}" aria-label="${this.escapeAttr(marker.name || 'Marker')}"><span class="marker-callout" aria-hidden="true"><span class="marker-tag">${this.escapeHtml(marker.name || 'Marker')}</span><span class="marker-stem"></span></span><span class="marker-base" aria-hidden="true"><span class="marker-ring-outer"></span><span class="marker-ring-inner"></span></span></button>`;
+                } else if (markerStyle === 'navigator') {
+                    markerHtml = `<button class="psv-glass-marker marker-navigator ${statusClass}${animatedClass}" type="button" data-marker-id="${this.escapeAttr(marker.id)}" aria-label="${this.escapeAttr(marker.name || 'Marker')}"><span class="marker-nav-base" aria-hidden="true"><span class="marker-nav-ring"></span><span class="marker-nav-chevron"><iconify-icon icon="ph:caret-up"></iconify-icon></span></span></button>`;
                 } else if (this.isPhotoMarkerStyle(markerStyle)) {
                     markerHtml = this.buildPhotoMarkerHtml(marker, statusClass);
                 } else {
@@ -2135,13 +2225,16 @@
                     if (!markerEl) return;
                     const normalizedStyle = this.normalizeMarkerStyle(marker.marker_style);
                     const isSuper = normalizedStyle === 'super';
+                    const isNavigator = normalizedStyle === 'navigator';
                     const isPhoto = this.isPhotoMarkerStyle(normalizedStyle);
                     markerEl.classList.remove(...styleClasses);
-                    markerEl.classList.remove('marker-super', 'marker-classic', 'marker-photo');
+                    markerEl.classList.remove('marker-super', 'marker-navigator', 'marker-classic', 'marker-photo');
                     if (isSuper) {
                         markerEl.classList.add('marker-super');
                         const labelEl = markerEl.querySelector('.marker-tag');
                         if (labelEl) labelEl.textContent = marker.name || 'Marker';
+                    } else if (isNavigator) {
+                        markerEl.classList.add('marker-navigator');
                     } else if (isPhoto) {
                         markerEl.classList.add('marker-photo');
                         const nameEl = markerEl.querySelector('.marker-photo-name');
@@ -2225,7 +2318,17 @@
                 if (!marker || !this.dom.modal) return;
                 stopAutoRotate();
                 if (this.dom.name) this.dom.name.textContent = marker.name || 'Marker';
-                if (this.dom.description) this.dom.description.textContent = marker.description || 'No description.';
+                const descVal = marker.description || '';
+                if (this.dom.description) this.dom.description.textContent = descVal;
+                const descContainer = document.getElementById('marker-readonly-description-container');
+                if (descContainer) descContainer.style.display = (descVal && String(descVal).trim()) ? '' : 'none';
+                const modalCard = this.dom.modal ? this.dom.modal.querySelector('.modal') : null;
+                if (modalCard) {
+                    const hasDesc = descVal && String(descVal).trim();
+                    const hasVoiceover = !!marker.voiceover_filename;
+                    const count = (hasDesc ? 1 : 0) + (hasVoiceover ? 1 : 0);
+                    modalCard.dataset.attrCount = String(count);
+                }
                 if (this.dom.color) {
                     const status = (marker.status || '').toLowerCase();
                     const statusKey = status === 'reserved' ? 'on_hold' : (status === 'sold' ? 'sold' : 'available');
@@ -2920,6 +3023,28 @@
         if (viewCartBtn) {
             viewCartBtn.addEventListener('click', openCart);
         }
+        const headerMoreBtn = document.getElementById('header-more-btn');
+        const headerRight = document.querySelector('.header-right');
+        const headerRightActions = document.getElementById('header-right-actions');
+        if (headerMoreBtn && headerRight) {
+            headerMoreBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                headerRight.classList.toggle('has-expanded-more');
+                headerMoreBtn.setAttribute('aria-expanded', headerRight.classList.contains('has-expanded-more'));
+            });
+            document.addEventListener('click', (e) => {
+                if (headerRight.classList.contains('has-expanded-more') && !headerRight.contains(e.target)) {
+                    headerRight.classList.remove('has-expanded-more');
+                    headerMoreBtn.setAttribute('aria-expanded', 'false');
+                }
+            });
+        }
+        if (headerRightActions && headerRight) {
+            headerRightActions.addEventListener('click', () => {
+                headerRight.classList.remove('has-expanded-more');
+                if (headerMoreBtn) headerMoreBtn.setAttribute('aria-expanded', 'false');
+            });
+        }
         if (exportPlotsBtn) {
             exportPlotsBtn.addEventListener('click', exportPlotsToCsv);
         }
@@ -3063,6 +3188,8 @@
                 autorotateSpeed: '1.1rpm',
                 autorotateLat: '5deg',
                 loadingTxt: '',
+                defaultZoomLvl: 25,
+                maxFov: 100,
                 plugins: [
                     [PhotoSphereViewer.MarkersPlugin, {}]
                 ]
@@ -3075,6 +3202,7 @@
             viewer.on('ready', () => {
                 var configPromise = WORKSPACE_ID ? fetch('/api/workspaces/' + WORKSPACE_ID + '/customer-view-config').then(function (r) { return r.json(); }).then(function (data) { if (data && data.config && typeof data.config === 'object') deepMergeCvConfig(CUSTOMER_VIEW_CONFIG, data.config); }).catch(function () {}) : Promise.resolve();
                 configPromise.then(function () {
+                    stopLoadingStatusCycle();
                     loading.classList.add('hidden');
                     applyCustomerViewConfig();
                     const indexPromise = IN_WORKSPACE ? Promise.resolve([]) : loadPanoramaIndex().catch(() => []);

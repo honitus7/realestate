@@ -353,24 +353,24 @@
 }
 #cv-panorama-nav-shell .panorama-nav-collapse-btn {
     flex-shrink: 0;
-    width: 28px;
-    height: 28px;
+    width: 20px;
+    height: 20px;
     padding: 0;
-    border: 1px solid rgba(22, 35, 56, 0.12);
-    border-radius: 6px;
-    background: rgba(255, 255, 255, 0.6);
+    border: none;
+    border-radius: 4px;
+    background: transparent;
     color: #5d6f8f;
-    font-size: 1.25rem;
+    font-size: 1rem;
     line-height: 1;
     cursor: pointer;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    transition: background 0.15s ease, color 0.15s ease;
+    transition: color 0.15s ease, opacity 0.15s ease;
 }
 #cv-panorama-nav-shell .panorama-nav-collapse-btn:hover {
-    background: rgba(22, 35, 56, 0.08);
     color: #1a2e4d;
+    opacity: 0.9;
 }
 .ce-editor-backdrop {
     position: fixed;

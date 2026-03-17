@@ -114,12 +114,19 @@
 
         <div class="panorama-nav-shell ce-editable is-collapsed" id="cv-panorama-nav-shell" data-ce-id="panoramaNav">
             <aside class="panorama-nav-panel" id="cv-panorama-nav-panel">
+                <div class="panorama-nav-absorbed-header">
+                    <div class="project-badge">
+                        <span class="project-badge-name" id="cv-absorbed-badge-name">{{ panorama.name }}</span>
+                        <span class="project-badge-dot"></span>
+                        <span class="project-badge-label" id="cv-absorbed-badge-label">360° Explorer</span>
+                    </div>
+                    <button type="button" class="panorama-nav-collapse-btn" id="cv-panorama-nav-collapse" title="Close" aria-label="Close panorama list">×</button>
+                </div>
                 <div class="panorama-nav-head">
                     <div class="panorama-nav-head-text">
                         <div class="panorama-nav-title">Panorama List</div>
                         <div class="panorama-nav-subtitle" id="cv-panorama-nav-subtitle"></div>
                     </div>
-                    <button type="button" class="panorama-nav-collapse-btn" id="cv-panorama-nav-collapse" title="Close" aria-label="Close panorama list">×</button>
                 </div>
                 <div class="panorama-nav-list" id="cv-panorama-nav-list"></div>
             </aside>
@@ -155,7 +162,7 @@
             buttons: { panoramaNavToggle: true, backBtn: true, exportPlots: true, toggleOverlays: true, fullscreen: true, viewCart: true },
             searchBar: { visible: true },
             statusLegend: { visible: true, color: '#23395f', bg: '#f7f9fd' },
-            panoramaList: { visible: true, order: [], position: 'left', title: 'Panorama List', subheader: null, titleFont: 'Syne', subheaderFont: 'Syne', itemFont: 'Syne', titleFontSize: '0.6rem', subheaderFontSize: '0.52rem', itemFontSize: '0.76rem', panelBg: '#0a1220', titleColor: '#7a8ba8', subheaderColor: '#a0aec0', itemColor: '#1a2e4d', titleAlign: 'left', subheaderAlign: 'left', itemAlignX: 'left', itemAlignY: 'center' },
+            panoramaList: { visible: true, order: [], position: 'left', title: 'Panorama List', subheader: null, titleFont: 'Syne', subheaderFont: 'Syne', itemFont: 'Syne', titleFontSize: '0.6rem', subheaderFontSize: '0.52rem', itemFontSize: '0.76rem', panelBg: '#0a1220', titleColor: '#7a8ba8', subheaderColor: '#a0aec0', itemColor: '#1a2e4d', titleAlign: 'left', subheaderAlign: 'left', itemAlignX: 'left', itemAlignY: 'center', absorbedHeaderFont: 'Syne', absorbedHeaderFontSize: '0.88rem', absorbedHeaderColor: '#1a2e4d', absorbedHeaderAlign: 'left' },
             elementPositions: { header: { x: null, y: null }, statusLegend: { x: null, y: null }, panoramaNav: { x: null, y: null } }
         };
 
@@ -283,13 +290,16 @@
                 item.style.justifyContent = yMap[y] || 'center';
                 item.style.textAlign = textAlign;
             });
+            var itemFontSize = config.panoramaList.itemFontSize || '0.76rem';
             listEl.querySelectorAll('.panorama-nav-item-name').forEach(function (el) {
                 el.style.fontFamily = itemFont;
+                el.style.fontSize = itemFontSize;
                 el.style.color = config.panoramaList.itemColor || '#1a2e4d';
                 el.style.textAlign = textAlign;
             });
             listEl.querySelectorAll('.panorama-nav-item-meta').forEach(function (el) {
                 el.style.fontFamily = itemFont;
+                el.style.fontSize = itemFontSize;
                 el.style.color = config.panoramaList.itemColor || '#1a2e4d';
                 el.style.opacity = '0.8';
                 el.style.textAlign = textAlign;
@@ -405,11 +415,37 @@
                     titleEl.style.textAlign = config.panoramaList.titleAlign || 'left';
                 }
                 if (subtitleEl) {
-                    subtitleEl.textContent = config.panoramaList.subheader != null && config.panoramaList.subheader !== '' ? config.panoramaList.subheader : (WORKSPACE_PANORAMAS.length + ' panorama' + (WORKSPACE_PANORAMAS.length !== 1 ? 's' : ''));
-                    subtitleEl.style.fontFamily = (config.panoramaList.subheaderFont || 'Syne') + ', sans-serif';
-                    subtitleEl.style.fontSize = config.panoramaList.subheaderFontSize || '0.52rem';
-                    subtitleEl.style.color = config.panoramaList.subheaderColor || '#a0aec0';
-                    subtitleEl.style.textAlign = config.panoramaList.subheaderAlign || 'left';
+                    var hasSub = config.panoramaList.subheader != null && config.panoramaList.subheader !== '';
+                    subtitleEl.style.display = hasSub ? '' : 'none';
+                    if (hasSub) {
+                        subtitleEl.textContent = config.panoramaList.subheader;
+                        subtitleEl.style.fontFamily = (config.panoramaList.subheaderFont || 'Syne') + ', sans-serif';
+                        subtitleEl.style.fontSize = config.panoramaList.subheaderFontSize || '0.52rem';
+                        subtitleEl.style.color = config.panoramaList.subheaderColor || '#a0aec0';
+                        subtitleEl.style.textAlign = config.panoramaList.subheaderAlign || 'left';
+                    }
+                }
+                var absorbedHeader = navShell.querySelector('.panorama-nav-absorbed-header');
+                if (absorbedHeader) {
+                    var absorbedBadge = absorbedHeader.querySelector('.project-badge');
+                    var absorbedName = absorbedHeader.querySelector('.project-badge-name');
+                    var absorbedLabel = absorbedHeader.querySelector('.project-badge-label');
+                    var align = config.panoramaList.absorbedHeaderAlign || 'left';
+                    if (absorbedBadge) {
+                        absorbedBadge.style.flex = '1';
+                        absorbedBadge.style.minWidth = '0';
+                        absorbedBadge.style.justifyContent = align === 'center' ? 'center' : align === 'right' ? 'flex-end' : 'flex-start';
+                    }
+                    if (absorbedName) {
+                        absorbedName.textContent = config.projectBadge.customText || {{ (panorama.name or '') | tojson }};
+                        absorbedName.style.fontFamily = (config.panoramaList.absorbedHeaderFont || 'Syne') + ', sans-serif';
+                        absorbedName.style.fontSize = config.panoramaList.absorbedHeaderFontSize || '0.88rem';
+                        absorbedName.style.color = config.panoramaList.absorbedHeaderColor || '#1a2e4d';
+                    }
+                    if (absorbedLabel) {
+                        absorbedLabel.textContent = config.projectBadge.customLabel || '360° Explorer';
+                        absorbedLabel.style.fontFamily = (config.panoramaList.absorbedHeaderFont || 'Syne') + ', sans-serif';
+                    }
                 }
                 if (listEl) applyPanoramaItemStyles();
             }
@@ -486,7 +522,7 @@
 
             if (elementId === 'panoramaNav') {
                 var panoTitle = config.panoramaList.title || 'Panorama List';
-                var panoSub = config.panoramaList.subheader != null && config.panoramaList.subheader !== '' ? config.panoramaList.subheader : (WORKSPACE_PANORAMAS.length + ' panorama' + (WORKSPACE_PANORAMAS.length !== 1 ? 's' : ''));
+                var panoSub = config.panoramaList.subheader != null && config.panoramaList.subheader !== '' ? config.panoramaList.subheader : '';
                 function mkSection(title) {
                     var s = document.createElement('div');
                     s.className = 'ce-modal-section';
@@ -498,6 +534,7 @@
                 }
                 var secContent = mkSection('Content');
                 var secHeader = mkSection('Header styling');
+                var secAbsorbed = mkSection('Absorbed header');
                 var secList = mkSection('List');
                 var secPanel = mkSection('Panel & position');
 
@@ -517,7 +554,7 @@
                 addTo(secContent, rowTitle);
                 var rowSub = document.createElement('div');
                 rowSub.className = 'ce-opt-row';
-                rowSub.innerHTML = '<label class="ce-opt-label">Subheader</label><input type="text" id="ce-pano-subheader" class="ce-opt-input" value="' + escapeHtml(config.panoramaList.subheader || '') + '" placeholder="Auto (e.g. 3 panoramas)">';
+                rowSub.innerHTML = '<label class="ce-opt-label">Subheader</label><input type="text" id="ce-pano-subheader" class="ce-opt-input" value="' + escapeHtml(config.panoramaList.subheader || '') + '" placeholder="Leave empty to hide">';
                 rowSub.querySelector('#ce-pano-subheader').addEventListener('input', function () { config.panoramaList.subheader = this.value === '' ? null : this.value; applyConfig(); });
                 addTo(secContent, rowSub);
 
@@ -550,11 +587,11 @@
                 rowSubFont.innerHTML = subFontHtml + '</select>';
                 rowSubFont.querySelector('#ce-pano-subheader-font').addEventListener('change', function () { config.panoramaList.subheaderFont = this.value; applyConfig(); });
                 addTo(secHeader, rowSubFont);
-                function remToSlider(remStr, def) { var n = parseFloat(String(remStr).replace(/rem$/, '')); return isNaN(n) ? def : Math.min(24, Math.max(8, Math.round(n * 20))); }
+                function remToSlider(remStr, def) { var n = parseFloat(String(remStr).replace(/rem$/, '')); return isNaN(n) ? def : Math.min(60, Math.max(6, Math.round(n * 20))); }
                 function sliderToRem(val) { return (val * 0.05).toFixed(2) + 'rem'; }
                 var rowTitleSize = document.createElement('div');
                 rowTitleSize.className = 'ce-opt-row';
-                rowTitleSize.innerHTML = '<label class="ce-opt-label">Title font size</label><div class="ce-range-row"><input type="range" id="ce-pano-title-size" min="8" max="24" value="' + remToSlider(config.panoramaList.titleFontSize, 12) + '"><span class="ce-range-val" id="ce-pano-title-size-val">' + (config.panoramaList.titleFontSize || '0.6rem') + '</span></div>';
+                rowTitleSize.innerHTML = '<label class="ce-opt-label">Title font size</label><div class="ce-range-row"><input type="range" id="ce-pano-title-size" min="6" max="60" value="' + remToSlider(config.panoramaList.titleFontSize, 12) + '"><span class="ce-range-val" id="ce-pano-title-size-val">' + (config.panoramaList.titleFontSize || '0.6rem') + '</span></div>';
                 rowTitleSize.querySelector('#ce-pano-title-size').addEventListener('input', function () { var v = parseInt(this.value, 10); config.panoramaList.titleFontSize = sliderToRem(v); rowTitleSize.querySelector('#ce-pano-title-size-val').textContent = sliderToRem(v); applyConfig(); });
                 addTo(secHeader, rowTitleSize);
                 var rowSubSize = document.createElement('div');
@@ -574,6 +611,39 @@
                 rowSubColor.innerHTML = '<label class="ce-opt-label">Subheader color</label><div class="ce-color-row"><input type="color" id="ce-pano-subheader-color" value="' + (subColorVal.indexOf('#') === 0 ? subColorVal : '#a0aec0') + '"><span id="ce-pano-subheader-color-hex">' + (subColorVal.indexOf('#') === 0 ? subColorVal : '#a0aec0') + '</span></div>';
                 rowSubColor.querySelector('#ce-pano-subheader-color').addEventListener('input', function () { config.panoramaList.subheaderColor = this.value; rowSubColor.querySelector('#ce-pano-subheader-color-hex').textContent = this.value; applyConfig(); });
                 addTo(secHeader, rowSubColor);
+
+                var absorbedPreview = document.createElement('div');
+                absorbedPreview.className = 'ce-opt-row ce-current-preview';
+                var absorbedNamePreview = config.projectBadge.customText || {{ (panorama.name or '') | tojson }};
+                var absorbedLabelPreview = config.projectBadge.customLabel || '360° Explorer';
+                absorbedPreview.innerHTML = '<label class="ce-opt-label">Preview</label><div class="ce-preview-text"><strong>' + escapeHtml(absorbedNamePreview) + '</strong><span>' + escapeHtml(absorbedLabelPreview) + '</span></div>';
+                addTo(secAbsorbed, absorbedPreview);
+                var absorbedAlign = config.panoramaList.absorbedHeaderAlign || 'left';
+                var rowAbsorbedAlign = document.createElement('div');
+                rowAbsorbedAlign.className = 'ce-opt-row';
+                rowAbsorbedAlign.innerHTML = '<label class="ce-opt-label">Absorbed header align</label><div class="ce-pos-btns"><button type="button" class="ce-pos-btn' + (absorbedAlign === 'left' ? ' active' : '') + '" data-absorbed-align="left">Left</button><button type="button" class="ce-pos-btn' + (absorbedAlign === 'center' ? ' active' : '') + '" data-absorbed-align="center">Center</button><button type="button" class="ce-pos-btn' + (absorbedAlign === 'right' ? ' active' : '') + '" data-absorbed-align="right">Right</button></div>';
+                rowAbsorbedAlign.querySelectorAll('.ce-pos-btn').forEach(function (btn) { btn.addEventListener('click', function () { config.panoramaList.absorbedHeaderAlign = this.dataset.absorbedAlign; rowAbsorbedAlign.querySelectorAll('.ce-pos-btn').forEach(function (b) { b.classList.remove('active'); }); this.classList.add('active'); applyConfig(); }); });
+                addTo(secAbsorbed, rowAbsorbedAlign);
+                var rowAbsorbedFont = document.createElement('div');
+                rowAbsorbedFont.className = 'ce-opt-row';
+                var absorbedFontVal = config.panoramaList.absorbedHeaderFont || 'Syne';
+                var absorbedFontHtml = '<label class="ce-opt-label">Absorbed header font</label><select id="ce-pano-absorbed-font" class="ce-font-select" draggable="true">';
+                CE_FONTS.forEach(function (f) { absorbedFontHtml += '<option value="' + escapeHtml(f) + '" style="font-family:' + escapeHtml(f) + ',sans-serif"' + (f === absorbedFontVal ? ' selected' : '') + '>' + escapeHtml(f) + '</option>'; });
+                absorbedFontHtml += '</select>';
+                rowAbsorbedFont.innerHTML = absorbedFontHtml;
+                rowAbsorbedFont.querySelector('#ce-pano-absorbed-font').addEventListener('change', function () { config.panoramaList.absorbedHeaderFont = this.value; applyConfig(); });
+                addTo(secAbsorbed, rowAbsorbedFont);
+                var rowAbsorbedSize = document.createElement('div');
+                rowAbsorbedSize.className = 'ce-opt-row';
+                rowAbsorbedSize.innerHTML = '<label class="ce-opt-label">Absorbed header font size</label><div class="ce-range-row"><input type="range" id="ce-pano-absorbed-size" min="6" max="60" value="' + remToSlider(config.panoramaList.absorbedHeaderFontSize, 18) + '"><span class="ce-range-val" id="ce-pano-absorbed-size-val">' + (config.panoramaList.absorbedHeaderFontSize || '0.88rem') + '</span></div>';
+                rowAbsorbedSize.querySelector('#ce-pano-absorbed-size').addEventListener('input', function () { var v = parseInt(this.value, 10); config.panoramaList.absorbedHeaderFontSize = sliderToRem(v); rowAbsorbedSize.querySelector('#ce-pano-absorbed-size-val').textContent = sliderToRem(v); applyConfig(); });
+                addTo(secAbsorbed, rowAbsorbedSize);
+                var rowAbsorbedColor = document.createElement('div');
+                rowAbsorbedColor.className = 'ce-opt-row';
+                var absorbedColorVal = config.panoramaList.absorbedHeaderColor || '#1a2e4d';
+                rowAbsorbedColor.innerHTML = '<label class="ce-opt-label">Absorbed header color</label><div class="ce-color-row"><input type="color" id="ce-pano-absorbed-color" value="' + (absorbedColorVal.indexOf('#') === 0 ? absorbedColorVal : '#1a2e4d') + '"><span id="ce-pano-absorbed-color-hex">' + (absorbedColorVal.indexOf('#') === 0 ? absorbedColorVal : '#1a2e4d') + '</span></div>';
+                rowAbsorbedColor.querySelector('#ce-pano-absorbed-color').addEventListener('input', function () { config.panoramaList.absorbedHeaderColor = this.value; rowAbsorbedColor.querySelector('#ce-pano-absorbed-color-hex').textContent = this.value; applyConfig(); });
+                addTo(secAbsorbed, rowAbsorbedColor);
 
                 var navPosition = config.panoramaList.position || 'left';
                 var rowNavPos = document.createElement('div');
@@ -603,7 +673,7 @@
                 addTo(secList, rowItemFont);
                 var rowItemSize = document.createElement('div');
                 rowItemSize.className = 'ce-opt-row';
-                rowItemSize.innerHTML = '<label class="ce-opt-label">List item font size</label><div class="ce-range-row"><input type="range" id="ce-pano-item-size" min="8" max="24" value="' + remToSlider(config.panoramaList.itemFontSize, 15) + '"><span class="ce-range-val" id="ce-pano-item-size-val">' + (config.panoramaList.itemFontSize || '0.76rem') + '</span></div>';
+                rowItemSize.innerHTML = '<label class="ce-opt-label">List item font size</label><div class="ce-range-row"><input type="range" id="ce-pano-item-size" min="6" max="60" value="' + remToSlider(config.panoramaList.itemFontSize, 15) + '"><span class="ce-range-val" id="ce-pano-item-size-val">' + (config.panoramaList.itemFontSize || '0.76rem') + '</span></div>';
                 rowItemSize.querySelector('#ce-pano-item-size').addEventListener('input', function () { var v = parseInt(this.value, 10); config.panoramaList.itemFontSize = sliderToRem(v); rowItemSize.querySelector('#ce-pano-item-size-val').textContent = sliderToRem(v); applyConfig(); });
                 addTo(secList, rowItemSize);
                 var rowItemColor = document.createElement('div');
@@ -686,6 +756,7 @@
                 panoGrid.className = 'ce-modal-pano-grid';
                 panoGrid.appendChild(secContent);
                 panoGrid.appendChild(secHeader);
+                panoGrid.appendChild(secAbsorbed);
                 panoGrid.appendChild(secList);
                 panoGrid.appendChild(secPanel);
                 frag.appendChild(panoGrid);
@@ -861,6 +932,22 @@
                     applyConfig();
                 });
                 frag.appendChild(rowFont);
+                function remToSliderText(remStr, def) { var n = parseFloat(String(remStr).replace(/rem$/, '')); return isNaN(n) ? def : Math.min(60, Math.max(6, Math.round(n * 20))); }
+                function sliderToRemText(val) { return (val * 0.05).toFixed(2) + 'rem'; }
+                var fontSizeVal = elementId === 'header' ? (config.header.fontSize || '1rem') : (config.projectBadge.fontSize || '0.85rem');
+                var fontSizeDef = elementId === 'header' ? 20 : 17;
+                var rowFontSize = document.createElement('div');
+                rowFontSize.className = 'ce-opt-row';
+                rowFontSize.innerHTML = '<label class="ce-opt-label">Font size</label><div class="ce-range-row"><input type="range" id="ce-opt-font-size" min="6" max="60" value="' + remToSliderText(fontSizeVal, fontSizeDef) + '"><span class="ce-range-val" id="ce-opt-font-size-val">' + fontSizeVal + '</span></div>';
+                rowFontSize.querySelector('#ce-opt-font-size').addEventListener('input', function () {
+                    var v = parseInt(this.value, 10);
+                    var rem = sliderToRemText(v);
+                    if (elementId === 'header') config.header.fontSize = rem;
+                    else if (elementId === 'projectBadge') config.projectBadge.fontSize = rem;
+                    rowFontSize.querySelector('#ce-opt-font-size-val').textContent = rem;
+                    applyConfig();
+                });
+                frag.appendChild(rowFontSize);
             }
 
             elementModalBody.appendChild(frag);
@@ -971,7 +1058,11 @@
             } else {
                 ordered = WORKSPACE_PANORAMAS.slice().sort(function (a, b) { return (a.name || '').localeCompare(b.name || ''); });
             }
-            if (subtitleEl) subtitleEl.textContent = config.panoramaList.subheader != null && config.panoramaList.subheader !== '' ? config.panoramaList.subheader : ordered.length + ' panorama' + (ordered.length !== 1 ? 's' : '');
+            if (subtitleEl) {
+                var hasSub = config.panoramaList.subheader != null && config.panoramaList.subheader !== '';
+                subtitleEl.style.display = hasSub ? '' : 'none';
+                if (hasSub) subtitleEl.textContent = config.panoramaList.subheader;
+            }
             if (!listEl) return;
             listEl.innerHTML = '';
             ordered.forEach(function (p) {

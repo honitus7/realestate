@@ -810,13 +810,8 @@
         }
         .marker-modal-header { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; padding: 1.1rem 1.25rem; border-bottom: 1px solid var(--color-border); background: var(--color-surface); }
         .marker-modal-title { font-size: 0.95rem; font-weight: 700; color: var(--color-text); flex: 1; margin: 0; }
-        .marker-super-toggle { display: inline-flex; align-items: center; gap: 0.5rem; cursor: pointer; user-select: none; }
-        .marker-super-toggle input { position: absolute; opacity: 0; pointer-events: none; }
-        .marker-super-toggle-ui { width: 38px; height: 22px; border-radius: 999px; border: 1px solid var(--color-border); background: var(--color-surface); position: relative; transition: background 0.2s ease, border-color 0.2s ease; }
-        .marker-super-toggle-ui::after { content: ''; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 999px; background: var(--color-muted); box-shadow: 0 1px 4px rgba(22,35,56,0.2); transition: transform 0.2s ease, background 0.2s; }
-        .marker-super-toggle input:checked + .marker-super-toggle-ui { background: var(--color-text); border-color: var(--color-text); }
-        .marker-super-toggle input:checked + .marker-super-toggle-ui::after { transform: translateX(16px); background: var(--color-bg-elevated); }
-        .marker-super-toggle-label { font-size: 0.78rem; color: var(--color-muted); font-weight: 500; }
+        .marker-type-select-wrap { display: inline-flex; align-items: center; gap: 0.5rem; }
+        .marker-type-select-wrap .marker-form-select { min-width: 140px; }
         .marker-form-row.is-disabled { opacity: 0.52; }
         .marker-form-row { padding: 0.875rem 1.25rem; border-bottom: 1px solid var(--color-border); }
         .marker-form-label { display: block; font-size: 0.72rem; font-weight: 600; color: var(--color-text); margin-bottom: 0.4rem; text-transform: uppercase; letter-spacing: 0.04em; }
@@ -1187,6 +1182,69 @@
         .psv-glass-marker.marker-super.is-active .marker-tag {
             background: #1b2e54;
             color: #ffffff;
+        }
+
+        .psv-glass-marker.marker-navigator {
+            width: 48px;
+            height: 48px;
+            filter: none;
+        }
+
+        .psv-glass-marker.marker-navigator:hover,
+        .psv-glass-marker.marker-navigator.is-active {
+            transform: translateZ(0);
+            filter: none;
+        }
+
+        .psv-glass-marker.marker-navigator .marker-nav-base {
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            width: 100%;
+            height: 100%;
+            transform: translate(-50%, -50%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            pointer-events: none;
+            perspective: 90px;
+        }
+
+        .psv-glass-marker.marker-navigator .marker-nav-ring {
+            position: absolute;
+            width: 42px;
+            height: 42px;
+            border-radius: 999px;
+            border: 3px solid rgba(255, 255, 255, 0.95);
+            background: rgba(255, 255, 255, 0.15);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+        }
+
+        .psv-glass-marker.marker-navigator .marker-nav-chevron {
+            position: relative;
+            width: 16px;
+            height: 16px;
+            color: rgba(255, 255, 255, 0.98);
+            transform: rotateX(-16deg);
+            filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.5)) drop-shadow(0 3px 6px rgba(0, 0, 0, 0.25));
+            transition: transform 0.2s ease, filter 0.2s ease;
+        }
+
+        .psv-glass-marker.marker-navigator .marker-nav-chevron iconify-icon {
+            width: 100%;
+            height: 100%;
+        }
+
+        .psv-glass-marker.marker-navigator:hover .marker-nav-chevron,
+        .psv-glass-marker.marker-navigator.is-active .marker-nav-chevron {
+            transform: rotateX(-20deg);
+            filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.55)) drop-shadow(0 4px 8px rgba(0, 0, 0, 0.3));
+        }
+
+        .psv-glass-marker.marker-navigator:hover .marker-nav-ring,
+        .psv-glass-marker.marker-navigator.is-active .marker-nav-ring {
+            border-color: rgba(255, 255, 255, 1);
+            box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.2), 0 6px 16px rgba(0, 0, 0, 0.3);
         }
 
         .psv-glass-marker.marker-photo {
@@ -1651,11 +1709,14 @@
         <div class="marker-modal">
             <div class="marker-modal-header">
                 <div class="marker-modal-title" id="marker-form-title">Add Marker</div>
-                <label class="marker-super-toggle" for="marker-super-toggle">
-                    <input id="marker-super-toggle" type="checkbox">
-                    <span class="marker-super-toggle-ui" aria-hidden="true"></span>
-                    <span class="marker-super-toggle-label">Super Marker</span>
-                </label>
+                <div class="marker-type-select-wrap">
+                    <label class="marker-form-label" for="marker-type-select">Type</label>
+                    <select id="marker-type-select" class="marker-form-select">
+                        <option value="">None</option>
+                        <option value="super">Super Marker</option>
+                        <option value="navigator">Navigator Marker</option>
+                    </select>
+                </div>
             </div>
             <div class="marker-coordinates" id="marker-coordinates">Longitude: —, Latitude: —</div>
             <div class="marker-form-row">
@@ -1792,6 +1853,7 @@
         const colorToStatus = { green: 'available', orange: 'on_hold', red: 'sold' };
         const DEFAULT_MARKER_STYLE = 'glass';
         const SUPER_MARKER_STYLE = 'super';
+        const NAVIGATOR_MARKER_STYLE = 'navigator';
         const PHOTO_MARKER_STYLE = 'photo';
         const DEFAULT_MARKER_ICON = 'mdi:map-marker-radius';
         const DEFAULT_MARKER_COLOR = '#4ade80';
@@ -2328,7 +2390,7 @@
                     detailDelete: document.getElementById('marker-detail-delete'),
                     formBackdrop: document.getElementById('marker-form-modal'),
                     formTitle: document.getElementById('marker-form-title'),
-                    superToggle: document.getElementById('marker-super-toggle'),
+                    typeSelect: document.getElementById('marker-type-select'),
                     coordinatesText: document.getElementById('marker-coordinates'),
                     nameInput: document.getElementById('marker-name'),
                     descriptionInput: document.getElementById('marker-description'),
@@ -2422,8 +2484,8 @@
                 if (d.styleSelect) {
                     d.styleSelect.addEventListener('change', () => this.updateMarkerStyleControls());
                 }
-                if (d.superToggle) {
-                    d.superToggle.addEventListener('change', () => this.updateMarkerStyleControls());
+                if (d.typeSelect) {
+                    d.typeSelect.addEventListener('change', () => this.updateMarkerStyleControls());
                 }
                 if (!this.iconDropdownBound) {
                     if (d.iconTrigger) {
@@ -2457,7 +2519,7 @@
                         .join('');
                     d.styleSelect.value = DEFAULT_MARKER_STYLE;
                 }
-                if (d.superToggle) d.superToggle.checked = false;
+                if (d.typeSelect) d.typeSelect.value = '';
                 this.setIconValue(DEFAULT_MARKER_ICON, { closePanel: true, rerender: true });
                 if (d.colorInput) d.colorInput.value = DEFAULT_MARKER_COLOR;
                 this.updateMarkerStyleControls();
@@ -2471,24 +2533,27 @@
                 return this.normalizeMarkerStyle(value) === PHOTO_MARKER_STYLE;
             }
 
-            isSuperMarkerEnabled() {
-                return Boolean(this.dom.superToggle && this.dom.superToggle.checked);
+            getMarkerTypeOverride() {
+                var v = this.dom.typeSelect ? this.dom.typeSelect.value : '';
+                return (v === SUPER_MARKER_STYLE || v === NAVIGATOR_MARKER_STYLE) ? v : '';
             }
 
             getSelectedMarkerStyle() {
-                if (this.isSuperMarkerEnabled()) return SUPER_MARKER_STYLE;
+                var override = this.getMarkerTypeOverride();
+                if (override) return override;
                 return this.normalizeMarkerStyle(this.dom.styleSelect ? this.dom.styleSelect.value : DEFAULT_MARKER_STYLE);
             }
 
             updateMarkerStyleControls() {
+                const override = this.getMarkerTypeOverride();
                 const selectedStyle = this.normalizeMarkerStyle(this.dom.styleSelect ? this.dom.styleSelect.value : DEFAULT_MARKER_STYLE);
-                const isSuper = this.isSuperMarkerEnabled();
-                const isPhoto = !isSuper && this.isPhotoMarkerStyle(selectedStyle);
-                if (this.dom.styleSelect) this.dom.styleSelect.disabled = isSuper;
-                if (this.dom.styleRow) this.dom.styleRow.classList.toggle('is-disabled', isSuper);
-                if (this.dom.iconRow) this.dom.iconRow.style.display = (isSuper || isPhoto) ? 'none' : '';
-                if (this.dom.colorRow) this.dom.colorRow.style.display = (isSuper || isPhoto) ? 'none' : '';
-                if (isSuper || isPhoto) {
+                const isOverride = Boolean(override);
+                const isPhoto = !isOverride && this.isPhotoMarkerStyle(selectedStyle);
+                if (this.dom.styleSelect) this.dom.styleSelect.disabled = isOverride;
+                if (this.dom.styleRow) this.dom.styleRow.classList.toggle('is-disabled', isOverride);
+                if (this.dom.iconRow) this.dom.iconRow.style.display = (isOverride || isPhoto) ? 'none' : '';
+                if (this.dom.colorRow) this.dom.colorRow.style.display = (isOverride || isPhoto) ? 'none' : '';
+                if (isOverride || isPhoto) {
                     this.closeIconPanel();
                     this.setIconValue(DEFAULT_MARKER_ICON, { closePanel: true, rerender: true });
                     if (this.dom.colorInput) this.dom.colorInput.value = DEFAULT_MARKER_COLOR;
@@ -2587,6 +2652,7 @@
             normalizeMarkerStyle(value) {
                 const style = String(value || '').trim().toLowerCase();
                 if (style === SUPER_MARKER_STYLE) return SUPER_MARKER_STYLE;
+                if (style === NAVIGATOR_MARKER_STYLE) return NAVIGATOR_MARKER_STYLE;
                 return MARKER_STYLE_OPTIONS.some((option) => option.value === style) ? style : DEFAULT_MARKER_STYLE;
             }
 
@@ -2718,7 +2784,7 @@
                 this.updateMediaPreviewFromDescription('');
                 if (this.dom.linkedPanoramaSelect) this.dom.linkedPanoramaSelect.value = '';
                 if (this.dom.styleSelect) this.dom.styleSelect.value = DEFAULT_MARKER_STYLE;
-                if (this.dom.superToggle) this.dom.superToggle.checked = false;
+                if (this.dom.typeSelect) this.dom.typeSelect.value = '';
                 this.setIconValue(DEFAULT_MARKER_ICON, { closePanel: true, rerender: true });
                 if (this.dom.colorInput) this.dom.colorInput.value = DEFAULT_MARKER_COLOR;
                 this.updateMarkerStyleControls();
@@ -2749,9 +2815,9 @@
                     this.dom.linkedPanoramaSelect.value = linkValue;
                 }
                 const normalizedStyle = this.normalizeMarkerStyle(marker.marker_style);
-                if (this.dom.superToggle) this.dom.superToggle.checked = normalizedStyle === SUPER_MARKER_STYLE;
+                if (this.dom.typeSelect) this.dom.typeSelect.value = (normalizedStyle === SUPER_MARKER_STYLE || normalizedStyle === NAVIGATOR_MARKER_STYLE) ? normalizedStyle : '';
                 if (this.dom.styleSelect) {
-                    this.dom.styleSelect.value = normalizedStyle === SUPER_MARKER_STYLE ? DEFAULT_MARKER_STYLE : normalizedStyle;
+                    this.dom.styleSelect.value = (normalizedStyle === SUPER_MARKER_STYLE || normalizedStyle === NAVIGATOR_MARKER_STYLE) ? DEFAULT_MARKER_STYLE : normalizedStyle;
                 }
                 this.setIconValue(this.normalizeMarkerIcon(marker.marker_icon), { closePanel: true, rerender: true });
                 if (this.dom.colorInput) this.dom.colorInput.value = this.normalizeMarkerColor(marker.marker_color);
@@ -2796,7 +2862,7 @@
                 }
                 if (this.dom.linkedPanoramaSelect) this.dom.linkedPanoramaSelect.value = '';
                 if (this.dom.styleSelect) this.dom.styleSelect.value = DEFAULT_MARKER_STYLE;
-                if (this.dom.superToggle) this.dom.superToggle.checked = false;
+                if (this.dom.typeSelect) this.dom.typeSelect.value = '';
                 this.setIconValue(DEFAULT_MARKER_ICON, { closePanel: true, rerender: true });
                 if (this.dom.colorInput) this.dom.colorInput.value = DEFAULT_MARKER_COLOR;
                 this.updateMarkerStyleControls();
@@ -3490,9 +3556,12 @@
                 const markerIcon = this.normalizeMarkerIcon(marker.marker_icon);
                 const markerRgb = hexToMarkerRgb(marker.marker_color);
                 const isSuper = markerStyle === SUPER_MARKER_STYLE;
+                const isNavigator = markerStyle === NAVIGATOR_MARKER_STYLE;
                 const isPhoto = this.isPhotoMarkerStyle(markerStyle);
                 const markerHtml = isSuper
                     ? `<button class="psv-glass-marker marker-super ${statusClass}" type="button" data-marker-id="${this.escapeAttr(marker.id)}" aria-label="${this.escapeAttr(marker.name || 'Marker')}"><span class="marker-callout" aria-hidden="true"><span class="marker-tag">${this.escapeHtml(marker.name || 'Marker')}</span><span class="marker-stem"></span></span><span class="marker-base" aria-hidden="true"><span class="marker-ring-outer"></span><span class="marker-ring-inner"></span></span></button>`
+                    : isNavigator
+                    ? `<button class="psv-glass-marker marker-navigator ${statusClass}" type="button" data-marker-id="${this.escapeAttr(marker.id)}" aria-label="${this.escapeAttr(marker.name || 'Marker')}"><span class="marker-nav-base" aria-hidden="true"><span class="marker-nav-ring"></span><span class="marker-nav-chevron"><iconify-icon icon="ph:caret-up"></iconify-icon></span></span></button>`
                     : (isPhoto
                         ? this.buildPhotoMarkerHtml(marker, statusClass)
                         : `<button class="psv-glass-marker marker-classic ${statusClass} marker-theme-${this.escapeAttr(markerStyle)}" style="--mk-rgb:${this.escapeAttr(markerRgb)};" type="button" data-marker-id="${this.escapeAttr(marker.id)}" aria-label="${this.escapeAttr(marker.name || 'Marker')}"><span class="marker-halo" aria-hidden="true"></span><span class="marker-core" aria-hidden="true"><span class="marker-dot"></span><span class="marker-icon" aria-hidden="true"><iconify-icon icon="${this.escapeAttr(markerIcon)}"></iconify-icon></span></span><span class="marker-pointer" aria-hidden="true"></span></button>`);
@@ -3524,13 +3593,16 @@
                     if (!markerEl) return;
                     const normalizedStyle = this.normalizeMarkerStyle(marker.marker_style);
                     const isSuper = normalizedStyle === SUPER_MARKER_STYLE;
+                    const isNavigator = normalizedStyle === NAVIGATOR_MARKER_STYLE;
                     const isPhoto = this.isPhotoMarkerStyle(normalizedStyle);
                     markerEl.classList.remove(...styleClasses);
-                    markerEl.classList.remove('marker-super', 'marker-classic', 'marker-photo');
+                    markerEl.classList.remove('marker-super', 'marker-navigator', 'marker-classic', 'marker-photo');
                     if (isSuper) {
                         markerEl.classList.add('marker-super');
                         const labelEl = markerEl.querySelector('.marker-tag');
                         if (labelEl) labelEl.textContent = marker.name || 'Marker';
+                    } else if (isNavigator) {
+                        markerEl.classList.add('marker-navigator');
                     } else if (isPhoto) {
                         markerEl.classList.add('marker-photo');
                         const nameEl = markerEl.querySelector('.marker-photo-name');
