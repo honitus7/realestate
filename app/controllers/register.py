@@ -46,6 +46,7 @@ from app.services.workspace_service import (
     project_fields_from_payload,
     update_customer_config as ws_update_customer_config,
     get_customer_config as ws_get_customer_config,
+    ensure_panorama_added_to_workspace_config as ws_ensure_panorama_added_to_workspace_config,
 )
 from app.services.storage_service import (
     use_s3,
@@ -458,9 +459,31 @@ def register_routes(app):
             return redirect(f"/customer/{canonical_slug}/3d/{panorama_id}{suffix}", code=302)
         customer_view_config = {}
         workspace_id = (panorama or {}).get('workspace_id')
+        workspace_panoramas = []
         if workspace_id:
             try:
                 customer_view_config = ws_get_customer_config(sb, workspace_id) or {}
+            except Exception:
+                pass
+            try:
+                r = sb.table('panoramas').select('id, name, filename').eq('workspace_id', workspace_id).eq('is_360', True).order('id').execute()
+                rows = list(r.data or [])
+                ws_row = get_workspace_by_id(sb, workspace_id)
+                main_id = (ws_row or {}).get('main_panorama_id')
+                if main_id is not None:
+                    main_id = int(main_id)
+                def sort_key(p):
+                    pid = p.get('id')
+                    if main_id is not None and pid == main_id:
+                        return (0, pid or 0)
+                    return (1, pid or 0)
+                rows.sort(key=sort_key)
+                for p in rows:
+                    workspace_panoramas.append({
+                        'id': p.get('id'),
+                        'name': (p.get('name') or '').strip() or ('Panorama #' + str(p.get('id') or '')),
+                        'filename': p.get('filename') or '',
+                    })
             except Exception:
                 pass
         resp = make_response(render_template(
@@ -469,7 +492,7 @@ def register_routes(app):
             org_name=org_name,
             org_slug=canonical_slug,
             full_view=False,
-            workspace_panoramas=[],
+            workspace_panoramas=workspace_panoramas,
             initial_panorama_id=None,
             workspace_id=workspace_id,
             customer_view_config=customer_view_config,
@@ -1757,6 +1780,10 @@ def register_routes(app):
                         }).eq('id', workspace_id).execute()
                 except Exception:
                     pass
+                try:
+                    ws_ensure_panorama_added_to_workspace_config(sb, workspace_id, panorama_id, user_id, role)
+                except Exception:
+                    pass
 
             return jsonify({
                 'id': panorama_id,
@@ -2009,6 +2036,10 @@ def register_routes(app):
                         'main_panorama_id': panorama_id,
                         'updated_at': datetime.utcnow().isoformat(),
                     }).eq('id', workspace_id).execute()
+            except Exception:
+                pass
+            try:
+                ws_ensure_panorama_added_to_workspace_config(sb, workspace_id, panorama_id, user_id, role)
             except Exception:
                 pass
 

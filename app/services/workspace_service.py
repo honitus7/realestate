@@ -286,3 +286,34 @@ def get_customer_config(sb, workspace_id):
     if isinstance(cfg, dict):
         return cfg
     return {}
+
+
+def ensure_panorama_added_to_workspace_config(sb, workspace_id, new_panorama_id, user_id, role):
+    workspace = get_workspace_by_id(sb, workspace_id)
+    if not workspace or not can_manage_workspace(sb, workspace, user_id, role):
+        return
+    config = get_customer_config(sb, workspace_id) or {}
+    if not isinstance(config.get('panoramaList'), dict):
+        config['panoramaList'] = {}
+    pl = config['panoramaList']
+    if not isinstance(pl.get('hiddenByPanorama'), dict):
+        pl['hiddenByPanorama'] = {}
+    hbp = pl['hiddenByPanorama']
+    new_id = str(new_panorama_id)
+    hbp[new_id] = []
+    try:
+        r = sb.table('panoramas').select('id').eq('workspace_id', workspace_id).eq('is_360', True).execute()
+        other_ids = [str(row['id']) for row in (r.data or []) if row.get('id') and str(row['id']) != new_id]
+    except Exception:
+        other_ids = []
+    for oid in other_ids:
+        arr = hbp.get(oid)
+        if isinstance(arr, list) and new_id in arr:
+            hbp[oid] = [x for x in arr if str(x) != new_id]
+    try:
+        sb.table('workspaces').update({
+            'panaroma_menu_config': json.dumps(config),
+            'updated_at': datetime.utcnow().isoformat(),
+        }).eq('id', workspace_id).execute()
+    except Exception:
+        pass

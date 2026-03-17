@@ -1857,7 +1857,7 @@
         function getCustomerViewConfigObject(cfg) {
             var out = cfg && typeof cfg === 'object' ? cfg : {};
             if (!out.panoramaList || typeof out.panoramaList !== 'object') out.panoramaList = {};
-            if (!Array.isArray(out.panoramaList.hidden)) out.panoramaList.hidden = [];
+            if (!out.panoramaList.hiddenByPanorama || typeof out.panoramaList.hiddenByPanorama !== 'object') out.panoramaList.hiddenByPanorama = {};
             return out;
         }
 
@@ -1884,27 +1884,32 @@
             } else {
                 panoVisibilityWorkspaceId = String(WORKSPACE_ID);
                 panoVisibilityConfig = getCustomerViewConfigObject(CUSTOMER_VIEW_CONFIG);
-                const hiddenSet = new Set((panoVisibilityConfig.panoramaList.hidden || []).map(function (id) { return String(id); }));
-                panoVisibilityBody.innerHTML = '';
+                const currentPanoId = String(PANORAMA_ID);
+                const hiddenByPano = panoVisibilityConfig.panoramaList.hiddenByPanorama || {};
+                const hiddenArr = Array.isArray(hiddenByPano[currentPanoId]) ? hiddenByPano[currentPanoId] : [];
+                const hiddenSet = new Set(hiddenArr.map(function (id) { return String(id); }));
+                const currentName = (WORKSPACE_PANORAMAS.find(function (p) { return p && String(p.id) === currentPanoId; }) || {}).name || ('Panorama #' + currentPanoId);
+                panoVisibilityBody.innerHTML = '<div class="edit-instruction" style="margin-bottom:0.75rem;">When viewing <strong>' + (currentName || '').replace(/</g, '&lt;') + '</strong>, hide these from the list:</div>';
                 WORKSPACE_PANORAMAS.forEach(function (row) {
                     if (!row || row.id == null) return;
                     const id = String(row.id);
+                    if (id === currentPanoId) return;
                     const name = (row.name || '').trim() || ('Panorama #' + id);
                     const rowEl = document.createElement('div');
                     rowEl.className = 'tool-item';
                     rowEl.innerHTML =
                         '<span class="tool-item-left">' +
                             '<span class="tool-icon">◉</span>' +
-                            '<span>' + name + '</span>' +
+                            '<span>' + (name || '').replace(/</g, '&lt;') + '</span>' +
                         '</span>' +
                         '<label class="mini-toggle">' +
-                            '<input type="checkbox" class="pano-hide-toggle" data-pano-id="' + id + '"' + (hiddenSet.has(id) ? ' checked' : '') + '>' +
+                            '<input type="checkbox" class="pano-hide-toggle" data-pano-id="' + id + '"' + (!hiddenSet.has(id) ? ' checked' : '') + '>' +
                             '<span class="mini-toggle-slider"></span>' +
                         '</label>';
                     panoVisibilityBody.appendChild(rowEl);
                 });
-                if (!panoVisibilityBody.children.length) {
-                    panoVisibilityBody.innerHTML = '<div class="edit-instruction" style="font-style:italic;">No workspace panoramas found.</div>';
+                if (!panoVisibilityBody.querySelectorAll('.tool-item').length) {
+                    panoVisibilityBody.innerHTML += '<div class="edit-instruction" style="font-style:italic;">No other panoramas in workspace.</div>';
                 }
             }
             panoVisibilityModal.classList.add('visible');
@@ -1960,10 +1965,11 @@
                 const hidden = [];
                 boxes.forEach(function (cb) {
                     const id = cb.getAttribute('data-pano-id');
-                    if (cb.checked && id) hidden.push(id);
+                    if (!cb.checked && id) hidden.push(id);
                 });
                 panoVisibilityConfig = getCustomerViewConfigObject(panoVisibilityConfig);
-                panoVisibilityConfig.panoramaList.hidden = hidden;
+                if (!panoVisibilityConfig.panoramaList.hiddenByPanorama) panoVisibilityConfig.panoramaList.hiddenByPanorama = {};
+                panoVisibilityConfig.panoramaList.hiddenByPanorama[String(PANORAMA_ID)] = hidden;
                 try {
                     const headers = await (window.getAuthHeaders ? window.getAuthHeaders() : Promise.resolve({}));
                     headers['Content-Type'] = 'application/json';

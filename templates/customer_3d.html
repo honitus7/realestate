@@ -39,7 +39,7 @@
     }) ();
     </script>
     <div class="loading-overlay" id="loading">
-        <div class="loading-spinner"></div>
+        <div class="loading-3d-icon"><iconify-icon icon="ph:sphere" class="loading-sphere"></iconify-icon></div>
         <div class="loading-text">Loading panorama...</div>
     </div>
 
@@ -304,7 +304,8 @@
         const ORG_SLUG = {{ (org_slug or '')| tojson }};
         const USE_ANIMATED_ICONS = {{ (panorama.get('use_animated_icons', false) if panorama else false) | tojson }};
         const FULL_VIEW = {{ (full_view or false)| tojson }};
-        const WORKSPACE_PANORAMAS = {{ (workspace_panoramas or[])| tojson }};
+        const WORKSPACE_PANORAMAS = {{ (workspace_panoramas or [])| tojson }};
+        const IN_WORKSPACE = Array.isArray(WORKSPACE_PANORAMAS) && WORKSPACE_PANORAMAS.length > 0;
         const INITIAL_PANORAMA_ID = {{ initial_panorama_id if initial_panorama_id is not none else 'null' }};
         const CUSTOMER_VIEW_CONFIG = {{ (customer_view_config or {}) | tojson }};
         var WORKSPACE_ID = {% if workspace_id is not none %}{{ workspace_id|tojson }}{% else %}null{% endif %};
@@ -318,6 +319,38 @@
                     target[key] = source[key];
                 }
             });
+        }
+
+        function getCvConfig() {
+            var cfg = (typeof CUSTOMER_VIEW_CONFIG === 'string') ? (function () { try { return JSON.parse(CUSTOMER_VIEW_CONFIG); } catch (e) { return {}; } })() : (CUSTOMER_VIEW_CONFIG || {});
+            if (!cfg.panoramaList || typeof cfg.panoramaList !== 'object') cfg.panoramaList = {};
+            if (!cfg.panoramaList.hiddenByPanorama || typeof cfg.panoramaList.hiddenByPanorama !== 'object') cfg.panoramaList.hiddenByPanorama = {};
+            return cfg;
+        }
+
+        function getHiddenPanoramaSet(forPanoramaId) {
+            var pl = getCvConfig().panoramaList || {};
+            var hiddenByPano = pl.hiddenByPanorama || {};
+            var currentId = String(forPanoramaId || (IN_WORKSPACE ? currentFullViewPanoramaId : PANORAMA_ID));
+            var hiddenArr = Array.isArray(hiddenByPano[currentId]) ? hiddenByPano[currentId] : [];
+            return new Set(hiddenArr.map(function (id) { return String(id); }));
+        }
+
+        function isPanoramaHidden(panoramaId, forPanoramaId) {
+            if (!panoramaId) return false;
+            return getHiddenPanoramaSet(forPanoramaId).has(String(panoramaId));
+        }
+
+        var transitionSound = null;
+        function playTransitionSound() {
+            try {
+                if (!transitionSound) {
+                    transitionSound = new Audio('/static/audio/transition.mp3');
+                    transitionSound.volume = 0.5;
+                }
+                transitionSound.currentTime = 0;
+                transitionSound.play().catch(function () { });
+            } catch (e) { }
         }
 
         function hexToRgba_cv(hex, alpha) {
@@ -349,7 +382,7 @@
                 listEl.style.justifyContent = yMap[y] || 'center';
                 listEl.style.minHeight = '0';
             }
-            listEl.style.transform = y === 'center' ? 'translateY(-35x)' : 'none';
+            listEl.style.transform = y === 'center' ? 'translateY(-25px)' : 'none';
             listEl.querySelectorAll('.panorama-nav-item').forEach(function (el) {
                 el.style.fontFamily = itemFont;
                 el.style.alignItems = xMap[x] || 'flex-start';
@@ -602,6 +635,8 @@
         const PANORAMA_MENU_PREF_KEY = 'customer_panorama_menu_open_v1';
         let fullViewHistoryStack = [];
         let currentFullViewPanoramaId = PANORAMA_ID;
+        let plotsCache = {};
+        let markersCache = {};
 
         async function loadPanoramaIndex() {
             if (panoramaIndexCache) return panoramaIndexCache;
@@ -663,7 +698,7 @@
                 }
                 await loadPanoramaIndex().catch(function () { });
                 if (!Array.isArray(panoramaIndexCache)) return { inWorkspace: false, panoramas: [] };
-                var currentId = FULL_VIEW ? String(currentFullViewPanoramaId) : String(PANORAMA_ID);
+                var currentId = IN_WORKSPACE ? String(currentFullViewPanoramaId) : String(PANORAMA_ID);
                 var currentMeta = getPanoramaMeta(currentId);
                 var currentWorkspaceId = currentMeta && currentMeta.workspace_id != null ? String(currentMeta.workspace_id) : null;
                 if (!currentWorkspaceId) return { inWorkspace: false, panoramas: [] };
@@ -725,6 +760,7 @@
         function navigateToPanorama(targetPanoramaId) {
             const targetId = String(targetPanoramaId || '').trim();
             if (!targetId) return;
+            playTransitionSound();
             stopAutoRotate();
             pushNavStack(`${window.location.pathname}${window.location.search || ''}`);
 
@@ -761,7 +797,7 @@
         function getPanoramaMenuName(panoramaId) {
             const id = normalizePanoramaId(panoramaId);
             if (!id) return '';
-            if (FULL_VIEW && Array.isArray(WORKSPACE_PANORAMAS)) {
+            if (IN_WORKSPACE && Array.isArray(WORKSPACE_PANORAMAS)) {
                 const p = WORKSPACE_PANORAMAS.find(function (x) { return String(x && x.id) === String(id); });
                 if (p && p.name) return String(p.name).trim();
             }
@@ -787,36 +823,43 @@
             return '/uploads/' + encodeURIComponent(p.filename);
         }
 
-        function switchToPanoramaInView(panoramaId, skipHistoryPush) {
+        function switchToPanoramaInView(panoramaId) {
             const id = String(panoramaId || '').trim();
             if (!id || !viewer) return Promise.resolve();
             const url = getFullViewImageUrl(id);
             if (!url) return Promise.resolve();
-            const opts = { showLoader: true, transition: 1200 };
+            playTransitionSound();
+            const prevId = currentFullViewPanoramaId;
+            currentFullViewPanoramaId = id;
+            refreshPanoramaMenu();
+            if (loading) {
+                loading.classList.remove('hidden');
+            }
+            const opts = {
+                showLoader: false,
+                transition: 900
+            };
             if (typeof viewer.setPanorama !== 'function') return Promise.resolve();
             return viewer.setPanorama(url, opts).then(function () {
-                currentFullViewPanoramaId = id;
-                if (!skipHistoryPush) {
-                    const base = window.location.pathname;
-                    const params = new URLSearchParams(window.location.search || '');
-                    params.set('full_view', '1');
-                    params.set('p', id);
-                    if (window.history && window.history.replaceState) window.history.replaceState({ fullView: true, panoramaId: id }, '', base + '?' + params.toString());
-                }
-                refreshPanoramaMenu();
+                if (loading) loading.classList.add('hidden');
                 if (markerManager) {
                     markerManager.plotId = id;
                     markerManager.loadMarkers().catch(() => { });
                 }
                 loadPlots(id);
                 setTimeout(() => markerManager && markerManager.updateViewportFocus(), 200);
-            }).catch(function () { });
+            }).catch(function () {
+                if (loading) loading.classList.add('hidden');
+                currentFullViewPanoramaId = prevId;
+                refreshPanoramaMenu();
+            });
         }
 
         function goToPanorama(targetId) {
             const id = String(targetId || '').trim();
             if (!id) return;
-            if (FULL_VIEW && getWorkspacePanoramaById(id)) {
+            if (isPanoramaHidden(id)) return;
+            if (IN_WORKSPACE && getWorkspacePanoramaById(id)) {
                 fullViewHistoryStack.push(String(currentFullViewPanoramaId));
                 switchToPanoramaInView(id);
                 if (backBtn) backBtn.hidden = false;
@@ -826,13 +869,33 @@
         }
 
         async function buildPanoramaMenuEntriesAsync() {
-            const currentId = FULL_VIEW ? String(currentFullViewPanoramaId) : String(PANORAMA_ID);
+            const currentId = IN_WORKSPACE ? String(currentFullViewPanoramaId) : String(PANORAMA_ID);
             const map = new Map();
+            var hidden = getHiddenPanoramaSet();
+            if (IN_WORKSPACE && Array.isArray(WORKSPACE_PANORAMAS) && WORKSPACE_PANORAMAS.length > 0) {
+                WORKSPACE_PANORAMAS.forEach(function (p) {
+                    if (!p || p.id == null) return;
+                    const id = String(p.id);
+                    if (hidden.has(id)) return;
+                    let entry = map.get(id);
+                    if (!entry) {
+                        entry = { id: id, sources: new Set() };
+                        map.set(id, entry);
+                    }
+                    if (id === currentId) entry.sources.add('current');
+                    if ((plots || []).some(function (plot) { var raw = plot && Object.prototype.hasOwnProperty.call(plot, 'linked_panorama_id') ? plot.linked_panorama_id : null; return raw != null && String(raw) === id; })) entry.sources.add('plot');
+                    if (markerManager && markerManager.markerMap) {
+                        var hasMarker = false;
+                        markerManager.markerMap.forEach(function (marker) {
+                            var raw = marker && Object.prototype.hasOwnProperty.call(marker, 'linked_panorama_id') ? marker.linked_panorama_id : null;
+                            if (raw != null && String(raw) === id) hasMarker = true;
+                        });
+                        if (hasMarker) entry.sources.add('marker');
+                    }
+                });
+                return map;
+            }
             map.set(currentId, { id: currentId, sources: new Set(['current']) });
-            var cfg = (typeof CUSTOMER_VIEW_CONFIG === 'string') ? (function () { try { return JSON.parse(CUSTOMER_VIEW_CONFIG); } catch (e) { return {}; } })() : (CUSTOMER_VIEW_CONFIG || {});
-            var pl = cfg.panoramaList || {};
-            var hiddenArr = Array.isArray(pl.hidden) ? pl.hidden : [];
-            var hidden = new Set(hiddenArr.map(function (id) { return String(id); }));
             const ctx = await getWorkspaceContext();
             if (ctx.inWorkspace && Array.isArray(ctx.panoramas) && ctx.panoramas.length > 0) {
                 ctx.panoramas.forEach(function (p) {
@@ -898,8 +961,7 @@
 
         function renderPanoramaMenu(entriesMap) {
             if (!panoramaNavList) return;
-            var cfg = (typeof CUSTOMER_VIEW_CONFIG === 'string') ? (function () { try { return JSON.parse(CUSTOMER_VIEW_CONFIG); } catch (e) { return {}; } })() : (CUSTOMER_VIEW_CONFIG || {});
-            var pl = cfg.panoramaList;
+            var pl = getCvConfig().panoramaList;
             var navShell = document.getElementById('panorama-nav-shell');
             var panel = navShell ? navShell.querySelector('.panorama-nav-panel') : null;
             if (navShell) {
@@ -911,7 +973,7 @@
                 panel.style.flexDirection = 'column';
                 panel.style.justifyContent = 'flex-start';
             }
-            const currentId = FULL_VIEW ? String(currentFullViewPanoramaId) : String(PANORAMA_ID);
+            const currentId = IN_WORKSPACE ? String(currentFullViewPanoramaId) : String(PANORAMA_ID);
             const map = entriesMap instanceof Map ? entriesMap : buildPanoramaMenuEntries();
             const all = Array.from(map.values()).filter((entry) => entry);
 
@@ -962,7 +1024,7 @@
         async function refreshPanoramaMenu() {
             const baseEntries = await buildPanoramaMenuEntriesAsync();
             renderPanoramaMenu(baseEntries);
-            if (FULL_VIEW) return;
+            if (IN_WORKSPACE) return;
             const idsToResolve = Array.from(baseEntries.keys()).filter(function (id) {
                 return String(id) !== String(PANORAMA_ID) && !getPanoramaMeta(id);
             });
@@ -975,7 +1037,7 @@
         }
 
         function getInitialPanoramaMenuOpen() {
-            if (FULL_VIEW && Array.isArray(WORKSPACE_PANORAMAS) && WORKSPACE_PANORAMAS.length > 1) return true;
+            if (IN_WORKSPACE && Array.isArray(WORKSPACE_PANORAMAS) && WORKSPACE_PANORAMAS.length > 1) return true;
             let preferred = null;
             try {
                 if (window.localStorage) {
@@ -1029,18 +1091,18 @@
         }
 
         function updateFullViewBackButton() {
-            if (!backBtn || !FULL_VIEW) return;
+            if (!backBtn || !IN_WORKSPACE) return;
             backBtn.hidden = fullViewHistoryStack.length === 0;
         }
 
         (function initBackButton() {
             if (!backBtn) return;
-            if (FULL_VIEW) {
+            if (IN_WORKSPACE) {
                 backBtn.hidden = fullViewHistoryStack.length === 0;
                 backBtn.addEventListener('click', () => {
                     if (fullViewHistoryStack.length === 0) return;
                     const prevId = fullViewHistoryStack.pop();
-                    switchToPanoramaInView(prevId, true);
+                    switchToPanoramaInView(prevId);
                     updateFullViewBackButton();
                 });
                 return;
@@ -1133,6 +1195,51 @@
             })());
 
             await Promise.all(workers);
+        }
+
+        async function preloadWorkspacePanoramas() {
+            if (!IN_WORKSPACE || !Array.isArray(WORKSPACE_PANORAMAS) || !shouldPrefetchPanoramas()) return;
+            const queue = WORKSPACE_PANORAMAS
+                .filter((p) => p && p.filename && String(p.id) !== String(PANORAMA_ID))
+                .map((p) => ({ id: String(p.id), url: '/uploads/' + encodeURIComponent(p.filename) }))
+                .filter((item) => item.url && !prefetchedPanoramaIds.has(item.id));
+            if (!queue.length) return;
+            const concurrency = 3;
+            let cursor = 0;
+            const workers = Array.from({ length: concurrency }, () => (async () => {
+                while (cursor < queue.length) {
+                    const next = queue[cursor++];
+                    prefetchedPanoramaIds.add(next.id);
+                    await prefetchImageUrl(next.url);
+                }
+            })());
+            await Promise.all(workers);
+        }
+
+        async function preloadWorkspacePlotsAndMarkers() {
+            if (!IN_WORKSPACE || !Array.isArray(WORKSPACE_PANORAMAS)) return;
+            const headers = await (window.getAuthHeaders ? window.getAuthHeaders() : Promise.resolve({}));
+            const ids = WORKSPACE_PANORAMAS.filter((p) => p && p.id).map((p) => String(p.id));
+            await Promise.all(ids.map(async (pid) => {
+                if (plotsCache[pid]) return;
+                try {
+                    const r = await fetch(`/api/public/panoramas/${pid}/plots`, { headers });
+                    if (r.ok) {
+                        const data = await r.json();
+                        plotsCache[pid] = Array.isArray(data) ? data : [];
+                    }
+                } catch (e) { }
+            }));
+            await Promise.all(ids.map(async (pid) => {
+                if (markersCache[pid]) return;
+                try {
+                    const r = await fetch(`/api/public/panoramas/${pid}/markers`, { headers });
+                    if (r.ok) {
+                        const data = await r.json();
+                        markersCache[pid] = Array.isArray(data) ? data : [];
+                    }
+                } catch (e) { }
+            }));
         }
 
         const statusLabels = { available: 'Available', reserved: 'On Hold', on_hold: 'On Hold', sold: 'Sold' };
@@ -1448,13 +1555,18 @@
         }
 
         async function loadPlots(panoramaId) {
-            const pid = panoramaId != null ? String(panoramaId).trim() : (FULL_VIEW ? String(currentFullViewPanoramaId) : String(PANORAMA_ID));
+            const pid = panoramaId != null ? String(panoramaId).trim() : (IN_WORKSPACE ? String(currentFullViewPanoramaId) : String(PANORAMA_ID));
             if (!pid) return;
             try {
-                const headers = await (window.getAuthHeaders ? window.getAuthHeaders() : Promise.resolve({}));
-                const response = await fetch(`/api/public/panoramas/${pid}/plots`, { headers });
-                const data = await response.json();
-                plots = Array.isArray(data) ? data : [];
+                if (plotsCache[pid] !== undefined) {
+                    plots = plotsCache[pid];
+                } else {
+                    const headers = await (window.getAuthHeaders ? window.getAuthHeaders() : Promise.resolve({}));
+                    const response = await fetch(`/api/public/panoramas/${pid}/plots`, { headers });
+                    const data = await response.json();
+                    plots = Array.isArray(data) ? data : [];
+                    if (IN_WORKSPACE) plotsCache[pid] = plots;
+                }
                 updateStatusLegend();
                 renderPlots();
                 updateSearchDropdown(plotSearchInput ? plotSearchInput.value : '');
@@ -1884,7 +1996,13 @@
 
             async loadMarkers() {
                 try {
-                    const rows = await this.fetchMarkers(this.plotId);
+                    let rows;
+                    if (typeof markersCache !== 'undefined' && markersCache[this.plotId] !== undefined) {
+                        rows = markersCache[this.plotId];
+                    } else {
+                        rows = await this.fetchMarkers(this.plotId);
+                        if (typeof markersCache !== 'undefined' && IN_WORKSPACE) markersCache[this.plotId] = rows;
+                    }
                     this.markerMap.forEach((marker) => this.revokeMarkerImage(marker));
                     this.markerMap.clear();
                     rows.forEach((row) => {
@@ -2075,7 +2193,7 @@
                 if (!markerData || markerData.markerType !== 'poi') return false;
                 const markerId = String(markerData.markerId);
                 const selected = this.markerMap.get(markerId);
-                if (selected && selected.linked_panorama_id) {
+                if (selected && selected.linked_panorama_id && !isPanoramaHidden(selected.linked_panorama_id)) {
                     try { this.closeReadonly(); } catch (e) { }
                     try { if (isMarkerPhotoLightboxVisible()) closeMarkerPhotoLightbox(); } catch (e) { }
                     this.focus(markerId, false);
@@ -2116,7 +2234,7 @@
                 }
                 if (this.dom.enterBtn) {
                     const linkId = marker.linked_panorama_id;
-                    if (linkId) {
+                    if (linkId && !isPanoramaHidden(linkId)) {
                         this.dom.enterBtn.style.display = '';
                         this.dom.enterBtn.dataset.panoramaId = String(linkId);
                     } else {
@@ -2932,6 +3050,7 @@
 
         function initPsv() {
             if (!psvContainer) return;
+            playTransitionSound();
             const imageUrl = '/uploads/{{ panorama.filename }}';
             viewer = new PhotoSphereViewer.Viewer({
                 container: psvContainer,
@@ -2958,7 +3077,7 @@
                 configPromise.then(function () {
                     loading.classList.add('hidden');
                     applyCustomerViewConfig();
-                    const indexPromise = FULL_VIEW ? Promise.resolve([]) : loadPanoramaIndex().catch(() => []);
+                    const indexPromise = IN_WORKSPACE ? Promise.resolve([]) : loadPanoramaIndex().catch(() => []);
                     const plotsPromise = loadPlots();
                     const markersPromise = markerManager.loadMarkers()
                         .then(() => updateSearchDropdown(plotSearchInput ? plotSearchInput.value : ''))
@@ -2966,10 +3085,16 @@
                     Promise.all([indexPromise, plotsPromise, markersPromise])
                         .then(() => {
                             refreshPanoramaMenu().catch(() => { });
-                            if (FULL_VIEW && INITIAL_PANORAMA_ID && INITIAL_PANORAMA_ID !== PANORAMA_ID && getWorkspacePanoramaById(INITIAL_PANORAMA_ID)) {
-                                switchToPanoramaInView(INITIAL_PANORAMA_ID, true);
+                            if (IN_WORKSPACE && INITIAL_PANORAMA_ID && INITIAL_PANORAMA_ID !== PANORAMA_ID && !isPanoramaHidden(INITIAL_PANORAMA_ID) && getWorkspacePanoramaById(INITIAL_PANORAMA_ID)) {
+                                switchToPanoramaInView(INITIAL_PANORAMA_ID);
                             }
-                            const runPrefetch = () => prefetchLinkedPanoramas().catch(() => { });
+                            const runPrefetch = () => {
+                                prefetchLinkedPanoramas().catch(() => { });
+                                if (IN_WORKSPACE) {
+                                    preloadWorkspacePanoramas().catch(() => { });
+                                    preloadWorkspacePlotsAndMarkers().catch(() => { });
+                                }
+                            };
                             if (typeof requestIdleCallback === 'function') {
                                 requestIdleCallback(runPrefetch, { timeout: 2500 });
                             } else {
