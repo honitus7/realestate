@@ -62,6 +62,10 @@ from app.services.storage_service import (
     generate_panorama_thumb_bytes,
     upload_panorama_thumb_to_s3,
     MAX_PANORAMA_THUMB_READ_BYTES,
+    get_panorama_optimized_s3_url,
+    generate_panorama_optimized_bytes,
+    upload_panorama_optimized_to_s3,
+    MAX_PANORAMA_OPTIMIZED_READ_BYTES,
     plot_object_key,
     get_plot_s3_url,
     delete_plot_from_s3,
@@ -599,7 +603,10 @@ def register_routes(app):
 
     @app.route('/uploads/<filename>')
     def uploaded_file(filename):
-        use_thumb = request.args.get('size') == 'thumb'
+        size = request.args.get('size', '').strip().lower()
+        use_thumb = size == 'thumb'
+        use_optimized = size == 'optimized'
+        opt_cache_ttl = max(int(SUPABASE_S3_SIGNED_URL_TTL), 3600)
         if use_thumb:
             thumb_url = get_panorama_thumb_s3_url(filename)
             if thumb_url:
@@ -638,6 +645,33 @@ def register_routes(app):
                     thumb_bytes = generate_panorama_thumb_bytes(data)
                     if thumb_bytes:
                         return Response(thumb_bytes, mimetype='image/jpeg', headers={'Cache-Control': 'private, max-age=86400'})
+                except Exception:
+                    pass
+        if use_optimized:
+            opt_url = get_panorama_optimized_s3_url(filename)
+            if opt_url:
+                resp = redirect(opt_url, code=302)
+                resp.headers['Cache-Control'] = f'private, max-age={opt_cache_ttl}'
+                return resp
+            client = get_s3_client()
+            if client:
+                key = panorama_object_key(filename)
+                try:
+                    obj = client.get_object(Bucket=SUPABASE_S3_BUCKET, Key=key)
+                    body = obj.get('Body')
+                    data = body.read(MAX_PANORAMA_OPTIMIZED_READ_BYTES) if body else b''
+                    if body:
+                        try:
+                            body.close()
+                        except Exception:
+                            pass
+                    if data:
+                        opt_bytes = generate_panorama_optimized_bytes(data)
+                        if opt_bytes:
+                            upload_panorama_optimized_to_s3(filename, opt_bytes)
+                            resp = Response(opt_bytes, mimetype='image/jpeg')
+                            resp.headers['Cache-Control'] = f'private, max-age={opt_cache_ttl}'
+                            return resp
                 except Exception:
                     pass
         s3_url = get_panorama_s3_url(filename)
@@ -1849,6 +1883,9 @@ def register_routes(app):
                     thumb_bytes = generate_panorama_thumb_bytes(data)
                     if thumb_bytes:
                         upload_panorama_thumb_to_s3(filename, thumb_bytes)
+                    opt_bytes = generate_panorama_optimized_bytes(data)
+                    if opt_bytes:
+                        upload_panorama_optimized_to_s3(filename, opt_bytes)
             except Exception:
                 pass
             original_filename = secure_filename(str(payload.get('original_filename') or filename)) or 'upload'
@@ -1979,6 +2016,43 @@ def register_routes(app):
         except Exception as e:
             return jsonify({'error': str(e)}), 500
         return jsonify({'success': True})
+
+    @app.route('/api/panoramas/<int:panorama_id>/generate-optimized', methods=['POST'])
+    @require_admin
+    def generate_panorama_optimized(user_id, role, panorama_id):
+        sb = get_supabase()
+        if not sb:
+            return jsonify({'error': 'Database not configured'}), 503
+        panorama = get_panorama_by_id(sb, panorama_id)
+        if not panorama:
+            return jsonify({'error': 'Panorama not found'}), 404
+        filename = panorama.get('filename')
+        if not filename:
+            return jsonify({'error': 'No file associated'}), 400
+        opt_url = get_panorama_optimized_s3_url(filename)
+        if opt_url:
+            return jsonify({'success': True, 'exists': True})
+        client = get_s3_client()
+        if not client:
+            return jsonify({'error': 'S3 not configured'}), 503
+        try:
+            obj = client.get_object(Bucket=SUPABASE_S3_BUCKET, Key=panorama_object_key(filename))
+            body = obj.get('Body')
+            data = body.read(MAX_PANORAMA_OPTIMIZED_READ_BYTES) if body else b''
+            if body:
+                try:
+                    body.close()
+                except Exception:
+                    pass
+            if not data:
+                return jsonify({'error': 'Could not read source image'}), 500
+            opt_bytes = generate_panorama_optimized_bytes(data)
+            if not opt_bytes:
+                return jsonify({'error': 'Optimized version not smaller than original; original is already efficient'}), 200
+            upload_panorama_optimized_to_s3(filename, opt_bytes)
+            return jsonify({'success': True, 'size': len(opt_bytes), 'original_size': len(data)})
+        except Exception as e:
+            return jsonify({'error': str(e)}), 500
 
     @app.route('/api/panoramas/<int:panorama_id>', methods=['PUT', 'PATCH'])
     @require_auth

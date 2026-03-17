@@ -39,7 +39,7 @@ SUPABASE_S3_SECRET_ACCESS_KEY = (
     os.environ.get('SUPABASE_S3_SECRET_ACCESS_KEY') or os.environ.get('AWS_SECRET_ACCESS_KEY', '')
 ).strip()
 SUPABASE_S3_PANORAMA_PREFIX = os.environ.get('SUPABASE_S3_PANORAMA_PREFIX', 'panoramas').strip('/')
-SUPABASE_S3_SIGNED_URL_TTL = max(60, int(os.environ.get('SUPABASE_S3_SIGNED_URL_TTL', '900')))
+SUPABASE_S3_SIGNED_URL_TTL = max(60, int(os.environ.get('SUPABASE_S3_SIGNED_URL_TTL', '3600')))
 SUPABASE_S3_UPLOAD_URL_TTL = max(60, int(os.environ.get('SUPABASE_S3_UPLOAD_URL_TTL', '900')))
 SUPABASE_S3_PLOT_PREFIX = os.environ.get('SUPABASE_S3_PLOT_PREFIX', 'plot-images').strip('/')
 SUPABASE_S3_MARKER_PREFIX = os.environ.get('SUPABASE_S3_MARKER_PREFIX', 'marker-images').strip('/')

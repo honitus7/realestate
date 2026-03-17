@@ -895,7 +895,7 @@
         function getFullViewImageUrl(panoramaId) {
             const p = getWorkspacePanoramaById(panoramaId);
             if (!p || !p.filename) return null;
-            return '/uploads/' + encodeURIComponent(p.filename);
+            return '/uploads/' + encodeURIComponent(p.filename) + '?size=optimized';
         }
 
         function switchToPanoramaInView(panoramaId) {
@@ -1250,7 +1250,7 @@
                 .map((id) => {
                     const meta = getPanoramaMeta(id);
                     const filename = meta && meta.filename ? String(meta.filename) : '';
-                    return { id, url: filename ? `/uploads/${encodeURIComponent(filename)}` : '' };
+                    return { id, url: filename ? `/uploads/${encodeURIComponent(filename)}?size=optimized` : '' };
                 })
                 .filter((item) => item.url);
 
@@ -1273,7 +1273,7 @@
             if (!IN_WORKSPACE || !Array.isArray(WORKSPACE_PANORAMAS) || !shouldPrefetchPanoramas()) return;
             const queue = WORKSPACE_PANORAMAS
                 .filter((p) => p && p.filename && String(p.id) !== String(PANORAMA_ID))
-                .map((p) => ({ id: String(p.id), url: '/uploads/' + encodeURIComponent(p.filename) }))
+                .map((p) => ({ id: String(p.id), url: '/uploads/' + encodeURIComponent(p.filename) + '?size=optimized' }))
                 .filter((item) => item.url && !prefetchedPanoramaIds.has(item.id));
             if (!queue.length) return;
             const concurrency = 3;
@@ -3180,7 +3180,7 @@
         function initPsv() {
             if (!psvContainer) return;
             playTransitionSound();
-            const imageUrl = '/uploads/{{ panorama.filename }}';
+            const imageUrl = '/uploads/{{ panorama.filename }}?size=optimized';
             viewer = new PhotoSphereViewer.Viewer({
                 container: psvContainer,
                 panorama: imageUrl,

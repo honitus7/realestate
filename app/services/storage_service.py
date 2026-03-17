@@ -25,8 +25,8 @@ _s3_signed_url_cache = {}
 
 PANORAMA_THUMB_MAX_DIMENSION = 400
 PANORAMA_THUMB_JPEG_QUALITY = 82
-# Max bytes to load for on-the-fly thumb (avoids OOM on 512MB dyno when many thumbs requested)
 MAX_PANORAMA_THUMB_READ_BYTES = int(os.environ.get('MAX_PANORAMA_THUMB_READ_BYTES', str(20 * 1024 * 1024)))  # 20MB
+MAX_PANORAMA_OPTIMIZED_READ_BYTES = int(os.environ.get('MAX_PANORAMA_OPTIMIZED_READ_BYTES', str(50 * 1024 * 1024)))  # 50MB
 MARKER_IMAGE_MAX_DIMENSION = 1200
 MARKER_IMAGE_THUMB_SIZE = 200
 MARKER_IMAGE_JPEG_QUALITY = 85
@@ -106,10 +106,111 @@ def generate_panorama_thumb_bytes(raw_bytes):
     img_thumb = img.resize((tw, th), RESAMPLE_LANCZOS)
     buf = io.BytesIO()
     try:
-        img_thumb.save(buf, 'JPEG', quality=PANORAMA_THUMB_JPEG_QUALITY, optimize=True)
+        img_thumb.save(buf, 'JPEG', quality=PANORAMA_THUMB_JPEG_QUALITY, optimize=True, progressive=True)
     except Exception:
         return None
     return buf.getvalue()
+
+
+def panorama_optimized_object_key(filename):
+    base = os.path.basename(filename or '').strip()
+    if not base:
+        return None
+    name, _ext = os.path.splitext(base)
+    opt_name = f"{name}_optimized.jpg"
+    if app_config.SUPABASE_S3_PANORAMA_PREFIX:
+        return f"{app_config.SUPABASE_S3_PANORAMA_PREFIX}/{opt_name}"
+    return opt_name
+
+
+def generate_panorama_optimized_bytes(raw_bytes):
+    if not raw_bytes or len(raw_bytes) > MAX_PANORAMA_OPTIMIZED_READ_BYTES:
+        return None
+    try:
+        img = Image.open(io.BytesIO(raw_bytes))
+    except Exception:
+        return None
+    w, h = img.size
+    if w == 0 or h == 0:
+        return None
+    try:
+        exif = img.getexif()
+        orientation = exif.get(EXIF_ORIENTATION_TAG)
+        if orientation == 3:
+            img = img.rotate(180, expand=True)
+        elif orientation == 6:
+            img = img.rotate(270, expand=True)
+        elif orientation == 8:
+            img = img.rotate(90, expand=True)
+    except Exception:
+        pass
+    img = img.convert('RGB')
+    buf = io.BytesIO()
+    try:
+        img.save(buf, 'JPEG', quality='keep', optimize=True, progressive=True)
+    except Exception:
+        try:
+            buf = io.BytesIO()
+            img.save(buf, 'JPEG', quality=95, optimize=True, progressive=True, subsampling='keep')
+        except Exception:
+            try:
+                buf = io.BytesIO()
+                img.save(buf, 'JPEG', quality=95, optimize=True, progressive=True)
+            except Exception:
+                return None
+    result = buf.getvalue()
+    if len(result) >= len(raw_bytes):
+        return None
+    return result
+
+
+def upload_panorama_optimized_to_s3(filename, opt_bytes):
+    if not opt_bytes:
+        return
+    client = get_s3_client()
+    if not client:
+        return
+    key = panorama_optimized_object_key(filename)
+    if not key:
+        return
+    try:
+        client.put_object(
+            Bucket=app_config.SUPABASE_S3_BUCKET,
+            Key=key,
+            Body=opt_bytes,
+            ContentType='image/jpeg',
+        )
+    except Exception:
+        pass
+
+
+def get_panorama_optimized_s3_url(filename):
+    client = get_s3_client()
+    if not client or not filename:
+        return None
+    key = panorama_optimized_object_key(filename)
+    if not key:
+        return None
+    now = time.time()
+    cached = _s3_signed_url_cache.get(key)
+    if cached:
+        url, expires_at = cached
+        if url and expires_at and now < (expires_at - 30):
+            return url
+    try:
+        client.head_object(Bucket=app_config.SUPABASE_S3_BUCKET, Key=key)
+    except Exception:
+        return None
+    url = client.generate_presigned_url(
+        ClientMethod='get_object',
+        Params={'Bucket': app_config.SUPABASE_S3_BUCKET, 'Key': key},
+        ExpiresIn=app_config.SUPABASE_S3_SIGNED_URL_TTL,
+    )
+    try:
+        _s3_signed_url_cache[key] = (url, now + float(app_config.SUPABASE_S3_SIGNED_URL_TTL))
+    except Exception:
+        pass
+    return url
 
 
 def upload_panorama_thumb_to_s3(filename, thumb_bytes):
