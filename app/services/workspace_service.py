@@ -2,6 +2,7 @@
 Workspace: CRUD, access, main_panorama_id. Helpers for serialization and permissions.
 """
 import json
+import re
 from datetime import datetime
 
 from app.core.auth import get_profile
@@ -16,7 +17,25 @@ def _is_workspace_schema_missing(exc):
         return True
     if 'workspace_access' in msg and ('relation' in msg or 'does not exist' in msg):
         return True
+    if 'workspace_share_endpoints' in msg and ('relation' in msg or 'does not exist' in msg):
+        return True
     return False
+
+
+_SHARE_ENDPOINT_RE = re.compile(r'^[a-z0-9][a-z0-9-]{2,62}$')
+
+
+def normalize_workspace_share_endpoint(raw_value):
+    value = str(raw_value or '').strip().lower()
+    if not value:
+        return ''
+    value = re.sub(r'[^a-z0-9-]+', '-', value)
+    value = re.sub(r'-+', '-', value).strip('-')
+    if not value:
+        return ''
+    if not _SHARE_ENDPOINT_RE.match(value):
+        return None
+    return value
 
 
 def serialize_workspace_row(row, access_type='owner'):
@@ -317,3 +336,80 @@ def ensure_panorama_added_to_workspace_config(sb, workspace_id, new_panorama_id,
         }).eq('id', workspace_id).execute()
     except Exception:
         pass
+
+
+def get_workspace_share_endpoint(sb, workspace_id):
+    r = sb.table('workspace_share_endpoints').select('*').eq('workspace_id', workspace_id).limit(1).execute()
+    if r.data and len(r.data) > 0:
+        row = dict(r.data[0])
+        if row.get('workspace_id') is not None:
+            row['workspace_id'] = str(row.get('workspace_id'))
+        if row.get('created_by') is not None:
+            row['created_by'] = str(row.get('created_by'))
+        if row.get('updated_by') is not None:
+            row['updated_by'] = str(row.get('updated_by'))
+        if row.get('created_at'):
+            row['created_at'] = str(row.get('created_at'))
+        if row.get('updated_at'):
+            row['updated_at'] = str(row.get('updated_at'))
+        return row
+    return None
+
+
+def is_workspace_share_endpoint_available(sb, endpoint, exclude_workspace_id=None):
+    normalized = normalize_workspace_share_endpoint(endpoint)
+    if normalized is None or not normalized:
+        return False
+    r = sb.table('workspace_share_endpoints').select('workspace_id').eq('endpoint', normalized).limit(1).execute()
+    if not (r.data and len(r.data) > 0):
+        return True
+    used_by = str((r.data[0] or {}).get('workspace_id') or '')
+    if exclude_workspace_id and used_by == str(exclude_workspace_id):
+        return True
+    return False
+
+
+def update_workspace_share_endpoint(sb, workspace_id, user_id, role, endpoint):
+    workspace = get_workspace_by_id(sb, workspace_id)
+    if not workspace:
+        return None
+    if not can_manage_workspace(sb, workspace, user_id, role):
+        return None
+    normalized = normalize_workspace_share_endpoint(endpoint)
+    now = datetime.utcnow().isoformat()
+    existing = get_workspace_share_endpoint(sb, workspace_id)
+    if normalized is None:
+        raise ValueError('Endpoint must use only lowercase letters, numbers, hyphens, and be 3-63 chars')
+    if not normalized:
+        if existing:
+            sb.table('workspace_share_endpoints').delete().eq('workspace_id', workspace_id).execute()
+        return {'workspace_id': str(workspace_id), 'endpoint': None}
+    if not is_workspace_share_endpoint_available(sb, normalized, workspace_id):
+        raise ValueError('Endpoint already in use')
+    if existing:
+        sb.table('workspace_share_endpoints').update({
+            'endpoint': normalized,
+            'updated_by': user_id,
+            'updated_at': now,
+        }).eq('workspace_id', workspace_id).execute()
+    else:
+        sb.table('workspace_share_endpoints').insert({
+            'workspace_id': workspace_id,
+            'endpoint': normalized,
+            'created_by': user_id,
+            'updated_by': user_id,
+            'created_at': now,
+            'updated_at': now,
+        }).execute()
+    return {'workspace_id': str(workspace_id), 'endpoint': normalized}
+
+
+def get_workspace_id_by_share_endpoint(sb, endpoint):
+    normalized = normalize_workspace_share_endpoint(endpoint)
+    if normalized is None or not normalized:
+        return None
+    r = sb.table('workspace_share_endpoints').select('workspace_id').eq('endpoint', normalized).limit(1).execute()
+    if not (r.data and len(r.data) > 0):
+        return None
+    workspace_id = (r.data[0] or {}).get('workspace_id')
+    return str(workspace_id) if workspace_id else None

@@ -47,6 +47,11 @@ from app.services.workspace_service import (
     update_customer_config as ws_update_customer_config,
     get_customer_config as ws_get_customer_config,
     ensure_panorama_added_to_workspace_config as ws_ensure_panorama_added_to_workspace_config,
+    get_workspace_share_endpoint as ws_get_workspace_share_endpoint,
+    is_workspace_share_endpoint_available as ws_is_workspace_share_endpoint_available,
+    update_workspace_share_endpoint as ws_update_workspace_share_endpoint,
+    get_workspace_id_by_share_endpoint as ws_get_workspace_id_by_share_endpoint,
+    normalize_workspace_share_endpoint as ws_normalize_workspace_share_endpoint,
 )
 from app.services.storage_service import (
     use_s3,
@@ -110,6 +115,21 @@ def auth_ctx():
 def _ws_error_response():
     body, status = get_workspace_schema_error_response()
     return jsonify(body), status
+
+
+def _workspace_share_payload(workspace_id, custom_endpoint=None):
+    base = (request.url_root or '').rstrip('/')
+    default_url = f"{base}/customer/project/{workspace_id}"
+    normalized = ws_normalize_workspace_share_endpoint(custom_endpoint)
+    custom = normalized or None
+    custom_url = f"{base}/panoview/{custom}" if custom else None
+    return {
+        'workspace_id': str(workspace_id),
+        'default_url': default_url,
+        'custom_endpoint': custom,
+        'custom_url': custom_url,
+        'effective_url': custom_url or default_url,
+    }
 
 
 def register_routes(app):
@@ -517,6 +537,65 @@ def register_routes(app):
             return "Panorama not found", 404
         org_name, canonical_slug = get_org_name_and_slug_for_panorama(sb, panorama)
         return redirect(f"/customer/{canonical_slug}/3d/{main_id}", code=302)
+
+    @app.route('/panoview/<endpoint>')
+    def customer_project_share_view(endpoint):
+        sb = get_supabase()
+        if not sb:
+            return "Database not configured", 503
+        workspace_id = ws_get_workspace_id_by_share_endpoint(sb, endpoint)
+        if not workspace_id:
+            return "Project not found", 404
+        workspace = get_workspace_by_id(sb, workspace_id)
+        if not workspace or not workspace.get('is_published'):
+            return "Project not found", 404
+        main_id = workspace.get('main_panorama_id')
+        if not main_id:
+            return "Project has no main panorama", 404
+        panorama = get_panorama_by_id(sb, main_id)
+        if not panorama:
+            return "Panorama not found", 404
+        if not bool((panorama or {}).get('is_360')):
+            return "Main panorama must be 360", 400
+        org_name, canonical_slug = get_org_name_and_slug_for_panorama(sb, panorama)
+        customer_view_config = {}
+        workspace_panoramas = []
+        try:
+            customer_view_config = ws_get_customer_config(sb, workspace_id) or {}
+        except Exception:
+            pass
+        try:
+            r = sb.table('panoramas').select('id, name, filename').eq('workspace_id', workspace_id).eq('is_360', True).order('id').execute()
+            rows = list(r.data or [])
+            main_sort_id = int(main_id)
+            def sort_key(p):
+                pid = p.get('id')
+                if main_sort_id is not None and pid == main_sort_id:
+                    return (0, pid or 0)
+                return (1, pid or 0)
+            rows.sort(key=sort_key)
+            for p in rows:
+                workspace_panoramas.append({
+                    'id': p.get('id'),
+                    'name': (p.get('name') or '').strip() or ('Panorama #' + str(p.get('id') or '')),
+                    'filename': p.get('filename') or '',
+                })
+        except Exception:
+            pass
+        resp = make_response(render_template(
+            'customer_3d.html',
+            panorama=panorama,
+            org_name=org_name,
+            org_slug=canonical_slug,
+            full_view=False,
+            workspace_panoramas=workspace_panoramas,
+            initial_panorama_id=None,
+            workspace_id=workspace_id,
+            customer_view_config=customer_view_config,
+            **auth_ctx()
+        ))
+        resp.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate'
+        return resp
 
     @app.route('/uploads/<filename>')
     def uploaded_file(filename):
@@ -1434,6 +1513,75 @@ def register_routes(app):
         if not result:
             return jsonify({'error': 'Workspace not found or forbidden'}), 404
         return jsonify({'success': True, 'config': config})
+
+    @app.route('/api/workspaces/share-endpoint/check', methods=['POST'])
+    @require_admin
+    def check_workspace_share_endpoint(user_id, role):
+        sb = get_supabase()
+        if not sb:
+            return jsonify({'error': 'Database not configured'}), 503
+        payload = request.get_json(silent=True) or {}
+        endpoint = str(payload.get('endpoint') or '')
+        workspace_id = str(payload.get('workspace_id') or '').strip() or None
+        normalized = ws_normalize_workspace_share_endpoint(endpoint)
+        if normalized is None:
+            return jsonify({'success': True, 'available': False, 'normalized_endpoint': None, 'error': 'Endpoint must use only lowercase letters, numbers, hyphens, and be 3-63 chars'})
+        if not normalized:
+            return jsonify({'success': True, 'available': False, 'normalized_endpoint': '', 'error': 'Endpoint is required'})
+        try:
+            if workspace_id:
+                workspace = get_workspace_by_id(sb, workspace_id)
+                if not workspace:
+                    return jsonify({'error': 'Workspace not found'}), 404
+                if not can_manage_workspace(sb, workspace, user_id, role):
+                    return jsonify({'error': 'Forbidden'}), 403
+            available = ws_is_workspace_share_endpoint_available(sb, normalized, workspace_id)
+            return jsonify({'success': True, 'available': bool(available), 'normalized_endpoint': normalized})
+        except Exception as e:
+            if is_workspace_schema_missing(e):
+                return _ws_error_response()
+            return jsonify({'error': str(e)}), 500
+
+    @app.route('/api/workspaces/<workspace_id>/share-endpoint', methods=['GET'])
+    @require_admin
+    def get_workspace_share_endpoint(user_id, role, workspace_id):
+        sb = get_supabase()
+        if not sb:
+            return jsonify({'error': 'Database not configured'}), 503
+        try:
+            workspace = get_workspace_by_id(sb, workspace_id)
+            if not workspace:
+                return jsonify({'error': 'Workspace not found'}), 404
+            if not can_manage_workspace(sb, workspace, user_id, role):
+                return jsonify({'error': 'Forbidden'}), 403
+            row = ws_get_workspace_share_endpoint(sb, workspace_id) or {}
+            payload = _workspace_share_payload(workspace_id, row.get('endpoint'))
+            return jsonify({'success': True, 'share': payload})
+        except Exception as e:
+            if is_workspace_schema_missing(e):
+                return _ws_error_response()
+            return jsonify({'error': str(e)}), 500
+
+    @app.route('/api/workspaces/<workspace_id>/share-endpoint', methods=['PATCH', 'PUT'])
+    @require_admin
+    def update_workspace_share_endpoint(user_id, role, workspace_id):
+        sb = get_supabase()
+        if not sb:
+            return jsonify({'error': 'Database not configured'}), 503
+        payload = request.get_json(silent=True) or {}
+        endpoint = payload.get('endpoint')
+        try:
+            result = ws_update_workspace_share_endpoint(sb, workspace_id, user_id, role, endpoint)
+            if not result:
+                return jsonify({'error': 'Workspace not found or forbidden'}), 404
+            share = _workspace_share_payload(workspace_id, result.get('endpoint'))
+            return jsonify({'success': True, 'share': share})
+        except ValueError as ve:
+            return jsonify({'error': str(ve)}), 400
+        except Exception as e:
+            if is_workspace_schema_missing(e):
+                return _ws_error_response()
+            return jsonify({'error': str(e)}), 500
 
     @app.route('/api/workspaces/<workspace_id>/access', methods=['GET'])
     @require_auth

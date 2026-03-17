@@ -347,6 +347,41 @@
         </div>
     </div>
 
+    <div class="modal-backdrop" id="share-workspace-modal">
+        <div class="modal" style="max-width: 680px;">
+            <div class="modal-title">Share Customer View</div>
+            <div class="modal-text" style="margin-bottom: 1rem;">Default link uses this project folder. Add a custom endpoint to share a cleaner URL.</div>
+            <div class="form-group" style="margin-bottom: 0.85rem;">
+                <label class="form-label" for="workspace-default-share-link">Default customer link</label>
+                <div class="share-link-row">
+                    <input type="text" id="workspace-default-share-link" class="form-input share-link-input" readonly>
+                    <button class="btn btn-secondary share-link-copy-btn" type="button" id="copy-default-share-link">Copy</button>
+                </div>
+            </div>
+            <div class="form-group" style="margin-bottom: 0.85rem;">
+                <label class="form-label" for="workspace-custom-endpoint-input">Custom endpoint</label>
+                <div class="share-endpoint-row">
+                    <span class="share-endpoint-prefix">/panoview/</span>
+                    <input type="text" id="workspace-custom-endpoint-input" class="form-input" maxlength="63" placeholder="sunset-valley">
+                    <button class="btn btn-secondary share-check-btn" type="button" id="check-custom-endpoint-btn">Check</button>
+                </div>
+            </div>
+            <div id="workspace-share-status" class="workspace-share-status" style="display:none;"></div>
+            <div class="form-group" style="margin-bottom: 1rem;">
+                <label class="form-label" for="workspace-effective-share-link">Active customer link</label>
+                <div class="share-link-row">
+                    <input type="text" id="workspace-effective-share-link" class="form-input share-link-input" readonly>
+                    <button class="btn btn-secondary share-link-copy-btn" type="button" id="copy-effective-share-link">Copy</button>
+                </div>
+            </div>
+            <div id="workspace-share-error" class="msg error" style="display:none; margin-bottom: 1rem;"></div>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" id="cancel-share-workspace">Cancel</button>
+                <button class="btn btn-primary" id="save-share-workspace">Save endpoint</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Change Password Modal -->
     <div class="modal-backdrop" id="change-password-modal">
         <div class="modal">
@@ -704,6 +739,8 @@
         let renameTargetId = null;
         let renameWorkspaceTargetId = null;
         let deleteWorkspaceTargetId = null;
+        let shareWorkspaceTargetId = null;
+        let currentWorkspaceShareData = null;
         let draggingPanoramaId = null;
         let workspaceFeatureReady = true;
         let projectsLoadFailed = false;
@@ -748,6 +785,17 @@
         const workspaceDeleteError = document.getElementById('workspace-delete-error');
         const cancelDeleteWorkspace = document.getElementById('cancel-delete-workspace');
         const confirmDeleteWorkspace = document.getElementById('confirm-delete-workspace');
+        const shareWorkspaceModal = document.getElementById('share-workspace-modal');
+        const workspaceDefaultShareLink = document.getElementById('workspace-default-share-link');
+        const workspaceCustomEndpointInput = document.getElementById('workspace-custom-endpoint-input');
+        const checkCustomEndpointBtn = document.getElementById('check-custom-endpoint-btn');
+        const workspaceShareStatus = document.getElementById('workspace-share-status');
+        const workspaceEffectiveShareLink = document.getElementById('workspace-effective-share-link');
+        const workspaceShareError = document.getElementById('workspace-share-error');
+        const cancelShareWorkspace = document.getElementById('cancel-share-workspace');
+        const saveShareWorkspace = document.getElementById('save-share-workspace');
+        const copyDefaultShareLink = document.getElementById('copy-default-share-link');
+        const copyEffectiveShareLink = document.getElementById('copy-effective-share-link');
         const toastContainer = document.getElementById('toast-container');
 
         function setCrmNavVisible(visible) {
@@ -898,6 +946,7 @@
                     items += '<div class="folder-card-actions">';
                     if (hasMainPano) {
                         items += '<button type="button" class="folder-card-btn" onclick="event.stopPropagation(); window.location.href=\'/customer/edit/' + workspaceId + '\'">Set Customer View</button>';
+                        items += '<button type="button" class="folder-card-btn" onclick="event.stopPropagation(); showWorkspaceShareModal(\'' + workspaceId + '\')">Share Client Link</button>';
                     }
                     items += '<button type="button" class="folder-card-btn" onclick="event.stopPropagation(); window.location.href=\'/workspace/' + workspaceId + '/access\'">Manage access</button>';
                     items += '<button type="button" class="folder-card-btn" onclick="event.stopPropagation(); showRenameWorkspaceModal(\'' + workspaceId + '\')">Rename</button>';
@@ -926,6 +975,88 @@
             if (!workspaceDeleteError) return;
             workspaceDeleteError.textContent = message || '';
             workspaceDeleteError.style.display = message ? 'block' : 'none';
+        }
+
+        function showWorkspaceShareError(message) {
+            if (!workspaceShareError) return;
+            workspaceShareError.textContent = message || '';
+            workspaceShareError.style.display = message ? 'block' : 'none';
+        }
+
+        function showWorkspaceShareStatus(message, type) {
+            if (!workspaceShareStatus) return;
+            workspaceShareStatus.textContent = message || '';
+            workspaceShareStatus.className = 'workspace-share-status ' + (type || '');
+            workspaceShareStatus.style.display = message ? 'block' : 'none';
+        }
+
+        function normalizeEndpointInput(value) {
+            return String(value || '').trim().toLowerCase().replace(/[^a-z0-9-]+/g, '-').replace(/-+/g, '-').replace(/^-+|-+$/g, '');
+        }
+
+        function setWorkspaceShareData(share) {
+            currentWorkspaceShareData = share || null;
+            if (workspaceDefaultShareLink) workspaceDefaultShareLink.value = (share && share.default_url) ? share.default_url : '';
+            if (workspaceEffectiveShareLink) workspaceEffectiveShareLink.value = (share && share.effective_url) ? share.effective_url : '';
+            if (workspaceCustomEndpointInput) workspaceCustomEndpointInput.value = (share && share.custom_endpoint) ? share.custom_endpoint : '';
+        }
+
+        function closeWorkspaceShareModal() {
+            if (!shareWorkspaceModal) return;
+            shareWorkspaceModal.classList.remove('visible');
+            shareWorkspaceTargetId = null;
+            currentWorkspaceShareData = null;
+            setWorkspaceShareData(null);
+            showWorkspaceShareError('');
+            showWorkspaceShareStatus('', '');
+            if (saveShareWorkspace) saveShareWorkspace.disabled = false;
+            if (checkCustomEndpointBtn) checkCustomEndpointBtn.disabled = false;
+        }
+
+        async function copyTextValue(text) {
+            var value = String(text || '');
+            if (!value) return false;
+            try {
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                    await navigator.clipboard.writeText(value);
+                    return true;
+                }
+            } catch (e) { }
+            try {
+                var tmp = document.createElement('textarea');
+                tmp.value = value;
+                tmp.setAttribute('readonly', '');
+                tmp.style.position = 'absolute';
+                tmp.style.left = '-9999px';
+                document.body.appendChild(tmp);
+                tmp.select();
+                var ok = document.execCommand('copy');
+                document.body.removeChild(tmp);
+                return !!ok;
+            } catch (e2) {
+                return false;
+            }
+        }
+
+        async function showWorkspaceShareModal(workspaceId) {
+            shareWorkspaceTargetId = workspaceId;
+            showWorkspaceShareError('');
+            showWorkspaceShareStatus('', '');
+            setWorkspaceShareData(null);
+            if (shareWorkspaceModal) shareWorkspaceModal.classList.add('visible');
+            if (workspaceCustomEndpointInput) workspaceCustomEndpointInput.focus();
+            try {
+                const headers = await getAuthHeaders();
+                const response = await fetch('/api/workspaces/' + encodeURIComponent(workspaceId) + '/share-endpoint', { headers });
+                if (!response.ok) {
+                    const err = await response.json().catch(function () { return null; });
+                    throw new Error((err && err.error) || 'Failed to load share link');
+                }
+                const data = await response.json();
+                setWorkspaceShareData(data && data.share ? data.share : null);
+            } catch (error) {
+                showWorkspaceShareError(error.message || 'Failed to load share link');
+            }
         }
 
         function openCreateWorkspaceModal() {
@@ -1725,6 +1856,7 @@
         }
 
         if (cancelDeleteWorkspace) cancelDeleteWorkspace.addEventListener('click', closeDeleteWorkspaceModal);
+        if (cancelShareWorkspace) cancelShareWorkspace.addEventListener('click', closeWorkspaceShareModal);
         if (confirmDeleteWorkspace) {
             confirmDeleteWorkspace.addEventListener('click', async () => {
                 if (!deleteWorkspaceTargetId) return;
@@ -1751,6 +1883,90 @@
                 } finally {
                     confirmDeleteWorkspace.disabled = false;
                 }
+            });
+        }
+
+        if (checkCustomEndpointBtn) {
+            checkCustomEndpointBtn.addEventListener('click', async () => {
+                if (!shareWorkspaceTargetId) return;
+                var endpoint = normalizeEndpointInput(workspaceCustomEndpointInput ? workspaceCustomEndpointInput.value : '');
+                if (workspaceCustomEndpointInput) workspaceCustomEndpointInput.value = endpoint;
+                showWorkspaceShareError('');
+                showWorkspaceShareStatus('', '');
+                if (!endpoint) {
+                    showWorkspaceShareStatus('Enter an endpoint to check.', 'warn');
+                    return;
+                }
+                checkCustomEndpointBtn.disabled = true;
+                try {
+                    const headers = await getAuthHeaders();
+                    headers['Content-Type'] = 'application/json';
+                    const response = await fetch('/api/workspaces/share-endpoint/check', {
+                        method: 'POST',
+                        headers,
+                        body: JSON.stringify({ endpoint: endpoint, workspace_id: shareWorkspaceTargetId }),
+                    });
+                    const data = await response.json().catch(function () { return null; });
+                    if (!response.ok) throw new Error((data && data.error) || 'Failed to check endpoint');
+                    if (data && data.available) showWorkspaceShareStatus('Endpoint is available.', 'ok');
+                    else showWorkspaceShareStatus((data && data.error) || 'Endpoint is not available.', 'warn');
+                } catch (error) {
+                    showWorkspaceShareError(error.message || 'Failed to check endpoint');
+                } finally {
+                    checkCustomEndpointBtn.disabled = false;
+                }
+            });
+        }
+
+        if (saveShareWorkspace) {
+            saveShareWorkspace.addEventListener('click', async () => {
+                if (!shareWorkspaceTargetId) return;
+                var endpoint = normalizeEndpointInput(workspaceCustomEndpointInput ? workspaceCustomEndpointInput.value : '');
+                if (workspaceCustomEndpointInput) workspaceCustomEndpointInput.value = endpoint;
+                showWorkspaceShareError('');
+                showWorkspaceShareStatus('', '');
+                saveShareWorkspace.disabled = true;
+                try {
+                    const headers = await getAuthHeaders();
+                    headers['Content-Type'] = 'application/json';
+                    const response = await fetch('/api/workspaces/' + encodeURIComponent(shareWorkspaceTargetId) + '/share-endpoint', {
+                        method: 'PATCH',
+                        headers,
+                        body: JSON.stringify({ endpoint: endpoint }),
+                    });
+                    const data = await response.json().catch(function () { return null; });
+                    if (!response.ok) throw new Error((data && data.error) || 'Failed to save endpoint');
+                    setWorkspaceShareData(data && data.share ? data.share : null);
+                    showWorkspaceShareStatus(endpoint ? 'Custom endpoint saved.' : 'Reverted to default link.', 'ok');
+                    showToast('Share link updated', 'success');
+                } catch (error) {
+                    showWorkspaceShareError(error.message || 'Failed to save endpoint');
+                } finally {
+                    saveShareWorkspace.disabled = false;
+                }
+            });
+        }
+
+        if (workspaceCustomEndpointInput) {
+            workspaceCustomEndpointInput.addEventListener('keydown', (event) => {
+                if (event.key === 'Enter') {
+                    event.preventDefault();
+                    if (saveShareWorkspace) saveShareWorkspace.click();
+                }
+            });
+        }
+
+        if (copyDefaultShareLink) {
+            copyDefaultShareLink.addEventListener('click', async () => {
+                var ok = await copyTextValue(workspaceDefaultShareLink ? workspaceDefaultShareLink.value : '');
+                showToast(ok ? 'Default link copied' : 'Failed to copy link', ok ? 'success' : 'error');
+            });
+        }
+
+        if (copyEffectiveShareLink) {
+            copyEffectiveShareLink.addEventListener('click', async () => {
+                var ok = await copyTextValue(workspaceEffectiveShareLink ? workspaceEffectiveShareLink.value : '');
+                showToast(ok ? 'Share link copied' : 'Failed to copy link', ok ? 'success' : 'error');
             });
         }
 
@@ -1841,6 +2057,11 @@
         if (deleteWorkspaceModal) {
             deleteWorkspaceModal.addEventListener('click', (e) => {
                 if (e.target === deleteWorkspaceModal) closeDeleteWorkspaceModal();
+            });
+        }
+        if (shareWorkspaceModal) {
+            shareWorkspaceModal.addEventListener('click', (e) => {
+                if (e.target === shareWorkspaceModal) closeWorkspaceShareModal();
             });
         }
     </script>
