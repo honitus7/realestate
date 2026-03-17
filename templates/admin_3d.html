@@ -569,12 +569,10 @@
         /* ── All modals — light theme ── */
         .modal-backdrop {
             position: fixed; inset: 0;
-            background: rgba(22,35,56,0.4);
+            background: rgba(22,35,56,0.35);
             z-index: 1000; display: none;
-            align-items: center; justify-content: center;
-            backdrop-filter: blur(6px);
         }
-        .modal-backdrop.visible { display: flex; }
+        .modal-backdrop.visible { display: block; }
 
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
         @keyframes modalIn {
@@ -834,13 +832,14 @@
         .marker-detail-btn.danger:hover { background: rgba(239,68,68,0.15); border-color: rgba(239,68,68,0.4); }
 
         /* Marker modal — light theme */
-        .marker-modal-backdrop { position: fixed; inset: 0; background: rgba(22,35,56,0.4); z-index: 1000; display: none; align-items: center; justify-content: center; backdrop-filter: blur(6px); padding: 1rem; }
-        .marker-modal-backdrop.visible { display: flex; }
+        .marker-modal-backdrop { position: fixed; inset: 0; background: rgba(15,23,42,0.28); z-index: 1000; display: none; align-items: flex-start; justify-content: flex-start; padding: 1rem; }
+        .marker-modal-backdrop.visible { display: block; }
         .marker-modal {
             background: var(--color-bg-elevated); border: 1px solid var(--color-border);
             border-radius: 24px; box-shadow: 0 16px 48px rgba(22,35,56,0.14);
             width: 400px; max-width: 94vw; max-height: 88vh; overflow-y: auto; padding: 0;
             animation: modalIn 0.25s ease;
+            position: absolute; top: 72px; right: 72px; left: auto;
         }
         .marker-modal-header { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; padding: 1.1rem 1.25rem; border-bottom: 1px solid var(--color-border); background: var(--color-surface); }
         .marker-modal-title { font-size: 0.95rem; font-weight: 700; color: var(--color-text); flex: 1; margin: 0; }
@@ -876,24 +875,38 @@
         .marker-media-preview { margin-top: 0.45rem; display: none; }
         .marker-media-preview iframe, .marker-media-preview video { width: 100%; border-radius: var(--radius-sm); border: 1px solid var(--color-border); background: var(--color-surface); }
         .marker-media-preview iframe { height: 190px; }
-        .marker-rotation-toggle-group { display: inline-flex; gap: 0.35rem; flex-wrap: wrap; }
-        .marker-rotation-toggle {
-            min-width: 0;
-            padding: 0.35rem 0.6rem;
+        .marker-rotation-field { display: flex; flex-direction: column; gap: 0.4rem; }
+        .marker-rotation-axis { display: flex; align-items: center; justify-content: space-between; gap: 0.65rem; }
+        .marker-rotation-axis-label {
+            width: 18px;
+            font-size: 0.72rem;
+            font-weight: 700;
+            color: var(--color-muted);
+        }
+        .marker-rotation-controls { display: inline-flex; align-items: center; gap: 0.35rem; flex: 1; }
+        .marker-rotation-input {
+            width: 64px;
+            padding: 0.4rem 0.5rem;
             border-radius: var(--radius-sm);
             border: 1px solid var(--color-border);
             background: var(--color-bg-elevated);
             color: var(--color-text);
-            font-size: 0.72rem;
+            font-size: 0.8rem;
+            text-align: center;
+        }
+        .marker-rotation-step {
+            padding: 0.35rem 0.6rem;
+            border-radius: var(--radius-sm);
+            border: 1px solid var(--color-border);
+            background: var(--color-surface);
+            color: var(--color-text);
+            font-size: 0.78rem;
             font-weight: 600;
-            letter-spacing: 0.04em;
-            text-transform: uppercase;
             cursor: pointer;
+            min-width: 32px;
         }
-        .marker-rotation-toggle.is-active {
-            border-color: rgba(22,35,56,0.3);
-            background: var(--color-accent-hover, #ebebea);
-        }
+        .marker-rotation-step:hover { background: var(--color-accent-hover, #ebebea); border-color: rgba(22,35,56,0.18); }
+        .marker-rotation-unit { font-size: 0.7rem; color: var(--color-muted); }
         .marker-coordinates { font-size: 0.7rem; color: var(--color-muted); padding: 0.5rem 1.25rem; border-bottom: 1px solid var(--color-border); background: var(--color-surface); }
         .marker-form-actions { display: flex; gap: 0.65rem; justify-content: flex-end; padding: 0.875rem 1.25rem; background: var(--color-surface); border-top: 1px solid var(--color-border); }
         .marker-form-btn { padding: 0.55rem 1.1rem; border-radius: var(--radius-sm); font-size: 0.82rem; font-family: var(--font-body); font-weight: 600; cursor: pointer; border: none; transition: opacity 0.18s; }
@@ -913,6 +926,9 @@
 
         .psv-glass-marker {
             --mk-rgb: var(--marker-available-rgb);
+            --rot-x: 0rad;
+            --rot-y: 0rad;
+            --rot-z: 0rad;
             position: relative;
             width: var(--marker-size);
             height: calc(var(--marker-size) + 10px);
@@ -921,7 +937,7 @@
             padding: 0;
             cursor: pointer;
             outline: none;
-            transform: translateZ(0);
+            transform: translateZ(0) rotateX(var(--rot-x)) rotateY(var(--rot-y)) rotateZ(var(--rot-z));
             transition: transform 220ms cubic-bezier(0.2, 0.8, 0.2, 1), filter 220ms ease;
             filter: drop-shadow(0 0 8px rgba(var(--mk-rgb), 0.38));
         }
@@ -1038,7 +1054,7 @@
         }
 
         .psv-glass-marker:hover {
-            transform: scale(1.1) translateY(-1px);
+            transform: scale(1.1) translateY(-1px) rotateX(var(--rot-x)) rotateY(var(--rot-y)) rotateZ(var(--rot-z));
             filter: drop-shadow(0 0 10px rgba(var(--mk-rgb), 0.48));
         }
 
@@ -1047,7 +1063,7 @@
         }
 
         .psv-glass-marker.is-active {
-            transform: scale(1.14) translateY(-1px);
+            transform: scale(1.14) translateY(-1px) rotateX(var(--rot-x)) rotateY(var(--rot-y)) rotateZ(var(--rot-z));
             filter: drop-shadow(0 0 14px rgba(var(--mk-rgb), 0.58));
         }
 
@@ -1186,6 +1202,24 @@
             white-space: nowrap;
             border-radius: 2px;
             box-shadow: 0 7px 18px rgba(8, 24, 48, 0.4);
+        }
+
+        .psv-glass-marker .marker-tag {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+        }
+        .psv-glass-marker .marker-tag-icon {
+            flex: 0 0 auto;
+            font-size: 0.86em;
+            opacity: 0.92;
+            transform: translateY(-0.5px);
+        }
+        .psv-glass-marker .marker-tag-text {
+            min-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
         }
 
         .psv-glass-marker.marker-super .marker-base {
@@ -1822,10 +1856,34 @@
             </div>
             <div class="marker-form-row">
                 <label class="marker-form-label">Marker Rotation</label>
-                <div class="marker-rotation-toggle-group" id="marker-rotation-group">
-                    <button type="button" class="marker-rotation-toggle" data-axis="x">Tilt X</button>
-                    <button type="button" class="marker-rotation-toggle" data-axis="y">Tilt Y</button>
-                    <button type="button" class="marker-rotation-toggle" data-axis="z">Rotate Z</button>
+                <div class="marker-rotation-field">
+                    <div class="marker-rotation-axis">
+                        <span class="marker-rotation-axis-label">X</span>
+                        <div class="marker-rotation-controls">
+                            <button type="button" class="marker-rotation-step" data-axis="x" data-delta="-15">−</button>
+                            <input id="marker-rotation-x" type="number" class="marker-rotation-input" min="-180" max="180" step="1" value="0">
+                            <button type="button" class="marker-rotation-step" data-axis="x" data-delta="15">+</button>
+                            <span class="marker-rotation-unit">deg</span>
+                        </div>
+                    </div>
+                    <div class="marker-rotation-axis">
+                        <span class="marker-rotation-axis-label">Y</span>
+                        <div class="marker-rotation-controls">
+                            <button type="button" class="marker-rotation-step" data-axis="y" data-delta="-15">−</button>
+                            <input id="marker-rotation-y" type="number" class="marker-rotation-input" min="-180" max="180" step="1" value="0">
+                            <button type="button" class="marker-rotation-step" data-axis="y" data-delta="15">+</button>
+                            <span class="marker-rotation-unit">deg</span>
+                        </div>
+                    </div>
+                    <div class="marker-rotation-axis">
+                        <span class="marker-rotation-axis-label">Z</span>
+                        <div class="marker-rotation-controls">
+                            <button type="button" class="marker-rotation-step" data-axis="z" data-delta="-15">−</button>
+                            <input id="marker-rotation-z" type="number" class="marker-rotation-input" min="-180" max="180" step="1" value="0">
+                            <button type="button" class="marker-rotation-step" data-axis="z" data-delta="15">+</button>
+                            <span class="marker-rotation-unit">deg</span>
+                        </div>
+                    </div>
                 </div>
             </div>
             <div class="marker-form-row">
@@ -1896,8 +1954,20 @@
             observer.observe(editPanel, { attributes: true, attributeFilter: ['class'] });
         }
 
-        // Form modal is now a centered modal; position update is a no-op
-        function updateFormModalPosition() { /* no-op: modal is centered via flexbox */ }
+        function updateFormModalPosition() {
+            if (!formModal) return;
+            const minTop = 56;
+            const minLeft = 56;
+            const rect = formModal.getBoundingClientRect();
+            let top = rect.top;
+            let left = rect.left;
+            if (top < minTop) top = minTop;
+            if (left < minLeft) left = minLeft;
+            formModal.style.top = `${top}px`;
+            formModal.style.left = `${left}px`;
+            formModal.style.right = 'auto';
+            formModal.style.position = 'absolute';
+        }
 
         // Shared variables and functions (available in both modes)
         let plots = [];
@@ -2441,6 +2511,7 @@
                 this.iconDropdownBound = false;
                 this.rotationSupported = true;
                 this.rotationDefaults = { x: 0, y: 0, z: 0 };
+                this.dragState = null;
 
                 this.dom = {
                     psvContainer: document.getElementById('psv-container'),
@@ -2485,7 +2556,9 @@
                     voiceoverUploadBtn: document.getElementById('upload-voiceover-btn'),
                     recordVoiceoverBtn: document.getElementById('record-voiceover-btn'),
                     voiceoverStatus: document.getElementById('marker-voiceover-status'),
-                    rotationGroup: document.getElementById('marker-rotation-group'),
+                    rotationInputX: document.getElementById('marker-rotation-x'),
+                    rotationInputY: document.getElementById('marker-rotation-y'),
+                    rotationInputZ: document.getElementById('marker-rotation-z'),
                     cancelBtn: document.getElementById('cancel-marker'),
                     saveBtn: document.getElementById('save-marker')
                 };
@@ -2494,6 +2567,9 @@
                 this.handleMarkerPointerDown = this.handleMarkerPointerDown.bind(this);
                 this.handleMarkerPointerMove = this.handleMarkerPointerMove.bind(this);
                 this.handleMarkerPointerUp = this.handleMarkerPointerUp.bind(this);
+                this.handleModalDragPointerDown = this.handleModalDragPointerDown.bind(this);
+                this.handleModalDragPointerMove = this.handleModalDragPointerMove.bind(this);
+                this.handleModalDragPointerUp = this.handleModalDragPointerUp.bind(this);
 
                 this.bindUiEvents();
                 this.initializeMarkerSelectorUi();
@@ -2558,15 +2634,26 @@
                 if (d.typeSelect) {
                     d.typeSelect.addEventListener('change', () => this.updateMarkerStyleControls());
                 }
-                if (d.rotationGroup) {
-                    d.rotationGroup.addEventListener('click', (event) => {
-                        const btn = event.target.closest('.marker-rotation-toggle[data-axis]');
-                        if (!btn) return;
-                        const axis = btn.dataset.axis;
-                        if (axis === 'x') this.toggleRotationAxis('x');
-                        else if (axis === 'y') this.toggleRotationAxis('y');
-                        else if (axis === 'z') this.toggleRotationAxis('z');
+                const rotationInputs = [d.rotationInputX, d.rotationInputY, d.rotationInputZ];
+                rotationInputs.forEach((input) => {
+                    if (!input) return;
+                    input.addEventListener('input', () => this.handleRotationInputChange());
+                });
+                const stepButtons = this.dom.formBackdrop ? this.dom.formBackdrop.querySelectorAll('.marker-rotation-step[data-axis][data-delta]') : null;
+                if (stepButtons && stepButtons.forEach) {
+                    stepButtons.forEach((btn) => {
+                        btn.addEventListener('click', () => {
+                            const axis = btn.dataset.axis;
+                            const delta = Number(btn.dataset.delta || 0);
+                            this.stepRotationAxis(axis, delta);
+                        });
                     });
+                }
+                const modalHeader = d.formBackdrop ? d.formBackdrop.querySelector('.marker-modal-header') : null;
+                const modalCard = d.formBackdrop ? d.formBackdrop.querySelector('.marker-modal') : null;
+                if (modalHeader && modalCard) {
+                    modalHeader.style.cursor = 'move';
+                    modalHeader.addEventListener('pointerdown', (event) => this.handleModalDragPointerDown(event, modalCard));
                 }
                 if (!this.iconDropdownBound) {
                     if (d.iconTrigger) {
@@ -2604,7 +2691,7 @@
                 this.setIconValue(DEFAULT_MARKER_ICON, { closePanel: true, rerender: true });
                 if (d.colorInput) d.colorInput.value = DEFAULT_MARKER_COLOR;
                 this.updateMarkerStyleControls();
-                this.updateRotationToggles(this.rotationDefaults);
+                this.setRotationInputsFromValues(this.rotationDefaults);
             }
 
             isSuperMarkerStyle(value) {
@@ -2626,41 +2713,98 @@
                 return this.normalizeMarkerStyle(this.dom.styleSelect ? this.dom.styleSelect.value : DEFAULT_MARKER_STYLE);
             }
 
-            updateRotationToggles(values) {
+            setRotationInputsFromValues(values) {
                 const d = this.dom;
-                if (!d.rotationGroup) return;
                 const vx = (values && typeof values.x === 'number') ? values.x : 0;
                 const vy = (values && typeof values.y === 'number') ? values.y : 0;
                 const vz = (values && typeof values.z === 'number') ? values.z : 0;
-                d.rotationGroup.querySelectorAll('.marker-rotation-toggle[data-axis]').forEach((btn) => {
-                    const axis = btn.dataset.axis;
-                    let active = false;
-                    if (axis === 'x') active = Math.abs(vx) > 0.0001;
-                    else if (axis === 'y') active = Math.abs(vy) > 0.0001;
-                    else if (axis === 'z') active = Math.abs(vz) > 0.0001;
-                    btn.classList.toggle('is-active', active);
-                });
+                const toDeg = (rad) => rad * 180 / Math.PI;
+                if (d.rotationInputX) d.rotationInputX.value = String(Math.round(toDeg(vx)));
+                if (d.rotationInputY) d.rotationInputY.value = String(Math.round(toDeg(vy)));
+                if (d.rotationInputZ) d.rotationInputZ.value = String(Math.round(toDeg(vz)));
             }
 
-            toggleRotationAxis(axis) {
+            getRotationValuesFromInputs() {
+                const d = this.dom;
+                const clamp = (deg) => Math.max(-180, Math.min(180, deg));
+                const toRad = (deg) => deg * Math.PI / 180;
+                const dx = d.rotationInputX ? Number(d.rotationInputX.value || 0) : 0;
+                const dy = d.rotationInputY ? Number(d.rotationInputY.value || 0) : 0;
+                const dz = d.rotationInputZ ? Number(d.rotationInputZ.value || 0) : 0;
+                const cx = clamp(Number.isFinite(dx) ? dx : 0);
+                const cy = clamp(Number.isFinite(dy) ? dy : 0);
+                const cz = clamp(Number.isFinite(dz) ? dz : 0);
+                if (d.rotationInputX) d.rotationInputX.value = String(cx);
+                if (d.rotationInputY) d.rotationInputY.value = String(cy);
+                if (d.rotationInputZ) d.rotationInputZ.value = String(cz);
+                return { x: toRad(cx), y: toRad(cy), z: toRad(cz) };
+            }
+
+            handleRotationInputChange() {
                 if (!this.rotationSupported) return;
+                const values = this.getRotationValuesFromInputs();
                 const m = this.editingMarkerId ? this.markerMap.get(String(this.editingMarkerId)) : null;
-                const base = {
-                    x: (m && typeof m.rotation_x === 'number') ? m.rotation_x : this.rotationDefaults.x,
-                    y: (m && typeof m.rotation_y === 'number') ? m.rotation_y : this.rotationDefaults.y,
-                    z: (m && typeof m.rotation_z === 'number') ? m.rotation_z : this.rotationDefaults.z
-                };
-                const step = Math.PI / 8;
-                if (axis === 'x') base.x = Math.abs(base.x) > 0.0001 ? 0 : step;
-                else if (axis === 'y') base.y = Math.abs(base.y) > 0.0001 ? 0 : step;
-                else if (axis === 'z') base.z = Math.abs(base.z) > 0.0001 ? 0 : step;
                 if (m) {
-                    m.rotation_x = base.x;
-                    m.rotation_y = base.y;
-                    m.rotation_z = base.z;
+                    m.rotation_x = values.x;
+                    m.rotation_y = values.y;
+                    m.rotation_z = values.z;
                     this.applyMarkerVisualStyle();
                 }
-                this.updateRotationToggles(base);
+            }
+
+            stepRotationAxis(axis, deltaDeg) {
+                if (!this.rotationSupported) return;
+                const d = this.dom;
+                const input =
+                    axis === 'x' ? d.rotationInputX :
+                    axis === 'y' ? d.rotationInputY :
+                    axis === 'z' ? d.rotationInputZ : null;
+                if (!input) return;
+                const current = Number(input.value || 0);
+                const next = Math.max(-180, Math.min(180, (Number.isFinite(current) ? current : 0) + deltaDeg));
+                input.value = String(next);
+                this.handleRotationInputChange();
+            }
+
+            handleModalDragPointerDown(event, modalEl) {
+                if (!modalEl || event.button !== 0) return;
+                const rect = modalEl.getBoundingClientRect();
+                this.dragState = {
+                    modal: modalEl,
+                    startX: event.clientX,
+                    startY: event.clientY,
+                    originLeft: rect.left,
+                    originTop: rect.top
+                };
+                window.addEventListener('pointermove', this.handleModalDragPointerMove);
+                window.addEventListener('pointerup', this.handleModalDragPointerUp);
+            }
+
+            handleModalDragPointerMove(event) {
+                if (!this.dragState || !this.dragState.modal) return;
+                const dx = event.clientX - this.dragState.startX;
+                const dy = event.clientY - this.dragState.startY;
+                let nextLeft = this.dragState.originLeft + dx;
+                let nextTop = this.dragState.originTop + dy;
+                const minTop = 40;
+                const minLeft = 16;
+                const maxLeft = window.innerWidth - 160;
+                const maxTop = window.innerHeight - 120;
+                if (nextLeft < minLeft) nextLeft = minLeft;
+                if (nextTop < minTop) nextTop = minTop;
+                if (nextLeft > maxLeft) nextLeft = maxLeft;
+                if (nextTop > maxTop) nextTop = maxTop;
+                this.dragState.modal.style.position = 'absolute';
+                this.dragState.modal.style.left = `${nextLeft}px`;
+                this.dragState.modal.style.top = `${nextTop}px`;
+                this.dragState.modal.style.right = 'auto';
+            }
+
+            handleModalDragPointerUp() {
+                if (!this.dragState) return;
+                this.dragState = null;
+                window.removeEventListener('pointermove', this.handleModalDragPointerMove);
+                window.removeEventListener('pointerup', this.handleModalDragPointerUp);
             }
 
             updateMarkerStyleControls() {
@@ -2944,6 +3088,11 @@
                 if (this.dom.imageInput) this.dom.imageInput.value = '';
                 this.updateCoordinatesText(this.pendingCoordinates);
                 this.updateImagePreview(this.currentImageUrl);
+                this.setRotationInputsFromValues({
+                    x: typeof marker.rotation_x === 'number' ? marker.rotation_x : this.rotationDefaults.x,
+                    y: typeof marker.rotation_y === 'number' ? marker.rotation_y : this.rotationDefaults.y,
+                    z: typeof marker.rotation_z === 'number' ? marker.rotation_z : this.rotationDefaults.z
+                });
                 if (this.dom.voiceoverInput) this.dom.voiceoverInput.value = '';
                 if (this.dom.voiceoverUploadBtn) this.dom.voiceoverUploadBtn.disabled = false;
                 if (this.dom.voiceoverStatus) this.dom.voiceoverStatus.textContent = marker.voiceover_filename ? 'Voice-over uploaded.' : 'No voice-over. Upload an audio file (MP3, WAV, M4A).';
@@ -3107,11 +3256,12 @@
                         marker_color: markerColor,
                         linked_panorama_id: linkedPanoramaId,
                         longitude: Number(this.pendingCoordinates.longitude),
-                        latitude: Number(this.pendingCoordinates.latitude),
-                        rotation_x: 0,
-                        rotation_y: 0,
-                        rotation_z: 0
+                        latitude: Number(this.pendingCoordinates.latitude)
                     };
+                    const rotationValues = this.getRotationValuesFromInputs();
+                    payload.rotation_x = rotationValues.x;
+                    payload.rotation_y = rotationValues.y;
+                    payload.rotation_z = rotationValues.z;
 
                     const selectedFile = this.dom.imageInput && this.dom.imageInput.files ? this.dom.imageInput.files[0] : null;
                     let savedMarker = null;
@@ -3693,7 +3843,7 @@
                     ? ` data-rotate-x="${this.escapeAttr(rotX)}" data-rotate-y="${this.escapeAttr(rotY)}" data-rotate-z="${this.escapeAttr(rotZ)}"`
                     : '';
                 const markerHtml = isSuper
-                    ? `<button class="psv-glass-marker marker-super ${statusClass}" type="button" data-marker-id="${this.escapeAttr(marker.id)}"${rotateAttr} aria-label="${this.escapeAttr(marker.name || 'Marker')}"><span class="marker-callout" aria-hidden="true"><span class="marker-tag">${this.escapeHtml(marker.name || 'Marker')}</span><span class="marker-stem"></span></span><span class="marker-base" aria-hidden="true"><span class="marker-ring-outer"></span><span class="marker-ring-inner"></span></span></button>`
+                    ? `<button class="psv-glass-marker marker-super ${statusClass}" type="button" data-marker-id="${this.escapeAttr(marker.id)}"${rotateAttr} aria-label="${this.escapeAttr(marker.name || 'Marker')}"><span class="marker-callout" aria-hidden="true"><span class="marker-tag"><span class="marker-tag-icon" aria-hidden="true">📍</span><span class="marker-tag-text">${this.escapeHtml(marker.name || 'Marker')}</span></span><span class="marker-stem"></span></span><span class="marker-base" aria-hidden="true"><span class="marker-ring-outer"></span><span class="marker-ring-inner"></span></span></button>`
                     : isNavigator
                     ? `<button class="psv-glass-marker marker-navigator ${statusClass}" type="button" data-marker-id="${this.escapeAttr(marker.id)}"${rotateAttr} aria-label="${this.escapeAttr(marker.name || 'Marker')}"><span class="marker-nav-base" aria-hidden="true"><span class="marker-nav-ring"></span><span class="marker-nav-chevron"><iconify-icon icon="ph:caret-up"></iconify-icon></span></span></button>`
                     : (isPhoto
@@ -3706,7 +3856,6 @@
                     html: markerHtml,
                     anchor: 'center bottom',
                     style: { zIndex: 120 },
-                    tooltip: marker.name || '',
                     data: {
                         markerType: 'poi',
                         markerId: marker.id
@@ -3733,8 +3882,8 @@
                     markerEl.classList.remove('marker-super', 'marker-navigator', 'marker-classic', 'marker-photo');
                     if (isSuper) {
                         markerEl.classList.add('marker-super');
-                        const labelEl = markerEl.querySelector('.marker-tag');
-                        if (labelEl) labelEl.textContent = marker.name || 'Marker';
+                        const labelTextEl = markerEl.querySelector('.marker-tag-text');
+                        if (labelTextEl) labelTextEl.textContent = marker.name || 'Marker';
                     } else if (isNavigator) {
                         markerEl.classList.add('marker-navigator');
                     } else if (isPhoto) {
@@ -3756,12 +3905,9 @@
                     const rotX = Number(marker.rotation_x || 0);
                     const rotY = Number(marker.rotation_y || 0);
                     const rotZ = Number(marker.rotation_z || 0);
-                    const baseTransform = '';
-                    if (Math.abs(rotX) > 0.0001 || Math.abs(rotY) > 0.0001 || Math.abs(rotZ) > 0.0001) {
-                        markerEl.style.transform = `${baseTransform} rotateX(${rotX}rad) rotateY(${rotY}rad) rotateZ(${rotZ}rad)`;
-                    } else {
-                        markerEl.style.transform = baseTransform || 'translateZ(0)';
-                    }
+                    markerEl.style.setProperty('--rot-x', `${rotX}rad`);
+                    markerEl.style.setProperty('--rot-y', `${rotY}rad`);
+                    markerEl.style.setProperty('--rot-z', `${rotZ}rad`);
                 });
             }
 

@@ -307,7 +307,7 @@
 
     <script>
         const PANORAMA_ID = {{ panorama.id }};
-        const CURRENT_PANORAMA_NAME = {{ (panorama.name or '')| tojson }};
+        let CURRENT_PANORAMA_NAME = {{ (panorama.name or '')| tojson }};
         const IS_360 = 1; // Always 360 for 3D routes
         const ORG_SLUG = {{ (org_slug or '')| tojson }};
         const USE_ANIMATED_ICONS = {{ (panorama.get('use_animated_icons', false) if panorama else false) | tojson }};
@@ -357,7 +357,7 @@
             try {
                 if (!transitionSound) {
                     transitionSound = new Audio('/static/audio/transition.mp3');
-                    transitionSound.volume = 0.5;
+                    transitionSound.volume = 0.1
                 }
                 transitionSound.currentTime = 0;
                 transitionSound.play().catch(function () { });
@@ -899,6 +899,34 @@
             return '/uploads/' + encodeURIComponent(p.filename) + '?size=optimized';
         }
 
+        const _panoramaViewCache = {};
+        async function ensurePanoramaViewMeta(panoramaId) {
+            const id = normalizePanoramaId(panoramaId);
+            if (!id) return null;
+            if (_panoramaViewCache[id]) return _panoramaViewCache[id];
+            try {
+                const resp = await fetch(`/api/public/panoramas/${encodeURIComponent(id)}`);
+                if (!resp.ok) return null;
+                const data = await resp.json();
+                if (!data || typeof data !== 'object') return null;
+                _panoramaViewCache[id] = data;
+                return data;
+            } catch (e) {
+                return null;
+            }
+        }
+
+        function toStartViewSetPanoramaOptions(view) {
+            if (!view || typeof view !== 'object') return null;
+            const lon0 = Number(view.longitude);
+            const lat0 = Number(view.latitude);
+            const zoom0 = view.zoom !== undefined && view.zoom !== null ? Number(view.zoom) : null;
+            if (!Number.isFinite(lon0) || !Number.isFinite(lat0)) return null;
+            const out = { longitude: lon0, latitude: lat0 };
+            if (Number.isFinite(zoom0)) out.zoom = zoom0;
+            return out;
+        }
+
         function switchToPanoramaInView(panoramaId) {
             const id = String(panoramaId || '').trim();
             if (!id || !viewer) return Promise.resolve();
@@ -907,6 +935,10 @@
             playTransitionSound();
             const prevId = currentFullViewPanoramaId;
             currentFullViewPanoramaId = id;
+            const meta = getPanoramaMeta(id);
+            if (meta && meta.name) {
+                CURRENT_PANORAMA_NAME = String(meta.name || '').trim() || CURRENT_PANORAMA_NAME;
+            }
             refreshPanoramaMenu();
             if (loading) {
                 loading.classList.remove('hidden');
@@ -917,7 +949,15 @@
                 transition: 900
             };
             if (typeof viewer.setPanorama !== 'function') return Promise.resolve();
-            return viewer.setPanorama(url, opts).then(function () {
+            return ensurePanoramaViewMeta(id).then(function (meta2) {
+                const view = meta2 && meta2.start_view ? meta2.start_view : null;
+                const startOpts = toStartViewSetPanoramaOptions(view);
+                if (meta2 && meta2.name) {
+                    CURRENT_PANORAMA_NAME = String(meta2.name || '').trim() || CURRENT_PANORAMA_NAME;
+                }
+                const merged = startOpts ? Object.assign({}, opts, startOpts) : opts;
+                return viewer.setPanorama(url, merged);
+            }).then(function () {
                 stopLoadingStatusCycle();
                 if (loading) loading.classList.add('hidden');
                 if (markerManager) {
@@ -925,7 +965,11 @@
                     markerManager.loadMarkers().catch(() => { });
                 }
                 loadPlots(id);
-                setTimeout(() => markerManager && markerManager.updateViewportFocus(), 200);
+                setTimeout(() => {
+                    refreshPanoramaMenu();
+                    markerManager && markerManager.updateViewportFocus();
+                    scheduleAutoRotateResume(1200);
+                }, 200);
             }).catch(function () {
                 stopLoadingStatusCycle();
                 if (loading) loading.classList.add('hidden');
@@ -2207,13 +2251,13 @@
                     : '';
                 let markerHtml = '';
                 if (markerStyle === 'super') {
-                    markerHtml = `<button class="psv-glass-marker marker-super ${statusClass}${animatedClass}" type="button" data-marker-id="${this.escapeAttr(marker.id)}"${rotateAttr} aria-label="${this.escapeAttr(marker.name || 'Marker')}"><span class="marker-callout" aria-hidden="true"><span class="marker-tag">${this.escapeHtml(marker.name || 'Marker')}</span><span class="marker-stem"></span></span><span class="marker-base" aria-hidden="true"><span class="marker-ring-outer"></span><span class="marker-ring-inner"></span></span></button>`;
+                    markerHtml = `<button class="psv-glass-marker marker-super ${statusClass}${animatedClass}" type="button" data-marker-id="${this.escapeAttr(marker.id)}"${rotateAttr} aria-label="${this.escapeAttr(marker.name || 'Marker')}"><span class="marker-callout" aria-hidden="true"><span class="marker-tag"><span class="marker-tag-icon" aria-hidden="true">📍</span><span class="marker-tag-text">${this.escapeHtml(marker.name || 'Marker')}</span></span><span class="marker-stem"></span></span><span class="marker-base" aria-hidden="true"><span class="marker-ring-outer"></span><span class="marker-ring-inner"></span></span></button>`;
                 } else if (markerStyle === 'navigator') {
                     markerHtml = `<button class="psv-glass-marker marker-navigator ${statusClass}${animatedClass}" type="button" data-marker-id="${this.escapeAttr(marker.id)}"${rotateAttr} aria-label="${this.escapeAttr(marker.name || 'Marker')}"><span class="marker-nav-base" aria-hidden="true"><span class="marker-nav-ring"></span><span class="marker-nav-chevron"><iconify-icon icon="ph:caret-up"></iconify-icon></span></span></button>`;
                 } else if (this.isPhotoMarkerStyle(markerStyle)) {
                     markerHtml = this.buildPhotoMarkerHtml(marker, statusClass);
                 } else {
-                    markerHtml = `<button class="psv-glass-marker marker-classic ${statusClass} marker-theme-${this.escapeAttr(markerStyle)}${animatedClass}" style="--mk-rgb:${this.escapeAttr(markerRgb)};" type="button" data-marker-id="${this.escapeAttr(marker.id)}"${rotateAttr} aria-label="${this.escapeAttr(marker.name || 'Marker')}"><span class="marker-callout" aria-hidden="true"><span class="marker-tag">${this.escapeHtml(marker.name || 'Marker')}</span></span><span class="marker-halo" aria-hidden="true"></span><span class="marker-core" aria-hidden="true"><span class="marker-dot"></span><span class="marker-icon" aria-hidden="true"><iconify-icon icon="${this.escapeAttr(markerIcon)}"></iconify-icon></span></span><span class="marker-pointer" aria-hidden="true"></span></button>`;
+                    markerHtml = `<button class="psv-glass-marker marker-classic ${statusClass} marker-theme-${this.escapeAttr(markerStyle)}${animatedClass}" style="--mk-rgb:${this.escapeAttr(markerRgb)};" type="button" data-marker-id="${this.escapeAttr(marker.id)}"${rotateAttr} aria-label="${this.escapeAttr(marker.name || 'Marker')}"><span class="marker-callout" aria-hidden="true"><span class="marker-tag"><span class="marker-tag-icon" aria-hidden="true">📍</span><span class="marker-tag-text">${this.escapeHtml(marker.name || 'Marker')}</span></span></span><span class="marker-halo" aria-hidden="true"></span><span class="marker-core" aria-hidden="true"><span class="marker-dot"></span><span class="marker-icon" aria-hidden="true"><iconify-icon icon="${this.escapeAttr(markerIcon)}"></iconify-icon></span></span><span class="marker-pointer" aria-hidden="true"></span></button>`;
                 }
                 return {
                     id: this.toViewerMarkerId(marker.id),
@@ -2245,8 +2289,8 @@
                     markerEl.classList.remove('marker-super', 'marker-navigator', 'marker-classic', 'marker-photo');
                     if (isSuper) {
                         markerEl.classList.add('marker-super');
-                        const labelEl = markerEl.querySelector('.marker-tag');
-                        if (labelEl) labelEl.textContent = marker.name || 'Marker';
+                        const labelTextEl = markerEl.querySelector('.marker-tag-text');
+                        if (labelTextEl) labelTextEl.textContent = marker.name || 'Marker';
                     } else if (isNavigator) {
                         markerEl.classList.add('marker-navigator');
                     } else if (isPhoto) {
@@ -2260,13 +2304,19 @@
                     } else {
                         markerEl.classList.add('marker-classic', `marker-theme-${normalizedStyle}`);
                         markerEl.style.setProperty('--mk-rgb', hexToMarkerRgb(marker.marker_color));
-                        const labelEl = markerEl.querySelector('.marker-tag');
-                        if (labelEl) labelEl.textContent = marker.name || 'Marker';
+                        const labelTextEl = markerEl.querySelector('.marker-tag-text');
+                        if (labelTextEl) labelTextEl.textContent = marker.name || 'Marker';
                         const iconEl = markerEl.querySelector('iconify-icon');
                         if (iconEl) {
                             iconEl.setAttribute('icon', this.normalizeMarkerIcon(marker.marker_icon));
                         }
                     }
+                    const rotX = Number(marker.rotation_x || 0);
+                    const rotY = Number(marker.rotation_y || 0);
+                    const rotZ = Number(marker.rotation_z || 0);
+                    markerEl.style.setProperty('--rot-x', `${rotX}rad`);
+                    markerEl.style.setProperty('--rot-y', `${rotY}rad`);
+                    markerEl.style.setProperty('--rot-z', `${rotZ}rad`);
                 });
             }
 
