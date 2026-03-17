@@ -332,6 +332,7 @@
         function getCvConfig() {
             var cfg = (typeof CUSTOMER_VIEW_CONFIG === 'string') ? (function () { try { return JSON.parse(CUSTOMER_VIEW_CONFIG); } catch (e) { return {}; } })() : (CUSTOMER_VIEW_CONFIG || {});
             if (!cfg.panoramaList || typeof cfg.panoramaList !== 'object') cfg.panoramaList = {};
+            if (!Array.isArray(cfg.panoramaList.hiddenGlobal)) cfg.panoramaList.hiddenGlobal = [];
             if (!cfg.panoramaList.hiddenByPanorama || typeof cfg.panoramaList.hiddenByPanorama !== 'object') cfg.panoramaList.hiddenByPanorama = {};
             return cfg;
         }
@@ -340,7 +341,8 @@
             var pl = getCvConfig().panoramaList || {};
             var hiddenByPano = pl.hiddenByPanorama || {};
             var currentId = String(forPanoramaId || (IN_WORKSPACE ? currentFullViewPanoramaId : PANORAMA_ID));
-            var hiddenArr = Array.isArray(hiddenByPano[currentId]) ? hiddenByPano[currentId] : [];
+            var hiddenArr = Array.isArray(pl.hiddenGlobal) ? pl.hiddenGlobal.slice() : [];
+            if (Array.isArray(hiddenByPano[currentId])) hiddenArr = hiddenArr.concat(hiddenByPano[currentId]);
             return new Set(hiddenArr.map(function (id) { return String(id); }));
         }
 
@@ -1685,7 +1687,7 @@
                 const linkId = (rawLink === null || rawLink === undefined || String(rawLink).trim() === '')
                     ? ''
                     : String(rawLink);
-                if (linkId) {
+                if (linkId && !isPanoramaHidden(linkId)) {
                     enterPlotPanoramaBtn.style.display = '';
                     enterPlotPanoramaBtn.dataset.panoramaId = linkId;
                 } else {

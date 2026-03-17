@@ -162,7 +162,7 @@
             buttons: { panoramaNavToggle: true, backBtn: true, exportPlots: true, toggleOverlays: true, fullscreen: true, viewCart: true },
             searchBar: { visible: true },
             statusLegend: { visible: true, color: '#23395f', bg: '#f7f9fd' },
-            panoramaList: { visible: true, order: [], position: 'left', title: 'Panorama List', subheader: null, titleFont: 'Syne', subheaderFont: 'Syne', itemFont: 'Syne', titleFontSize: '0.6rem', subheaderFontSize: '0.52rem', itemFontSize: '0.76rem', panelBg: '#0a1220', titleColor: '#7a8ba8', subheaderColor: '#a0aec0', itemColor: '#1a2e4d', titleAlign: 'left', subheaderAlign: 'left', itemAlignX: 'left', itemAlignY: 'center', absorbedHeaderFont: 'Syne', absorbedHeaderFontSize: '0.88rem', absorbedHeaderColor: '#1a2e4d', absorbedHeaderAlign: 'left' },
+            panoramaList: { visible: true, order: [], hiddenGlobal: [], position: 'left', title: 'Panorama List', subheader: null, titleFont: 'Syne', subheaderFont: 'Syne', itemFont: 'Syne', titleFontSize: '0.6rem', subheaderFontSize: '0.52rem', itemFontSize: '0.76rem', panelBg: '#0a1220', titleColor: '#7a8ba8', subheaderColor: '#a0aec0', itemColor: '#1a2e4d', titleAlign: 'left', subheaderAlign: 'left', itemAlignX: 'left', itemAlignY: 'center', absorbedHeaderFont: 'Syne', absorbedHeaderFontSize: '0.88rem', absorbedHeaderColor: '#1a2e4d', absorbedHeaderAlign: 'left' },
             elementPositions: { header: { x: null, y: null }, statusLegend: { x: null, y: null }, panoramaNav: { x: null, y: null } }
         };
 
@@ -188,6 +188,7 @@
             }).then(function (data) {
                 if (data && data.config && typeof data.config === 'object') deepMerge(config, data.config);
                 if (config.panoramaList && !Array.isArray(config.panoramaList.order)) config.panoramaList.order = [];
+                if (config.panoramaList && !Array.isArray(config.panoramaList.hiddenGlobal)) config.panoramaList.hiddenGlobal = [];
                 startPsvInit();
             }).catch(function (err) {
                 if (err && err.message !== 'Unauthorized') startPsvInit();
@@ -687,6 +688,7 @@
                 var configOrder = config.panoramaList && config.panoramaList.order;
                 var ordered = configOrder && configOrder.length > 0 ? configOrder.map(function (id) { return WORKSPACE_PANORAMAS.find(function (p) { return String(p.id) === String(id); }); }).filter(Boolean) : WORKSPACE_PANORAMAS.slice().sort(function (a, b) { return (a.name || '').localeCompare(b.name || ''); });
                 if (configOrder && configOrder.length > 0) WORKSPACE_PANORAMAS.forEach(function (p) { if (!ordered.find(function (o) { return o && String(o.id) === String(p.id); })) ordered.push(p); });
+                var hiddenGlobalSet = new Set((Array.isArray(config.panoramaList.hiddenGlobal) ? config.panoramaList.hiddenGlobal : []).map(function (id) { return String(id); }));
                 var rowOrder = document.createElement('div');
                 rowOrder.className = 'ce-opt-row ce-pano-order-wrap';
                 rowOrder.innerHTML = '<label class="ce-opt-label">Arrange order</label>';
@@ -694,16 +696,48 @@
                 orderList.className = 'ce-pano-order-list';
                 ordered.forEach(function (p, idx) {
                     var item = document.createElement('div');
-                    item.className = 'ce-pano-order-item';
+                    item.className = 'ce-pano-order-item' + (hiddenGlobalSet.has(String(p.id)) ? ' is-hidden' : '');
                     item.dataset.panoId = p.id;
-                    item.innerHTML = '<span class="ce-pano-order-name">' + escapeHtml(p.name || 'Panorama') + '</span><div class="ce-pano-order-actions"><button type="button" class="ce-pano-order-btn" data-dir="up" ' + (idx === 0 ? 'disabled' : '') + '>↑</button><button type="button" class="ce-pano-order-btn" data-dir="down" ' + (idx === ordered.length - 1 ? 'disabled' : '') + '>↓</button></div>';
+                    item.dataset.panoName = p.name || 'Panorama';
+                    item.innerHTML = '<span class="ce-pano-order-name">' + escapeHtml(p.name || 'Panorama') + '</span><div class="ce-pano-order-actions"><label class="ce-pano-hide-toggle"><input type="checkbox" class="ce-opt-checkbox ce-pano-hide-checkbox" ' + (hiddenGlobalSet.has(String(p.id)) ? 'checked' : '') + '><span>Hide</span></label><button type="button" class="ce-pano-order-btn" data-dir="up" ' + (idx === 0 ? 'disabled' : '') + '>↑</button><button type="button" class="ce-pano-order-btn" data-dir="down" ' + (idx === ordered.length - 1 ? 'disabled' : '') + '>↓</button></div>';
                     orderList.appendChild(item);
                 });
                 rowOrder.appendChild(orderList);
-                rowOrder.querySelectorAll('.ce-pano-order-btn').forEach(function (btn) {
-                    btn.addEventListener('click', function () {
-                        if (this.disabled) return;
+                function refreshPanoOrderButtons() {
+                    rowOrder.querySelectorAll('.ce-pano-order-item').forEach(function (item) {
+                        var id = String(item.dataset.panoId || '');
+                        var isHidden = hiddenGlobalSet.has(id);
+                        var nameEl = item.querySelector('.ce-pano-order-name');
+                        if (nameEl) nameEl.textContent = item.dataset.panoName || 'Panorama';
+                        item.classList.toggle('is-hidden', isHidden);
+                        var hideCb = item.querySelector('.ce-pano-hide-checkbox');
+                        if (hideCb) hideCb.checked = isHidden;
+                    });
+                    rowOrder.querySelectorAll('[data-dir]').forEach(function (b) {
+                        var i = b.closest('.ce-pano-order-item');
+                        var idx2 = Array.prototype.indexOf.call(i.parentNode.children, i);
+                        b.disabled = (b.dataset.dir === 'up' && idx2 === 0) || (b.dataset.dir === 'down' && idx2 === i.parentNode.children.length - 1);
+                    });
+                }
+                rowOrder.querySelectorAll('.ce-pano-hide-checkbox').forEach(function (cb) {
+                    cb.addEventListener('change', function () {
                         var item = this.closest('.ce-pano-order-item');
+                        if (!item) return;
+                        var idVal = String(item.dataset.panoId || '');
+                        if (!idVal) return;
+                        if (this.checked) hiddenGlobalSet.add(idVal);
+                        else hiddenGlobalSet.delete(idVal);
+                        config.panoramaList.hiddenGlobal = Array.from(hiddenGlobalSet);
+                        applyConfig();
+                        renderPanoramaNavList();
+                        refreshPanoOrderButtons();
+                    });
+                });
+                rowOrder.querySelectorAll('.ce-pano-order-btn[data-dir]').forEach(function (btn) {
+                    btn.addEventListener('click', function () {
+                        var item = this.closest('.ce-pano-order-item');
+                        if (!item) return;
+                        if (this.disabled) return;
                         var list = item.parentNode;
                         var dir = this.dataset.dir;
                         var idx = Array.prototype.indexOf.call(list.children, item);
@@ -712,13 +746,10 @@
                         config.panoramaList.order = Array.prototype.slice.call(list.querySelectorAll('.ce-pano-order-item')).map(function (el) { var id = el.dataset.panoId; return id != null && id !== '' ? id : undefined; }).filter(Boolean);
                         applyConfig();
                         renderPanoramaNavList();
-                        rowOrder.querySelectorAll('.ce-pano-order-btn').forEach(function (b) {
-                            var i = b.closest('.ce-pano-order-item');
-                            var idx2 = Array.prototype.indexOf.call(i.parentNode.children, i);
-                            b.disabled = (b.dataset.dir === 'up' && idx2 === 0) || (b.dataset.dir === 'down' && idx2 === i.parentNode.children.length - 1);
-                        });
+                        refreshPanoOrderButtons();
                     });
                 });
+                refreshPanoOrderButtons();
                 addTo(secList, rowOrder);
 
                 var rowBg = document.createElement('div');
@@ -1051,6 +1082,7 @@
             var listEl = document.getElementById('cv-panorama-nav-list');
             var subtitleEl = document.getElementById('cv-panorama-nav-subtitle');
             var configOrder = config.panoramaList && config.panoramaList.order;
+            var hiddenGlobalSet = new Set((config.panoramaList && Array.isArray(config.panoramaList.hiddenGlobal) ? config.panoramaList.hiddenGlobal : []).map(function (id) { return String(id); }));
             var ordered;
             if (configOrder && configOrder.length > 0) {
                 ordered = configOrder.map(function (id) { return WORKSPACE_PANORAMAS.find(function (p) { return String(p.id) === String(id); }); }).filter(Boolean);
@@ -1068,6 +1100,7 @@
             if (!listEl) return;
             listEl.innerHTML = '';
             ordered.forEach(function (p) {
+                if (hiddenGlobalSet.has(String(p.id))) return;
                 var btn = document.createElement('button');
                 btn.type = 'button';
                 btn.className = 'panorama-nav-item' + (p.id === PANORAMA_ID ? ' active' : '');

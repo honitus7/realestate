@@ -722,18 +722,26 @@
 .ce-pano-order-wrap .ce-pano-order-list {
     max-height: 160px;
     overflow-y: auto;
+    display: grid;
+    gap: 0.45rem;
+    padding-right: 0.1rem;
 }
 .ce-pano-order-item {
     cursor: default;
+    margin-bottom: 0;
+    padding: 0.5rem 0.6rem;
+    border-radius: 8px;
 }
 .ce-pano-order-item .ce-pano-order-name {
     flex: 1;
     min-width: 0;
     font-size: 0.72rem;
+    font-weight: 600;
 }
 .ce-pano-order-actions {
     display: flex;
-    gap: 0.2rem;
+    align-items: center;
+    gap: 0.45rem;
 }
 .ce-pano-order-btn {
     width: 24px;
@@ -753,6 +761,32 @@
 .ce-pano-order-btn:disabled {
     opacity: 0.4;
     cursor: not-allowed;
+}
+.ce-pano-hide-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.2rem 0.45rem;
+    border: 1px solid var(--color-border);
+    border-radius: 999px;
+    background: var(--color-bg-elevated);
+    font-size: 0.66rem;
+    font-weight: 600;
+    color: var(--color-text-muted);
+    line-height: 1;
+    white-space: nowrap;
+}
+.ce-pano-hide-toggle .ce-opt-checkbox {
+    margin: 0;
+}
+.ce-pano-order-item.is-hidden {
+    background: rgba(22, 35, 56, 0.12);
+}
+.ce-pano-order-item.is-hidden .ce-pano-order-name {
+    opacity: 0.75;
+}
+.ce-pano-order-item.is-hidden .ce-pano-hide-toggle {
+    color: var(--color-text);
 }
 .ce-toast {
     position: fixed;
