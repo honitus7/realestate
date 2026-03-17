@@ -93,7 +93,7 @@
                 <button id="back-btn" class="hdr-action-btn" type="button" hidden title="Go back">
                     <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
                 </button>
-                <button id="header-more-btn" class="hdr-action-btn header-more-btn" type="button" title="More actions" aria-label="More actions" aria-expanded="false" aria-haspopup="true"><iconify-icon icon="ph:dots-three-vertical"></iconify-icon></button>
+                <button id="header-more-btn" class="hdr-action-btn header-more-btn" type="button" title="More actions" aria-label="More actions" aria-expanded="false" aria-haspopup="true"><iconify-icon icon="ph:sliders-horizontal"></iconify-icon></button>
                 <div class="header-right-actions" id="header-right-actions">
                     <button id="export-plots-btn" class="hdr-action-btn" type="button" title="Export plots">
                         <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
@@ -121,8 +121,8 @@
                     <span class="project-badge-dot"></span>
                     <span class="project-badge-label">360° Explorer</span>
                 </div>
-                <button type="button" class="panorama-nav-collapse-btn" id="panorama-nav-collapse" title="Close" aria-label="Close panorama list"><iconify-icon icon="ph:caret-left"></iconify-icon></button>
             </div>
+            <button type="button" class="panorama-nav-collapse-btn" id="panorama-nav-collapse" title="Close" aria-label="Close panorama list">&lt;</button>
             <div class="panorama-nav-head">
                 <div class="panorama-nav-head-text">
                     <div class="panorama-nav-title">Panorama List</div>
@@ -574,11 +574,13 @@
                         absorbedBadgeP.style.minWidth = '0';
                         absorbedBadgeP.style.justifyContent = alignP === 'center' ? 'center' : alignP === 'right' ? 'flex-end' : 'flex-start';
                     }
+                    if (absorbedHeaderP) {
+                        if (pl.absorbedHeaderColor) absorbedHeaderP.style.color = pl.absorbedHeaderColor;
+                    }
                     if (absorbedNameP) {
                         if (badge.customText) absorbedNameP.textContent = badge.customText;
                         if (pl.absorbedHeaderFont) absorbedNameP.style.fontFamily = pl.absorbedHeaderFont + ', sans-serif';
                         if (pl.absorbedHeaderFontSize) absorbedNameP.style.fontSize = pl.absorbedHeaderFontSize;
-                        if (pl.absorbedHeaderColor) absorbedNameP.style.color = pl.absorbedHeaderColor;
                     }
                     if (absorbedLabelP) {
                         if (badge.customLabel) absorbedLabelP.textContent = badge.customLabel;

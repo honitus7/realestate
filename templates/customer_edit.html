@@ -436,11 +436,13 @@
                         absorbedBadge.style.minWidth = '0';
                         absorbedBadge.style.justifyContent = align === 'center' ? 'center' : align === 'right' ? 'flex-end' : 'flex-start';
                     }
+                    if (absorbedHeader) {
+                        absorbedHeader.style.color = config.panoramaList.absorbedHeaderColor || '#1a2e4d';
+                    }
                     if (absorbedName) {
                         absorbedName.textContent = config.projectBadge.customText || {{ (panorama.name or '') | tojson }};
                         absorbedName.style.fontFamily = (config.panoramaList.absorbedHeaderFont || 'Syne') + ', sans-serif';
                         absorbedName.style.fontSize = config.panoramaList.absorbedHeaderFontSize || '0.88rem';
-                        absorbedName.style.color = config.panoramaList.absorbedHeaderColor || '#1a2e4d';
                     }
                     if (absorbedLabel) {
                         absorbedLabel.textContent = config.projectBadge.customLabel || '360° Explorer';

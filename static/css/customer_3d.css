@@ -503,6 +503,7 @@ body {
     flex-direction: column;
     pointer-events: auto;
     overflow: hidden;
+    position: relative;
 }
 .panorama-nav-shell.pos-right .panorama-nav-panel {
     margin-left: auto;
@@ -568,6 +569,7 @@ body {
     align-items: center;
     justify-content: space-between;
     gap: 0.5rem;
+    color: #1a2e4d;
 }
 
 .panorama-nav-absorbed-header .project-badge {
@@ -593,30 +595,42 @@ body {
 }
 
 .panorama-nav-collapse-btn {
-    flex-shrink: 0;
-    width: 20px;
-    height: 20px;
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    right: 0;
+    width: 32px;
+    height: 48px;
+    min-width: 32px;
     padding: 0;
     border: none;
-    border-radius: 4px;
-    background: transparent;
-    color: #5d6f8f;
-    font-size: 1rem;
+    border-radius: 8px 0 0 8px;
+    background: rgba(22, 35, 56, 0.75);
+    color: #fff;
+    font-size: 1.25rem;
+    font-weight: 600;
     line-height: 1;
     cursor: pointer;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    transition: color 0.15s ease, opacity 0.15s ease;
+    transition: background 0.15s ease, opacity 0.15s ease;
+    z-index: 5;
 }
 
 .panorama-nav-collapse-btn:hover {
-    color: #1a2e4d;
-    opacity: 0.9;
+    background: rgba(22, 35, 56, 0.9);
+    opacity: 1;
 }
 
-.panorama-nav-collapse-btn iconify-icon {
-    font-size: 1rem;
+.panorama-nav-shell.pos-right .panorama-nav-collapse-btn {
+    right: auto;
+    left: 0;
+    border-radius: 0 8px 8px 0;
+}
+
+.panorama-nav-shell.pos-right .panorama-nav-collapse-btn {
+    transform: translateY(-50%) scaleX(-1);
 }
 
 .panorama-nav-title {
@@ -2718,6 +2732,15 @@ body.overlays-hidden .psv-glass-marker .marker-photo-name {
 
     .header-more-btn {
         display: inline-flex;
+        background: rgba(22, 35, 56, 0.1);
+        border: 1px solid rgba(22, 35, 56, 0.15);
+        color: #1a2e4d;
+    }
+
+    .header-more-btn:hover {
+        background: rgba(22, 35, 56, 0.16);
+        border-color: rgba(22, 35, 56, 0.22);
+        color: #1a2e4d;
     }
 
     body.panorama-nav-expanded .header-more-btn {
