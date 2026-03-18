@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ catalogue.name or 'Floor Plans' }} – {{ workspace_name or 'PropMark' }}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/theme.css">
+    <link rel="stylesheet" href="/static/css/floorplans_view.css">
+</head>
+<body>
+<div class="fpv-page" id="fpv-page">
+    <!-- Full-screen image area -->
+    <div class="fpv-image-area" id="fpv-image-area">
+        <div class="fpv-image-wrap" id="fpv-image-wrap">
+            <img class="fpv-image" id="fpv-image" src="" alt="Floor Plan" draggable="false">
+        </div>
+
+        <!-- Zoom controls (top-right, frosted glass) -->
+        <div class="fpv-zoom-controls">
+            <button class="fpv-zoom-btn" id="fpv-zoom-in" title="Zoom in">+</button>
+            <button class="fpv-zoom-btn" id="fpv-zoom-out" title="Zoom out">&minus;</button>
+            <button class="fpv-zoom-btn" id="fpv-zoom-reset" title="Reset zoom" style="font-size:0.72rem;">&#8634;</button>
+        </div>
+
+        <div class="fpv-watermark">{{ workspace_name or 'PropMark' }}</div>
+    </div>
+
+    <!-- Floor plan selector panel (bottom-right floating) -->
+    <div class="fpv-panel" id="fpv-panel">
+        <div class="fpv-panel-header">
+            <h2 class="fpv-panel-title">{{ catalogue.name or 'Floor Plans' }}</h2>
+            <button class="fpv-panel-collapse" id="fpv-panel-collapse" title="Collapse">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+            </button>
+        </div>
+        <div class="fpv-panel-list" id="fpv-panel-list">
+            {% for item in items %}
+            <button class="fpv-panel-item{% if loop.first %} active{% endif %}"
+                    data-idx="{{ loop.index0 }}"
+                    data-url="{{ item.image_url }}">
+                {{ item.name }}
+            </button>
+            {% endfor %}
+        </div>
+        <button class="fpv-panel-expand" id="fpv-panel-expand">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+            Floor Plans
+        </button>
+    </div>
+</div>
+
+<script>
+(function() {
+    var items = document.querySelectorAll('.fpv-panel-item');
+    var imgEl = document.getElementById('fpv-image');
+    var panel = document.getElementById('fpv-panel');
+    var currentIdx = 0;
+    var scale = 1;
+    var panX = 0, panY = 0;
+    var isDragging = false;
+    var dragStartX, dragStartY, startPanX, startPanY;
+
+    // Preload all images
+    items.forEach(function(btn) {
+        var url = btn.dataset.url;
+        if (url) {
+            var img = new Image();
+            img.src = url;
+        }
+    });
+
+    // Show first image
+    if (items.length > 0) {
+        loadImage(items[0].dataset.url);
+    }
+
+    // Click handlers for floor plan items
+    items.forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            var idx = parseInt(btn.dataset.idx);
+            if (idx === currentIdx) return;
+            currentIdx = idx;
+            items.forEach(function(b) { b.classList.remove('active'); });
+            btn.classList.add('active');
+            switchImage(btn.dataset.url);
+        });
+    });
+
+    function loadImage(url) {
+        imgEl.classList.remove('loaded', 'fade-out');
+        imgEl.src = url;
+        imgEl.onload = function() {
+            imgEl.classList.add('loaded');
+            resetTransform();
+        };
+    }
+
+    function switchImage(url) {
+        imgEl.classList.add('fade-out');
+        imgEl.classList.remove('loaded');
+        setTimeout(function() {
+            imgEl.src = url;
+            imgEl.onload = function() {
+                imgEl.classList.remove('fade-out');
+                imgEl.classList.add('loaded');
+                resetTransform();
+            };
+        }, 250);
+    }
+
+    // -- Panel collapse/expand --
+
+    document.getElementById('fpv-panel-collapse').addEventListener('click', function() {
+        panel.classList.add('collapsed');
+    });
+
+    document.getElementById('fpv-panel-expand').addEventListener('click', function() {
+        panel.classList.remove('collapsed');
+    });
+
+    // -- Zoom & Pan --
+
+    function resetTransform() {
+        scale = 1;
+        panX = 0;
+        panY = 0;
+        applyTransform();
+    }
+
+    function applyTransform() {
+        imgEl.style.transform = 'translate(' + panX + 'px, ' + panY + 'px) scale(' + scale + ')';
+    }
+
+    document.getElementById('fpv-zoom-in').addEventListener('click', function() {
+        scale = Math.min(scale * 1.3, 5);
+        applyTransform();
+    });
+
+    document.getElementById('fpv-zoom-out').addEventListener('click', function() {
+        scale = Math.max(scale / 1.3, 0.5);
+        applyTransform();
+    });
+
+    document.getElementById('fpv-zoom-reset').addEventListener('click', function() {
+        resetTransform();
+    });
+
+    // Mouse wheel zoom
+    var imageArea = document.getElementById('fpv-image-area');
+    imageArea.addEventListener('wheel', function(e) {
+        e.preventDefault();
+        var delta = e.deltaY > 0 ? 0.9 : 1.1;
+        scale = Math.max(0.5, Math.min(5, scale * delta));
+        applyTransform();
+    }, { passive: false });
+
+    // Pan with mouse drag
+    imageArea.addEventListener('mousedown', function(e) {
+        if (scale <= 1) return;
+        isDragging = true;
+        dragStartX = e.clientX;
+        dragStartY = e.clientY;
+        startPanX = panX;
+        startPanY = panY;
+        imageArea.style.cursor = 'grabbing';
+        e.preventDefault();
+    });
+
+    window.addEventListener('mousemove', function(e) {
+        if (!isDragging) return;
+        panX = startPanX + (e.clientX - dragStartX);
+        panY = startPanY + (e.clientY - dragStartY);
+        applyTransform();
+    });
+
+    window.addEventListener('mouseup', function() {
+        if (isDragging) {
+            isDragging = false;
+            imageArea.style.cursor = '';
+        }
+    });
+
+    // Touch support
+    var touchStartDist = 0;
+    var touchStartScale = 1;
+
+    imageArea.addEventListener('touchstart', function(e) {
+        if (e.touches.length === 2) {
+            touchStartDist = Math.hypot(
+                e.touches[0].clientX - e.touches[1].clientX,
+                e.touches[0].clientY - e.touches[1].clientY
+            );
+            touchStartScale = scale;
+        } else if (e.touches.length === 1 && scale > 1) {
+            isDragging = true;
+            dragStartX = e.touches[0].clientX;
+            dragStartY = e.touches[0].clientY;
+            startPanX = panX;
+            startPanY = panY;
+        }
+    }, { passive: true });
+
+    imageArea.addEventListener('touchmove', function(e) {
+        if (e.touches.length === 2) {
+            e.preventDefault();
+            var dist = Math.hypot(
+                e.touches[0].clientX - e.touches[1].clientX,
+                e.touches[0].clientY - e.touches[1].clientY
+            );
+            scale = Math.max(0.5, Math.min(5, touchStartScale * (dist / touchStartDist)));
+            applyTransform();
+        } else if (isDragging && e.touches.length === 1) {
+            panX = startPanX + (e.touches[0].clientX - dragStartX);
+            panY = startPanY + (e.touches[0].clientY - dragStartY);
+            applyTransform();
+        }
+    }, { passive: false });
+
+    imageArea.addEventListener('touchend', function() {
+        isDragging = false;
+    });
+
+    // Keyboard navigation
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'ArrowDown' || e.key === 'ArrowRight') {
+            e.preventDefault();
+            var next = (currentIdx + 1) % items.length;
+            items[next].click();
+            items[next].scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        } else if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') {
+            e.preventDefault();
+            var prev = (currentIdx - 1 + items.length) % items.length;
+            items[prev].click();
+            items[prev].scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+    });
+})();
+</script>
+</body>
+</html>

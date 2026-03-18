@@ -253,3 +253,34 @@ create table if not exists public.daynight_projects (
 create index if not exists idx_daynight_projects_user_id on public.daynight_projects(user_id);
 create index if not exists idx_daynight_projects_org_id on public.daynight_projects(org_id);
 create index if not exists idx_daynight_projects_share_token on public.daynight_projects(share_token);
+
+-- 11) Floor Plan Catalogues
+create table if not exists public.floor_plan_catalogues (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  org_id uuid references public.organizations(id) on delete set null,
+  name text not null default 'Floor Plans',
+  share_token text unique,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+
+create index if not exists idx_floor_plan_catalogues_user on public.floor_plan_catalogues(user_id);
+create index if not exists idx_floor_plan_catalogues_share_token on public.floor_plan_catalogues(share_token);
+
+-- 12) Floor Plan Items (individual images within a catalogue)
+create table if not exists public.floor_plan_items (
+  id uuid primary key default gen_random_uuid(),
+  catalogue_id uuid not null references public.floor_plan_catalogues(id) on delete cascade,
+  name text not null,
+  image_filename text not null,
+  image_width int default 0,
+  image_height int default 0,
+  file_size_bytes bigint default 0,
+  sort_order int not null default 0,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+
+create index if not exists idx_floor_plan_items_catalogue on public.floor_plan_items(catalogue_id);
+create index if not exists idx_floor_plan_items_sort_order on public.floor_plan_items(catalogue_id, sort_order);

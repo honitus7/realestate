@@ -1,0 +1,366 @@
+/* Floor Plans Catalogue – management page */
+
+.floorplans-page {
+    display: flex;
+    min-height: 100vh;
+    background: var(--color-bg);
+    color: var(--color-text);
+}
+
+.floorplans-main {
+    flex: 1;
+    padding: 2rem 2.5rem;
+    max-width: 1100px;
+    margin: 0 auto;
+}
+
+.floorplans-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 2rem;
+}
+
+.floorplans-title {
+    font-size: 1.5rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+}
+
+/* -- Catalogue grid -- */
+.fp-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 1.25rem;
+}
+
+.fp-card {
+    background: var(--color-bg-elevated);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.fp-card:hover {
+    border-color: var(--border-strong);
+    box-shadow: var(--shadow);
+}
+
+.fp-card-preview {
+    height: 160px;
+    background: var(--color-surface);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    position: relative;
+}
+
+.fp-card-preview img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    padding: 0.5rem;
+}
+
+.fp-card-preview .fp-placeholder {
+    font-size: 2.5rem;
+    opacity: 0.3;
+}
+
+.fp-card-body {
+    padding: 1rem 1.25rem;
+}
+
+.fp-card-name {
+    font-size: 1rem;
+    font-weight: 700;
+    margin-bottom: 0.25rem;
+}
+
+.fp-card-meta {
+    font-size: 0.78rem;
+    color: var(--color-muted);
+    margin-bottom: 0.75rem;
+}
+
+.fp-share-row {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    margin-bottom: 0.75rem;
+}
+
+.fp-share-row input {
+    flex: 1;
+    font-size: 0.75rem;
+    padding: 0.45rem 0.6rem;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    background: var(--color-surface);
+    color: var(--color-text);
+    font-family: var(--font-body);
+}
+
+.fp-share-row .btn {
+    font-size: 0.72rem;
+    padding: 0.45rem 0.65rem;
+}
+
+.fp-card-actions {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.fp-card-actions .btn {
+    flex: 1;
+    font-size: 0.75rem;
+    padding: 0.5rem;
+    text-align: center;
+}
+
+/* -- Empty state -- */
+.fp-empty {
+    text-align: center;
+    padding: 4rem 2rem;
+    color: var(--color-muted);
+}
+
+.fp-empty-icon {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+    opacity: 0.3;
+}
+
+/* -- Catalogue detail panel -- */
+.fp-detail {
+    display: none;
+}
+
+.fp-detail.visible {
+    display: block;
+}
+
+.fp-detail-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 1.5rem;
+    gap: 1rem;
+}
+
+.fp-detail-back {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.85rem;
+    color: var(--color-muted);
+    cursor: pointer;
+    background: none;
+    border: none;
+    font-family: var(--font-body);
+    font-weight: 600;
+    padding: 0.4rem 0.6rem;
+    border-radius: var(--radius-sm);
+    transition: background 0.2s, color 0.2s;
+}
+
+.fp-detail-back:hover {
+    background: var(--bg-elev-1);
+    color: var(--color-text);
+}
+
+.fp-detail-title {
+    font-size: 1.25rem;
+    font-weight: 700;
+    flex: 1;
+}
+
+/* -- Upload zone -- */
+.fp-upload-zone {
+    border: 2px dashed var(--color-border);
+    border-radius: var(--radius);
+    padding: 2rem;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color 0.2s, background 0.2s;
+    margin-bottom: 1.5rem;
+    background: var(--color-bg-elevated);
+}
+
+.fp-upload-zone:hover,
+.fp-upload-zone.dragover {
+    border-color: var(--border-strong);
+    background: var(--color-surface);
+}
+
+.fp-upload-zone-icon {
+    font-size: 2rem;
+    margin-bottom: 0.5rem;
+    opacity: 0.5;
+}
+
+.fp-upload-zone-text {
+    font-size: 0.9rem;
+    margin-bottom: 0.25rem;
+}
+
+.fp-upload-zone-hint {
+    font-size: 0.75rem;
+    color: var(--color-muted);
+}
+
+/* -- Items list (sortable) -- */
+.fp-items-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.fp-item {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 0.75rem 1rem;
+    background: var(--color-bg-elevated);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.fp-item:hover {
+    border-color: var(--border-strong);
+}
+
+.fp-item.dragging {
+    opacity: 0.5;
+    box-shadow: var(--shadow);
+}
+
+.fp-item.drag-over {
+    border-color: var(--color-success);
+    background: rgba(34, 197, 94, 0.05);
+}
+
+.fp-item-drag {
+    cursor: grab;
+    color: var(--color-muted);
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+    padding: 0.25rem;
+}
+
+.fp-item-drag:active {
+    cursor: grabbing;
+}
+
+.fp-item-thumb {
+    width: 72px;
+    height: 54px;
+    object-fit: contain;
+    border-radius: var(--radius-sm);
+    background: var(--color-surface);
+    flex-shrink: 0;
+}
+
+.fp-item-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.fp-item-name {
+    font-size: 0.9rem;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.fp-item-size {
+    font-size: 0.72rem;
+    color: var(--color-muted);
+}
+
+.fp-item-actions {
+    display: flex;
+    gap: 0.4rem;
+    flex-shrink: 0;
+}
+
+.fp-item-btn {
+    width: 32px;
+    height: 32px;
+    border: 1px solid var(--color-border);
+    background: var(--color-surface);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--color-muted);
+    font-size: 0.85rem;
+    transition: background 0.2s, color 0.2s, border-color 0.2s;
+}
+
+.fp-item-btn:hover {
+    background: var(--color-accent-hover);
+    color: var(--color-text);
+    border-color: var(--border-strong);
+}
+
+.fp-item-btn.delete:hover {
+    color: var(--color-danger);
+    border-color: rgba(239, 68, 68, 0.5);
+}
+
+/* Upload progress */
+.fp-upload-progress {
+    display: none;
+    margin-bottom: 1rem;
+}
+
+.fp-upload-progress.visible {
+    display: block;
+}
+
+.fp-upload-progress .progress-bar {
+    height: 4px;
+    background: var(--color-border);
+    border-radius: 2px;
+    overflow: hidden;
+}
+
+.fp-upload-progress .progress-fill {
+    height: 100%;
+    background: var(--color-text);
+    border-radius: 2px;
+    transition: width 0.3s ease;
+}
+
+.fp-upload-progress .progress-text {
+    font-size: 0.75rem;
+    color: var(--color-muted);
+    margin-top: 0.3rem;
+    text-align: center;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .floorplans-main {
+        padding: 1rem;
+    }
+
+    .fp-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .fp-detail-header {
+        flex-wrap: wrap;
+    }
+
+    .fp-item {
+        flex-wrap: wrap;
+    }
+}

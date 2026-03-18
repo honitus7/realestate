@@ -578,6 +578,113 @@ def delete_daynight_from_s3(filename):
         pass
 
 
+# ---------------------------------------------------------------------------
+# Floor Plan helpers (WebP lossless for transparent PNGs)
+# ---------------------------------------------------------------------------
+
+FLOORPLAN_MAX_DIMENSION = 2400
+MAX_FLOORPLAN_READ_BYTES = int(os.environ.get('MAX_FLOORPLAN_READ_BYTES', str(30 * 1024 * 1024)))  # 30MB
+
+
+def floorplan_object_key(filename):
+    safe_name = os.path.basename(filename or '').strip()
+    if app_config.SUPABASE_S3_FLOORPLAN_PREFIX:
+        return f"{app_config.SUPABASE_S3_FLOORPLAN_PREFIX}/{safe_name}"
+    return safe_name
+
+
+def convert_floorplan_to_webp_lossless(raw_bytes):
+    """Convert uploaded image to WebP lossless, preserving transparency.
+    Returns (webp_bytes, width, height) or (None, 0, 0).
+    """
+    if not raw_bytes or len(raw_bytes) > MAX_FLOORPLAN_READ_BYTES:
+        return None, 0, 0
+    try:
+        img = Image.open(io.BytesIO(raw_bytes))
+    except Exception:
+        return None, 0, 0
+    # Handle EXIF orientation
+    try:
+        exif = img.getexif()
+        orientation = exif.get(EXIF_ORIENTATION_TAG)
+        if orientation == 3:
+            img = img.rotate(180, expand=True)
+        elif orientation == 6:
+            img = img.rotate(270, expand=True)
+        elif orientation == 8:
+            img = img.rotate(90, expand=True)
+    except Exception:
+        pass
+    # Preserve alpha channel (RGBA) for background-removed images
+    if img.mode not in ('RGBA', 'LA', 'PA'):
+        img = img.convert('RGBA')
+    else:
+        img = img.convert('RGBA')
+    w, h = img.size
+    # Scale down if needed
+    if max(w, h) > FLOORPLAN_MAX_DIMENSION:
+        ratio = FLOORPLAN_MAX_DIMENSION / float(max(w, h))
+        w = max(1, int(w * ratio))
+        h = max(1, int(h * ratio))
+        img = img.resize((w, h), RESAMPLE_LANCZOS)
+    buf = io.BytesIO()
+    try:
+        img.save(buf, 'WEBP', lossless=True, quality=100, method=6)
+    except Exception:
+        return None, 0, 0
+    return buf.getvalue(), w, h
+
+
+def upload_floorplan_to_s3(filename, raw_bytes, content_type='image/webp'):
+    client = get_s3_client()
+    if not client:
+        raise RuntimeError('S3 not configured')
+    key = floorplan_object_key(filename)
+    client.put_object(
+        Bucket=app_config.SUPABASE_S3_BUCKET,
+        Key=key,
+        Body=raw_bytes,
+        ContentType=content_type,
+    )
+
+
+def get_floorplan_s3_url(filename):
+    client = get_s3_client()
+    if not client or not filename:
+        return None
+    key = floorplan_object_key(filename)
+    now = time.time()
+    cached = _s3_signed_url_cache.get(key)
+    if cached:
+        url, expires_at = cached
+        if url and expires_at and now < (expires_at - 30):
+            return url
+    try:
+        client.head_object(Bucket=app_config.SUPABASE_S3_BUCKET, Key=key)
+    except Exception:
+        return None
+    url = client.generate_presigned_url(
+        ClientMethod='get_object',
+        Params={'Bucket': app_config.SUPABASE_S3_BUCKET, 'Key': key},
+        ExpiresIn=app_config.SUPABASE_S3_SIGNED_URL_TTL,
+    )
+    try:
+        _s3_signed_url_cache[key] = (url, now + float(app_config.SUPABASE_S3_SIGNED_URL_TTL))
+    except Exception:
+        pass
+    return url
+
+
+def delete_floorplan_from_s3(filename):
+    client = get_s3_client()
+    if not client or not filename:
+        return
+    try:
+        client.delete_object(Bucket=app_config.SUPABASE_S3_BUCKET, Key=floorplan_object_key(filename))
+    except Exception:
+        pass
+
+
 def stitch_images_horizontally(image_bytes_list):
     """Join images left-to-right into one long JPEG.
     Returns (stitched_bytes, join_positions, total_width, height).

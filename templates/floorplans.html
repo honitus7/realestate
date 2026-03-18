@@ -1,0 +1,594 @@
+{% extends 'base.html' %}
+{% block title %}Floor Plans – PropMark{% endblock %}
+{% block head_css %}
+<link rel="stylesheet" href="/static/css/dashboard.css">
+<link rel="stylesheet" href="/static/css/floorplans.css">
+{% endblock %}
+{% block content %}
+<div class="floorplans-page" id="floorplans-page">
+    {% set active_page = 'floorplans' %}
+    {% include 'components/sidebar.html' %}
+
+    <div class="floorplans-main">
+        <!-- List view -->
+        <div id="fp-list-view">
+            <div class="floorplans-header">
+                <h1 class="floorplans-title">Floor Plan Catalogues</h1>
+                <button class="btn btn-primary" id="new-catalogue-btn">New Catalogue</button>
+            </div>
+
+            <div id="fp-loading" style="text-align:center; padding:3rem; color:var(--color-muted);">Loading...</div>
+
+            <div class="fp-grid" id="fp-grid" style="display:none;"></div>
+
+            <div class="fp-empty" id="fp-empty" style="display:none;">
+                <div class="fp-empty-icon">&#9638;</div>
+                <div>No floor plan catalogues yet.</div>
+                <div style="margin-top:0.5rem; font-size:0.85rem;">Click "New Catalogue" to create one linked to a project.</div>
+            </div>
+        </div>
+
+        <!-- Detail view (items within a catalogue) -->
+        <div id="fp-detail-view" class="fp-detail">
+            <div class="fp-detail-header">
+                <button class="fp-detail-back" id="fp-back-btn">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+                    Back
+                </button>
+                <h2 class="fp-detail-title" id="fp-detail-title">Floor Plans</h2>
+                <div style="display:flex; gap:0.5rem;">
+                    <button class="btn btn-secondary btn-sm" id="fp-preview-btn" title="Preview public view">Preview</button>
+                    <button class="btn btn-sm" id="fp-save-order-btn" style="display:none;">Save Order</button>
+                </div>
+            </div>
+
+            <div class="fp-upload-zone" id="fp-upload-zone">
+                <div class="fp-upload-zone-icon">&#128444;</div>
+                <div class="fp-upload-zone-text">Drop floor plan images here</div>
+                <div class="fp-upload-zone-hint">PNG or WebP with transparent background recommended</div>
+                <input type="file" id="fp-file-input" accept="image/png,image/webp,image/jpeg" style="display:none" multiple>
+            </div>
+
+            <div class="fp-upload-progress" id="fp-upload-progress">
+                <div class="progress-bar"><div class="progress-fill" id="fp-progress-fill" style="width:0%"></div></div>
+                <div class="progress-text" id="fp-progress-text">Uploading...</div>
+            </div>
+
+            <div class="fp-items-list" id="fp-items-list"></div>
+
+            <div class="fp-empty" id="fp-items-empty" style="display:none;">
+                <div class="fp-empty-icon">&#128444;</div>
+                <div>No floor plans added yet.</div>
+                <div style="margin-top:0.5rem; font-size:0.85rem;">Upload images above to build your catalogue.</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Create Catalogue Modal -->
+    <div class="modal-backdrop" id="fp-create-modal">
+        <div class="modal" style="max-width:480px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
+                <div class="modal-title">New Floor Plan Catalogue</div>
+                <button type="button" class="modal-close" id="fp-modal-close" aria-label="Close">&times;</button>
+            </div>
+            <div class="form-group" style="margin-bottom:1rem;">
+                <label class="form-label">Catalogue Name</label>
+                <input type="text" class="form-input" id="fp-cat-name" maxlength="200" placeholder="e.g., Floor Plans" value="Floor Plans">
+            </div>
+            <div id="fp-create-error" class="msg error" style="display:none; margin-bottom:1rem;"></div>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" id="fp-modal-cancel">Cancel</button>
+                <button class="btn btn-primary" id="fp-modal-create">Create</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Upload name modal (after file pick) -->
+    <div class="modal-backdrop" id="fp-name-modal">
+        <div class="modal" style="max-width:420px;">
+            <div class="modal-title" style="margin-bottom:1rem;">Name this floor plan</div>
+            <div style="display:flex; gap:1rem; align-items:center; margin-bottom:1rem;">
+                <img id="fp-name-preview" src="" alt="" style="width:80px; height:60px; object-fit:contain; border-radius:var(--radius-sm); background:var(--color-surface);">
+                <div style="flex:1;">
+                    <div id="fp-name-filename" style="font-size:0.82rem; color:var(--color-muted);"></div>
+                </div>
+            </div>
+            <div class="form-group" style="margin-bottom:1rem;">
+                <label class="form-label">Floor Plan Name</label>
+                <input type="text" class="form-input" id="fp-item-name-input" maxlength="200" placeholder="e.g., 2 BHK (638 SQFT)">
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" id="fp-name-skip">Skip</button>
+                <button class="btn btn-primary" id="fp-name-confirm">Upload</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Delete confirm modal -->
+    <div class="modal-backdrop" id="fp-delete-modal">
+        <div class="modal">
+            <div class="modal-title">Delete?</div>
+            <div class="modal-text" id="fp-delete-text">This action cannot be undone.</div>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" id="fp-delete-cancel">Cancel</button>
+                <button class="btn btn-danger" id="fp-delete-confirm">Delete</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Rename item modal -->
+    <div class="modal-backdrop" id="fp-rename-modal">
+        <div class="modal" style="max-width:420px;">
+            <div class="modal-title" style="margin-bottom:1rem;">Rename Floor Plan</div>
+            <div class="form-group" style="margin-bottom:1rem;">
+                <input type="text" class="form-input" id="fp-rename-input" maxlength="200">
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" id="fp-rename-cancel">Cancel</button>
+                <button class="btn btn-primary" id="fp-rename-confirm">Rename</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    window.__SUPABASE_URL__ = {{ (supabase_url or '')|tojson }};
+    window.__SUPABASE_ANON_KEY__ = {{ (supabase_anon_key or '')|tojson }};
+</script>
+<script src="/static/js/sidebar.js"></script>
+<script>
+(function() {
+    var accessToken = null;
+    var catalogues = [];
+    var currentCatalogue = null;
+    var currentItems = [];
+    var pendingFiles = [];
+    var pendingFileIndex = 0;
+    var orderDirty = false;
+
+    // Wait for sidebar auth then start
+    window.sidebarReady.then(function(ctx) {
+        accessToken = ctx.accessToken;
+        loadCatalogues();
+    });
+
+    function authHeaders() {
+        return { 'Authorization': 'Bearer ' + accessToken };
+    }
+
+    // ------------------------------------------------------------------
+    // Catalogue list
+    // ------------------------------------------------------------------
+
+    function loadCatalogues() {
+        fetch('/api/floorplans/catalogues', { headers: authHeaders() })
+            .then(function(r) { return r.ok ? r.json() : []; })
+            .then(function(data) {
+                catalogues = data;
+                renderCatalogues();
+            });
+    }
+
+    function renderCatalogues() {
+        var loading = document.getElementById('fp-loading');
+        var grid = document.getElementById('fp-grid');
+        var empty = document.getElementById('fp-empty');
+        if (loading) loading.style.display = 'none';
+        if (!catalogues.length) {
+            if (grid) grid.style.display = 'none';
+            if (empty) empty.style.display = '';
+            return;
+        }
+        if (empty) empty.style.display = 'none';
+        if (grid) grid.style.display = '';
+        grid.innerHTML = catalogues.map(function(c) {
+            return '<div class="fp-card" data-id="' + c.id + '">' +
+                '<div class="fp-card-preview">' +
+                    '<span class="fp-placeholder">&#9638;</span>' +
+                '</div>' +
+                '<div class="fp-card-body">' +
+                    '<div class="fp-card-name">' + esc(c.name) + '</div>' +
+                    '<div class="fp-card-meta">' + (c.item_count || 0) + ' floor plan' + ((c.item_count || 0) !== 1 ? 's' : '') + '</div>' +
+                    '<div class="fp-share-row">' +
+                        '<input type="text" value="' + esc(c.share_url || '') + '" readonly onclick="this.select()">' +
+                        '<button class="btn btn-sm fp-copy-btn" data-url="' + esc(c.share_url || '') + '">Copy</button>' +
+                    '</div>' +
+                    '<div class="fp-card-actions">' +
+                        '<button class="btn btn-secondary fp-manage-btn" data-id="' + c.id + '">Manage</button>' +
+                        '<button class="btn btn-danger fp-del-cat-btn" data-id="' + c.id + '" data-name="' + esc(c.name) + '">Delete</button>' +
+                    '</div>' +
+                '</div>' +
+            '</div>';
+        }).join('');
+
+        // Bind events
+        grid.querySelectorAll('.fp-copy-btn').forEach(function(btn) {
+            btn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                navigator.clipboard.writeText(btn.dataset.url).then(function() {
+                    btn.textContent = 'Copied!';
+                    setTimeout(function() { btn.textContent = 'Copy'; }, 1500);
+                });
+            });
+        });
+        grid.querySelectorAll('.fp-manage-btn').forEach(function(btn) {
+            btn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                openCatalogue(btn.dataset.id);
+            });
+        });
+        grid.querySelectorAll('.fp-del-cat-btn').forEach(function(btn) {
+            btn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                confirmDeleteCatalogue(btn.dataset.id, btn.dataset.name);
+            });
+        });
+    }
+
+    // ------------------------------------------------------------------
+    // Create catalogue modal
+    // ------------------------------------------------------------------
+
+    document.getElementById('new-catalogue-btn').addEventListener('click', function() {
+        showModal('fp-create-modal');
+        document.getElementById('fp-create-error').style.display = 'none';
+    });
+    document.getElementById('fp-modal-close').addEventListener('click', function() { hideModal('fp-create-modal'); });
+    document.getElementById('fp-modal-cancel').addEventListener('click', function() { hideModal('fp-create-modal'); });
+
+    document.getElementById('fp-modal-create').addEventListener('click', function() {
+        var name = document.getElementById('fp-cat-name').value.trim() || 'Floor Plans';
+        var btn = this;
+        btn.disabled = true;
+        fetch('/api/floorplans/catalogues', {
+            method: 'POST',
+            headers: Object.assign({'Content-Type': 'application/json'}, authHeaders()),
+            body: JSON.stringify({ name: name })
+        })
+        .then(function(r) { return r.json().then(function(d) { return { ok: r.ok, data: d }; }); })
+        .then(function(res) {
+            btn.disabled = false;
+            if (!res.ok) {
+                showError('fp-create-error', res.data.error || 'Failed');
+                return;
+            }
+            hideModal('fp-create-modal');
+            loadCatalogues();
+        })
+        .catch(function() { btn.disabled = false; });
+    });
+
+    // ------------------------------------------------------------------
+    // Delete catalogue
+    // ------------------------------------------------------------------
+
+    var deleteTarget = { type: null, id: null };
+
+    function confirmDeleteCatalogue(id, name) {
+        deleteTarget = { type: 'catalogue', id: id };
+        document.getElementById('fp-delete-text').textContent = 'Delete catalogue "' + name + '" and all its floor plans? This cannot be undone.';
+        showModal('fp-delete-modal');
+    }
+
+    function confirmDeleteItem(id, name) {
+        deleteTarget = { type: 'item', id: id };
+        document.getElementById('fp-delete-text').textContent = 'Delete floor plan "' + name + '"? This cannot be undone.';
+        showModal('fp-delete-modal');
+    }
+
+    document.getElementById('fp-delete-cancel').addEventListener('click', function() { hideModal('fp-delete-modal'); });
+    document.getElementById('fp-delete-confirm').addEventListener('click', function() {
+        var btn = this;
+        btn.disabled = true;
+        var url = deleteTarget.type === 'catalogue'
+            ? '/api/floorplans/catalogues/' + deleteTarget.id
+            : '/api/floorplans/items/' + deleteTarget.id;
+        fetch(url, { method: 'DELETE', headers: authHeaders() })
+            .then(function() {
+                btn.disabled = false;
+                hideModal('fp-delete-modal');
+                if (deleteTarget.type === 'catalogue') {
+                    loadCatalogues();
+                } else {
+                    loadItems();
+                }
+            })
+            .catch(function() { btn.disabled = false; });
+    });
+
+    // ------------------------------------------------------------------
+    // Detail view (items within catalogue)
+    // ------------------------------------------------------------------
+
+    function openCatalogue(catalogueId) {
+        currentCatalogue = catalogues.find(function(c) { return c.id === catalogueId; });
+        if (!currentCatalogue) return;
+        document.getElementById('fp-list-view').style.display = 'none';
+        document.getElementById('fp-detail-view').classList.add('visible');
+        document.getElementById('fp-detail-title').textContent = currentCatalogue.name;
+        orderDirty = false;
+        document.getElementById('fp-save-order-btn').style.display = 'none';
+        loadItems();
+    }
+
+    document.getElementById('fp-back-btn').addEventListener('click', function() {
+        document.getElementById('fp-detail-view').classList.remove('visible');
+        document.getElementById('fp-list-view').style.display = '';
+        currentCatalogue = null;
+        loadCatalogues();
+    });
+
+    document.getElementById('fp-preview-btn').addEventListener('click', function() {
+        if (currentCatalogue && currentCatalogue.share_token) {
+            window.open('/floorplans/view/' + currentCatalogue.share_token, '_blank');
+        }
+    });
+
+    function loadItems() {
+        if (!currentCatalogue) return;
+        fetch('/api/floorplans/catalogues/' + currentCatalogue.id + '/items', { headers: authHeaders() })
+            .then(function(r) { return r.ok ? r.json() : []; })
+            .then(function(data) {
+                currentItems = data;
+                renderItems();
+            });
+    }
+
+    function renderItems() {
+        var list = document.getElementById('fp-items-list');
+        var empty = document.getElementById('fp-items-empty');
+        if (!currentItems.length) {
+            list.innerHTML = '';
+            if (empty) empty.style.display = '';
+            return;
+        }
+        if (empty) empty.style.display = 'none';
+        list.innerHTML = currentItems.map(function(item, idx) {
+            var sizeStr = item.file_size_bytes ? formatBytes(item.file_size_bytes) : '';
+            var dimStr = (item.image_width && item.image_height) ? item.image_width + ' x ' + item.image_height : '';
+            var meta = [sizeStr, dimStr].filter(Boolean).join(' &middot; ');
+            return '<div class="fp-item" draggable="true" data-id="' + item.id + '" data-idx="' + idx + '">' +
+                '<div class="fp-item-drag" title="Drag to reorder">' +
+                    '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="16" y2="6"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="8" y1="18" x2="16" y2="18"/></svg>' +
+                '</div>' +
+                '<img class="fp-item-thumb" src="' + esc(item.image_url || '') + '" alt="' + esc(item.name) + '">' +
+                '<div class="fp-item-info">' +
+                    '<div class="fp-item-name">' + esc(item.name) + '</div>' +
+                    '<div class="fp-item-size">' + meta + '</div>' +
+                '</div>' +
+                '<div class="fp-item-actions">' +
+                    '<button class="fp-item-btn rename" data-id="' + item.id + '" data-name="' + esc(item.name) + '" title="Rename">' +
+                        '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 3a2.83 2.83 0 0 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>' +
+                    '</button>' +
+                    '<button class="fp-item-btn delete" data-id="' + item.id + '" data-name="' + esc(item.name) + '" title="Delete">' +
+                        '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>' +
+                    '</button>' +
+                '</div>' +
+            '</div>';
+        }).join('');
+
+        // Bind events
+        list.querySelectorAll('.fp-item-btn.rename').forEach(function(btn) {
+            btn.addEventListener('click', function() { openRename(btn.dataset.id, btn.dataset.name); });
+        });
+        list.querySelectorAll('.fp-item-btn.delete').forEach(function(btn) {
+            btn.addEventListener('click', function() { confirmDeleteItem(btn.dataset.id, btn.dataset.name); });
+        });
+
+        // Drag and drop reorder
+        setupDragReorder();
+    }
+
+    // ------------------------------------------------------------------
+    // Drag reorder
+    // ------------------------------------------------------------------
+
+    function setupDragReorder() {
+        var list = document.getElementById('fp-items-list');
+        var dragSrcIdx = null;
+
+        list.querySelectorAll('.fp-item').forEach(function(el) {
+            el.addEventListener('dragstart', function(e) {
+                dragSrcIdx = parseInt(el.dataset.idx);
+                el.classList.add('dragging');
+                e.dataTransfer.effectAllowed = 'move';
+                e.dataTransfer.setData('text/plain', dragSrcIdx);
+            });
+            el.addEventListener('dragend', function() {
+                el.classList.remove('dragging');
+                list.querySelectorAll('.fp-item').forEach(function(x) { x.classList.remove('drag-over'); });
+            });
+            el.addEventListener('dragover', function(e) {
+                e.preventDefault();
+                e.dataTransfer.dropEffect = 'move';
+                el.classList.add('drag-over');
+            });
+            el.addEventListener('dragleave', function() {
+                el.classList.remove('drag-over');
+            });
+            el.addEventListener('drop', function(e) {
+                e.preventDefault();
+                el.classList.remove('drag-over');
+                var targetIdx = parseInt(el.dataset.idx);
+                if (dragSrcIdx === null || dragSrcIdx === targetIdx) return;
+                // Reorder array
+                var moved = currentItems.splice(dragSrcIdx, 1)[0];
+                currentItems.splice(targetIdx, 0, moved);
+                orderDirty = true;
+                document.getElementById('fp-save-order-btn').style.display = '';
+                renderItems();
+            });
+        });
+    }
+
+    // Save reorder
+    document.getElementById('fp-save-order-btn').addEventListener('click', function() {
+        if (!currentCatalogue || !orderDirty) return;
+        var btn = this;
+        btn.disabled = true;
+        var ids = currentItems.map(function(it) { return it.id; });
+        fetch('/api/floorplans/catalogues/' + currentCatalogue.id + '/reorder', {
+            method: 'POST',
+            headers: Object.assign({'Content-Type': 'application/json'}, authHeaders()),
+            body: JSON.stringify({ ordered_ids: ids })
+        })
+        .then(function(r) { return r.ok ? r.json() : []; })
+        .then(function(data) {
+            btn.disabled = false;
+            btn.style.display = 'none';
+            orderDirty = false;
+            currentItems = data;
+            renderItems();
+        })
+        .catch(function() { btn.disabled = false; });
+    });
+
+    // ------------------------------------------------------------------
+    // File upload
+    // ------------------------------------------------------------------
+
+    var uploadZone = document.getElementById('fp-upload-zone');
+    var fileInput = document.getElementById('fp-file-input');
+
+    uploadZone.addEventListener('click', function() { fileInput.click(); });
+    uploadZone.addEventListener('dragover', function(e) { e.preventDefault(); uploadZone.classList.add('dragover'); });
+    uploadZone.addEventListener('dragleave', function() { uploadZone.classList.remove('dragover'); });
+    uploadZone.addEventListener('drop', function(e) {
+        e.preventDefault();
+        uploadZone.classList.remove('dragover');
+        handleFiles(e.dataTransfer.files);
+    });
+    fileInput.addEventListener('change', function() {
+        if (fileInput.files.length) handleFiles(fileInput.files);
+        fileInput.value = '';
+    });
+
+    function handleFiles(files) {
+        pendingFiles = Array.from(files);
+        pendingFileIndex = 0;
+        processNextFile();
+    }
+
+    function processNextFile() {
+        if (pendingFileIndex >= pendingFiles.length) return;
+        var file = pendingFiles[pendingFileIndex];
+        // Show name modal
+        var nameFromFile = file.name.replace(/\.[^.]+$/, '').replace(/[_-]+/g, ' ');
+        document.getElementById('fp-item-name-input').value = nameFromFile;
+        document.getElementById('fp-name-filename').textContent = file.name + ' (' + formatBytes(file.size) + ')';
+        // Preview
+        var reader = new FileReader();
+        reader.onload = function(e) {
+            document.getElementById('fp-name-preview').src = e.target.result;
+        };
+        reader.readAsDataURL(file);
+        showModal('fp-name-modal');
+    }
+
+    document.getElementById('fp-name-confirm').addEventListener('click', function() {
+        var name = document.getElementById('fp-item-name-input').value.trim();
+        if (!name) name = 'Untitled';
+        hideModal('fp-name-modal');
+        uploadFile(pendingFiles[pendingFileIndex], name);
+    });
+
+    document.getElementById('fp-name-skip').addEventListener('click', function() {
+        pendingFileIndex++;
+        hideModal('fp-name-modal');
+        processNextFile();
+    });
+
+    function uploadFile(file, name) {
+        if (!currentCatalogue) return;
+        var progress = document.getElementById('fp-upload-progress');
+        var fill = document.getElementById('fp-progress-fill');
+        var text = document.getElementById('fp-progress-text');
+        progress.classList.add('visible');
+        fill.style.width = '30%';
+        text.textContent = 'Uploading ' + name + '...';
+
+        var fd = new FormData();
+        fd.append('file', file);
+        fd.append('name', name);
+
+        fetch('/api/floorplans/catalogues/' + currentCatalogue.id + '/items', {
+            method: 'POST',
+            headers: authHeaders(),
+            body: fd
+        })
+        .then(function(r) { return r.json().then(function(d) { return { ok: r.ok, data: d }; }); })
+        .then(function(res) {
+            fill.style.width = '100%';
+            setTimeout(function() {
+                progress.classList.remove('visible');
+                fill.style.width = '0%';
+            }, 600);
+            if (res.ok) {
+                loadItems();
+            } else {
+                text.textContent = 'Error: ' + (res.data.error || 'Upload failed');
+                setTimeout(function() { progress.classList.remove('visible'); }, 2000);
+            }
+            pendingFileIndex++;
+            setTimeout(processNextFile, 300);
+        })
+        .catch(function() {
+            progress.classList.remove('visible');
+            pendingFileIndex++;
+            processNextFile();
+        });
+    }
+
+    // ------------------------------------------------------------------
+    // Rename item
+    // ------------------------------------------------------------------
+
+    var renameItemId = null;
+
+    function openRename(id, name) {
+        renameItemId = id;
+        document.getElementById('fp-rename-input').value = name;
+        showModal('fp-rename-modal');
+    }
+
+    document.getElementById('fp-rename-cancel').addEventListener('click', function() { hideModal('fp-rename-modal'); });
+    document.getElementById('fp-rename-confirm').addEventListener('click', function() {
+        var name = document.getElementById('fp-rename-input').value.trim();
+        if (!name || !renameItemId) { hideModal('fp-rename-modal'); return; }
+        fetch('/api/floorplans/items/' + renameItemId, {
+            method: 'PATCH',
+            headers: Object.assign({'Content-Type': 'application/json'}, authHeaders()),
+            body: JSON.stringify({ name: name })
+        })
+        .then(function() {
+            hideModal('fp-rename-modal');
+            loadItems();
+        });
+    });
+
+    // ------------------------------------------------------------------
+    // Utils
+    // ------------------------------------------------------------------
+
+    function showModal(id) { document.getElementById(id).classList.add('visible'); }
+    function hideModal(id) { document.getElementById(id).classList.remove('visible'); }
+    function showError(id, msg) {
+        var el = document.getElementById(id);
+        el.textContent = msg;
+        el.style.display = '';
+    }
+    function esc(s) {
+        var d = document.createElement('div');
+        d.textContent = s || '';
+        return d.innerHTML;
+    }
+    function formatBytes(b) {
+        if (b < 1024) return b + ' B';
+        if (b < 1024 * 1024) return (b / 1024).toFixed(1) + ' KB';
+        return (b / (1024 * 1024)).toFixed(1) + ' MB';
+    }
+})();
+</script>
+{% endblock %}

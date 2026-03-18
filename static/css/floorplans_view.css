@@ -1,0 +1,277 @@
+/* Floor Plans – Public Viewer (matches admin_3d frosted-glass style) */
+
+.fpv-page {
+    margin: 0;
+    padding: 0;
+    width: 100vw;
+    height: 100vh;
+    overflow: hidden;
+    background: var(--color-bg, #f5f5f0);
+    font-family: var(--font-body, 'Syne', sans-serif);
+    position: relative;
+}
+
+/* -- Full-screen image area -- */
+.fpv-image-area {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    overflow: hidden;
+    background: linear-gradient(135deg, #e8e8e3 0%, #f5f5f0 50%, #e8e8e3 100%);
+}
+
+.fpv-image-wrap {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2.5rem;
+}
+
+.fpv-image {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+    opacity: 0;
+    transform: scale(0.97);
+    transition: opacity 0.45s ease, transform 0.45s ease;
+    filter: drop-shadow(0 12px 40px rgba(22, 35, 56, 0.15));
+}
+
+.fpv-image.loaded {
+    opacity: 1;
+    transform: scale(1);
+}
+
+.fpv-image.fade-out {
+    opacity: 0;
+    transform: scale(0.97);
+}
+
+/* Subtle vignette overlay */
+.fpv-image-area::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: linear-gradient(
+        to bottom,
+        rgba(248, 252, 255, 0.22) 0%,
+        rgba(248, 252, 255, 0) 24%,
+        rgba(10, 18, 34, 0.04) 78%,
+        rgba(10, 18, 34, 0.12) 100%
+    );
+    z-index: 1;
+}
+
+/* Watermark */
+.fpv-watermark {
+    position: absolute;
+    bottom: 1rem;
+    left: 1.25rem;
+    z-index: 10;
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: rgba(22, 35, 56, 0.25);
+    letter-spacing: 0.04em;
+    pointer-events: none;
+}
+
+/* -- Zoom controls (top-right, frosted glass) -- */
+.fpv-zoom-controls {
+    position: fixed;
+    top: 1rem;
+    right: 1rem;
+    z-index: 20;
+    display: flex;
+    gap: 0.25rem;
+    background: rgba(255, 255, 255, 0.72);
+    backdrop-filter: blur(18px) saturate(160%);
+    -webkit-backdrop-filter: blur(18px) saturate(160%);
+    border: 1px solid rgba(22, 35, 56, 0.08);
+    border-radius: 12px;
+    padding: 0.3rem 0.35rem;
+    box-shadow: 0 2px 12px rgba(7, 25, 52, 0.08);
+}
+
+.fpv-zoom-btn {
+    width: 34px;
+    height: 34px;
+    border-radius: 8px;
+    background: transparent;
+    border: 1px solid transparent;
+    color: #4a6185;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.18s ease, color 0.18s ease, border-color 0.18s ease;
+    font-family: var(--font-body, 'Syne', sans-serif);
+}
+
+.fpv-zoom-btn:hover {
+    background: rgba(22, 35, 56, 0.07);
+    color: #1a2e4d;
+    border-color: rgba(22, 35, 56, 0.08);
+}
+
+/* -- Floor Plan selector panel (bottom-right floating, frosted glass) -- */
+.fpv-panel {
+    position: fixed;
+    bottom: 1.5rem;
+    right: 1.5rem;
+    z-index: 20;
+    width: 260px;
+    max-height: calc(100vh - 6rem);
+    background: rgba(255, 255, 255, 0.72);
+    backdrop-filter: blur(18px) saturate(160%);
+    -webkit-backdrop-filter: blur(18px) saturate(160%);
+    border: 1px solid rgba(22, 35, 56, 0.08);
+    border-radius: 14px;
+    box-shadow: 0 4px 18px rgba(7, 27, 56, 0.1);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    pointer-events: auto;
+}
+
+.fpv-panel-header {
+    padding: 0.85rem 1rem 0.6rem;
+    border-bottom: 1px solid rgba(22, 35, 56, 0.06);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-shrink: 0;
+}
+
+.fpv-panel-title {
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: #1a2e4d;
+    letter-spacing: 0.01em;
+    margin: 0;
+}
+
+.fpv-panel-collapse {
+    width: 28px;
+    height: 28px;
+    border-radius: 7px;
+    background: transparent;
+    border: 1px solid transparent;
+    color: #4a6185;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.18s ease, border-color 0.18s ease;
+}
+
+.fpv-panel-collapse:hover {
+    background: rgba(22, 35, 56, 0.07);
+    border-color: rgba(22, 35, 56, 0.08);
+}
+
+.fpv-panel-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 0.4rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+}
+
+.fpv-panel-list::-webkit-scrollbar {
+    width: 3px;
+}
+
+.fpv-panel-list::-webkit-scrollbar-thumb {
+    background: rgba(22, 35, 56, 0.15);
+    border-radius: 2px;
+}
+
+.fpv-panel-item {
+    padding: 0.55rem 0.75rem;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 8px;
+    cursor: pointer;
+    font-family: var(--font-body, 'Syne', sans-serif);
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: #1a2e4d;
+    text-align: left;
+    width: 100%;
+    display: block;
+    transition: background 0.18s ease, border-color 0.2s ease;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.fpv-panel-item:hover {
+    background: rgba(22, 35, 56, 0.05);
+}
+
+.fpv-panel-item.active {
+    background: rgba(22, 35, 56, 0.08);
+    border-color: rgba(22, 35, 56, 0.1);
+}
+
+/* Collapsed state - just shows a small pill to re-open */
+.fpv-panel.collapsed .fpv-panel-list,
+.fpv-panel.collapsed .fpv-panel-header {
+    display: none;
+}
+
+.fpv-panel.collapsed {
+    width: auto;
+    max-height: none;
+    padding: 0;
+    border-radius: 12px;
+}
+
+.fpv-panel-expand {
+    display: none;
+    padding: 0.55rem 0.85rem;
+    font-family: var(--font-body, 'Syne', sans-serif);
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: #1a2e4d;
+    cursor: pointer;
+    background: none;
+    border: none;
+    white-space: nowrap;
+    gap: 0.4rem;
+    align-items: center;
+}
+
+.fpv-panel.collapsed .fpv-panel-expand {
+    display: inline-flex;
+}
+
+/* -- Responsive -- */
+@media (max-width: 600px) {
+    .fpv-panel {
+        bottom: 1rem;
+        right: 1rem;
+        left: 1rem;
+        width: auto;
+        max-height: 40vh;
+    }
+
+    .fpv-image-wrap {
+        padding: 1.5rem;
+    }
+
+    .fpv-zoom-controls {
+        top: 0.75rem;
+        right: 0.75rem;
+    }
+}

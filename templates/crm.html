@@ -1,10 +1,14 @@
 {% extends 'base.html' %}
 {% block title %}CRM – PropMark{% endblock %}
 {% block head_css %}
+<link rel="stylesheet" href="/static/css/dashboard.css">
 <link rel="stylesheet" href="/static/css/crm.css">
 {% endblock %}
 {% block content %}
-<div class="crm-page">
+<div class="crm-page crm-page--with-sidebar">
+    {% set active_page = 'crm' %}
+    {% include 'components/sidebar.html' %}
+    <div class="crm-page-content">
     <header class="header">
         <div class="header-left">
             <a class="logo" href="/dashboard" aria-label="Back to dashboard">
@@ -578,19 +582,18 @@
             </button>
         </div>
     </div>
+    </div><!-- .crm-page-content -->
 </div>
 
 {% endblock %}
 {% block scripts %}
 <script>
+    window.__SUPABASE_URL__ = {{ (supabase_url or '')|tojson }};
+    window.__SUPABASE_ANON_KEY__ = {{ (supabase_anon_key or '')|tojson }};
+</script>
+<script src="/static/js/sidebar.js"></script>
+<script>
 (function () {
-    var url = {{ (supabase_url or '')|tojson }};
-    var key = {{ (supabase_anon_key or '')|tojson }};
-    if (url && key && window.supabase) {
-        window._supabase = window.supabase.createClient(url, key);
-    } else {
-        window._supabase = null;
-    }
     function waitForAuthSession(maxAttempts, delayMs) {
         var sb = window._supabase;
         if (!sb || !sb.auth || typeof sb.auth.getSession !== 'function') return Promise.resolve(null);

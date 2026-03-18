@@ -32,15 +32,30 @@
 }
 
 .dn-card {
-    background: var(--color-card, #1a1a1e);
-    border: 1px solid var(--color-border, #2a2a2e);
+    background: #ffffff;
+    border: 1px solid #e0e0e0;
     border-radius: 12px;
     overflow: hidden;
     transition: border-color 0.2s;
+    color: #1a1a1e;
 }
 
 .dn-card:hover {
     border-color: var(--color-accent, #c9a962);
+}
+
+.dn-card .dn-card-name {
+    color: #1a1a1e;
+}
+
+.dn-card .dn-card-date {
+    color: #666;
+}
+
+.dn-card .dn-share-row input {
+    background: #f5f5f5;
+    border-color: #ddd;
+    color: #333;
 }
 
 .dn-card-preview {

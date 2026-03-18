@@ -86,6 +86,11 @@ from app.services.storage_service import (
     delete_daynight_from_s3,
     stitch_images_horizontally,
     MAX_DAYNIGHT_IMAGE_READ_BYTES,
+    convert_floorplan_to_webp_lossless,
+    upload_floorplan_to_s3,
+    get_floorplan_s3_url,
+    delete_floorplan_from_s3,
+    MAX_FLOORPLAN_READ_BYTES,
 )
 from app.services.org_service import get_org_name_and_slug_for_panorama, slugify_org_name
 from app.services.plot_service import fetch_plots, create_plot as plot_create, get_plot_panorama_id, delete_plot as plot_delete, update_plot as plot_update, update_plot_label_position as plot_update_label_position
@@ -96,6 +101,21 @@ from app.services.daynight_service import (
     list_daynight_projects as dn_list,
     update_daynight_project as dn_update,
     delete_daynight_project as dn_delete,
+)
+from app.services.floorplan_service import (
+    create_catalogue as fp_create_catalogue,
+    get_catalogue as fp_get_catalogue,
+    get_catalogue_by_token as fp_get_catalogue_by_token,
+    list_catalogues as fp_list_catalogues,
+    update_catalogue as fp_update_catalogue,
+    delete_catalogue as fp_delete_catalogue,
+    list_items as fp_list_items,
+    get_item as fp_get_item,
+    create_item as fp_create_item,
+    update_item as fp_update_item,
+    delete_item as fp_delete_item,
+    reorder_items as fp_reorder_items,
+    get_next_sort_order as fp_next_sort_order,
 )
 from app.config import (
     ALLOWED_EXTENSIONS,
@@ -4284,3 +4304,238 @@ def register_routes(app):
                                stitched_width=project.get('stitched_width', 0),
                                stitched_height=project.get('stitched_height', 0),
                                drag_speed=project.get('drag_speed') or 80)
+
+    # ==================================================================
+    # Floor Plan Catalogue
+    # ==================================================================
+
+    @app.route('/floorplans')
+    def floorplans_page():
+        return render_template('floorplans.html', **auth_ctx())
+
+    @app.route('/api/floorplans/catalogues', methods=['GET'])
+    @require_admin
+    def api_list_fp_catalogues(user_id, role):
+        sb = get_supabase()
+        if not sb:
+            return jsonify({'error': 'Database not configured'}), 503
+        catalogues = fp_list_catalogues(sb, user_id)
+        base = (request.url_root or '').rstrip('/')
+        for c in catalogues:
+            c['share_url'] = f"{base}/floorplans/view/{c.get('share_token', '')}"
+            items = fp_list_items(sb, c['id'])
+            c['item_count'] = len(items)
+        return jsonify(catalogues)
+
+    @app.route('/api/floorplans/catalogues', methods=['POST'])
+    @require_admin
+    def api_create_fp_catalogue(user_id, role):
+        sb = get_supabase()
+        if not sb:
+            return jsonify({'error': 'Database not configured'}), 503
+        data = request.get_json(silent=True) or {}
+        name = str(data.get('name') or 'Floor Plans').strip()
+        profile = get_profile(sb, user_id)
+        org_id = profile.get('org_id') if profile else None
+        cat = fp_create_catalogue(sb, user_id, org_id, name)
+        if not cat:
+            return jsonify({'error': 'Failed to create catalogue'}), 500
+        base = (request.url_root or '').rstrip('/')
+        cat['share_url'] = f"{base}/floorplans/view/{cat.get('share_token', '')}"
+        return jsonify(cat), 201
+
+    @app.route('/api/floorplans/catalogues/<catalogue_id>', methods=['GET'])
+    @require_admin
+    def api_get_fp_catalogue(user_id, role, catalogue_id):
+        sb = get_supabase()
+        if not sb:
+            return jsonify({'error': 'Database not configured'}), 503
+        cat = fp_get_catalogue(sb, catalogue_id)
+        if not cat:
+            return jsonify({'error': 'Not found'}), 404
+        if str(cat.get('user_id')) != str(user_id) and role != 'superadmin':
+            return jsonify({'error': 'Forbidden'}), 403
+        items = fp_list_items(sb, catalogue_id)
+        for item in items:
+            item['image_url'] = get_floorplan_s3_url(item.get('image_filename'))
+        cat['items'] = items
+        base = (request.url_root or '').rstrip('/')
+        cat['share_url'] = f"{base}/floorplans/view/{cat.get('share_token', '')}"
+        return jsonify(cat)
+
+    @app.route('/api/floorplans/catalogues/<catalogue_id>', methods=['PATCH'])
+    @require_admin
+    def api_update_fp_catalogue(user_id, role, catalogue_id):
+        sb = get_supabase()
+        if not sb:
+            return jsonify({'error': 'Database not configured'}), 503
+        cat = fp_get_catalogue(sb, catalogue_id)
+        if not cat:
+            return jsonify({'error': 'Not found'}), 404
+        if str(cat.get('user_id')) != str(user_id) and role != 'superadmin':
+            return jsonify({'error': 'Forbidden'}), 403
+        data = request.get_json(silent=True) or {}
+        name = str(data.get('name') or '').strip()
+        if name:
+            fp_update_catalogue(sb, catalogue_id, name=name)
+        updated = fp_get_catalogue(sb, catalogue_id)
+        return jsonify(updated)
+
+    @app.route('/api/floorplans/catalogues/<catalogue_id>', methods=['DELETE'])
+    @require_admin
+    def api_delete_fp_catalogue(user_id, role, catalogue_id):
+        sb = get_supabase()
+        if not sb:
+            return jsonify({'error': 'Database not configured'}), 503
+        cat = fp_get_catalogue(sb, catalogue_id)
+        if not cat:
+            return jsonify({'error': 'Not found'}), 404
+        if str(cat.get('user_id')) != str(user_id) and role != 'superadmin':
+            return jsonify({'error': 'Forbidden'}), 403
+        # Delete all item images from S3
+        items = fp_list_items(sb, catalogue_id)
+        for item in items:
+            delete_floorplan_from_s3(item.get('image_filename'))
+        fp_delete_catalogue(sb, catalogue_id)
+        return jsonify({'success': True})
+
+    # -- Floor Plan Items --
+
+    @app.route('/api/floorplans/catalogues/<catalogue_id>/items', methods=['GET'])
+    @require_admin
+    def api_list_fp_items(user_id, role, catalogue_id):
+        sb = get_supabase()
+        if not sb:
+            return jsonify({'error': 'Database not configured'}), 503
+        cat = fp_get_catalogue(sb, catalogue_id)
+        if not cat:
+            return jsonify({'error': 'Catalogue not found'}), 404
+        if str(cat.get('user_id')) != str(user_id) and role != 'superadmin':
+            return jsonify({'error': 'Forbidden'}), 403
+        items = fp_list_items(sb, catalogue_id)
+        for item in items:
+            item['image_url'] = get_floorplan_s3_url(item.get('image_filename'))
+        return jsonify(items)
+
+    @app.route('/api/floorplans/catalogues/<catalogue_id>/items', methods=['POST'])
+    @require_admin
+    def api_upload_fp_item(user_id, role, catalogue_id):
+        sb = get_supabase()
+        if not sb:
+            return jsonify({'error': 'Database not configured'}), 503
+        cat = fp_get_catalogue(sb, catalogue_id)
+        if not cat:
+            return jsonify({'error': 'Catalogue not found'}), 404
+        if str(cat.get('user_id')) != str(user_id) and role != 'superadmin':
+            return jsonify({'error': 'Forbidden'}), 403
+        name = str(request.form.get('name') or '').strip()
+        if not name:
+            return jsonify({'error': 'Name is required'}), 400
+        f = request.files.get('file')
+        if not f:
+            return jsonify({'error': 'No file uploaded'}), 400
+        if not allowed_file(f.filename):
+            return jsonify({'error': 'Invalid file type'}), 400
+        raw_bytes = f.read()
+        if not raw_bytes or len(raw_bytes) > MAX_FLOORPLAN_READ_BYTES:
+            return jsonify({'error': 'File too large'}), 400
+        # Convert to WebP lossless (preserves transparency)
+        webp_bytes, w, h = convert_floorplan_to_webp_lossless(raw_bytes)
+        if not webp_bytes:
+            return jsonify({'error': 'Failed to process image'}), 400
+        # Generate unique filename
+        filename = f"fp_{uuid.uuid4().hex[:16]}.webp"
+        upload_floorplan_to_s3(filename, webp_bytes, 'image/webp')
+        sort_order = fp_next_sort_order(sb, catalogue_id)
+        item = fp_create_item(
+            sb, catalogue_id, name, filename,
+            image_width=w, image_height=h,
+            file_size_bytes=len(webp_bytes),
+            sort_order=sort_order,
+        )
+        if not item:
+            return jsonify({'error': 'Failed to create item'}), 500
+        item['image_url'] = get_floorplan_s3_url(filename)
+        return jsonify(item), 201
+
+    @app.route('/api/floorplans/items/<item_id>', methods=['PATCH'])
+    @require_admin
+    def api_update_fp_item(user_id, role, item_id):
+        sb = get_supabase()
+        if not sb:
+            return jsonify({'error': 'Database not configured'}), 503
+        item = fp_get_item(sb, item_id)
+        if not item:
+            return jsonify({'error': 'Not found'}), 404
+        cat = fp_get_catalogue(sb, item['catalogue_id'])
+        if not cat or (str(cat.get('user_id')) != str(user_id) and role != 'superadmin'):
+            return jsonify({'error': 'Forbidden'}), 403
+        data = request.get_json(silent=True) or {}
+        updates = {}
+        if 'name' in data:
+            updates['name'] = str(data['name']).strip()
+        if updates:
+            fp_update_item(sb, item_id, **updates)
+        updated = fp_get_item(sb, item_id)
+        if updated:
+            updated['image_url'] = get_floorplan_s3_url(updated.get('image_filename'))
+        return jsonify(updated)
+
+    @app.route('/api/floorplans/items/<item_id>', methods=['DELETE'])
+    @require_admin
+    def api_delete_fp_item(user_id, role, item_id):
+        sb = get_supabase()
+        if not sb:
+            return jsonify({'error': 'Database not configured'}), 503
+        item = fp_get_item(sb, item_id)
+        if not item:
+            return jsonify({'error': 'Not found'}), 404
+        cat = fp_get_catalogue(sb, item['catalogue_id'])
+        if not cat or (str(cat.get('user_id')) != str(user_id) and role != 'superadmin'):
+            return jsonify({'error': 'Forbidden'}), 403
+        delete_floorplan_from_s3(item.get('image_filename'))
+        fp_delete_item(sb, item_id)
+        return jsonify({'success': True})
+
+    @app.route('/api/floorplans/catalogues/<catalogue_id>/reorder', methods=['POST'])
+    @require_admin
+    def api_reorder_fp_items(user_id, role, catalogue_id):
+        sb = get_supabase()
+        if not sb:
+            return jsonify({'error': 'Database not configured'}), 503
+        cat = fp_get_catalogue(sb, catalogue_id)
+        if not cat:
+            return jsonify({'error': 'Catalogue not found'}), 404
+        if str(cat.get('user_id')) != str(user_id) and role != 'superadmin':
+            return jsonify({'error': 'Forbidden'}), 403
+        data = request.get_json(silent=True) or {}
+        ordered_ids = data.get('ordered_ids', [])
+        if not ordered_ids or not isinstance(ordered_ids, list):
+            return jsonify({'error': 'ordered_ids must be a non-empty list'}), 400
+        fp_reorder_items(sb, catalogue_id, ordered_ids)
+        items = fp_list_items(sb, catalogue_id)
+        for item in items:
+            item['image_url'] = get_floorplan_s3_url(item.get('image_filename'))
+        return jsonify(items)
+
+    # -- Public Floor Plan View --
+
+    @app.route('/floorplans/view/<share_token>')
+    def floorplans_public_view(share_token):
+        sb = get_supabase()
+        if not sb:
+            return "Database not configured", 503
+        cat = fp_get_catalogue_by_token(sb, share_token)
+        if not cat:
+            return "Not found", 404
+        items = fp_list_items(sb, cat['id'])
+        for item in items:
+            item['image_url'] = get_floorplan_s3_url(item.get('image_filename'))
+        # Remove items with no image URL
+        items = [it for it in items if it.get('image_url')]
+        if not items:
+            return "No floor plans uploaded yet", 404
+        return render_template('floorplans_view.html',
+                               catalogue=cat,
+                               items=items,
+                               workspace_name=cat.get('name', 'Floor Plans'))
