@@ -27,6 +27,8 @@ PANORAMA_THUMB_MAX_DIMENSION = 400
 PANORAMA_THUMB_JPEG_QUALITY = 82
 MAX_PANORAMA_THUMB_READ_BYTES = int(os.environ.get('MAX_PANORAMA_THUMB_READ_BYTES', str(20 * 1024 * 1024)))  # 20MB
 MAX_PANORAMA_OPTIMIZED_READ_BYTES = int(os.environ.get('MAX_PANORAMA_OPTIMIZED_READ_BYTES', str(50 * 1024 * 1024)))  # 50MB
+MAX_DAYNIGHT_IMAGE_READ_BYTES = int(os.environ.get('MAX_DAYNIGHT_IMAGE_READ_BYTES', str(50 * 1024 * 1024)))  # 50MB per image
+DAYNIGHT_STITCH_JPEG_QUALITY = 92
 MARKER_IMAGE_MAX_DIMENSION = 1200
 MARKER_IMAGE_THUMB_SIZE = 200
 MARKER_IMAGE_JPEG_QUALITY = 85
@@ -500,3 +502,123 @@ def probe_image_dimensions(stream):
         except Exception:
             pass
     return int(width or 0), int(height or 0)
+
+
+# ---------------------------------------------------------------------------
+# Day Night project helpers
+# ---------------------------------------------------------------------------
+
+def daynight_object_key(filename):
+    safe_name = os.path.basename(filename or '').strip()
+    if app_config.SUPABASE_S3_DAYNIGHT_PREFIX:
+        return f"{app_config.SUPABASE_S3_DAYNIGHT_PREFIX}/{safe_name}"
+    return safe_name
+
+
+def upload_daynight_to_s3(filename, raw_bytes, content_type):
+    client = get_s3_client()
+    if not client:
+        raise RuntimeError('S3 not configured')
+    key = daynight_object_key(filename)
+    if hasattr(raw_bytes, 'read'):
+        try:
+            raw_bytes.seek(0)
+        except Exception:
+            pass
+        if hasattr(client, 'upload_fileobj'):
+            client.upload_fileobj(
+                raw_bytes,
+                app_config.SUPABASE_S3_BUCKET,
+                key,
+                ExtraArgs={'ContentType': content_type},
+            )
+            return
+    client.put_object(
+        Bucket=app_config.SUPABASE_S3_BUCKET,
+        Key=key,
+        Body=raw_bytes,
+        ContentType=content_type,
+    )
+
+
+def get_daynight_s3_url(filename):
+    client = get_s3_client()
+    if not client or not filename:
+        return None
+    key = daynight_object_key(filename)
+    now = time.time()
+    cached = _s3_signed_url_cache.get(key)
+    if cached:
+        url, expires_at = cached
+        if url and expires_at and now < (expires_at - 30):
+            return url
+    try:
+        client.head_object(Bucket=app_config.SUPABASE_S3_BUCKET, Key=key)
+    except Exception:
+        return None
+    url = client.generate_presigned_url(
+        ClientMethod='get_object',
+        Params={'Bucket': app_config.SUPABASE_S3_BUCKET, 'Key': key},
+        ExpiresIn=app_config.SUPABASE_S3_SIGNED_URL_TTL,
+    )
+    try:
+        _s3_signed_url_cache[key] = (url, now + float(app_config.SUPABASE_S3_SIGNED_URL_TTL))
+    except Exception:
+        pass
+    return url
+
+
+def delete_daynight_from_s3(filename):
+    client = get_s3_client()
+    if not client or not filename:
+        return
+    try:
+        client.delete_object(Bucket=app_config.SUPABASE_S3_BUCKET, Key=daynight_object_key(filename))
+    except Exception:
+        pass
+
+
+def stitch_images_horizontally(image_bytes_list):
+    """Join images left-to-right into one long JPEG.
+    Returns (stitched_bytes, join_positions, total_width, height).
+    """
+    images = []
+    for b in image_bytes_list:
+        img = Image.open(io.BytesIO(b))
+        try:
+            exif = img.getexif()
+            orientation = exif.get(EXIF_ORIENTATION_TAG)
+            if orientation == 3:
+                img = img.rotate(180, expand=True)
+            elif orientation == 6:
+                img = img.rotate(270, expand=True)
+            elif orientation == 8:
+                img = img.rotate(90, expand=True)
+        except Exception:
+            pass
+        images.append(img.convert('RGB'))
+
+    max_height = max(img.height for img in images)
+
+    scaled = []
+    for img in images:
+        if img.height != max_height:
+            ratio = max_height / img.height
+            new_w = max(1, int(img.width * ratio))
+            img = img.resize((new_w, max_height), RESAMPLE_LANCZOS)
+        scaled.append(img)
+
+    total_width = sum(img.width for img in scaled)
+    canvas = Image.new('RGB', (total_width, max_height))
+
+    join_positions = []
+    x_offset = 0
+    for i, img in enumerate(scaled):
+        canvas.paste(img, (x_offset, 0))
+        x_offset += img.width
+        if i < len(scaled) - 1:
+            join_positions.append(x_offset)
+
+    buf = io.BytesIO()
+    canvas.save(buf, 'JPEG', quality=DAYNIGHT_STITCH_JPEG_QUALITY, optimize=True, progressive=True)
+    return buf.getvalue(), join_positions, total_width, max_height

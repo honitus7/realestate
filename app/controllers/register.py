@@ -81,19 +81,35 @@ from app.services.storage_service import (
     read_uploaded_file_bytes,
     compress_marker_image,
     probe_image_dimensions,
+    upload_daynight_to_s3,
+    get_daynight_s3_url,
+    delete_daynight_from_s3,
+    stitch_images_horizontally,
+    MAX_DAYNIGHT_IMAGE_READ_BYTES,
 )
 from app.services.org_service import get_org_name_and_slug_for_panorama, slugify_org_name
 from app.services.plot_service import fetch_plots, create_plot as plot_create, get_plot_panorama_id, delete_plot as plot_delete, update_plot as plot_update, update_plot_label_position as plot_update_label_position
+from app.services.daynight_service import (
+    create_daynight_project as dn_create,
+    get_daynight_project as dn_get,
+    get_daynight_project_by_token as dn_get_by_token,
+    list_daynight_projects as dn_list,
+    update_daynight_project as dn_update,
+    delete_daynight_project as dn_delete,
+)
 from app.config import (
     ALLOWED_EXTENSIONS,
     ALLOWED_AUDIO_EXTENSIONS,
+    ALLOWED_VIDEO_EXTENSIONS,
     IMAGE_CONTENT_TYPES,
     AUDIO_CONTENT_TYPES,
+    VIDEO_CONTENT_TYPES,
     CONTENT_TYPE_TO_EXT,
     PAGE_ACCESS_TOKEN_TTL,
     SUPABASE_S3_BUCKET,
     SUPABASE_S3_SIGNED_URL_TTL,
     SUPABASE_S3_UPLOAD_URL_TTL,
+    MAX_DAYNIGHT_VIDEO_BYTES,
 )
 
 MAX_PLOT_IMAGE_BYTES = int(os.environ.get('MAX_PLOT_IMAGE_BYTES', str(25 * 1024 * 1024)))
@@ -4018,3 +4034,253 @@ def register_routes(app):
             return jsonify({'success': True})
         except Exception as e:
             return jsonify({'error': str(e)}), 500
+
+    # ------------------------------------------------------------------
+    # Day Night Projects
+    # ------------------------------------------------------------------
+
+    @app.route('/daynight')
+    def daynight_page():
+        return render_template('daynight.html', **auth_ctx())
+
+    @app.route('/api/daynight', methods=['GET'])
+    @require_admin
+    def api_list_daynight(user_id, role):
+        sb = get_supabase()
+        if not sb:
+            return jsonify({'error': 'Database not configured'}), 503
+        projects = dn_list(sb, user_id)
+        for p in projects:
+            p['share_url'] = f"{(request.url_root or '').rstrip('/')}/daynight/view/{p.get('share_token', '')}"
+            # Include media_url for thumbnails
+            if p.get('media_type') == 'image' and p.get('stitched_filename'):
+                p['media_url'] = get_daynight_s3_url(p['stitched_filename'])
+            elif p.get('media_type') == 'video' and p.get('video_filename'):
+                p['media_url'] = get_daynight_s3_url(p['video_filename'])
+            else:
+                p['media_url'] = None
+            # Include preview URL
+            p['preview_url'] = f"{(request.url_root or '').rstrip('/')}/daynight/preview/{p.get('share_token', '')}"
+        return jsonify(projects)
+
+    @app.route('/api/daynight', methods=['POST'])
+    @require_admin
+    def api_create_daynight(user_id, role):
+        sb = get_supabase()
+        if not sb:
+            return jsonify({'error': 'Database not configured'}), 503
+        data = request.get_json(silent=True) or {}
+        name = str(data.get('name') or '').strip()
+        media_type = str(data.get('media_type') or '').strip()
+        if not name:
+            return jsonify({'error': 'Name is required'}), 400
+        if media_type not in ('image', 'video'):
+            return jsonify({'error': 'media_type must be image or video'}), 400
+        profile = get_profile(sb, user_id)
+        org_id = profile.get('org_id') if profile else None
+        project = dn_create(sb, user_id, org_id, name, media_type)
+        if not project:
+            return jsonify({'error': 'Failed to create project'}), 500
+        project['share_url'] = f"{(request.url_root or '').rstrip('/')}/daynight/view/{project.get('share_token', '')}"
+        return jsonify(project), 201
+
+    @app.route('/api/daynight/<project_id>', methods=['GET'])
+    @require_admin
+    def api_get_daynight(user_id, role, project_id):
+        sb = get_supabase()
+        if not sb:
+            return jsonify({'error': 'Database not configured'}), 503
+        project = dn_get(sb, project_id)
+        if not project:
+            return jsonify({'error': 'Not found'}), 404
+        if str(project.get('user_id')) != str(user_id) and role != 'superadmin':
+            return jsonify({'error': 'Forbidden'}), 403
+        media_url = None
+        if project.get('media_type') == 'image' and project.get('stitched_filename'):
+            media_url = get_daynight_s3_url(project['stitched_filename'])
+        elif project.get('media_type') == 'video' and project.get('video_filename'):
+            media_url = get_daynight_s3_url(project['video_filename'])
+        project['media_url'] = media_url
+        project['share_url'] = f"{(request.url_root or '').rstrip('/')}/daynight/view/{project.get('share_token', '')}"
+        return jsonify(project)
+
+    @app.route('/api/daynight/<project_id>/upload-images', methods=['POST'])
+    @require_admin
+    def api_daynight_upload_images(user_id, role, project_id):
+        sb = get_supabase()
+        if not sb:
+            return jsonify({'error': 'Database not configured'}), 503
+        project = dn_get(sb, project_id)
+        if not project:
+            return jsonify({'error': 'Not found'}), 404
+        if str(project.get('user_id')) != str(user_id) and role != 'superadmin':
+            return jsonify({'error': 'Forbidden'}), 403
+        if project.get('media_type') != 'image':
+            return jsonify({'error': 'Project media_type is not image'}), 400
+        files = request.files.getlist('images')
+        if not files or len(files) < 2:
+            return jsonify({'error': 'At least 2 images required'}), 400
+        image_bytes_list = []
+        source_names = []
+        for f in files:
+            ext = (f.filename or '').rsplit('.', 1)[-1].lower() if f.filename else ''
+            if ext not in ALLOWED_EXTENSIONS:
+                return jsonify({'error': f'Invalid image type: {f.filename}'}), 400
+            raw = read_uploaded_file_bytes(f, MAX_DAYNIGHT_IMAGE_READ_BYTES)
+            if not raw:
+                return jsonify({'error': f'Empty file: {f.filename}'}), 400
+            image_bytes_list.append(raw)
+            source_names.append(f.filename or 'unknown')
+        try:
+            stitched_bytes, join_positions, width, height = stitch_images_horizontally(image_bytes_list)
+        except Exception as e:
+            return jsonify({'error': f'Stitching failed: {str(e)}'}), 500
+        filename = f"dn_{project_id}_{uuid.uuid4().hex[:8]}.jpg"
+        # Delete old stitched image if exists
+        old_fn = project.get('stitched_filename')
+        if old_fn:
+            delete_daynight_from_s3(old_fn)
+        try:
+            upload_daynight_to_s3(filename, stitched_bytes, 'image/jpeg')
+        except Exception as e:
+            return jsonify({'error': f'Upload failed: {str(e)}'}), 500
+        dn_update(sb, project_id,
+                  stitched_filename=filename,
+                  stitched_width=width,
+                  stitched_height=height,
+                  join_positions=join_positions,
+                  source_images=source_names)
+        updated = dn_get(sb, project_id)
+        if updated:
+            updated['media_url'] = get_daynight_s3_url(filename)
+            updated['share_url'] = f"{(request.url_root or '').rstrip('/')}/daynight/view/{updated.get('share_token', '')}"
+        return jsonify(updated or {'success': True})
+
+    @app.route('/api/daynight/<project_id>/upload-video', methods=['POST'])
+    @require_admin
+    def api_daynight_upload_video(user_id, role, project_id):
+        sb = get_supabase()
+        if not sb:
+            return jsonify({'error': 'Database not configured'}), 503
+        project = dn_get(sb, project_id)
+        if not project:
+            return jsonify({'error': 'Not found'}), 404
+        if str(project.get('user_id')) != str(user_id) and role != 'superadmin':
+            return jsonify({'error': 'Forbidden'}), 403
+        if project.get('media_type') != 'video':
+            return jsonify({'error': 'Project media_type is not video'}), 400
+        f = request.files.get('video')
+        if not f:
+            return jsonify({'error': 'No video file provided'}), 400
+        ext = (f.filename or '').rsplit('.', 1)[-1].lower() if f.filename else ''
+        if ext not in ALLOWED_VIDEO_EXTENSIONS:
+            return jsonify({'error': f'Invalid video type. Allowed: {", ".join(ALLOWED_VIDEO_EXTENSIONS)}'}), 400
+        content_type = VIDEO_CONTENT_TYPES.get(ext, 'video/mp4')
+        raw = read_uploaded_file_bytes(f, MAX_DAYNIGHT_VIDEO_BYTES)
+        if not raw:
+            return jsonify({'error': 'Empty file'}), 400
+        filename = f"dn_{project_id}_{uuid.uuid4().hex[:8]}.{ext}"
+        old_fn = project.get('video_filename')
+        if old_fn:
+            delete_daynight_from_s3(old_fn)
+        try:
+            upload_daynight_to_s3(filename, raw, content_type)
+        except Exception as e:
+            return jsonify({'error': f'Upload failed: {str(e)}'}), 500
+        dn_update(sb, project_id, video_filename=filename)
+        updated = dn_get(sb, project_id)
+        if updated:
+            updated['media_url'] = get_daynight_s3_url(filename)
+            updated['share_url'] = f"{(request.url_root or '').rstrip('/')}/daynight/view/{updated.get('share_token', '')}"
+        return jsonify(updated or {'success': True})
+
+    @app.route('/api/daynight/<project_id>', methods=['DELETE'])
+    @require_admin
+    def api_delete_daynight(user_id, role, project_id):
+        sb = get_supabase()
+        if not sb:
+            return jsonify({'error': 'Database not configured'}), 503
+        project = dn_get(sb, project_id)
+        if not project:
+            return jsonify({'error': 'Not found'}), 404
+        if str(project.get('user_id')) != str(user_id) and role != 'superadmin':
+            return jsonify({'error': 'Forbidden'}), 403
+        if project.get('stitched_filename'):
+            delete_daynight_from_s3(project['stitched_filename'])
+        if project.get('video_filename'):
+            delete_daynight_from_s3(project['video_filename'])
+        dn_delete(sb, project_id)
+        return jsonify({'success': True})
+
+    # Admin preview page for Day Night projects (with speed controls)
+    @app.route('/daynight/preview/<share_token>')
+    def daynight_preview_page(share_token):
+        sb = get_supabase()
+        if not sb:
+            return "Database not configured", 503
+        project = dn_get_by_token(sb, share_token)
+        if not project:
+            return "Not found", 404
+        media_url = None
+        if project.get('media_type') == 'image' and project.get('stitched_filename'):
+            media_url = get_daynight_s3_url(project['stitched_filename'])
+        elif project.get('media_type') == 'video' and project.get('video_filename'):
+            media_url = get_daynight_s3_url(project['video_filename'])
+        if not media_url:
+            return "Media not yet uploaded", 404
+        return render_template('daynight_preview.html',
+                               project=project,
+                               media_url=media_url,
+                               media_type=project.get('media_type'),
+                               stitched_width=project.get('stitched_width', 0),
+                               stitched_height=project.get('stitched_height', 0),
+                               drag_speed=project.get('drag_speed') or 80,
+                               **auth_ctx())
+
+    @app.route('/api/daynight/<project_id>/settings', methods=['POST'])
+    @require_admin
+    def api_daynight_save_settings(user_id, role, project_id):
+        sb = get_supabase()
+        if not sb:
+            return jsonify({'error': 'Database not configured'}), 503
+        project = dn_get(sb, project_id)
+        if not project:
+            return jsonify({'error': 'Not found'}), 404
+        if str(project.get('user_id')) != str(user_id) and role != 'superadmin':
+            return jsonify({'error': 'Forbidden'}), 403
+        data = request.get_json(silent=True) or {}
+        drag_speed = data.get('drag_speed')
+        if drag_speed is not None:
+            try:
+                drag_speed = float(drag_speed)
+                if drag_speed < 10 or drag_speed > 500:
+                    return jsonify({'error': 'drag_speed must be between 10 and 500'}), 400
+            except (ValueError, TypeError):
+                return jsonify({'error': 'Invalid drag_speed'}), 400
+            dn_update(sb, project_id, drag_speed=drag_speed)
+        updated = dn_get(sb, project_id)
+        return jsonify(updated or {'success': True})
+
+    # Public customer view for Day Night projects
+    @app.route('/daynight/view/<share_token>')
+    def daynight_customer_view(share_token):
+        sb = get_supabase()
+        if not sb:
+            return "Database not configured", 503
+        project = dn_get_by_token(sb, share_token)
+        if not project:
+            return "Not found", 404
+        media_url = None
+        if project.get('media_type') == 'image' and project.get('stitched_filename'):
+            media_url = get_daynight_s3_url(project['stitched_filename'])
+        elif project.get('media_type') == 'video' and project.get('video_filename'):
+            media_url = get_daynight_s3_url(project['video_filename'])
+        if not media_url:
+            return "Media not yet uploaded", 404
+        return render_template('daynight_view.html',
+                               project=project,
+                               media_url=media_url,
+                               media_type=project.get('media_type'),
+                               stitched_width=project.get('stitched_width', 0),
+                               stitched_height=project.get('stitched_height', 0),
+                               drag_speed=project.get('drag_speed') or 80)

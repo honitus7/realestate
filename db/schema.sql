@@ -229,3 +229,27 @@ drop trigger if exists on_auth_user_created on auth.users;
 create trigger on_auth_user_created
   after insert on auth.users
   for each row execute function public.handle_new_user();
+
+-- 10) Day Night Projects (admin-created day/night panoramic experiences)
+create table if not exists public.daynight_projects (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  org_id uuid references public.organizations(id) on delete set null,
+  name text not null,
+  media_type text not null check (media_type in ('image', 'video')),
+  stitched_filename text,
+  stitched_width int default 0,
+  stitched_height int default 0,
+  video_filename text,
+  video_duration real default 0,
+  join_positions jsonb default '[]',
+  source_images jsonb default '[]',
+  drag_speed real default 80,
+  share_token text unique,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+
+create index if not exists idx_daynight_projects_user_id on public.daynight_projects(user_id);
+create index if not exists idx_daynight_projects_org_id on public.daynight_projects(org_id);
+create index if not exists idx_daynight_projects_share_token on public.daynight_projects(share_token);

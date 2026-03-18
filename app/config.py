@@ -44,12 +44,18 @@ SUPABASE_S3_UPLOAD_URL_TTL = max(60, int(os.environ.get('SUPABASE_S3_UPLOAD_URL_
 SUPABASE_S3_PLOT_PREFIX = os.environ.get('SUPABASE_S3_PLOT_PREFIX', 'plot-images').strip('/')
 SUPABASE_S3_MARKER_PREFIX = os.environ.get('SUPABASE_S3_MARKER_PREFIX', 'marker-images').strip('/')
 SUPABASE_S3_VOICEOVER_PREFIX = os.environ.get('SUPABASE_S3_VOICEOVER_PREFIX', 'marker-voiceovers').strip('/')
+SUPABASE_S3_DAYNIGHT_PREFIX = os.environ.get('SUPABASE_S3_DAYNIGHT_PREFIX', 'daynight').strip('/')
 
 PAGE_ACCESS_TOKEN_TTL = max(60, int(os.environ.get('PAGE_ACCESS_TOKEN_TTL', '900')))
 
 # Allowed file types
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
 ALLOWED_AUDIO_EXTENSIONS = {'mp3', 'wav', 'm4a', 'ogg', 'webm'}
+ALLOWED_VIDEO_EXTENSIONS = {'mp4', 'webm', 'mov'}
+VIDEO_CONTENT_TYPES = {
+    'mp4': 'video/mp4', 'webm': 'video/webm', 'mov': 'video/quicktime',
+}
+MAX_DAYNIGHT_VIDEO_BYTES = int(os.environ.get('MAX_DAYNIGHT_VIDEO_BYTES', str(200 * 1024 * 1024)))
 AUDIO_CONTENT_TYPES = {
     'mp3': 'audio/mpeg', 'wav': 'audio/wav', 'm4a': 'audio/mp4',
     'ogg': 'audio/ogg', 'webm': 'audio/webm',
