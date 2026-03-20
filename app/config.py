@@ -46,6 +46,7 @@ SUPABASE_S3_MARKER_PREFIX = os.environ.get('SUPABASE_S3_MARKER_PREFIX', 'marker-
 SUPABASE_S3_VOICEOVER_PREFIX = os.environ.get('SUPABASE_S3_VOICEOVER_PREFIX', 'marker-voiceovers').strip('/')
 SUPABASE_S3_DAYNIGHT_PREFIX = os.environ.get('SUPABASE_S3_DAYNIGHT_PREFIX', 'daynight').strip('/')
 SUPABASE_S3_FLOORPLAN_PREFIX = os.environ.get('SUPABASE_S3_FLOORPLAN_PREFIX', 'floor-plans').strip('/')
+SUPABASE_S3_BUILDING_MAP_PREFIX = os.environ.get('SUPABASE_S3_BUILDING_MAP_PREFIX', 'building-maps').strip('/')
 
 PAGE_ACCESS_TOKEN_TTL = max(60, int(os.environ.get('PAGE_ACCESS_TOKEN_TTL', '900')))
 

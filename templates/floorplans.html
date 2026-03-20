@@ -10,6 +10,15 @@
     {% include 'components/sidebar.html' %}
 
     <div class="floorplans-main">
+        <!-- Subtabs -->
+        <div class="fp-subtabs">
+            <button class="fp-subtab active" data-tab="floorplans" id="subtab-floorplans">Floor Plans</button>
+            <button class="fp-subtab" data-tab="building-maps" id="subtab-building-maps">Building Maps</button>
+            <button class="fp-subtab" data-tab="project-plans" id="subtab-project-plans">Project Plans</button>
+        </div>
+
+        <!-- ========= FLOOR PLANS TAB ========= -->
+        <div class="fp-tab-content" id="tab-floorplans">
         <!-- List view -->
         <div id="fp-list-view">
             <div class="floorplans-header">
@@ -43,8 +52,8 @@
             </div>
 
             <div class="fp-upload-zone" id="fp-upload-zone">
-                <div class="fp-upload-zone-icon">&#128444;</div>
-                <div class="fp-upload-zone-text">Drop floor plan images here</div>
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="opacity:0.4; margin-bottom:0.4rem;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                <div class="fp-upload-zone-text">Drop floor plan images here or click to browse</div>
                 <div class="fp-upload-zone-hint">PNG or WebP with transparent background recommended</div>
                 <input type="file" id="fp-file-input" accept="image/png,image/webp,image/jpeg" style="display:none" multiple>
             </div>
@@ -62,7 +71,66 @@
                 <div style="margin-top:0.5rem; font-size:0.85rem;">Upload images above to build your catalogue.</div>
             </div>
         </div>
-    </div>
+    </div><!-- /tab-floorplans -->
+
+        <!-- ========= BUILDING MAPS TAB ========= -->
+        <div class="fp-tab-content" id="tab-building-maps" style="display:none;">
+            <div class="floorplans-header">
+                <h1 class="floorplans-title">Building Maps</h1>
+                <button class="btn btn-primary" id="new-bm-btn">New Building Map</button>
+            </div>
+
+            <div id="bm-loading" style="text-align:center; padding:3rem; color:var(--color-muted);">Loading...</div>
+
+            <div class="fp-grid" id="bm-grid" style="display:none;"></div>
+
+            <div class="fp-empty" id="bm-empty" style="display:none;">
+                <div class="fp-empty-icon">&#9638;</div>
+                <div>No building maps yet.</div>
+                <div style="margin-top:0.5rem; font-size:0.85rem;">Click "New Building Map" to upload a building photo.</div>
+            </div>
+        </div><!-- /tab-building-maps -->
+
+        <!-- ========= PROJECT PLANS TAB ========= -->
+        <div class="fp-tab-content" id="tab-project-plans" style="display:none;">
+            <div class="floorplans-header">
+                <h1 class="floorplans-title">Project Plans</h1>
+                <button class="btn btn-primary" id="new-pp-btn">New Project Plan</button>
+            </div>
+
+            <div id="pp-loading" style="text-align:center; padding:3rem; color:var(--color-muted);">Loading...</div>
+
+            <div class="fp-grid" id="pp-grid" style="display:none;"></div>
+
+            <div class="fp-empty" id="pp-empty" style="display:none;">
+                <div class="fp-empty-icon">&#9776;</div>
+                <div>No project plans yet.</div>
+                <div style="margin-top:0.5rem; font-size:0.85rem;">Click "New Project Plan" to bundle multiple building maps together.</div>
+            </div>
+
+            <!-- Manage view (hidden by default) -->
+            <div id="pp-manage" style="display:none;">
+                <div style="display:flex; align-items:center; gap:0.75rem; margin-bottom:1.25rem;">
+                    <button class="btn btn-secondary" id="pp-manage-back" style="padding:0.4rem 0.8rem;">&larr; Back</button>
+                    <h2 class="floorplans-title" id="pp-manage-title" style="margin:0; font-size:1.1rem;"></h2>
+                </div>
+                <div style="margin-bottom:1rem;">
+                    <div style="display:flex; align-items:center; gap:0.75rem; margin-bottom:0.75rem;">
+                        <span style="font-size:0.85rem; font-weight:600; color:var(--color-text);">Share Link</span>
+                    </div>
+                    <div class="fp-share-row">
+                        <input type="text" id="pp-manage-share-url" readonly onclick="this.select()" style="flex:1;">
+                        <button class="btn btn-sm" id="pp-manage-copy-link">Copy</button>
+                    </div>
+                </div>
+                <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:0.75rem;">
+                    <span style="font-size:0.85rem; font-weight:600; color:var(--color-text);">Linked Building Maps</span>
+                    <button class="btn btn-sm btn-primary" id="pp-add-map-btn">+ Add Map</button>
+                </div>
+                <div id="pp-linked-maps"></div>
+            </div>
+        </div><!-- /tab-project-plans -->
+    </div><!-- /floorplans-main -->
 
     <!-- Create Catalogue Modal -->
     <div class="modal-backdrop" id="fp-create-modal">
@@ -129,6 +197,112 @@
             </div>
         </div>
     </div>
+
+    <!-- Building Map upload modal -->
+    <div class="modal-backdrop" id="bm-create-modal">
+        <div class="modal" style="max-width:480px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
+                <div class="modal-title">New Building Map</div>
+                <button type="button" class="modal-close" id="bm-modal-close" aria-label="Close">&times;</button>
+            </div>
+            <div class="form-group" style="margin-bottom:1rem;">
+                <label class="form-label">Name</label>
+                <input type="text" class="form-input" id="bm-name" maxlength="200" placeholder="e.g., Tower A" value="Building Map">
+            </div>
+            <div class="form-group" style="margin-bottom:1rem;">
+                <label class="form-label">Floor Plan Catalogue</label>
+                <select class="form-input" id="bm-catalogue">
+                    <option value="">— None —</option>
+                </select>
+                <div style="font-size:0.72rem; color:var(--color-muted); margin-top:0.25rem;">Link a catalogue to filter floor plans when editing zones</div>
+            </div>
+            <div class="form-group" style="margin-bottom:1rem;">
+                <label class="form-label">Building Image</label>
+                <div class="fp-dropzone" id="bm-dropzone">
+                    <input type="file" id="bm-file" accept="image/png,image/jpeg,image/webp" style="display:none">
+                    <div class="fp-dropzone-idle" id="bm-dropzone-idle">
+                        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="opacity:0.4; margin-bottom:0.4rem;"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+                        <div class="fp-dropzone-text">Drop building image here or click to browse</div>
+                        <div class="fp-dropzone-hint">PNG, JPG or WebP &middot; Photo or panorama of the building exterior</div>
+                    </div>
+                    <div class="fp-dropzone-preview" id="bm-dropzone-preview" style="display:none;">
+                        <img id="bm-preview-img" src="" alt="Preview">
+                        <div class="fp-dropzone-preview-info">
+                            <span id="bm-preview-name" class="fp-dropzone-preview-name"></span>
+                            <span id="bm-preview-size" class="fp-dropzone-preview-size"></span>
+                        </div>
+                        <button type="button" class="fp-dropzone-remove" id="bm-preview-remove" title="Remove">&times;</button>
+                    </div>
+                </div>
+            </div>
+            <div id="bm-create-error" class="msg error" style="display:none; margin-bottom:1rem;"></div>
+            <div class="bm-upload-progress" id="bm-upload-progress" style="display:none; margin-bottom:1rem;">
+                <div class="progress-bar" style="height:4px; background:var(--color-border); border-radius:2px; overflow:hidden;">
+                    <div class="progress-fill" id="bm-progress-fill" style="width:0%; height:100%; background:var(--color-text); border-radius:2px; transition:width 0.3s ease;"></div>
+                </div>
+                <div style="font-size:0.75rem; color:var(--color-muted); margin-top:0.3rem; text-align:center;" id="bm-progress-text">Uploading...</div>
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" id="bm-modal-cancel">Cancel</button>
+                <button class="btn btn-primary" id="bm-modal-create">Create</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Building Map delete modal -->
+    <div class="modal-backdrop" id="bm-delete-modal">
+        <div class="modal">
+            <div class="modal-title">Delete Building Map?</div>
+            <div class="modal-text" id="bm-delete-text">This action cannot be undone.</div>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" id="bm-delete-cancel">Cancel</button>
+                <button class="btn btn-danger" id="bm-delete-confirm">Delete</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Project Plan create modal -->
+    <div class="modal-backdrop" id="pp-create-modal">
+        <div class="modal" style="max-width:480px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
+                <div class="modal-title">New Project Plan</div>
+                <button type="button" class="modal-close" id="pp-modal-close" aria-label="Close">&times;</button>
+            </div>
+            <div class="form-group" style="margin-bottom:1rem;">
+                <label class="form-label">Plan Name</label>
+                <input type="text" class="form-input" id="pp-name" maxlength="200" placeholder="e.g., Tower A + B" value="Project Plan">
+            </div>
+            <div id="pp-create-error" class="msg error" style="display:none; margin-bottom:1rem;"></div>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" id="pp-modal-cancel">Cancel</button>
+                <button class="btn btn-primary" id="pp-modal-create">Create</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Project Plan delete modal -->
+    <div class="modal-backdrop" id="pp-delete-modal">
+        <div class="modal">
+            <div class="modal-title">Delete Project Plan?</div>
+            <div class="modal-text" id="pp-delete-text">This action cannot be undone.</div>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" id="pp-delete-cancel">Cancel</button>
+                <button class="btn btn-danger" id="pp-delete-confirm">Delete</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Map to Plan modal -->
+    <div class="modal-backdrop" id="pp-add-map-modal">
+        <div class="modal" style="max-width:520px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
+                <div class="modal-title">Add Building Map</div>
+                <button type="button" class="modal-close" id="pp-add-map-close" aria-label="Close">&times;</button>
+            </div>
+            <div id="pp-available-maps" style="max-height:400px; overflow-y:auto;"></div>
+            <div id="pp-no-maps-msg" class="msg" style="display:none; margin-top:0.5rem;">No building maps available to add.</div>
+        </div>
+    </div>
 </div>
 {% endblock %}
 
@@ -184,13 +358,35 @@
         if (empty) empty.style.display = 'none';
         if (grid) grid.style.display = '';
         grid.innerHTML = catalogues.map(function(c) {
+            var itemNames = c.item_names || [];
+            var chipsHtml = '';
+            if (itemNames.length) {
+                chipsHtml = itemNames.map(function(n) { return '<span class="fp-card-chip">' + esc(n) + '</span>'; }).join('');
+                if ((c.item_count || 0) > itemNames.length) {
+                    chipsHtml += '<span class="fp-card-chip muted">+' + ((c.item_count || 0) - itemNames.length) + ' more</span>';
+                }
+            } else {
+                chipsHtml = '<span class="fp-card-chip muted">Empty catalogue</span>';
+            }
             return '<div class="fp-card" data-id="' + c.id + '">' +
-                '<div class="fp-card-preview">' +
-                    '<span class="fp-placeholder">&#9638;</span>' +
+                '<div class="fp-card-header">' +
+                    '<div class="fp-card-icon icon-catalogue">' +
+                        '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>' +
+                    '</div>' +
+                    '<div class="fp-card-title-group">' +
+                        '<div class="fp-card-name">' + esc(c.name) + '</div>' +
+                        '<div class="fp-card-meta">Floor Plan Catalogue</div>' +
+                    '</div>' +
                 '</div>' +
+                '<div class="fp-card-stats">' +
+                    '<div class="fp-card-stat"><div class="fp-card-stat-value">' + (c.item_count || 0) + '</div><div class="fp-card-stat-label">Plans</div></div>' +
+                '</div>' +
+                '<div class="fp-card-details">' +
+                    '<div class="fp-card-detail-label">Floor Plans</div>' +
+                    '<div class="fp-card-chips">' + chipsHtml + '</div>' +
+                '</div>' +
+                '<hr class="fp-card-divider">' +
                 '<div class="fp-card-body">' +
-                    '<div class="fp-card-name">' + esc(c.name) + '</div>' +
-                    '<div class="fp-card-meta">' + (c.item_count || 0) + ' floor plan' + ((c.item_count || 0) !== 1 ? 's' : '') + '</div>' +
                     '<div class="fp-share-row">' +
                         '<input type="text" value="' + esc(c.share_url || '') + '" readonly onclick="this.select()">' +
                         '<button class="btn btn-sm fp-copy-btn" data-url="' + esc(c.share_url || '') + '">Copy</button>' +
@@ -588,6 +784,513 @@
         if (b < 1024) return b + ' B';
         if (b < 1024 * 1024) return (b / 1024).toFixed(1) + ' KB';
         return (b / (1024 * 1024)).toFixed(1) + ' MB';
+    }
+
+    // ------------------------------------------------------------------
+    // Subtabs
+    // ------------------------------------------------------------------
+
+    document.querySelectorAll('.fp-subtab').forEach(function(tab) {
+        tab.addEventListener('click', function() {
+            document.querySelectorAll('.fp-subtab').forEach(function(t) { t.classList.remove('active'); });
+            tab.classList.add('active');
+            var target = tab.dataset.tab;
+            document.getElementById('tab-floorplans').style.display = target === 'floorplans' ? '' : 'none';
+            document.getElementById('tab-building-maps').style.display = target === 'building-maps' ? '' : 'none';
+            document.getElementById('tab-project-plans').style.display = target === 'project-plans' ? '' : 'none';
+            if (target === 'building-maps' && !bmLoaded) {
+                loadBuildingMaps();
+            }
+            if (target === 'project-plans' && !ppLoaded) {
+                loadProjectPlans();
+            }
+        });
+    });
+
+    // ------------------------------------------------------------------
+    // Building Maps
+    // ------------------------------------------------------------------
+
+    var bmLoaded = false;
+    var buildingMaps = [];
+
+    function loadBuildingMaps() {
+        fetch('/api/building-maps', { headers: authHeaders() })
+            .then(function(r) { return r.ok ? r.json() : []; })
+            .then(function(data) {
+                buildingMaps = data;
+                bmLoaded = true;
+                renderBuildingMaps();
+            });
+    }
+
+    function renderBuildingMaps() {
+        var loading = document.getElementById('bm-loading');
+        var grid = document.getElementById('bm-grid');
+        var empty = document.getElementById('bm-empty');
+        if (loading) loading.style.display = 'none';
+        if (!buildingMaps.length) {
+            if (grid) grid.style.display = 'none';
+            if (empty) empty.style.display = '';
+            return;
+        }
+        if (empty) empty.style.display = 'none';
+        if (grid) grid.style.display = '';
+        grid.innerHTML = buildingMaps.map(function(m) {
+            var catChip = m.catalogue_name
+                ? '<span class="fp-card-chip">' + esc(m.catalogue_name) + '</span>'
+                : '<span class="fp-card-chip muted">No catalogue</span>';
+            return '<div class="fp-card" data-id="' + m.id + '">' +
+                '<div class="fp-card-header">' +
+                    '<div class="fp-card-icon icon-building">' +
+                        '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="2" width="16" height="20" rx="2"/><line x1="9" y1="6" x2="9" y2="6.01"/><line x1="15" y1="6" x2="15" y2="6.01"/><line x1="9" y1="10" x2="9" y2="10.01"/><line x1="15" y1="10" x2="15" y2="10.01"/><line x1="9" y1="14" x2="9" y2="14.01"/><line x1="15" y1="14" x2="15" y2="14.01"/><rect x="9" y="18" width="6" height="4"/></svg>' +
+                    '</div>' +
+                    '<div class="fp-card-title-group">' +
+                        '<div class="fp-card-name">' + esc(m.name) + '</div>' +
+                        '<div class="fp-card-meta">' + catChip + '</div>' +
+                    '</div>' +
+                '</div>' +
+                '<div class="fp-card-stats">' +
+                    '<div class="fp-card-stat"><div class="fp-card-stat-value">' + (m.zone_count || 0) + '</div><div class="fp-card-stat-label">Zones</div></div>' +
+                    '<div class="fp-card-stat"><div class="fp-card-stat-value">' + (m.floor_count || 0) + '</div><div class="fp-card-stat-label">Floors</div></div>' +
+                '</div>' +
+                '<hr class="fp-card-divider">' +
+                '<div class="fp-card-body">' +
+                    '<div class="fp-share-row">' +
+                        '<input type="text" value="' + esc(m.share_url || '') + '" readonly onclick="this.select()">' +
+                        '<button class="btn btn-sm fp-copy-btn" data-url="' + esc(m.share_url || '') + '">Copy</button>' +
+                    '</div>' +
+                    '<div class="fp-card-actions">' +
+                        '<button class="btn btn-secondary bm-manage-btn" data-id="' + m.id + '">Manage</button>' +
+                        '<button class="btn btn-danger bm-del-btn" data-id="' + m.id + '" data-name="' + esc(m.name) + '">Delete</button>' +
+                    '</div>' +
+                '</div>' +
+            '</div>';
+        }).join('');
+
+        grid.querySelectorAll('.fp-copy-btn').forEach(function(btn) {
+            btn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                navigator.clipboard.writeText(btn.dataset.url).then(function() {
+                    btn.textContent = 'Copied!';
+                    setTimeout(function() { btn.textContent = 'Copy'; }, 1500);
+                });
+            });
+        });
+        grid.querySelectorAll('.bm-manage-btn').forEach(function(btn) {
+            btn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                window.location.href = '/building-map/admin/' + btn.dataset.id;
+            });
+        });
+        grid.querySelectorAll('.bm-del-btn').forEach(function(btn) {
+            btn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                bmDeleteTarget = { id: btn.dataset.id, name: btn.dataset.name };
+                document.getElementById('bm-delete-text').textContent = 'Delete "' + btn.dataset.name + '" and all its zones? This cannot be undone.';
+                showModal('bm-delete-modal');
+            });
+        });
+    }
+
+    // Create building map — drag & drop zone
+    var bmDropzone = document.getElementById('bm-dropzone');
+    var bmFileInput = document.getElementById('bm-file');
+    var bmDropzoneIdle = document.getElementById('bm-dropzone-idle');
+    var bmDropzonePreview = document.getElementById('bm-dropzone-preview');
+    var bmSelectedFile = null;
+
+    function bmShowPreview(file) {
+        bmSelectedFile = file;
+        var reader = new FileReader();
+        reader.onload = function(e) {
+            document.getElementById('bm-preview-img').src = e.target.result;
+        };
+        reader.readAsDataURL(file);
+        document.getElementById('bm-preview-name').textContent = file.name;
+        document.getElementById('bm-preview-size').textContent = (file.size / (1024 * 1024)).toFixed(1) + ' MB';
+        bmDropzoneIdle.style.display = 'none';
+        bmDropzonePreview.style.display = '';
+    }
+
+    function bmClearPreview() {
+        bmSelectedFile = null;
+        bmFileInput.value = '';
+        document.getElementById('bm-preview-img').src = '';
+        bmDropzoneIdle.style.display = '';
+        bmDropzonePreview.style.display = 'none';
+    }
+
+    bmDropzone.addEventListener('click', function(e) {
+        if (e.target.closest('.fp-dropzone-remove')) return;
+        if (!bmSelectedFile) bmFileInput.click();
+    });
+    bmDropzone.addEventListener('dragover', function(e) { e.preventDefault(); bmDropzone.classList.add('dragover'); });
+    bmDropzone.addEventListener('dragleave', function() { bmDropzone.classList.remove('dragover'); });
+    bmDropzone.addEventListener('drop', function(e) {
+        e.preventDefault();
+        bmDropzone.classList.remove('dragover');
+        var file = e.dataTransfer.files[0];
+        if (file && file.type.startsWith('image/')) bmShowPreview(file);
+    });
+    bmFileInput.addEventListener('change', function() {
+        if (bmFileInput.files.length) bmShowPreview(bmFileInput.files[0]);
+    });
+    document.getElementById('bm-preview-remove').addEventListener('click', function(e) {
+        e.stopPropagation();
+        bmClearPreview();
+    });
+
+    function populateBmCatalogueSelect() {
+        var sel = document.getElementById('bm-catalogue');
+        sel.innerHTML = '<option value="">— None —</option>';
+        catalogues.forEach(function(c) {
+            sel.innerHTML += '<option value="' + c.id + '">' + esc(c.name) + ' (' + (c.item_count || 0) + ' plans)</option>';
+        });
+    }
+
+    document.getElementById('new-bm-btn').addEventListener('click', function() {
+        document.getElementById('bm-name').value = 'Building Map';
+        bmClearPreview();
+        populateBmCatalogueSelect();
+        document.getElementById('bm-catalogue').value = '';
+        document.getElementById('bm-create-error').style.display = 'none';
+        document.getElementById('bm-upload-progress').style.display = 'none';
+        showModal('bm-create-modal');
+    });
+    document.getElementById('bm-modal-close').addEventListener('click', function() { hideModal('bm-create-modal'); });
+    document.getElementById('bm-modal-cancel').addEventListener('click', function() { hideModal('bm-create-modal'); });
+
+    document.getElementById('bm-modal-create').addEventListener('click', function() {
+        var name = document.getElementById('bm-name').value.trim() || 'Building Map';
+        var file = bmSelectedFile || (bmFileInput.files.length ? bmFileInput.files[0] : null);
+        if (!file) {
+            document.getElementById('bm-create-error').textContent = 'Please select an image file.';
+            document.getElementById('bm-create-error').style.display = '';
+            return;
+        }
+        var btn = this;
+        btn.disabled = true;
+        document.getElementById('bm-create-error').style.display = 'none';
+        document.getElementById('bm-upload-progress').style.display = '';
+        document.getElementById('bm-progress-fill').style.width = '40%';
+        document.getElementById('bm-progress-text').textContent = 'Uploading...';
+
+        var fd = new FormData();
+        fd.append('name', name);
+        fd.append('file', file);
+        var catId = document.getElementById('bm-catalogue').value;
+        if (catId) fd.append('catalogue_id', catId);
+
+        fetch('/api/building-maps', {
+            method: 'POST',
+            headers: authHeaders(),
+            body: fd
+        })
+        .then(function(r) { return r.json().then(function(d) { return { ok: r.ok, data: d }; }); })
+        .then(function(res) {
+            btn.disabled = false;
+            document.getElementById('bm-progress-fill').style.width = '100%';
+            setTimeout(function() {
+                document.getElementById('bm-upload-progress').style.display = 'none';
+            }, 500);
+            if (!res.ok) {
+                document.getElementById('bm-create-error').textContent = res.data.error || 'Failed';
+                document.getElementById('bm-create-error').style.display = '';
+                return;
+            }
+            hideModal('bm-create-modal');
+            loadBuildingMaps();
+        })
+        .catch(function() { btn.disabled = false; });
+    });
+
+    // Delete building map
+    var bmDeleteTarget = null;
+    document.getElementById('bm-delete-cancel').addEventListener('click', function() { hideModal('bm-delete-modal'); });
+    document.getElementById('bm-delete-confirm').addEventListener('click', function() {
+        if (!bmDeleteTarget) return;
+        var btn = this;
+        btn.disabled = true;
+        fetch('/api/building-maps/' + bmDeleteTarget.id, { method: 'DELETE', headers: authHeaders() })
+            .then(function() {
+                btn.disabled = false;
+                hideModal('bm-delete-modal');
+                loadBuildingMaps();
+            })
+            .catch(function() { btn.disabled = false; });
+    });
+
+    // ------------------------------------------------------------------
+    // Project Plans
+    // ------------------------------------------------------------------
+
+    var ppLoaded = false;
+    var projectPlans = [];
+    var ppManagePlanId = null;
+
+    function loadProjectPlans() {
+        fetch('/api/project-plans', { headers: authHeaders() })
+            .then(function(r) { return r.ok ? r.json() : []; })
+            .then(function(data) {
+                projectPlans = data;
+                ppLoaded = true;
+                renderProjectPlans();
+            });
+    }
+
+    function renderProjectPlans() {
+        var loading = document.getElementById('pp-loading');
+        var grid = document.getElementById('pp-grid');
+        var empty = document.getElementById('pp-empty');
+        var manage = document.getElementById('pp-manage');
+        if (loading) loading.style.display = 'none';
+        manage.style.display = 'none';
+        if (!projectPlans.length) {
+            if (grid) grid.style.display = 'none';
+            if (empty) empty.style.display = '';
+            return;
+        }
+        if (empty) empty.style.display = 'none';
+        if (grid) grid.style.display = '';
+        grid.innerHTML = projectPlans.map(function(p) {
+            var shareUrl = p.share_url || (location.origin + '/project-plan/view/' + (p.share_token || ''));
+            var mapNames = p.map_names || [];
+            var chipsHtml = '';
+            if (mapNames.length) {
+                chipsHtml = mapNames.map(function(n) { return '<span class="fp-card-chip">' + esc(n) + '</span>'; }).join('');
+            } else {
+                chipsHtml = '<span class="fp-card-chip muted">No maps linked</span>';
+            }
+            return '<div class="fp-card" data-id="' + p.id + '">' +
+                '<div class="fp-card-header">' +
+                    '<div class="fp-card-icon icon-project">' +
+                        '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>' +
+                    '</div>' +
+                    '<div class="fp-card-title-group">' +
+                        '<div class="fp-card-name">' + esc(p.name) + '</div>' +
+                        '<div class="fp-card-meta">Project Plan</div>' +
+                    '</div>' +
+                '</div>' +
+                '<div class="fp-card-stats">' +
+                    '<div class="fp-card-stat"><div class="fp-card-stat-value">' + (p.map_count || 0) + '</div><div class="fp-card-stat-label">Maps</div></div>' +
+                    '<div class="fp-card-stat"><div class="fp-card-stat-value">' + (p.total_zones || 0) + '</div><div class="fp-card-stat-label">Zones</div></div>' +
+                    '<div class="fp-card-stat"><div class="fp-card-stat-value">' + (p.total_floors || 0) + '</div><div class="fp-card-stat-label">Floors</div></div>' +
+                '</div>' +
+                '<div class="fp-card-details">' +
+                    '<div class="fp-card-detail-label">Building Maps</div>' +
+                    '<div class="fp-card-chips">' + chipsHtml + '</div>' +
+                '</div>' +
+                '<hr class="fp-card-divider">' +
+                '<div class="fp-card-body">' +
+                    '<div class="fp-share-row">' +
+                        '<input type="text" value="' + esc(shareUrl) + '" readonly onclick="this.select()">' +
+                        '<button class="btn btn-sm pp-copy-btn" data-url="' + esc(shareUrl) + '">Copy</button>' +
+                    '</div>' +
+                    '<div class="fp-card-actions">' +
+                        '<button class="btn btn-secondary pp-manage-btn" data-id="' + p.id + '">Manage</button>' +
+                        '<button class="btn btn-danger pp-del-btn" data-id="' + p.id + '" data-name="' + esc(p.name) + '">Delete</button>' +
+                    '</div>' +
+                '</div>' +
+            '</div>';
+        }).join('');
+
+        grid.querySelectorAll('.pp-copy-btn').forEach(function(btn) {
+            btn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                navigator.clipboard.writeText(btn.dataset.url).then(function() {
+                    btn.textContent = 'Copied!';
+                    setTimeout(function() { btn.textContent = 'Copy'; }, 1500);
+                });
+            });
+        });
+        grid.querySelectorAll('.pp-manage-btn').forEach(function(btn) {
+            btn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                openPlanManage(btn.dataset.id);
+            });
+        });
+        grid.querySelectorAll('.pp-del-btn').forEach(function(btn) {
+            btn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                ppDeleteTarget = { id: btn.dataset.id, name: btn.dataset.name };
+                document.getElementById('pp-delete-text').textContent = 'Delete "' + btn.dataset.name + '" and all its links? This cannot be undone.';
+                showModal('pp-delete-modal');
+            });
+        });
+    }
+
+    // Create project plan
+    document.getElementById('new-pp-btn').addEventListener('click', function() {
+        document.getElementById('pp-name').value = 'Project Plan';
+        document.getElementById('pp-create-error').style.display = 'none';
+        showModal('pp-create-modal');
+    });
+    document.getElementById('pp-modal-close').addEventListener('click', function() { hideModal('pp-create-modal'); });
+    document.getElementById('pp-modal-cancel').addEventListener('click', function() { hideModal('pp-create-modal'); });
+
+    document.getElementById('pp-modal-create').addEventListener('click', function() {
+        var name = document.getElementById('pp-name').value.trim() || 'Project Plan';
+        var btn = this;
+        btn.disabled = true;
+        document.getElementById('pp-create-error').style.display = 'none';
+        fetch('/api/project-plans', {
+            method: 'POST',
+            headers: Object.assign({ 'Content-Type': 'application/json' }, authHeaders()),
+            body: JSON.stringify({ name: name })
+        })
+        .then(function(r) { return r.json().then(function(d) { return { ok: r.ok, data: d }; }); })
+        .then(function(res) {
+            btn.disabled = false;
+            if (!res.ok) {
+                document.getElementById('pp-create-error').textContent = res.data.error || 'Failed';
+                document.getElementById('pp-create-error').style.display = '';
+                return;
+            }
+            hideModal('pp-create-modal');
+            loadProjectPlans();
+        })
+        .catch(function() { btn.disabled = false; });
+    });
+
+    // Delete project plan
+    var ppDeleteTarget = null;
+    document.getElementById('pp-delete-cancel').addEventListener('click', function() { hideModal('pp-delete-modal'); });
+    document.getElementById('pp-delete-confirm').addEventListener('click', function() {
+        if (!ppDeleteTarget) return;
+        var btn = this;
+        btn.disabled = true;
+        fetch('/api/project-plans/' + ppDeleteTarget.id, { method: 'DELETE', headers: authHeaders() })
+            .then(function() {
+                btn.disabled = false;
+                hideModal('pp-delete-modal');
+                loadProjectPlans();
+            })
+            .catch(function() { btn.disabled = false; });
+    });
+
+    // Manage project plan (link/unlink maps)
+    function openPlanManage(planId) {
+        ppManagePlanId = planId;
+        document.getElementById('pp-grid').style.display = 'none';
+        document.getElementById('pp-empty').style.display = 'none';
+        document.getElementById('pp-loading').style.display = 'none';
+        document.getElementById('pp-manage').style.display = '';
+        fetch('/api/project-plans/' + planId, { headers: authHeaders() })
+            .then(function(r) { return r.ok ? r.json() : null; })
+            .then(function(plan) {
+                if (!plan) return;
+                document.getElementById('pp-manage-title').textContent = plan.name;
+                document.getElementById('pp-manage-share-url').value = plan.share_url || '';
+                renderLinkedMaps(plan.maps || []);
+            });
+    }
+
+    document.getElementById('pp-manage-back').addEventListener('click', function() {
+        ppManagePlanId = null;
+        renderProjectPlans();
+    });
+
+    document.getElementById('pp-manage-copy-link').addEventListener('click', function() {
+        var input = document.getElementById('pp-manage-share-url');
+        navigator.clipboard.writeText(input.value).then(function() {
+            var btn = document.getElementById('pp-manage-copy-link');
+            btn.textContent = 'Copied!';
+            setTimeout(function() { btn.textContent = 'Copy'; }, 1500);
+        });
+    });
+
+    function renderLinkedMaps(maps) {
+        var container = document.getElementById('pp-linked-maps');
+        if (!maps.length) {
+            container.innerHTML = '<div style="font-size:0.85rem; color:var(--color-muted); padding:1rem 0;">No building maps linked yet. Click "+ Add Map" to link one.</div>';
+            return;
+        }
+        container.innerHTML = maps.map(function(link, idx) {
+            var imgUrl = link.building_map_image_url || '';
+            return '<div class="fp-card" style="flex-direction:row; align-items:center; padding:0.75rem; margin-bottom:0.5rem;" data-map-id="' + link.building_map_id + '">' +
+                '<div style="width:60px; height:45px; border-radius:6px; overflow:hidden; background:var(--color-surface); flex-shrink:0; margin-right:0.75rem;">' +
+                    (imgUrl ? '<img src="' + esc(imgUrl) + '" style="width:100%; height:100%; object-fit:cover;">' : '<span class="fp-placeholder" style="font-size:1rem;">&#9638;</span>') +
+                '</div>' +
+                '<div style="flex:1; min-width:0;">' +
+                    '<div style="font-weight:600; font-size:0.85rem;">' + esc(link.building_map_name || 'Building Map') + '</div>' +
+                    '<div style="font-size:0.75rem; color:var(--color-muted);">Order: ' + (idx + 1) + '</div>' +
+                '</div>' +
+                '<button class="btn btn-sm btn-danger pp-unlink-btn" data-map-id="' + link.building_map_id + '" style="flex-shrink:0;">Remove</button>' +
+            '</div>';
+        }).join('');
+
+        container.querySelectorAll('.pp-unlink-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var mapId = btn.dataset.mapId;
+                fetch('/api/project-plans/' + ppManagePlanId + '/maps/' + mapId, { method: 'DELETE', headers: authHeaders() })
+                    .then(function() { openPlanManage(ppManagePlanId); });
+            });
+        });
+    }
+
+    // Add map to plan modal
+    document.getElementById('pp-add-map-btn').addEventListener('click', function() {
+        // Load available building maps
+        if (!bmLoaded) {
+            fetch('/api/building-maps', { headers: authHeaders() })
+                .then(function(r) { return r.ok ? r.json() : []; })
+                .then(function(data) {
+                    buildingMaps = data;
+                    bmLoaded = true;
+                    showAddMapModal();
+                });
+        } else {
+            showAddMapModal();
+        }
+    });
+    document.getElementById('pp-add-map-close').addEventListener('click', function() { hideModal('pp-add-map-modal'); });
+
+    function showAddMapModal() {
+        // Get currently linked map IDs
+        fetch('/api/project-plans/' + ppManagePlanId + '/maps', { headers: authHeaders() })
+            .then(function(r) { return r.ok ? r.json() : []; })
+            .then(function(linked) {
+                var linkedIds = linked.map(function(l) { return l.building_map_id; });
+                var available = buildingMaps.filter(function(m) { return linkedIds.indexOf(m.id) === -1; });
+                var container = document.getElementById('pp-available-maps');
+                var noMsg = document.getElementById('pp-no-maps-msg');
+                if (!available.length) {
+                    container.innerHTML = '';
+                    noMsg.style.display = '';
+                    showModal('pp-add-map-modal');
+                    return;
+                }
+                noMsg.style.display = 'none';
+                container.innerHTML = available.map(function(m) {
+                    var imgUrl = m.image_url || '';
+                    return '<div class="fp-card" style="flex-direction:row; align-items:center; padding:0.75rem; margin-bottom:0.5rem; cursor:pointer;" data-add-map-id="' + m.id + '">' +
+                        '<div style="width:60px; height:45px; border-radius:6px; overflow:hidden; background:var(--color-surface); flex-shrink:0; margin-right:0.75rem;">' +
+                            (imgUrl ? '<img src="' + esc(imgUrl) + '" style="width:100%; height:100%; object-fit:cover;">' : '<span class="fp-placeholder" style="font-size:1rem;">&#9638;</span>') +
+                        '</div>' +
+                        '<div style="flex:1; min-width:0;">' +
+                            '<div style="font-weight:600; font-size:0.85rem;">' + esc(m.name) + '</div>' +
+                        '</div>' +
+                        '<button class="btn btn-sm btn-primary pp-link-btn" data-map-id="' + m.id + '" style="flex-shrink:0;">Add</button>' +
+                    '</div>';
+                }).join('');
+                container.querySelectorAll('.pp-link-btn').forEach(function(btn) {
+                    btn.addEventListener('click', function() {
+                        btn.disabled = true;
+                        fetch('/api/project-plans/' + ppManagePlanId + '/maps', {
+                            method: 'POST',
+                            headers: Object.assign({ 'Content-Type': 'application/json' }, authHeaders()),
+                            body: JSON.stringify({ building_map_id: btn.dataset.mapId })
+                        })
+                        .then(function() {
+                            hideModal('pp-add-map-modal');
+                            openPlanManage(ppManagePlanId);
+                        })
+                        .catch(function() { btn.disabled = false; });
+                    });
+                });
+                showModal('pp-add-map-modal');
+            });
     }
 })();
 </script>

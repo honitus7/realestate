@@ -172,18 +172,29 @@
 }
 
 .dn-upload-zone {
-    border: 2px dashed var(--color-border, #2a2a2e);
-    border-radius: 10px;
-    padding: 2rem;
+    border: 2px dashed rgba(22,35,56,0.12);
+    border-radius: 14px;
+    padding: 2rem 1.5rem;
     text-align: center;
     cursor: pointer;
-    transition: border-color 0.2s;
+    transition: border-color 0.25s, background 0.25s, box-shadow 0.25s;
     margin-bottom: 1rem;
+    background: rgba(255,255,255,0.5);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
 }
 
-.dn-upload-zone:hover,
+.dn-upload-zone:hover {
+    border-color: rgba(22,35,56,0.2);
+    background: rgba(255,255,255,0.7);
+    box-shadow: 0 2px 12px rgba(22,35,56,0.04);
+}
+
 .dn-upload-zone.dragover {
-    border-color: var(--color-accent, #c9a962);
+    border-color: #22c55e;
+    background: rgba(34,197,94,0.06);
+    box-shadow: 0 0 0 3px rgba(34,197,94,0.1);
 }
 
 .dn-upload-zone input[type=file] {
@@ -191,7 +202,7 @@
 }
 
 .dn-upload-hint {
-    font-size: 0.78rem;
+    font-size: 0.75rem;
     color: var(--color-muted, #888);
     margin-top: 0.4rem;
 }

@@ -91,6 +91,11 @@ from app.services.storage_service import (
     get_floorplan_s3_url,
     delete_floorplan_from_s3,
     MAX_FLOORPLAN_READ_BYTES,
+    compress_building_map_image,
+    upload_building_map_to_s3,
+    get_building_map_s3_url,
+    delete_building_map_from_s3,
+    MAX_BUILDING_MAP_READ_BYTES,
 )
 from app.services.org_service import get_org_name_and_slug_for_panorama, slugify_org_name
 from app.services.plot_service import fetch_plots, create_plot as plot_create, get_plot_panorama_id, delete_plot as plot_delete, update_plot as plot_update, update_plot_label_position as plot_update_label_position
@@ -116,6 +121,41 @@ from app.services.floorplan_service import (
     delete_item as fp_delete_item,
     reorder_items as fp_reorder_items,
     get_next_sort_order as fp_next_sort_order,
+)
+from app.services.building_map_service import (
+    create_building_map as bm_create,
+    get_building_map as bm_get,
+    get_building_map_by_token as bm_get_by_token,
+    list_building_maps as bm_list,
+    update_building_map as bm_update,
+    delete_building_map as bm_delete,
+    list_images as bm_list_images,
+    get_image as bm_get_image,
+    create_image as bm_create_image,
+    update_image as bm_update_image,
+    delete_image as bm_delete_image,
+    get_next_image_sort_order as bm_next_image_sort,
+    list_zones as bm_list_zones,
+    list_zones_for_image as bm_list_zones_for_image,
+    get_zone as bm_get_zone,
+    create_zone as bm_create_zone,
+    batch_create_zones as bm_batch_create_zones,
+    update_zone as bm_update_zone,
+    delete_zone as bm_delete_zone,
+    get_floor_numbers as bm_get_floors,
+)
+from app.services.project_plan_service import (
+    create_project_plan as pp_create,
+    get_project_plan as pp_get,
+    get_project_plan_by_token as pp_get_by_token,
+    list_project_plans as pp_list,
+    update_project_plan as pp_update,
+    delete_project_plan as pp_delete,
+    list_plan_maps as pp_list_maps,
+    add_map_to_plan as pp_add_map,
+    remove_map_from_plan as pp_remove_map,
+    get_next_plan_map_sort_order as pp_next_sort,
+    reorder_plan_maps as pp_reorder,
 )
 from app.config import (
     ALLOWED_EXTENSIONS,
@@ -4325,6 +4365,7 @@ def register_routes(app):
             c['share_url'] = f"{base}/floorplans/view/{c.get('share_token', '')}"
             items = fp_list_items(sb, c['id'])
             c['item_count'] = len(items)
+            c['item_names'] = [it.get('name', '') for it in items[:5]]
         return jsonify(catalogues)
 
     @app.route('/api/floorplans/catalogues', methods=['POST'])
@@ -4539,3 +4580,541 @@ def register_routes(app):
                                catalogue=cat,
                                items=items,
                                workspace_name=cat.get('name', 'Floor Plans'))
+
+    # ==================================================================
+    # Building Maps
+    # ==================================================================
+
+    @app.route('/api/building-maps', methods=['GET'])
+    @require_admin
+    def api_list_building_maps(user_id, role):
+        sb = get_supabase()
+        if not sb:
+            return jsonify({'error': 'Database not configured'}), 503
+        maps = bm_list(sb, user_id)
+        base = (request.url_root or '').rstrip('/')
+        for m in maps:
+            m['image_url'] = get_building_map_s3_url(m.get('image_filename'))
+            m['share_url'] = f"{base}/building-map/view/{m.get('share_token', '')}"
+            zones = bm_list_zones(sb, m['id'])
+            m['zone_count'] = len(zones)
+            m['floor_count'] = len(set(z.get('floor_number', 0) for z in zones))
+            if m.get('catalogue_id'):
+                cat = fp_get_catalogue(sb, m['catalogue_id'])
+                m['catalogue_name'] = cat.get('name', '') if cat else ''
+            else:
+                m['catalogue_name'] = ''
+        return jsonify(maps)
+
+    @app.route('/api/building-maps', methods=['POST'])
+    @require_admin
+    def api_create_building_map(user_id, role):
+        sb = get_supabase()
+        if not sb:
+            return jsonify({'error': 'Database not configured'}), 503
+        name = str(request.form.get('name') or 'Building Map').strip()
+        catalogue_id = str(request.form.get('catalogue_id') or '').strip() or None
+        f = request.files.get('file')
+        if not f:
+            return jsonify({'error': 'No file uploaded'}), 400
+        if not allowed_file(f.filename):
+            return jsonify({'error': 'Invalid file type'}), 400
+        raw_bytes = f.read()
+        if not raw_bytes or len(raw_bytes) > MAX_BUILDING_MAP_READ_BYTES:
+            return jsonify({'error': 'File too large'}), 400
+        jpeg_bytes, w, h = compress_building_map_image(raw_bytes)
+        if not jpeg_bytes:
+            return jsonify({'error': 'Failed to process image'}), 400
+        filename = f"bm_{uuid.uuid4().hex[:16]}.jpg"
+        upload_building_map_to_s3(filename, jpeg_bytes, 'image/jpeg')
+        profile = get_profile(sb, user_id)
+        org_id = profile.get('org_id') if profile else None
+        bm = bm_create(sb, user_id, org_id, name, filename, w, h, catalogue_id)
+        if not bm:
+            return jsonify({'error': 'Failed to create building map'}), 500
+        bm['image_url'] = get_building_map_s3_url(filename)
+        base = (request.url_root or '').rstrip('/')
+        bm['share_url'] = f"{base}/building-map/view/{bm.get('share_token', '')}"
+        return jsonify(bm), 201
+
+    @app.route('/api/building-maps/<map_id>', methods=['GET'])
+    @require_admin
+    def api_get_building_map(user_id, role, map_id):
+        sb = get_supabase()
+        if not sb:
+            return jsonify({'error': 'Database not configured'}), 503
+        bm = bm_get(sb, map_id)
+        if not bm:
+            return jsonify({'error': 'Not found'}), 404
+        if str(bm.get('user_id')) != str(user_id) and role != 'superadmin':
+            return jsonify({'error': 'Forbidden'}), 403
+        bm['image_url'] = get_building_map_s3_url(bm.get('image_filename'))
+        zones = bm_list_zones(sb, map_id)
+        bm['zones'] = zones
+        base = (request.url_root or '').rstrip('/')
+        bm['share_url'] = f"{base}/building-map/view/{bm.get('share_token', '')}"
+        return jsonify(bm)
+
+    @app.route('/api/building-maps/<map_id>', methods=['PATCH'])
+    @require_admin
+    def api_update_building_map(user_id, role, map_id):
+        sb = get_supabase()
+        if not sb:
+            return jsonify({'error': 'Database not configured'}), 503
+        bm = bm_get(sb, map_id)
+        if not bm:
+            return jsonify({'error': 'Not found'}), 404
+        if str(bm.get('user_id')) != str(user_id) and role != 'superadmin':
+            return jsonify({'error': 'Forbidden'}), 403
+        data = request.get_json(silent=True) or {}
+        updates = {}
+        if 'name' in data:
+            updates['name'] = str(data['name']).strip()
+        if 'catalogue_id' in data:
+            updates['catalogue_id'] = str(data['catalogue_id']).strip() or None
+        if updates:
+            bm_update(sb, map_id, **updates)
+        updated = bm_get(sb, map_id)
+        if updated:
+            updated['image_url'] = get_building_map_s3_url(updated.get('image_filename'))
+        return jsonify(updated)
+
+    @app.route('/api/building-maps/<map_id>', methods=['DELETE'])
+    @require_admin
+    def api_delete_building_map(user_id, role, map_id):
+        sb = get_supabase()
+        if not sb:
+            return jsonify({'error': 'Database not configured'}), 503
+        bm = bm_get(sb, map_id)
+        if not bm:
+            return jsonify({'error': 'Not found'}), 404
+        if str(bm.get('user_id')) != str(user_id) and role != 'superadmin':
+            return jsonify({'error': 'Forbidden'}), 403
+        delete_building_map_from_s3(bm.get('image_filename'))
+        bm_delete(sb, map_id)
+        return jsonify({'success': True})
+
+    # -- Building Map Images --
+
+    @app.route('/api/building-maps/<map_id>/images', methods=['GET'])
+    @require_admin
+    def api_list_building_map_images(user_id, role, map_id):
+        sb = get_supabase()
+        if not sb:
+            return jsonify({'error': 'Database not configured'}), 503
+        bm = bm_get(sb, map_id)
+        if not bm:
+            return jsonify({'error': 'Not found'}), 404
+        if str(bm.get('user_id')) != str(user_id) and role != 'superadmin':
+            return jsonify({'error': 'Forbidden'}), 403
+        images = bm_list_images(sb, map_id)
+        for img in images:
+            img['image_url'] = get_building_map_s3_url(img.get('image_filename'))
+            img['zone_count'] = len(bm_list_zones_for_image(sb, img['id']))
+        return jsonify(images)
+
+    @app.route('/api/building-maps/<map_id>/images', methods=['POST'])
+    @require_admin
+    def api_create_building_map_image(user_id, role, map_id):
+        sb = get_supabase()
+        if not sb:
+            return jsonify({'error': 'Database not configured'}), 503
+        bm = bm_get(sb, map_id)
+        if not bm:
+            return jsonify({'error': 'Not found'}), 404
+        if str(bm.get('user_id')) != str(user_id) and role != 'superadmin':
+            return jsonify({'error': 'Forbidden'}), 403
+        name = str(request.form.get('name') or 'View').strip()
+        f = request.files.get('file')
+        if not f:
+            return jsonify({'error': 'No file uploaded'}), 400
+        if not allowed_file(f.filename):
+            return jsonify({'error': 'Invalid file type'}), 400
+        raw_bytes = f.read()
+        if not raw_bytes or len(raw_bytes) > MAX_BUILDING_MAP_READ_BYTES:
+            return jsonify({'error': 'File too large'}), 400
+        jpeg_bytes, w, h = compress_building_map_image(raw_bytes)
+        if not jpeg_bytes:
+            return jsonify({'error': 'Failed to process image'}), 400
+        filename = f"bmi_{uuid.uuid4().hex[:16]}.jpg"
+        upload_building_map_to_s3(filename, jpeg_bytes, 'image/jpeg')
+        sort_order = bm_next_image_sort(sb, map_id)
+        img = bm_create_image(sb, map_id, name, filename, w, h, sort_order)
+        if not img:
+            return jsonify({'error': 'Failed to create image'}), 500
+        img['image_url'] = get_building_map_s3_url(filename)
+        return jsonify(img), 201
+
+    @app.route('/api/building-map-images/<image_id>', methods=['PATCH'])
+    @require_admin
+    def api_update_building_map_image(user_id, role, image_id):
+        sb = get_supabase()
+        if not sb:
+            return jsonify({'error': 'Database not configured'}), 503
+        img = bm_get_image(sb, image_id)
+        if not img:
+            return jsonify({'error': 'Not found'}), 404
+        bm = bm_get(sb, img['building_map_id'])
+        if not bm or (str(bm.get('user_id')) != str(user_id) and role != 'superadmin'):
+            return jsonify({'error': 'Forbidden'}), 403
+        data = request.get_json(silent=True) or {}
+        updates = {}
+        if 'name' in data:
+            updates['name'] = str(data['name']).strip()
+        if 'sort_order' in data:
+            updates['sort_order'] = int(data['sort_order'])
+        if updates:
+            bm_update_image(sb, image_id, **updates)
+        updated = bm_get_image(sb, image_id)
+        if updated:
+            updated['image_url'] = get_building_map_s3_url(updated.get('image_filename'))
+        return jsonify(updated)
+
+    @app.route('/api/building-map-images/<image_id>', methods=['DELETE'])
+    @require_admin
+    def api_delete_building_map_image(user_id, role, image_id):
+        sb = get_supabase()
+        if not sb:
+            return jsonify({'error': 'Database not configured'}), 503
+        img = bm_get_image(sb, image_id)
+        if not img:
+            return jsonify({'error': 'Not found'}), 404
+        bm = bm_get(sb, img['building_map_id'])
+        if not bm or (str(bm.get('user_id')) != str(user_id) and role != 'superadmin'):
+            return jsonify({'error': 'Forbidden'}), 403
+        delete_building_map_from_s3(img.get('image_filename'))
+        bm_delete_image(sb, image_id)
+        return jsonify({'success': True})
+
+    # -- Building Zones --
+
+    @app.route('/api/building-maps/<map_id>/zones', methods=['GET'])
+    @require_admin
+    def api_list_building_zones(user_id, role, map_id):
+        sb = get_supabase()
+        if not sb:
+            return jsonify({'error': 'Database not configured'}), 503
+        bm = bm_get(sb, map_id)
+        if not bm:
+            return jsonify({'error': 'Not found'}), 404
+        if str(bm.get('user_id')) != str(user_id) and role != 'superadmin':
+            return jsonify({'error': 'Forbidden'}), 403
+        zones = bm_list_zones(sb, map_id)
+        return jsonify(zones)
+
+    @app.route('/api/building-maps/<map_id>/zones', methods=['POST'])
+    @require_admin
+    def api_create_building_zone(user_id, role, map_id):
+        sb = get_supabase()
+        if not sb:
+            return jsonify({'error': 'Database not configured'}), 503
+        bm = bm_get(sb, map_id)
+        if not bm:
+            return jsonify({'error': 'Not found'}), 404
+        if str(bm.get('user_id')) != str(user_id) and role != 'superadmin':
+            return jsonify({'error': 'Forbidden'}), 403
+        data = request.get_json(silent=True) or {}
+        name = str(data.get('name') or '').strip()
+        if not name:
+            return jsonify({'error': 'Name is required'}), 400
+        points = data.get('points', [])
+        if not isinstance(points, list) or len(points) < 3:
+            return jsonify({'error': 'At least 3 points required'}), 400
+        floor_number = int(data.get('floor_number', 0))
+        color = str(data.get('color', 'green')).strip()
+        linked_panorama_id = data.get('linked_panorama_id') or None
+        linked_floor_plan_item_id = data.get('linked_floor_plan_item_id') or None
+        sort_order = int(data.get('sort_order', 0))
+        image_id = data.get('image_id') or None
+        zone = bm_create_zone(sb, map_id, name, floor_number, points, color,
+                              linked_panorama_id, linked_floor_plan_item_id, sort_order,
+                              image_id=image_id)
+        if not zone:
+            return jsonify({'error': 'Failed to create zone'}), 500
+        return jsonify(zone), 201
+
+    @app.route('/api/building-maps/<map_id>/zones/batch', methods=['POST'])
+    @require_admin
+    def api_batch_create_building_zones(user_id, role, map_id):
+        sb = get_supabase()
+        if not sb:
+            return jsonify({'error': 'Database not configured'}), 503
+        bm = bm_get(sb, map_id)
+        if not bm:
+            return jsonify({'error': 'Not found'}), 404
+        if str(bm.get('user_id')) != str(user_id) and role != 'superadmin':
+            return jsonify({'error': 'Forbidden'}), 403
+        data = request.get_json(silent=True) or {}
+        zones_data = data.get('zones', [])
+        if not isinstance(zones_data, list) or not zones_data:
+            return jsonify({'error': 'zones must be a non-empty list'}), 400
+        for z in zones_data:
+            if not isinstance(z.get('points', []), list) or len(z.get('points', [])) < 3:
+                return jsonify({'error': 'Each zone needs at least 3 points'}), 400
+        created = bm_batch_create_zones(sb, map_id, zones_data)
+        return jsonify(created), 201
+
+    @app.route('/api/building-zones/<int:zone_id>', methods=['PUT'])
+    @require_admin
+    def api_update_building_zone(user_id, role, zone_id):
+        sb = get_supabase()
+        if not sb:
+            return jsonify({'error': 'Database not configured'}), 503
+        zone = bm_get_zone(sb, zone_id)
+        if not zone:
+            return jsonify({'error': 'Not found'}), 404
+        bm = bm_get(sb, zone['building_map_id'])
+        if not bm or (str(bm.get('user_id')) != str(user_id) and role != 'superadmin'):
+            return jsonify({'error': 'Forbidden'}), 403
+        data = request.get_json(silent=True) or {}
+        updates = {}
+        for k in ('name', 'floor_number', 'color', 'sort_order', 'points',
+                   'linked_panorama_id', 'linked_floor_plan_item_id', 'image_id'):
+            if k in data:
+                updates[k] = data[k]
+        if updates:
+            bm_update_zone(sb, zone_id, **updates)
+        updated = bm_get_zone(sb, zone_id)
+        return jsonify(updated)
+
+    @app.route('/api/building-zones/<int:zone_id>', methods=['DELETE'])
+    @require_admin
+    def api_delete_building_zone(user_id, role, zone_id):
+        sb = get_supabase()
+        if not sb:
+            return jsonify({'error': 'Database not configured'}), 503
+        zone = bm_get_zone(sb, zone_id)
+        if not zone:
+            return jsonify({'error': 'Not found'}), 404
+        bm = bm_get(sb, zone['building_map_id'])
+        if not bm or (str(bm.get('user_id')) != str(user_id) and role != 'superadmin'):
+            return jsonify({'error': 'Forbidden'}), 403
+        bm_delete_zone(sb, zone_id)
+        return jsonify({'success': True})
+
+    # -- Building Map pages --
+
+    @app.route('/building-map/admin/<map_id>')
+    def building_map_admin_page(map_id):
+        return render_template('building_map_admin.html', map_id=map_id, **auth_ctx())
+
+    @app.route('/building-map/view/<share_token>')
+    def building_map_public_view(share_token):
+        sb = get_supabase()
+        if not sb:
+            return "Database not configured", 503
+        bm = bm_get_by_token(sb, share_token)
+        if not bm:
+            return "Not found", 404
+        # Collect images for this building map
+        images = bm_list_images(sb, bm['id'])
+        for img in images:
+            img['image_url'] = get_building_map_s3_url(img.get('image_filename'))
+        # Fallback: if no images table entries, use the building map's own image
+        if not images:
+            images = [{
+                'id': None,
+                'name': bm.get('name', 'View'),
+                'image_url': get_building_map_s3_url(bm.get('image_filename')),
+                'image_width': bm.get('image_width', 0),
+                'image_height': bm.get('image_height', 0),
+            }]
+        zones = bm_list_zones(sb, bm['id'])
+        # Enrich zones with linked floor plan image URLs
+        for z in zones:
+            if z.get('linked_floor_plan_item_id'):
+                fp_item = fp_get_item(sb, z['linked_floor_plan_item_id'])
+                if fp_item:
+                    z['linked_floor_plan_image_url'] = get_floorplan_s3_url(fp_item.get('image_filename'))
+                    z['linked_floor_plan_name'] = fp_item.get('name', '')
+        # Get all building maps for this user to allow switching
+        all_maps = bm_list(sb, bm['user_id'])
+        siblings = []
+        for m in all_maps:
+            siblings.append({
+                'id': m['id'],
+                'name': m['name'],
+                'share_token': m.get('share_token', ''),
+                'active': m['id'] == bm['id'],
+            })
+        return render_template('building_map_view.html',
+                               bm=bm,
+                               images=images,
+                               image_url=images[0]['image_url'] if images else '',
+                               zones=zones,
+                               siblings=siblings)
+
+    # -- Public API for building map data (used by customer view JS) --
+
+    @app.route('/api/public/building-map/<share_token>')
+    def api_public_building_map(share_token):
+        sb = get_supabase()
+        if not sb:
+            return jsonify({'error': 'Database not configured'}), 503
+        bm = bm_get_by_token(sb, share_token)
+        if not bm:
+            return jsonify({'error': 'Not found'}), 404
+        bm['image_url'] = get_building_map_s3_url(bm.get('image_filename'))
+        zones = bm_list_zones(sb, bm['id'])
+        for z in zones:
+            if z.get('linked_floor_plan_item_id'):
+                fp_item = fp_get_item(sb, z['linked_floor_plan_item_id'])
+                if fp_item:
+                    z['linked_floor_plan_image_url'] = get_floorplan_s3_url(fp_item.get('image_filename'))
+                    z['linked_floor_plan_name'] = fp_item.get('name', '')
+        bm['zones'] = zones
+        return jsonify(bm)
+
+    # ===================================================================
+    # PROJECT PLANS
+    # ===================================================================
+
+    @app.route('/api/project-plans', methods=['GET'])
+    @require_auth
+    def api_list_project_plans(user_id, role):
+        sb = get_supabase()
+        plans = pp_list(sb, user_id)
+        base = (request.url_root or '').rstrip('/')
+        for p in plans:
+            maps = pp_list_maps(sb, p['id'])
+            p['map_count'] = len(maps)
+            map_names = []
+            total_zones = 0
+            total_floors = 0
+            for link in maps:
+                bm = bm_get(sb, link.get('building_map_id'))
+                if bm:
+                    map_names.append(bm.get('name', ''))
+                    zones = bm_list_zones(sb, bm['id'])
+                    total_zones += len(zones)
+                    total_floors += len(set(z.get('floor_number', 0) for z in zones))
+            p['map_names'] = map_names
+            p['total_zones'] = total_zones
+            p['total_floors'] = total_floors
+            p['share_url'] = f"{base}/project-plan/view/{p.get('share_token', '')}"
+        return jsonify(plans)
+
+    @app.route('/api/project-plans', methods=['POST'])
+    @require_auth
+    def api_create_project_plan(user_id, role):
+        sb = get_supabase()
+        data = request.get_json(force=True)
+        name = data.get('name', 'Project Plan').strip() or 'Project Plan'
+        org_id = data.get('org_id')
+        plan = pp_create(sb, user_id, org_id, name)
+        if not plan:
+            return jsonify({'error': 'Failed to create project plan'}), 500
+        plan['share_url'] = request.host_url.rstrip('/') + '/project-plan/view/' + plan.get('share_token', '')
+        return jsonify(plan), 201
+
+    @app.route('/api/project-plans/<plan_id>', methods=['GET'])
+    @require_auth
+    def api_get_project_plan(user_id, role, plan_id):
+        sb = get_supabase()
+        plan = pp_get(sb, plan_id)
+        if not plan:
+            return jsonify({'error': 'Not found'}), 404
+        plan['maps'] = pp_list_maps(sb, plan_id)
+        # Enrich maps with building map details
+        for link in plan['maps']:
+            bm = bm_get(sb, link['building_map_id'])
+            if bm:
+                link['building_map_name'] = bm.get('name', '')
+                link['building_map_image_url'] = get_building_map_s3_url(bm.get('image_filename'))
+                link['building_map_share_token'] = bm.get('share_token', '')
+        plan['share_url'] = request.host_url.rstrip('/') + '/project-plan/view/' + plan.get('share_token', '')
+        return jsonify(plan)
+
+    @app.route('/api/project-plans/<plan_id>', methods=['PATCH'])
+    @require_auth
+    def api_update_project_plan(user_id, role, plan_id):
+        sb = get_supabase()
+        data = request.get_json(force=True)
+        updated = pp_update(sb, plan_id, **data)
+        if not updated:
+            return jsonify({'error': 'Not found or no valid fields'}), 404
+        return jsonify(updated)
+
+    @app.route('/api/project-plans/<plan_id>', methods=['DELETE'])
+    @require_auth
+    def api_delete_project_plan(user_id, role, plan_id):
+        sb = get_supabase()
+        deleted = pp_delete(sb, plan_id)
+        if not deleted:
+            return jsonify({'error': 'Not found'}), 404
+        return jsonify({'ok': True})
+
+    # -- Plan ↔ Map linking --
+
+    @app.route('/api/project-plans/<plan_id>/maps', methods=['GET'])
+    @require_auth
+    def api_list_plan_maps(user_id, role, plan_id):
+        sb = get_supabase()
+        maps = pp_list_maps(sb, plan_id)
+        for link in maps:
+            bm = bm_get(sb, link['building_map_id'])
+            if bm:
+                link['building_map_name'] = bm.get('name', '')
+                link['building_map_image_url'] = get_building_map_s3_url(bm.get('image_filename'))
+                link['building_map_share_token'] = bm.get('share_token', '')
+        return jsonify(maps)
+
+    @app.route('/api/project-plans/<plan_id>/maps', methods=['POST'])
+    @require_auth
+    def api_add_map_to_plan(user_id, role, plan_id):
+        sb = get_supabase()
+        data = request.get_json(force=True)
+        building_map_id = data.get('building_map_id')
+        if not building_map_id:
+            return jsonify({'error': 'building_map_id required'}), 400
+        sort_order = pp_next_sort(sb, plan_id)
+        link = pp_add_map(sb, plan_id, building_map_id, sort_order)
+        if not link:
+            return jsonify({'error': 'Failed to add map'}), 500
+        return jsonify(link), 201
+
+    @app.route('/api/project-plans/<plan_id>/maps/<building_map_id>', methods=['DELETE'])
+    @require_auth
+    def api_remove_map_from_plan(user_id, role, plan_id, building_map_id):
+        sb = get_supabase()
+        pp_remove_map(sb, plan_id, building_map_id)
+        return jsonify({'ok': True})
+
+    @app.route('/api/project-plans/<plan_id>/maps/reorder', methods=['POST'])
+    @require_auth
+    def api_reorder_plan_maps(user_id, role, plan_id):
+        sb = get_supabase()
+        data = request.get_json(force=True)
+        ordered_ids = data.get('ordered_map_ids', [])
+        result = pp_reorder(sb, plan_id, ordered_ids)
+        return jsonify(result)
+
+    # -- Public Project Plan view --
+
+    @app.route('/project-plan/view/<share_token>')
+    def project_plan_public_view(share_token):
+        sb = get_supabase()
+        if not sb:
+            return "Database not configured", 503
+        plan = pp_get_by_token(sb, share_token)
+        if not plan:
+            return "Not found", 404
+        links = pp_list_maps(sb, plan['id'])
+        buildings = []
+        for link in links:
+            bm = bm_get(sb, link['building_map_id'])
+            if not bm:
+                continue
+            bm['image_url'] = get_building_map_s3_url(bm.get('image_filename'))
+            bm_zones = bm_list_zones(sb, bm['id'])
+            for z in bm_zones:
+                if z.get('linked_floor_plan_item_id'):
+                    fp_item = fp_get_item(sb, z['linked_floor_plan_item_id'])
+                    if fp_item:
+                        z['linked_floor_plan_image_url'] = get_floorplan_s3_url(fp_item.get('image_filename'))
+                        z['linked_floor_plan_name'] = fp_item.get('name', '')
+            bm['zones'] = bm_zones
+            buildings.append(bm)
+        return render_template('project_plan_view.html',
+                               plan=plan,
+                               buildings=buildings)

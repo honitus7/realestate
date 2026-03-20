@@ -14,6 +14,36 @@
     margin: 0 auto;
 }
 
+/* -- Subtabs -- */
+.fp-subtabs {
+    display: flex;
+    gap: 0;
+    margin-bottom: 1.75rem;
+    border-bottom: 1px solid var(--color-border);
+}
+
+.fp-subtab {
+    padding: 0.65rem 1.25rem;
+    font-size: 0.85rem;
+    font-weight: 600;
+    font-family: var(--font-body);
+    color: var(--color-muted);
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    cursor: pointer;
+    transition: color 0.2s, border-color 0.2s;
+}
+
+.fp-subtab:hover {
+    color: var(--color-text);
+}
+
+.fp-subtab.active {
+    color: var(--color-text);
+    border-bottom-color: var(--color-text);
+}
+
 .floorplans-header {
     display: flex;
     align-items: center;
@@ -67,6 +97,74 @@
 .fp-card-preview .fp-placeholder {
     font-size: 2.5rem;
     opacity: 0.3;
+}
+
+/* ── Informative card header (replaces thumbnail) ── */
+.fp-card-header {
+    padding: 1rem 1.25rem 0.75rem;
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+}
+.fp-card-icon {
+    width: 40px; height: 40px; flex-shrink: 0;
+    border-radius: var(--radius-sm);
+    display: flex; align-items: center; justify-content: center;
+    color: #fff; font-size: 0.95rem;
+}
+.fp-card-icon.icon-building { background: linear-gradient(135deg, #4a6185, #1a2e4d); }
+.fp-card-icon.icon-project  { background: linear-gradient(135deg, #6366f1, #4338ca); }
+.fp-card-icon.icon-catalogue { background: linear-gradient(135deg, #059669, #047857); }
+
+.fp-card-title-group { flex: 1; min-width: 0; }
+.fp-card-title-group .fp-card-name { margin-bottom: 0.15rem; }
+.fp-card-title-group .fp-card-meta { margin-bottom: 0; }
+
+/* Stats row */
+.fp-card-stats {
+    display: flex; gap: 0; padding: 0 1.25rem;
+    margin-bottom: 0.5rem;
+}
+.fp-card-stat {
+    flex: 1; text-align: center;
+    padding: 0.5rem 0.25rem;
+    border-right: 1px solid var(--color-border);
+}
+.fp-card-stat:last-child { border-right: none; }
+.fp-card-stat-value {
+    font-size: 1.1rem; font-weight: 700; color: var(--color-text);
+    line-height: 1.2;
+}
+.fp-card-stat-label {
+    font-size: 0.65rem; color: var(--color-muted);
+    text-transform: uppercase; letter-spacing: 0.04em; font-weight: 600;
+}
+
+/* Tags / detail chips */
+.fp-card-details {
+    padding: 0 1.25rem 0.5rem;
+}
+.fp-card-detail-label {
+    font-size: 0.68rem; font-weight: 600; color: var(--color-muted);
+    text-transform: uppercase; letter-spacing: 0.03em;
+    margin-bottom: 0.3rem;
+}
+.fp-card-chips {
+    display: flex; flex-wrap: wrap; gap: 0.3rem;
+}
+.fp-card-chip {
+    font-size: 0.7rem; padding: 0.2rem 0.5rem;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 999px; color: var(--color-text);
+    white-space: nowrap; max-width: 140px;
+    overflow: hidden; text-overflow: ellipsis;
+}
+.fp-card-chip.muted { color: var(--color-muted); font-style: italic; border-style: dashed; }
+
+.fp-card-divider {
+    border: none; border-top: 1px solid var(--color-border);
+    margin: 0;
 }
 
 .fp-card-body {
@@ -179,20 +277,29 @@
 
 /* -- Upload zone -- */
 .fp-upload-zone {
-    border: 2px dashed var(--color-border);
-    border-radius: var(--radius);
-    padding: 2rem;
+    border: 2px dashed rgba(22,35,56,0.12);
+    border-radius: 14px;
+    padding: 2rem 1.5rem;
     text-align: center;
     cursor: pointer;
-    transition: border-color 0.2s, background 0.2s;
+    transition: border-color 0.25s, background 0.25s, box-shadow 0.25s;
     margin-bottom: 1.5rem;
-    background: var(--color-bg-elevated);
+    background: rgba(255,255,255,0.5);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
 }
 
-.fp-upload-zone:hover,
+.fp-upload-zone:hover {
+    border-color: rgba(22,35,56,0.2);
+    background: rgba(255,255,255,0.7);
+    box-shadow: 0 2px 12px rgba(22,35,56,0.04);
+}
+
 .fp-upload-zone.dragover {
-    border-color: var(--border-strong);
-    background: var(--color-surface);
+    border-color: #22c55e;
+    background: rgba(34,197,94,0.06);
+    box-shadow: 0 0 0 3px rgba(34,197,94,0.1);
 }
 
 .fp-upload-zone-icon {
@@ -202,13 +309,120 @@
 }
 
 .fp-upload-zone-text {
-    font-size: 0.9rem;
-    margin-bottom: 0.25rem;
+    font-size: 0.88rem;
+    font-weight: 500;
+    color: #162338;
+    margin-bottom: 0.3rem;
 }
 
 .fp-upload-zone-hint {
     font-size: 0.75rem;
     color: var(--color-muted);
+}
+
+/* -- Dropzone (used in modals: Building Map, etc.) -- */
+.fp-dropzone {
+    border: 2px dashed rgba(22,35,56,0.12);
+    border-radius: 12px;
+    padding: 1.5rem 1rem;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color 0.25s, background 0.25s, box-shadow 0.25s;
+    background: rgba(255,255,255,0.5);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    position: relative;
+}
+
+.fp-dropzone:hover {
+    border-color: rgba(22,35,56,0.2);
+    background: rgba(255,255,255,0.7);
+}
+
+.fp-dropzone.dragover {
+    border-color: #22c55e;
+    background: rgba(34,197,94,0.06);
+    box-shadow: 0 0 0 3px rgba(34,197,94,0.1);
+}
+
+.fp-dropzone-idle {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.fp-dropzone-text {
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: #162338;
+    margin-bottom: 0.25rem;
+}
+
+.fp-dropzone-hint {
+    font-size: 0.72rem;
+    color: var(--color-muted);
+}
+
+.fp-dropzone-preview {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    width: 100%;
+    text-align: left;
+}
+
+.fp-dropzone-preview img {
+    width: 80px;
+    height: 60px;
+    object-fit: cover;
+    border-radius: 8px;
+    border: 1px solid rgba(22,35,56,0.08);
+    flex-shrink: 0;
+}
+
+.fp-dropzone-preview-info {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+}
+
+.fp-dropzone-preview-name {
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: #162338;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.fp-dropzone-preview-size {
+    font-size: 0.72rem;
+    color: var(--color-muted);
+}
+
+.fp-dropzone-remove {
+    width: 28px;
+    height: 28px;
+    border-radius: 7px;
+    border: 1px solid rgba(22,35,56,0.08);
+    background: rgba(255,255,255,0.8);
+    color: #6b7280;
+    font-size: 1.1rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: all 0.18s;
+}
+
+.fp-dropzone-remove:hover {
+    background: rgba(239,68,68,0.08);
+    border-color: rgba(239,68,68,0.2);
+    color: #ef4444;
 }
 
 /* -- Items list (sortable) -- */
