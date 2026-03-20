@@ -367,3 +367,35 @@ create table if not exists public.project_plan_maps (
 
 create index if not exists idx_project_plan_maps_plan on public.project_plan_maps(project_plan_id);
 create index if not exists idx_project_plan_maps_building on public.project_plan_maps(building_map_id);
+
+-- 18) Galleries
+create table if not exists public.galleries (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  org_id uuid references public.organizations(id) on delete set null,
+  name text not null default 'Gallery',
+  share_token text unique,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+
+create index if not exists idx_galleries_user on public.galleries(user_id);
+create index if not exists idx_galleries_share_token on public.galleries(share_token);
+
+-- 19) Gallery Items (images or videos within a gallery)
+create table if not exists public.gallery_items (
+  id uuid primary key default gen_random_uuid(),
+  gallery_id uuid not null references public.galleries(id) on delete cascade,
+  name text not null,
+  media_type text not null default 'image',
+  filename text not null,
+  file_size_bytes bigint default 0,
+  media_width int default 0,
+  media_height int default 0,
+  sort_order int not null default 0,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+
+create index if not exists idx_gallery_items_gallery on public.gallery_items(gallery_id);
+create index if not exists idx_gallery_items_sort_order on public.gallery_items(gallery_id, sort_order);

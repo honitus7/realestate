@@ -15,6 +15,7 @@
             <button class="fp-subtab active" data-tab="floorplans" id="subtab-floorplans">Floor Plans</button>
             <button class="fp-subtab" data-tab="building-maps" id="subtab-building-maps">Building Maps</button>
             <button class="fp-subtab" data-tab="project-plans" id="subtab-project-plans">Project Plans</button>
+            <button class="fp-subtab" data-tab="galleries" id="subtab-galleries">Gallery</button>
         </div>
 
         <!-- ========= FLOOR PLANS TAB ========= -->
@@ -130,6 +131,62 @@
                 <div id="pp-linked-maps"></div>
             </div>
         </div><!-- /tab-project-plans -->
+
+        <!-- ========= GALLERIES TAB ========= -->
+        <div class="fp-tab-content" id="tab-galleries" style="display:none;">
+            <!-- List view -->
+            <div id="gal-list-view">
+                <div class="floorplans-header">
+                    <h1 class="floorplans-title">Galleries</h1>
+                    <button class="btn btn-primary" id="new-gal-btn">New Gallery</button>
+                </div>
+
+                <div id="gal-loading" style="text-align:center; padding:3rem; color:var(--color-muted);">Loading...</div>
+
+                <div class="fp-grid" id="gal-grid" style="display:none;"></div>
+
+                <div class="fp-empty" id="gal-empty" style="display:none;">
+                    <div class="fp-empty-icon">
+                        <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>
+                    </div>
+                    <div>No galleries yet.</div>
+                    <div style="margin-top:0.5rem; font-size:0.85rem;">Click "New Gallery" to create an image &amp; video gallery.</div>
+                </div>
+            </div>
+
+            <!-- Detail view (items within gallery) -->
+            <div id="gal-detail-view" class="fp-detail">
+                <div class="fp-detail-header">
+                    <button class="fp-detail-back" id="gal-back-btn">&larr; Back</button>
+                    <h2 id="gal-detail-title" class="floorplans-title" style="flex:1; margin:0;"></h2>
+                    <button class="btn btn-sm btn-secondary" id="gal-preview-btn" style="margin-left:auto;">Preview</button>
+                </div>
+
+                <!-- Upload zone -->
+                <div class="fp-upload-zone" id="gal-upload-zone">
+                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="opacity:0.5;">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
+                    </svg>
+                    <div style="font-size:0.85rem; color:var(--color-muted); margin-top:0.5rem;">Drop images or videos here, or click to browse</div>
+                    <div style="font-size:0.72rem; color:var(--color-muted); margin-top:0.25rem;">Supports: PNG, JPG, WebP, GIF, MP4, WebM, MOV</div>
+                    <input type="file" id="gal-file-input" accept="image/png,image/jpeg,image/webp,image/gif,video/mp4,video/webm,video/quicktime" multiple style="display:none;">
+                </div>
+
+                <!-- Upload progress -->
+                <div class="fp-upload-progress" id="gal-upload-progress" style="display:none;">
+                    <div class="progress-bar"><div class="progress-fill" id="gal-progress-fill"></div></div>
+                    <div class="progress-text" id="gal-progress-text">Uploading...</div>
+                </div>
+
+                <!-- Items list -->
+                <div class="fp-items-list" id="gal-items-list"></div>
+                <div class="fp-empty" id="gal-items-empty" style="display:none; padding:2rem;">
+                    <div>No items yet. Upload images or videos above.</div>
+                </div>
+
+                <button class="btn btn-primary" id="gal-save-order-btn" style="display:none; margin-top:1rem;">Save Order</button>
+            </div>
+        </div><!-- /tab-galleries -->
     </div><!-- /floorplans-main -->
 
     <!-- Create Catalogue Modal -->
@@ -301,6 +358,69 @@
             </div>
             <div id="pp-available-maps" style="max-height:400px; overflow-y:auto;"></div>
             <div id="pp-no-maps-msg" class="msg" style="display:none; margin-top:0.5rem;">No building maps available to add.</div>
+        </div>
+    </div>
+
+    <!-- Gallery Create Modal -->
+    <div class="modal-backdrop" id="gal-create-modal">
+        <div class="modal" style="max-width:480px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
+                <div class="modal-title">New Gallery</div>
+                <button type="button" class="modal-close" id="gal-modal-close" aria-label="Close">&times;</button>
+            </div>
+            <div class="form-group" style="margin-bottom:1rem;">
+                <label class="form-label">Name</label>
+                <input type="text" class="form-input" id="gal-name" placeholder="e.g., Project Gallery" value="Gallery">
+            </div>
+            <div class="msg msg-error" id="gal-create-error" style="display:none;"></div>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" id="gal-modal-cancel">Cancel</button>
+                <button class="btn btn-primary" id="gal-modal-create">Create</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Gallery Delete Modal -->
+    <div class="modal-backdrop" id="gal-delete-modal">
+        <div class="modal" style="max-width:440px;">
+            <div class="modal-title" style="margin-bottom:1rem;">Confirm Delete</div>
+            <p id="gal-delete-text" style="margin-bottom:1.25rem; font-size:0.9rem;"></p>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" id="gal-delete-cancel">Cancel</button>
+                <button class="btn btn-danger" id="gal-delete-confirm">Delete</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Gallery Rename Modal -->
+    <div class="modal-backdrop" id="gal-rename-modal">
+        <div class="modal" style="max-width:440px;">
+            <div class="modal-title" style="margin-bottom:1rem;">Rename Item</div>
+            <div class="form-group" style="margin-bottom:1rem;">
+                <input type="text" class="form-input" id="gal-rename-input" placeholder="Name">
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" id="gal-rename-cancel">Cancel</button>
+                <button class="btn btn-primary" id="gal-rename-confirm">Rename</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Gallery Name Modal (for upload naming) -->
+    <div class="modal-backdrop" id="gal-name-modal">
+        <div class="modal" style="max-width:480px;">
+            <div class="modal-title" style="margin-bottom:0.75rem;">Name this item</div>
+            <div id="gal-name-preview-wrap" style="margin-bottom:0.75rem; text-align:center;">
+                <img id="gal-name-preview" style="max-width:100%; max-height:200px; border-radius:8px; display:none;" alt="">
+                <video id="gal-name-preview-video" style="max-width:100%; max-height:200px; border-radius:8px; display:none;" muted></video>
+            </div>
+            <div class="form-group" style="margin-bottom:1rem;">
+                <input type="text" class="form-input" id="gal-item-name-input" placeholder="e.g., Living Room View">
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" id="gal-name-skip">Skip</button>
+                <button class="btn btn-primary" id="gal-name-confirm">Upload</button>
+            </div>
         </div>
     </div>
 </div>
@@ -798,11 +918,15 @@
             document.getElementById('tab-floorplans').style.display = target === 'floorplans' ? '' : 'none';
             document.getElementById('tab-building-maps').style.display = target === 'building-maps' ? '' : 'none';
             document.getElementById('tab-project-plans').style.display = target === 'project-plans' ? '' : 'none';
+            document.getElementById('tab-galleries').style.display = target === 'galleries' ? '' : 'none';
             if (target === 'building-maps' && !bmLoaded) {
                 loadBuildingMaps();
             }
             if (target === 'project-plans' && !ppLoaded) {
                 loadProjectPlans();
+            }
+            if (target === 'galleries' && !galLoaded) {
+                loadGalleries();
             }
         });
     });
@@ -837,11 +961,15 @@
         if (empty) empty.style.display = 'none';
         if (grid) grid.style.display = '';
         grid.innerHTML = buildingMaps.map(function(m) {
+            var imgUrl = m.image_url || '';
             var catChip = m.catalogue_name
                 ? '<span class="fp-card-chip">' + esc(m.catalogue_name) + '</span>'
                 : '<span class="fp-card-chip muted">No catalogue</span>';
             return '<div class="fp-card" data-id="' + m.id + '">' +
-                '<div class="fp-card-header">' +
+                '<div class="fp-card-preview">' +
+                    (imgUrl ? '<img src="' + esc(imgUrl) + '" alt="' + esc(m.name) + '">' : '<span class="fp-placeholder">&#9638;</span>') +
+                '</div>' +
+                '<div class="fp-card-header" style="padding-top:0.75rem;">' +
                     '<div class="fp-card-icon icon-building">' +
                         '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="2" width="16" height="20" rx="2"/><line x1="9" y1="6" x2="9" y2="6.01"/><line x1="15" y1="6" x2="15" y2="6.01"/><line x1="9" y1="10" x2="9" y2="10.01"/><line x1="15" y1="10" x2="15" y2="10.01"/><line x1="9" y1="14" x2="9" y2="14.01"/><line x1="15" y1="14" x2="15" y2="14.01"/><rect x="9" y="18" width="6" height="4"/></svg>' +
                     '</div>' +
@@ -1292,6 +1420,413 @@
                 showModal('pp-add-map-modal');
             });
     }
+
+    // ==================================================================
+    // Galleries
+    // ==================================================================
+
+    var galLoaded = false;
+    var galleries = [];
+    var currentGallery = null;
+    var galItems = [];
+    var galOrderDirty = false;
+    var galPendingFiles = [];
+    var galPendingFileIndex = 0;
+
+    function loadGalleries() {
+        fetch('/api/galleries', { headers: authHeaders() })
+            .then(function(r) { return r.ok ? r.json() : []; })
+            .then(function(data) {
+                galleries = data;
+                galLoaded = true;
+                renderGalleries();
+            });
+    }
+
+    function renderGalleries() {
+        var loading = document.getElementById('gal-loading');
+        var grid = document.getElementById('gal-grid');
+        var empty = document.getElementById('gal-empty');
+        if (loading) loading.style.display = 'none';
+        if (!galleries.length) {
+            if (grid) grid.style.display = 'none';
+            if (empty) empty.style.display = '';
+            return;
+        }
+        if (empty) empty.style.display = 'none';
+        if (grid) grid.style.display = '';
+        grid.innerHTML = galleries.map(function(g) {
+            var itemNames = g.item_names || [];
+            var chipsHtml = '';
+            if (itemNames.length) {
+                chipsHtml = itemNames.map(function(n) { return '<span class="fp-card-chip">' + esc(n) + '</span>'; }).join('');
+                if ((g.item_count || 0) > itemNames.length) {
+                    chipsHtml += '<span class="fp-card-chip muted">+' + ((g.item_count || 0) - itemNames.length) + ' more</span>';
+                }
+            } else {
+                chipsHtml = '<span class="fp-card-chip muted">Empty gallery</span>';
+            }
+            return '<div class="fp-card" data-id="' + g.id + '">' +
+                '<div class="fp-card-header">' +
+                    '<div class="fp-card-icon" style="background:linear-gradient(135deg,#e11d48,#be123c);">' +
+                        '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>' +
+                    '</div>' +
+                    '<div class="fp-card-title-group">' +
+                        '<div class="fp-card-name">' + esc(g.name) + '</div>' +
+                        '<div class="fp-card-meta">Gallery</div>' +
+                    '</div>' +
+                '</div>' +
+                '<div class="fp-card-stats">' +
+                    '<div class="fp-card-stat"><div class="fp-card-stat-value">' + (g.image_count || 0) + '</div><div class="fp-card-stat-label">Images</div></div>' +
+                    '<div class="fp-card-stat"><div class="fp-card-stat-value">' + (g.video_count || 0) + '</div><div class="fp-card-stat-label">Videos</div></div>' +
+                '</div>' +
+                '<div class="fp-card-details">' +
+                    '<div class="fp-card-detail-label">Items</div>' +
+                    '<div class="fp-card-chips">' + chipsHtml + '</div>' +
+                '</div>' +
+                '<hr class="fp-card-divider">' +
+                '<div class="fp-card-body">' +
+                    '<div class="fp-share-row">' +
+                        '<input type="text" value="' + esc(g.share_url || '') + '" readonly onclick="this.select()">' +
+                        '<button class="btn btn-sm gal-copy-btn" data-url="' + esc(g.share_url || '') + '">Copy</button>' +
+                    '</div>' +
+                    '<div class="fp-card-actions">' +
+                        '<button class="btn btn-secondary gal-manage-btn" data-id="' + g.id + '">Manage</button>' +
+                        '<button class="btn btn-danger gal-del-btn" data-id="' + g.id + '" data-name="' + esc(g.name) + '">Delete</button>' +
+                    '</div>' +
+                '</div>' +
+            '</div>';
+        }).join('');
+
+        grid.querySelectorAll('.gal-copy-btn').forEach(function(btn) {
+            btn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                navigator.clipboard.writeText(btn.dataset.url).then(function() {
+                    btn.textContent = 'Copied!';
+                    setTimeout(function() { btn.textContent = 'Copy'; }, 1500);
+                });
+            });
+        });
+        grid.querySelectorAll('.gal-manage-btn').forEach(function(btn) {
+            btn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                openGallery(btn.dataset.id);
+            });
+        });
+        grid.querySelectorAll('.gal-del-btn').forEach(function(btn) {
+            btn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                galDeleteTarget = { type: 'gallery', id: btn.dataset.id, name: btn.dataset.name };
+                document.getElementById('gal-delete-text').textContent = 'Delete gallery "' + btn.dataset.name + '" and all its items? This cannot be undone.';
+                showModal('gal-delete-modal');
+            });
+        });
+    }
+
+    // Create gallery
+    document.getElementById('new-gal-btn').addEventListener('click', function() {
+        document.getElementById('gal-name').value = 'Gallery';
+        document.getElementById('gal-create-error').style.display = 'none';
+        showModal('gal-create-modal');
+    });
+    document.getElementById('gal-modal-close').addEventListener('click', function() { hideModal('gal-create-modal'); });
+    document.getElementById('gal-modal-cancel').addEventListener('click', function() { hideModal('gal-create-modal'); });
+
+    document.getElementById('gal-modal-create').addEventListener('click', function() {
+        var name = document.getElementById('gal-name').value.trim() || 'Gallery';
+        var btn = this;
+        btn.disabled = true;
+        document.getElementById('gal-create-error').style.display = 'none';
+        fetch('/api/galleries', {
+            method: 'POST',
+            headers: Object.assign({ 'Content-Type': 'application/json' }, authHeaders()),
+            body: JSON.stringify({ name: name })
+        })
+        .then(function(r) { return r.json().then(function(d) { return { ok: r.ok, data: d }; }); })
+        .then(function(res) {
+            btn.disabled = false;
+            if (!res.ok) {
+                showError('gal-create-error', res.data.error || 'Failed');
+                return;
+            }
+            hideModal('gal-create-modal');
+            loadGalleries();
+        })
+        .catch(function() { btn.disabled = false; });
+    });
+
+    // Delete gallery / item
+    var galDeleteTarget = null;
+    document.getElementById('gal-delete-cancel').addEventListener('click', function() { hideModal('gal-delete-modal'); });
+    document.getElementById('gal-delete-confirm').addEventListener('click', function() {
+        if (!galDeleteTarget) return;
+        var btn = this;
+        btn.disabled = true;
+        var url = galDeleteTarget.type === 'gallery'
+            ? '/api/galleries/' + galDeleteTarget.id
+            : '/api/gallery-items/' + galDeleteTarget.id;
+        fetch(url, { method: 'DELETE', headers: authHeaders() })
+            .then(function() {
+                btn.disabled = false;
+                hideModal('gal-delete-modal');
+                if (galDeleteTarget.type === 'gallery') {
+                    loadGalleries();
+                } else {
+                    loadGalItems();
+                }
+            })
+            .catch(function() { btn.disabled = false; });
+    });
+
+    // Detail view
+    function openGallery(galleryId) {
+        currentGallery = galleries.find(function(g) { return g.id === galleryId; });
+        if (!currentGallery) return;
+        document.getElementById('gal-list-view').style.display = 'none';
+        document.getElementById('gal-detail-view').classList.add('visible');
+        document.getElementById('gal-detail-title').textContent = currentGallery.name;
+        galOrderDirty = false;
+        document.getElementById('gal-save-order-btn').style.display = 'none';
+        loadGalItems();
+    }
+
+    document.getElementById('gal-back-btn').addEventListener('click', function() {
+        document.getElementById('gal-detail-view').classList.remove('visible');
+        document.getElementById('gal-list-view').style.display = '';
+        currentGallery = null;
+        loadGalleries();
+    });
+
+    document.getElementById('gal-preview-btn').addEventListener('click', function() {
+        if (currentGallery && currentGallery.share_token) {
+            window.open('/gallery/view/' + currentGallery.share_token, '_blank');
+        }
+    });
+
+    function loadGalItems() {
+        if (!currentGallery) return;
+        fetch('/api/galleries/' + currentGallery.id + '/items', { headers: authHeaders() })
+            .then(function(r) { return r.ok ? r.json() : []; })
+            .then(function(data) {
+                galItems = data;
+                renderGalItems();
+            });
+    }
+
+    function renderGalItems() {
+        var list = document.getElementById('gal-items-list');
+        var empty = document.getElementById('gal-items-empty');
+        if (!galItems.length) {
+            list.innerHTML = '';
+            if (empty) empty.style.display = '';
+            return;
+        }
+        if (empty) empty.style.display = 'none';
+        list.innerHTML = galItems.map(function(item, idx) {
+            var sizeStr = item.file_size_bytes ? formatBytes(item.file_size_bytes) : '';
+            var typeStr = item.media_type === 'video' ? 'Video' : 'Image';
+            var meta = [typeStr, sizeStr].filter(Boolean).join(' \u00b7 ');
+            var thumbHtml = item.media_type === 'video'
+                ? '<div class="fp-item-thumb" style="display:flex;align-items:center;justify-content:center;background:var(--color-surface);font-size:1.2rem;">&#9654;</div>'
+                : '<img class="fp-item-thumb" src="' + esc(item.media_url || '') + '" alt="' + esc(item.name) + '">';
+            return '<div class="fp-item" draggable="true" data-id="' + item.id + '" data-idx="' + idx + '">' +
+                '<div class="fp-item-drag" title="Drag to reorder">' +
+                    '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="16" y2="6"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="8" y1="18" x2="16" y2="18"/></svg>' +
+                '</div>' +
+                thumbHtml +
+                '<div class="fp-item-info">' +
+                    '<div class="fp-item-name">' + esc(item.name) + '</div>' +
+                    '<div class="fp-item-size">' + meta + '</div>' +
+                '</div>' +
+                '<div class="fp-item-actions">' +
+                    '<button class="fp-item-btn rename" data-id="' + item.id + '" data-name="' + esc(item.name) + '" title="Rename">' +
+                        '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 3a2.83 2.83 0 0 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>' +
+                    '</button>' +
+                    '<button class="fp-item-btn delete" data-id="' + item.id + '" data-name="' + esc(item.name) + '" title="Delete">' +
+                        '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>' +
+                    '</button>' +
+                '</div>' +
+            '</div>';
+        }).join('');
+
+        list.querySelectorAll('.fp-item-btn.rename').forEach(function(btn) {
+            btn.addEventListener('click', function() { galOpenRename(btn.dataset.id, btn.dataset.name); });
+        });
+        list.querySelectorAll('.fp-item-btn.delete').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                galDeleteTarget = { type: 'item', id: btn.dataset.id, name: btn.dataset.name };
+                document.getElementById('gal-delete-text').textContent = 'Delete "' + btn.dataset.name + '"? This cannot be undone.';
+                showModal('gal-delete-modal');
+            });
+        });
+
+        galSetupDragReorder();
+    }
+
+    function galSetupDragReorder() {
+        var list = document.getElementById('gal-items-list');
+        var dragSrcIdx = null;
+        list.querySelectorAll('.fp-item').forEach(function(el) {
+            el.addEventListener('dragstart', function(e) {
+                dragSrcIdx = parseInt(el.dataset.idx);
+                el.classList.add('dragging');
+                e.dataTransfer.effectAllowed = 'move';
+                e.dataTransfer.setData('text/plain', dragSrcIdx);
+            });
+            el.addEventListener('dragend', function() {
+                el.classList.remove('dragging');
+                list.querySelectorAll('.fp-item').forEach(function(x) { x.classList.remove('drag-over'); });
+            });
+            el.addEventListener('dragover', function(e) {
+                e.preventDefault();
+                e.dataTransfer.dropEffect = 'move';
+                el.classList.add('drag-over');
+            });
+            el.addEventListener('dragleave', function() { el.classList.remove('drag-over'); });
+            el.addEventListener('drop', function(e) {
+                e.preventDefault();
+                el.classList.remove('drag-over');
+                var targetIdx = parseInt(el.dataset.idx);
+                if (dragSrcIdx === null || dragSrcIdx === targetIdx) return;
+                var moved = galItems.splice(dragSrcIdx, 1)[0];
+                galItems.splice(targetIdx, 0, moved);
+                galOrderDirty = true;
+                document.getElementById('gal-save-order-btn').style.display = '';
+                renderGalItems();
+            });
+        });
+    }
+
+    document.getElementById('gal-save-order-btn').addEventListener('click', function() {
+        if (!currentGallery || !galOrderDirty) return;
+        var ids = galItems.map(function(it) { return it.id; });
+        fetch('/api/galleries/' + currentGallery.id + '/reorder', {
+            method: 'POST',
+            headers: Object.assign({ 'Content-Type': 'application/json' }, authHeaders()),
+            body: JSON.stringify({ ordered_ids: ids })
+        }).then(function() {
+            galOrderDirty = false;
+            document.getElementById('gal-save-order-btn').style.display = 'none';
+        });
+    });
+
+    // Upload
+    var galUploadZone = document.getElementById('gal-upload-zone');
+    var galFileInput = document.getElementById('gal-file-input');
+
+    galUploadZone.addEventListener('click', function() { galFileInput.click(); });
+    galUploadZone.addEventListener('dragover', function(e) { e.preventDefault(); galUploadZone.classList.add('dragover'); });
+    galUploadZone.addEventListener('dragleave', function() { galUploadZone.classList.remove('dragover'); });
+    galUploadZone.addEventListener('drop', function(e) {
+        e.preventDefault();
+        galUploadZone.classList.remove('dragover');
+        galPendingFiles = Array.from(e.dataTransfer.files);
+        galPendingFileIndex = 0;
+        galProcessNextFile();
+    });
+    galFileInput.addEventListener('change', function() {
+        galPendingFiles = Array.from(galFileInput.files);
+        galPendingFileIndex = 0;
+        galProcessNextFile();
+        galFileInput.value = '';
+    });
+
+    function galProcessNextFile() {
+        if (galPendingFileIndex >= galPendingFiles.length) return;
+        var file = galPendingFiles[galPendingFileIndex];
+        var nameFromFile = file.name.replace(/\.[^.]+$/, '').replace(/[_-]+/g, ' ');
+        document.getElementById('gal-item-name-input').value = nameFromFile;
+        var isVideo = file.type.startsWith('video/');
+        var imgEl = document.getElementById('gal-name-preview');
+        var vidEl = document.getElementById('gal-name-preview-video');
+        if (isVideo) {
+            imgEl.style.display = 'none';
+            vidEl.style.display = '';
+            vidEl.src = URL.createObjectURL(file);
+        } else {
+            vidEl.style.display = 'none';
+            imgEl.style.display = '';
+            var reader = new FileReader();
+            reader.onload = function(e) { imgEl.src = e.target.result; };
+            reader.readAsDataURL(file);
+        }
+        showModal('gal-name-modal');
+    }
+
+    document.getElementById('gal-name-confirm').addEventListener('click', function() {
+        var name = document.getElementById('gal-item-name-input').value.trim() || 'Untitled';
+        hideModal('gal-name-modal');
+        galUploadFile(galPendingFiles[galPendingFileIndex], name);
+    });
+
+    document.getElementById('gal-name-skip').addEventListener('click', function() {
+        galPendingFileIndex++;
+        hideModal('gal-name-modal');
+        if (galPendingFileIndex < galPendingFiles.length) {
+            galProcessNextFile();
+        }
+    });
+
+    function galUploadFile(file, name) {
+        if (!currentGallery) return;
+        document.getElementById('gal-upload-progress').style.display = '';
+        document.getElementById('gal-progress-fill').style.width = '40%';
+        document.getElementById('gal-progress-text').textContent = 'Uploading ' + (galPendingFileIndex + 1) + '/' + galPendingFiles.length + '...';
+
+        var fd = new FormData();
+        fd.append('name', name);
+        fd.append('file', file);
+
+        fetch('/api/galleries/' + currentGallery.id + '/items', {
+            method: 'POST',
+            headers: authHeaders(),
+            body: fd
+        })
+        .then(function(r) { return r.json().then(function(d) { return { ok: r.ok, data: d }; }); })
+        .then(function(res) {
+            document.getElementById('gal-progress-fill').style.width = '100%';
+            galPendingFileIndex++;
+            if (galPendingFileIndex < galPendingFiles.length) {
+                setTimeout(function() {
+                    document.getElementById('gal-progress-fill').style.width = '0%';
+                    galProcessNextFile();
+                }, 300);
+            } else {
+                setTimeout(function() {
+                    document.getElementById('gal-upload-progress').style.display = 'none';
+                }, 500);
+                loadGalItems();
+            }
+        })
+        .catch(function() {
+            document.getElementById('gal-upload-progress').style.display = 'none';
+        });
+    }
+
+    // Rename
+    var galRenameTarget = null;
+    function galOpenRename(id, name) {
+        galRenameTarget = id;
+        document.getElementById('gal-rename-input').value = name;
+        showModal('gal-rename-modal');
+    }
+    document.getElementById('gal-rename-cancel').addEventListener('click', function() { hideModal('gal-rename-modal'); });
+    document.getElementById('gal-rename-confirm').addEventListener('click', function() {
+        if (!galRenameTarget) return;
+        var newName = document.getElementById('gal-rename-input').value.trim();
+        if (!newName) return;
+        var btn = this;
+        btn.disabled = true;
+        fetch('/api/gallery-items/' + galRenameTarget, {
+            method: 'PATCH',
+            headers: Object.assign({ 'Content-Type': 'application/json' }, authHeaders()),
+            body: JSON.stringify({ name: newName })
+        }).then(function() {
+            btn.disabled = false;
+            hideModal('gal-rename-modal');
+            loadGalItems();
+        }).catch(function() { btn.disabled = false; });
+    });
 })();
 </script>
 {% endblock %}

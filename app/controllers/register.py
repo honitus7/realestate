@@ -96,6 +96,13 @@ from app.services.storage_service import (
     get_building_map_s3_url,
     delete_building_map_from_s3,
     MAX_BUILDING_MAP_READ_BYTES,
+    compress_gallery_image,
+    upload_gallery_to_s3,
+    get_gallery_s3_url,
+    delete_gallery_from_s3,
+    MAX_GALLERY_READ_BYTES,
+    ALLOWED_GALLERY_IMAGE_EXT,
+    ALLOWED_GALLERY_VIDEO_EXT,
 )
 from app.services.org_service import get_org_name_and_slug_for_panorama, slugify_org_name
 from app.services.plot_service import fetch_plots, create_plot as plot_create, get_plot_panorama_id, delete_plot as plot_delete, update_plot as plot_update, update_plot_label_position as plot_update_label_position
@@ -156,6 +163,21 @@ from app.services.project_plan_service import (
     remove_map_from_plan as pp_remove_map,
     get_next_plan_map_sort_order as pp_next_sort,
     reorder_plan_maps as pp_reorder,
+)
+from app.services.gallery_service import (
+    create_gallery as gal_create,
+    get_gallery as gal_get,
+    get_gallery_by_token as gal_get_by_token,
+    list_galleries as gal_list,
+    update_gallery as gal_update,
+    delete_gallery as gal_delete,
+    list_items as gal_list_items,
+    get_item as gal_get_item,
+    create_item as gal_create_item,
+    update_item as gal_update_item,
+    delete_item as gal_delete_item,
+    reorder_items as gal_reorder_items,
+    get_next_sort_order as gal_next_sort_order,
 )
 from app.config import (
     ALLOWED_EXTENSIONS,
@@ -4376,6 +4398,9 @@ def register_routes(app):
             return jsonify({'error': 'Database not configured'}), 503
         data = request.get_json(silent=True) or {}
         name = str(data.get('name') or 'Floor Plans').strip()
+        existing = fp_list_catalogues(sb, user_id)
+        if any(c.get('name', '').strip().lower() == name.lower() for c in existing):
+            return jsonify({'error': f'A catalogue named "{name}" already exists'}), 409
         profile = get_profile(sb, user_id)
         org_id = profile.get('org_id') if profile else None
         cat = fp_create_catalogue(sb, user_id, org_id, name)
@@ -4613,6 +4638,9 @@ def register_routes(app):
         if not sb:
             return jsonify({'error': 'Database not configured'}), 503
         name = str(request.form.get('name') or 'Building Map').strip()
+        existing = bm_list(sb, user_id)
+        if any(m.get('name', '').strip().lower() == name.lower() for m in existing):
+            return jsonify({'error': f'A building map named "{name}" already exists'}), 409
         catalogue_id = str(request.form.get('catalogue_id') or '').strip() or None
         f = request.files.get('file')
         if not f:
@@ -5000,6 +5028,9 @@ def register_routes(app):
         sb = get_supabase()
         data = request.get_json(force=True)
         name = data.get('name', 'Project Plan').strip() or 'Project Plan'
+        existing = pp_list(sb, user_id)
+        if any(p.get('name', '').strip().lower() == name.lower() for p in existing):
+            return jsonify({'error': f'A project plan named "{name}" already exists'}), 409
         org_id = data.get('org_id')
         plan = pp_create(sb, user_id, org_id, name)
         if not plan:
@@ -5118,3 +5149,235 @@ def register_routes(app):
         return render_template('project_plan_view.html',
                                plan=plan,
                                buildings=buildings)
+
+    # ==================================================================
+    # Galleries
+    # ==================================================================
+
+    @app.route('/api/galleries', methods=['GET'])
+    @require_admin
+    def api_list_galleries(user_id, role):
+        sb = get_supabase()
+        if not sb:
+            return jsonify({'error': 'Database not configured'}), 503
+        galleries = gal_list(sb, user_id)
+        base = (request.url_root or '').rstrip('/')
+        for g in galleries:
+            g['share_url'] = f"{base}/gallery/view/{g.get('share_token', '')}"
+            items = gal_list_items(sb, g['id'])
+            g['item_count'] = len(items)
+            g['item_names'] = [it.get('name', '') for it in items[:5]]
+            g['image_count'] = sum(1 for it in items if it.get('media_type') == 'image')
+            g['video_count'] = sum(1 for it in items if it.get('media_type') == 'video')
+        return jsonify(galleries)
+
+    @app.route('/api/galleries', methods=['POST'])
+    @require_admin
+    def api_create_gallery(user_id, role):
+        sb = get_supabase()
+        if not sb:
+            return jsonify({'error': 'Database not configured'}), 503
+        data = request.get_json(silent=True) or {}
+        name = str(data.get('name') or 'Gallery').strip()
+        existing = gal_list(sb, user_id)
+        if any(g.get('name', '').strip().lower() == name.lower() for g in existing):
+            return jsonify({'error': f'A gallery named "{name}" already exists'}), 409
+        profile = get_profile(sb, user_id)
+        org_id = profile.get('org_id') if profile else None
+        gal = gal_create(sb, user_id, org_id, name)
+        if not gal:
+            return jsonify({'error': 'Failed to create gallery'}), 500
+        base = (request.url_root or '').rstrip('/')
+        gal['share_url'] = f"{base}/gallery/view/{gal.get('share_token', '')}"
+        return jsonify(gal), 201
+
+    @app.route('/api/galleries/<gallery_id>', methods=['GET'])
+    @require_admin
+    def api_get_gallery(user_id, role, gallery_id):
+        sb = get_supabase()
+        if not sb:
+            return jsonify({'error': 'Database not configured'}), 503
+        gal = gal_get(sb, gallery_id)
+        if not gal:
+            return jsonify({'error': 'Not found'}), 404
+        if str(gal.get('user_id')) != str(user_id) and role != 'superadmin':
+            return jsonify({'error': 'Forbidden'}), 403
+        items = gal_list_items(sb, gallery_id)
+        for item in items:
+            item['media_url'] = get_gallery_s3_url(item.get('filename'))
+        gal['items'] = items
+        base = (request.url_root or '').rstrip('/')
+        gal['share_url'] = f"{base}/gallery/view/{gal.get('share_token', '')}"
+        return jsonify(gal)
+
+    @app.route('/api/galleries/<gallery_id>', methods=['PATCH'])
+    @require_admin
+    def api_update_gallery(user_id, role, gallery_id):
+        sb = get_supabase()
+        if not sb:
+            return jsonify({'error': 'Database not configured'}), 503
+        gal = gal_get(sb, gallery_id)
+        if not gal or (str(gal.get('user_id')) != str(user_id) and role != 'superadmin'):
+            return jsonify({'error': 'Forbidden'}), 403
+        data = request.get_json(silent=True) or {}
+        name = data.get('name')
+        if name:
+            gal_update(sb, gallery_id, name=name)
+        updated = gal_get(sb, gallery_id)
+        return jsonify(updated)
+
+    @app.route('/api/galleries/<gallery_id>', methods=['DELETE'])
+    @require_admin
+    def api_delete_gallery(user_id, role, gallery_id):
+        sb = get_supabase()
+        if not sb:
+            return jsonify({'error': 'Database not configured'}), 503
+        gal = gal_get(sb, gallery_id)
+        if not gal or (str(gal.get('user_id')) != str(user_id) and role != 'superadmin'):
+            return jsonify({'error': 'Forbidden'}), 403
+        items = gal_list_items(sb, gallery_id)
+        for item in items:
+            delete_gallery_from_s3(item.get('filename'))
+        gal_delete(sb, gallery_id)
+        return jsonify({'success': True})
+
+    # -- Gallery Items --
+
+    @app.route('/api/galleries/<gallery_id>/items', methods=['GET'])
+    @require_admin
+    def api_list_gallery_items(user_id, role, gallery_id):
+        sb = get_supabase()
+        if not sb:
+            return jsonify({'error': 'Database not configured'}), 503
+        gal = gal_get(sb, gallery_id)
+        if not gal or (str(gal.get('user_id')) != str(user_id) and role != 'superadmin'):
+            return jsonify({'error': 'Forbidden'}), 403
+        items = gal_list_items(sb, gallery_id)
+        for item in items:
+            item['media_url'] = get_gallery_s3_url(item.get('filename'))
+        return jsonify(items)
+
+    @app.route('/api/galleries/<gallery_id>/items', methods=['POST'])
+    @require_admin
+    def api_upload_gallery_item(user_id, role, gallery_id):
+        sb = get_supabase()
+        if not sb:
+            return jsonify({'error': 'Database not configured'}), 503
+        gal = gal_get(sb, gallery_id)
+        if not gal or (str(gal.get('user_id')) != str(user_id) and role != 'superadmin'):
+            return jsonify({'error': 'Forbidden'}), 403
+        name = request.form.get('name', '').strip() or 'Media'
+        f = request.files.get('file')
+        if not f or not f.filename:
+            return jsonify({'error': 'No file provided'}), 400
+        ext = f.filename.rsplit('.', 1)[-1].lower() if '.' in f.filename else ''
+        is_video = ext in ALLOWED_GALLERY_VIDEO_EXT
+        is_image = ext in ALLOWED_GALLERY_IMAGE_EXT
+        if not is_video and not is_image:
+            return jsonify({'error': f'Invalid file type. Allowed: {", ".join(ALLOWED_GALLERY_IMAGE_EXT | ALLOWED_GALLERY_VIDEO_EXT)}'}), 400
+        raw_bytes = f.read()
+        if not raw_bytes or len(raw_bytes) > MAX_GALLERY_READ_BYTES:
+            return jsonify({'error': 'File too large (max 100MB)'}), 400
+        if is_image:
+            processed, w, h = compress_gallery_image(raw_bytes)
+            if not processed:
+                return jsonify({'error': 'Failed to process image'}), 400
+            filename = f"gal_{uuid.uuid4().hex[:16]}.jpg"
+            upload_gallery_to_s3(filename, processed, 'image/jpeg')
+            file_size = len(processed)
+        else:
+            content_types = {'mp4': 'video/mp4', 'webm': 'video/webm', 'mov': 'video/quicktime'}
+            filename = f"gal_{uuid.uuid4().hex[:16]}.{ext}"
+            upload_gallery_to_s3(filename, raw_bytes, content_types.get(ext, 'video/mp4'))
+            file_size = len(raw_bytes)
+            w, h = 0, 0
+        sort_order = gal_next_sort_order(sb, gallery_id)
+        item = gal_create_item(
+            sb, gallery_id, name, filename,
+            media_type='video' if is_video else 'image',
+            media_width=w, media_height=h,
+            file_size_bytes=file_size,
+            sort_order=sort_order,
+        )
+        if not item:
+            return jsonify({'error': 'Failed to create item'}), 500
+        item['media_url'] = get_gallery_s3_url(filename)
+        return jsonify(item), 201
+
+    @app.route('/api/gallery-items/<item_id>', methods=['PATCH'])
+    @require_admin
+    def api_update_gallery_item(user_id, role, item_id):
+        sb = get_supabase()
+        if not sb:
+            return jsonify({'error': 'Database not configured'}), 503
+        item = gal_get_item(sb, item_id)
+        if not item:
+            return jsonify({'error': 'Not found'}), 404
+        gal = gal_get(sb, item['gallery_id'])
+        if not gal or (str(gal.get('user_id')) != str(user_id) and role != 'superadmin'):
+            return jsonify({'error': 'Forbidden'}), 403
+        data = request.get_json(silent=True) or {}
+        updates = {}
+        if 'name' in data:
+            updates['name'] = str(data['name']).strip()
+        if updates:
+            gal_update_item(sb, item_id, **updates)
+        updated = gal_get_item(sb, item_id)
+        if updated:
+            updated['media_url'] = get_gallery_s3_url(updated.get('filename'))
+        return jsonify(updated)
+
+    @app.route('/api/gallery-items/<item_id>', methods=['DELETE'])
+    @require_admin
+    def api_delete_gallery_item(user_id, role, item_id):
+        sb = get_supabase()
+        if not sb:
+            return jsonify({'error': 'Database not configured'}), 503
+        item = gal_get_item(sb, item_id)
+        if not item:
+            return jsonify({'error': 'Not found'}), 404
+        gal = gal_get(sb, item['gallery_id'])
+        if not gal or (str(gal.get('user_id')) != str(user_id) and role != 'superadmin'):
+            return jsonify({'error': 'Forbidden'}), 403
+        delete_gallery_from_s3(item.get('filename'))
+        gal_delete_item(sb, item_id)
+        return jsonify({'success': True})
+
+    @app.route('/api/galleries/<gallery_id>/reorder', methods=['POST'])
+    @require_admin
+    def api_reorder_gallery_items(user_id, role, gallery_id):
+        sb = get_supabase()
+        if not sb:
+            return jsonify({'error': 'Database not configured'}), 503
+        gal = gal_get(sb, gallery_id)
+        if not gal or (str(gal.get('user_id')) != str(user_id) and role != 'superadmin'):
+            return jsonify({'error': 'Forbidden'}), 403
+        data = request.get_json(silent=True) or {}
+        ordered_ids = data.get('ordered_ids')
+        if not ordered_ids or not isinstance(ordered_ids, list):
+            return jsonify({'error': 'ordered_ids must be a non-empty list'}), 400
+        gal_reorder_items(sb, gallery_id, ordered_ids)
+        items = gal_list_items(sb, gallery_id)
+        for item in items:
+            item['media_url'] = get_gallery_s3_url(item.get('filename'))
+        return jsonify(items)
+
+    # -- Public Gallery view --
+
+    @app.route('/gallery/view/<share_token>')
+    def gallery_public_view(share_token):
+        sb = get_supabase()
+        if not sb:
+            return "Database not configured", 503
+        gal = gal_get_by_token(sb, share_token)
+        if not gal:
+            return "Not found", 404
+        items = gal_list_items(sb, gal['id'])
+        for item in items:
+            item['media_url'] = get_gallery_s3_url(item.get('filename'))
+        items = [it for it in items if it.get('media_url')]
+        if not items:
+            return "No media uploaded yet", 404
+        return render_template('gallery_view.html',
+                               gallery=gal,
+                               items=items)

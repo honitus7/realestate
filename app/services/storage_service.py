@@ -788,6 +788,110 @@ def delete_building_map_from_s3(filename):
         pass
 
 
+# ---------------------------------------------------------------------------
+# Gallery helpers (images + videos)
+# ---------------------------------------------------------------------------
+
+GALLERY_IMAGE_MAX_DIMENSION = 2400
+MAX_GALLERY_READ_BYTES = int(os.environ.get('MAX_GALLERY_READ_BYTES', str(100 * 1024 * 1024)))  # 100MB
+
+ALLOWED_GALLERY_IMAGE_EXT = {'png', 'jpg', 'jpeg', 'webp', 'gif'}
+ALLOWED_GALLERY_VIDEO_EXT = {'mp4', 'webm', 'mov'}
+
+
+def gallery_object_key(filename):
+    safe_name = os.path.basename(filename or '').strip()
+    if app_config.SUPABASE_S3_GALLERY_PREFIX:
+        return f"{app_config.SUPABASE_S3_GALLERY_PREFIX}/{safe_name}"
+    return safe_name
+
+
+def compress_gallery_image(raw_bytes):
+    """Compress gallery image to optimised JPEG.
+    Returns (jpeg_bytes, width, height) or (None, 0, 0).
+    """
+    if not raw_bytes or len(raw_bytes) > MAX_GALLERY_READ_BYTES:
+        return None, 0, 0
+    try:
+        img = Image.open(io.BytesIO(raw_bytes))
+    except Exception:
+        return None, 0, 0
+    try:
+        exif = img.getexif()
+        orientation = exif.get(EXIF_ORIENTATION_TAG)
+        if orientation == 3:
+            img = img.rotate(180, expand=True)
+        elif orientation == 6:
+            img = img.rotate(270, expand=True)
+        elif orientation == 8:
+            img = img.rotate(90, expand=True)
+    except Exception:
+        pass
+    img = img.convert('RGB')
+    w, h = img.size
+    if max(w, h) > GALLERY_IMAGE_MAX_DIMENSION:
+        ratio = GALLERY_IMAGE_MAX_DIMENSION / float(max(w, h))
+        w = max(1, int(w * ratio))
+        h = max(1, int(h * ratio))
+        img = img.resize((w, h), RESAMPLE_LANCZOS)
+    buf = io.BytesIO()
+    try:
+        img.save(buf, 'JPEG', quality=90, optimize=True, progressive=True)
+    except Exception:
+        return None, 0, 0
+    return buf.getvalue(), w, h
+
+
+def upload_gallery_to_s3(filename, raw_bytes, content_type='image/jpeg'):
+    client = get_s3_client()
+    if not client:
+        raise RuntimeError('S3 not configured')
+    key = gallery_object_key(filename)
+    client.put_object(
+        Bucket=app_config.SUPABASE_S3_BUCKET,
+        Key=key,
+        Body=raw_bytes,
+        ContentType=content_type,
+    )
+
+
+def get_gallery_s3_url(filename):
+    client = get_s3_client()
+    if not client or not filename:
+        return None
+    key = gallery_object_key(filename)
+    now = time.time()
+    cached = _s3_signed_url_cache.get(key)
+    if cached:
+        url, expires_at = cached
+        if url and expires_at and now < (expires_at - 30):
+            return url
+    try:
+        client.head_object(Bucket=app_config.SUPABASE_S3_BUCKET, Key=key)
+    except Exception:
+        return None
+    url = client.generate_presigned_url(
+        ClientMethod='get_object',
+        Params={'Bucket': app_config.SUPABASE_S3_BUCKET, 'Key': key},
+        ExpiresIn=app_config.SUPABASE_S3_SIGNED_URL_TTL,
+    )
+    try:
+        _s3_signed_url_cache[key] = (url, now + float(app_config.SUPABASE_S3_SIGNED_URL_TTL))
+    except Exception:
+        pass
+    return url
+
+
+def delete_gallery_from_s3(filename):
+    client = get_s3_client()
+    if not client or not filename:
+        return
+    try:
+        client.delete_object(Bucket=app_config.SUPABASE_S3_BUCKET, Key=gallery_object_key(filename))
+    except Exception:
+        pass
+
+
 def stitch_images_horizontally(image_bytes_list):
     """Join images left-to-right into one long JPEG.
     Returns (stitched_bytes, join_positions, total_width, height).

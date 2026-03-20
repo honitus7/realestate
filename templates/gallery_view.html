@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ gallery.name or 'Gallery' }} – PropMark</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/theme.css">
+    <link rel="stylesheet" href="/static/css/gallery_view.css">
+</head>
+<body>
+<div class="gv-page" id="gv-page">
+    <!-- Media display area -->
+    <div class="gv-media-area" id="gv-media-area">
+        <div class="gv-media-wrap" id="gv-media-wrap">
+            <img class="gv-image" id="gv-image" src="" alt="Gallery" draggable="false" style="display:none;">
+            <div class="gv-video-bg" id="gv-video-bg" style="display:none;">
+                <video class="gv-video" id="gv-video" autoplay loop muted playsinline></video>
+            </div>
+        </div>
+
+        <!-- Unmute overlay -->
+        <button class="gv-unmute-btn" id="gv-unmute" style="display:none;" title="Tap to unmute">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>
+            <span>Tap to unmute</span>
+        </button>
+
+        <!-- Zoom controls -->
+        <div class="gv-zoom-controls">
+            <button class="gv-zoom-btn" id="gv-zoom-in" title="Zoom in">+</button>
+            <button class="gv-zoom-btn" id="gv-zoom-out" title="Zoom out">&minus;</button>
+            <button class="gv-zoom-btn" id="gv-zoom-reset" title="Reset" style="font-size:0.72rem;">&#8634;</button>
+        </div>
+
+        <div class="gv-watermark">{{ gallery.name or 'PropMark' }}</div>
+    </div>
+
+    {% if items|length > 1 %}
+    <!-- Counter -->
+    <div class="gv-counter" id="gv-counter">1 / {{ items|length }}</div>
+
+    <!-- Navigation arrows -->
+    <button class="gv-nav-btn gv-nav-prev" id="gv-prev" title="Previous">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+    </button>
+    <button class="gv-nav-btn gv-nav-next" id="gv-next" title="Next">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+    </button>
+
+    <!-- Selector panel -->
+    <div class="gv-panel" id="gv-panel">
+        <div class="gv-panel-header">
+            <h2 class="gv-panel-title">{{ gallery.name or 'Gallery' }}</h2>
+            <button class="gv-panel-collapse" id="gv-panel-collapse" title="Collapse">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+            </button>
+        </div>
+        <div class="gv-panel-list" id="gv-panel-list">
+            {% for item in items %}
+            <button class="gv-panel-item{% if loop.first %} active{% endif %}"
+                    data-idx="{{ loop.index0 }}"
+                    data-url="{{ item.media_url }}"
+                    data-type="{{ item.media_type }}">
+                <span class="gv-panel-item-icon">
+                    {% if item.media_type == 'video' %}&#9654;{% else %}&#9632;{% endif %}
+                </span>
+                {{ item.name }}
+            </button>
+            {% endfor %}
+        </div>
+        <button class="gv-panel-expand" id="gv-panel-expand">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+            Gallery
+        </button>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+(function() {
+    var ITEMS = [
+        {% for item in items %}
+        { url: {{ item.media_url|tojson }}, type: {{ item.media_type|tojson }}, name: {{ item.name|tojson }} }{% if not loop.last %},{% endif %}
+        {% endfor %}
+    ];
+
+    var imgEl = document.getElementById('gv-image');
+    var vidEl = document.getElementById('gv-video');
+    var vidBg = document.getElementById('gv-video-bg');
+    var currentIdx = 0;
+    var scale = 1, panX = 0, panY = 0;
+    var isDragging = false, dragStartX, dragStartY, startPanX, startPanY;
+    var singleItem = ITEMS.length <= 1;
+
+    // Preload images
+    ITEMS.forEach(function(item) {
+        if (item.type === 'image' && item.url) {
+            var img = new Image();
+            img.src = item.url;
+        }
+    });
+
+    // Show first item
+    if (ITEMS.length > 0) {
+        showItem(0, false);
+    }
+
+    function showItem(idx, animate) {
+        var item = ITEMS[idx];
+        if (!item) return;
+        currentIdx = idx;
+
+        if (animate) {
+            // Fade out current
+            imgEl.classList.add('fade-out');
+            imgEl.classList.remove('loaded');
+            vidBg.classList.add('fade-out');
+            vidBg.classList.remove('loaded');
+            setTimeout(function() { loadItem(item); }, 250);
+        } else {
+            loadItem(item);
+        }
+
+        // Update panel selection
+        if (!singleItem) {
+            document.querySelectorAll('.gv-panel-item').forEach(function(b) { b.classList.remove('active'); });
+            var active = document.querySelector('.gv-panel-item[data-idx="' + idx + '"]');
+            if (active) {
+                active.classList.add('active');
+                active.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }
+            var counter = document.getElementById('gv-counter');
+            if (counter) counter.textContent = (idx + 1) + ' / ' + ITEMS.length;
+        }
+    }
+
+    var userUnmuted = false;
+    var unmuteBtn = document.getElementById('gv-unmute');
+
+    function loadItem(item) {
+        resetTransform();
+        if (item.type === 'video') {
+            imgEl.style.display = 'none';
+            imgEl.classList.remove('loaded', 'fade-out');
+            vidBg.style.display = '';
+            vidBg.classList.remove('fade-out');
+            vidEl.src = item.url;
+            vidEl.muted = !userUnmuted;
+            vidEl.setAttribute('autoplay', '');
+            vidEl.load();
+            vidEl.play().then(function() {
+                vidBg.classList.add('loaded');
+            }).catch(function() {
+                vidEl.muted = true;
+                vidEl.play().then(function() {
+                    vidBg.classList.add('loaded');
+                }).catch(function() {});
+            });
+            vidEl.onloadeddata = function() {
+                vidBg.classList.add('loaded');
+            };
+            if (!userUnmuted) {
+                unmuteBtn.style.display = '';
+            } else {
+                unmuteBtn.style.display = 'none';
+            }
+        } else {
+            vidBg.style.display = 'none';
+            vidBg.classList.remove('loaded', 'fade-out');
+            vidEl.pause();
+            vidEl.removeAttribute('src');
+            imgEl.style.display = '';
+            imgEl.classList.remove('fade-out');
+            imgEl.src = item.url;
+            imgEl.onload = function() {
+                imgEl.classList.add('loaded');
+            };
+            unmuteBtn.style.display = 'none';
+        }
+    }
+
+    // Unmute on button click
+    unmuteBtn.addEventListener('click', function() {
+        userUnmuted = true;
+        vidEl.muted = false;
+        unmuteBtn.style.display = 'none';
+    });
+
+    // Also unmute on any click on the media area (user gesture)
+    document.getElementById('gv-media-area').addEventListener('click', function(e) {
+        if (!userUnmuted && vidBg.style.display !== 'none') {
+            userUnmuted = true;
+            vidEl.muted = false;
+            unmuteBtn.style.display = 'none';
+        }
+    });
+
+    // Panel click handlers
+    if (!singleItem) {
+        document.querySelectorAll('.gv-panel-item').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var idx = parseInt(btn.dataset.idx);
+                if (idx === currentIdx) return;
+                showItem(idx, true);
+            });
+        });
+
+        // Panel collapse/expand
+        document.getElementById('gv-panel-collapse').addEventListener('click', function() {
+            document.getElementById('gv-panel').classList.add('collapsed');
+        });
+        document.getElementById('gv-panel-expand').addEventListener('click', function() {
+            document.getElementById('gv-panel').classList.remove('collapsed');
+        });
+
+        // Nav buttons
+        document.getElementById('gv-prev').addEventListener('click', function() {
+            showItem((currentIdx - 1 + ITEMS.length) % ITEMS.length, true);
+        });
+        document.getElementById('gv-next').addEventListener('click', function() {
+            showItem((currentIdx + 1) % ITEMS.length, true);
+        });
+    }
+
+    // -- Zoom & Pan --
+
+    function resetTransform() {
+        scale = 1; panX = 0; panY = 0;
+        applyTransform();
+    }
+
+    function activeEl() {
+        return imgEl.style.display !== 'none' ? imgEl : vidBg;
+    }
+
+    function applyTransform() {
+        var el = activeEl();
+        el.style.transform = 'translate(' + panX + 'px, ' + panY + 'px) scale(' + scale + ')';
+    }
+
+    document.getElementById('gv-zoom-in').addEventListener('click', function() {
+        scale = Math.min(scale * 1.3, 5); applyTransform();
+    });
+    document.getElementById('gv-zoom-out').addEventListener('click', function() {
+        scale = Math.max(scale / 1.3, 0.5); applyTransform();
+    });
+    document.getElementById('gv-zoom-reset').addEventListener('click', function() {
+        resetTransform();
+    });
+
+    var mediaArea = document.getElementById('gv-media-area');
+
+    // Mouse wheel zoom
+    mediaArea.addEventListener('wheel', function(e) {
+        e.preventDefault();
+        var delta = e.deltaY > 0 ? 0.9 : 1.1;
+        scale = Math.max(0.5, Math.min(5, scale * delta));
+        applyTransform();
+    }, { passive: false });
+
+    // Pan with mouse drag
+    mediaArea.addEventListener('mousedown', function(e) {
+        if (scale <= 1) return;
+        isDragging = true;
+        dragStartX = e.clientX; dragStartY = e.clientY;
+        startPanX = panX; startPanY = panY;
+        mediaArea.style.cursor = 'grabbing';
+        e.preventDefault();
+    });
+    window.addEventListener('mousemove', function(e) {
+        if (!isDragging) return;
+        panX = startPanX + (e.clientX - dragStartX);
+        panY = startPanY + (e.clientY - dragStartY);
+        applyTransform();
+    });
+    window.addEventListener('mouseup', function() {
+        if (isDragging) { isDragging = false; mediaArea.style.cursor = ''; }
+    });
+
+    // Touch support
+    var touchStartDist = 0, touchStartScale = 1;
+    mediaArea.addEventListener('touchstart', function(e) {
+        if (e.touches.length === 2) {
+            touchStartDist = Math.hypot(
+                e.touches[0].clientX - e.touches[1].clientX,
+                e.touches[0].clientY - e.touches[1].clientY
+            );
+            touchStartScale = scale;
+        } else if (e.touches.length === 1 && scale > 1) {
+            isDragging = true;
+            dragStartX = e.touches[0].clientX;
+            dragStartY = e.touches[0].clientY;
+            startPanX = panX; startPanY = panY;
+        }
+    }, { passive: true });
+
+    mediaArea.addEventListener('touchmove', function(e) {
+        if (e.touches.length === 2) {
+            e.preventDefault();
+            var dist = Math.hypot(
+                e.touches[0].clientX - e.touches[1].clientX,
+                e.touches[0].clientY - e.touches[1].clientY
+            );
+            scale = Math.max(0.5, Math.min(5, touchStartScale * (dist / touchStartDist)));
+            applyTransform();
+        } else if (isDragging && e.touches.length === 1) {
+            panX = startPanX + (e.touches[0].clientX - dragStartX);
+            panY = startPanY + (e.touches[0].clientY - dragStartY);
+            applyTransform();
+        }
+    }, { passive: false });
+
+    mediaArea.addEventListener('touchend', function() { isDragging = false; });
+
+    // Keyboard navigation
+    document.addEventListener('keydown', function(e) {
+        if (singleItem) return;
+        if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+            e.preventDefault();
+            showItem((currentIdx + 1) % ITEMS.length, true);
+        } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+            e.preventDefault();
+            showItem((currentIdx - 1 + ITEMS.length) % ITEMS.length, true);
+        }
+    });
+})();
+</script>
+</body>
+</html>
