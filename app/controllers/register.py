@@ -29,6 +29,7 @@ from app.services.panorama_service import (
     get_panorama_with_access,
     list_panoramas_for_user,
     get_panorama_by_id,
+    get_mobile_panorama_by_parent_id,
     can_edit_plots,
     can_delete_panorama,
 )
@@ -441,7 +442,8 @@ def register_routes(app):
         if err:
             return err
         org_name, org_slug = get_org_name_and_slug_for_panorama(sb, panorama)
-        return render_template('editor.html', panorama=panorama, mode='admin', org_name=org_name, org_slug=org_slug, **auth_ctx())
+        mobile_panorama = get_mobile_panorama_by_parent_id(sb, panorama_id)
+        return render_template('editor.html', panorama=panorama, mobile_panorama=mobile_panorama, mode='admin', org_name=org_name, org_slug=org_slug, **auth_ctx())
 
     def load_customer_workspace_panoramas(sb, workspace_id, main_id=None):
         workspace_panoramas = []
@@ -473,10 +475,53 @@ def register_routes(app):
             pass
         return workspace_panoramas
 
+    def load_mobile_panorama_map(sb, parent_panorama_ids):
+        out = {}
+        ids = []
+        seen = set()
+        for raw in (parent_panorama_ids or []):
+            try:
+                pid = int(raw)
+            except Exception:
+                continue
+            if pid in seen:
+                continue
+            seen.add(pid)
+            ids.append(pid)
+        if not ids:
+            return out
+        try:
+            r = (
+                sb.table('mobile_panoramas')
+                .select('id, panorama_parent_id, name, filename, original_filename, width, height, is_360')
+                .in_('panorama_parent_id', ids)
+                .order('id')
+                .execute()
+            )
+            for row in (r.data or []):
+                try:
+                    parent_id = int(row.get('panorama_parent_id'))
+                except Exception:
+                    continue
+                out[str(parent_id)] = {
+                    'id': row.get('id'),
+                    'panorama_parent_id': row.get('panorama_parent_id'),
+                    'name': row.get('name') or '',
+                    'filename': row.get('filename') or '',
+                    'original_filename': row.get('original_filename') or '',
+                    'width': row.get('width') or 0,
+                    'height': row.get('height') or 0,
+                    'is_360': bool(row.get('is_360')),
+                }
+        except Exception:
+            pass
+        return out
+
     def build_customer_workspace_context(sb, panorama):
         workspace_id = (panorama or {}).get('workspace_id')
         customer_view_config = {}
         workspace_panoramas = []
+        mobile_panorama_map = {}
         if workspace_id:
             try:
                 customer_view_config = ws_get_customer_config(sb, workspace_id) or {}
@@ -487,10 +532,14 @@ def register_routes(app):
                 workspace_id,
                 (get_workspace_by_id(sb, workspace_id) or {}).get('main_panorama_id')
             )
-        return workspace_id, workspace_panoramas, customer_view_config
+        parent_ids = [p.get('id') for p in (workspace_panoramas or []) if p and p.get('id') is not None]
+        if panorama and panorama.get('id') is not None:
+            parent_ids.append(panorama.get('id'))
+        mobile_panorama_map = load_mobile_panorama_map(sb, parent_ids)
+        return workspace_id, workspace_panoramas, customer_view_config, mobile_panorama_map
 
     def render_customer_panorama_template(sb, panorama, org_name, canonical_slug, full_view=False, initial_panorama_id=None):
-        workspace_id, workspace_panoramas, customer_view_config = build_customer_workspace_context(sb, panorama)
+        workspace_id, workspace_panoramas, customer_view_config, mobile_panorama_map = build_customer_workspace_context(sb, panorama)
         resp = make_response(render_template(
             'customer_3d.html',
             panorama=panorama,
@@ -501,6 +550,7 @@ def register_routes(app):
             initial_panorama_id=initial_panorama_id,
             workspace_id=workspace_id,
             customer_view_config=customer_view_config,
+            mobile_panorama_map=mobile_panorama_map,
             **auth_ctx()
         ))
         resp.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate'
@@ -2180,6 +2230,105 @@ def register_routes(app):
             upload_panorama_optimized_to_s3(filename, opt_bytes)
             return jsonify({'success': True, 'size': len(opt_bytes), 'original_size': len(data)})
         except Exception as e:
+            return jsonify({'error': str(e)}), 500
+
+    @app.route('/api/panoramas/<int:panorama_id>/mobile', methods=['GET'])
+    @require_auth
+    def get_mobile_panorama(user_id, role, panorama_id):
+        sb = get_supabase()
+        if not sb:
+            return jsonify({'error': 'Database not configured'}), 503
+        panorama, access_type = get_panorama_with_access(sb, panorama_id, user_id)
+        if not panorama or str((panorama or {}).get('source_table') or 'panoramas') != 'panoramas':
+            return jsonify({'error': 'Panorama not found'}), 404
+        if not can_edit_plots(access_type):
+            return jsonify({'error': 'Forbidden'}), 403
+        mobile = get_mobile_panorama_by_parent_id(sb, panorama_id)
+        return jsonify({'mobile_panorama': mobile})
+
+    @app.route('/api/panoramas/<int:panorama_id>/mobile', methods=['POST', 'PUT'])
+    @require_admin
+    def create_or_update_mobile_panorama(user_id, role, panorama_id):
+        sb = get_supabase()
+        if not sb:
+            return jsonify({'error': 'Database not configured'}), 503
+        parent, access_type = get_panorama_with_access(sb, panorama_id, user_id)
+        if not parent or str((parent or {}).get('source_table') or 'panoramas') != 'panoramas':
+            return jsonify({'error': 'Panorama not found'}), 404
+        if str(parent.get('user_id') or '') != str(user_id) and access_type != 'owner':
+            return jsonify({'error': 'Only owner can manage mobile image'}), 403
+        file = request.files.get('file')
+        if not file or not getattr(file, 'filename', ''):
+            return jsonify({'error': 'file is required'}), 400
+        if not allowed_file(file.filename):
+            return jsonify({'error': 'File type not allowed'}), 400
+        name = str((request.form or {}).get('name') or (parent.get('name') or 'Mobile Panorama')).strip()
+        if len(name) > 120:
+            name = name[:120]
+        original_filename = secure_filename(file.filename) or 'upload'
+        ext = original_filename.rsplit('.', 1)[1].lower()
+        safe_project = secure_filename(name) or 'mobile_panorama'
+        unique = uuid.uuid4().hex[:10]
+        filename = f"{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}_{safe_project}_{unique}.{ext}"
+        image_content_type = IMAGE_CONTENT_TYPES.get(ext, 'image/jpeg')
+        stored_ok = False
+        local_filepath = None
+        try:
+            try:
+                w, h = probe_image_dimensions(file.stream)
+            except Exception:
+                w, h = 0, 0
+            if use_s3():
+                upload_panorama_to_s3(filename, file.stream, image_content_type)
+            else:
+                local_filepath = os.path.join(current_app.config['UPLOAD_FOLDER'], filename)
+                file.save(local_filepath)
+            stored_ok = True
+            existing = get_mobile_panorama_by_parent_id(sb, panorama_id)
+            row = {
+                'user_id': parent.get('user_id'),
+                'org_id': parent.get('org_id'),
+                'workspace_id': parent.get('workspace_id'),
+                'panorama_parent_id': panorama_id,
+                'name': name,
+                'filename': filename,
+                'original_filename': original_filename,
+                'width': int(w or 0),
+                'height': int(h or 0),
+                'is_360': False,
+                'use_animated_icons': False,
+                'start_view': None,
+                'image_content_type': image_content_type,
+                'updated_at': datetime.utcnow().isoformat(),
+            }
+            if existing and existing.get('id'):
+                sb.table('mobile_panoramas').update(row).eq('id', existing.get('id')).execute()
+                mobile_id = existing.get('id')
+                old_filename = str(existing.get('filename') or '').strip()
+                if old_filename and old_filename != filename:
+                    delete_panorama_from_s3(old_filename)
+                    old_path = os.path.join(current_app.config['UPLOAD_FOLDER'], old_filename)
+                    if os.path.isfile(old_path):
+                        try:
+                            os.remove(old_path)
+                        except Exception:
+                            pass
+            else:
+                row['created_at'] = datetime.utcnow().isoformat()
+                r = sb.table('mobile_panoramas').insert(row).execute()
+                if not r.data:
+                    raise RuntimeError('Insert failed')
+                mobile_id = r.data[0].get('id')
+            mobile = get_mobile_panorama_by_parent_id(sb, panorama_id)
+            return jsonify({'success': True, 'id': mobile_id, 'mobile_panorama': mobile})
+        except Exception as e:
+            if stored_ok:
+                delete_panorama_from_s3(filename)
+                if local_filepath and os.path.exists(local_filepath):
+                    try:
+                        os.remove(local_filepath)
+                    except Exception:
+                        pass
             return jsonify({'error': str(e)}), 500
 
     @app.route('/api/panoramas/<int:panorama_id>', methods=['PUT', 'PATCH'])

@@ -194,6 +194,52 @@
             pointer-events: none;
         }
 
+        .editor-view-tabs {
+            position: fixed;
+            top: 1.45rem;
+            right: 2rem;
+            z-index: 120;
+            pointer-events: auto;
+            display: flex;
+            align-items: center;
+            gap: 0.45rem;
+            background: var(--color-bg-elevated);
+            border: 1px solid var(--color-border);
+            border-radius: 999px;
+            padding: 0.32rem;
+            box-shadow: 0 2px 12px rgba(22,35,56,0.10);
+            backdrop-filter: blur(12px);
+        }
+
+        .editor-view-tab-btn {
+            border: 1px solid transparent;
+            background: transparent;
+            color: var(--color-text);
+            border-radius: 999px;
+            padding: 0.34rem 0.72rem;
+            font-size: 0.78rem;
+            font-weight: 700;
+            cursor: pointer;
+            font-family: var(--font-body);
+        }
+
+        .editor-view-tab-btn.active {
+            background: var(--color-text);
+            color: var(--color-bg-elevated);
+        }
+
+        .editor-mobile-upload-btn {
+            border: 1px solid var(--color-border);
+            background: var(--color-surface);
+            color: var(--color-text);
+            border-radius: 999px;
+            padding: 0.34rem 0.72rem;
+            font-size: 0.78rem;
+            font-weight: 700;
+            cursor: pointer;
+            font-family: var(--font-body);
+        }
+
         /* Back button */
         .back-btn {
             display: flex; align-items: center; gap: 0.4rem;
@@ -1027,6 +1073,12 @@
     <div class="overlay-gradient"></div>
 
     <div class="ui-overlay">
+        <div class="editor-view-tabs" id="editor-view-tabs">
+            <button type="button" class="editor-view-tab-btn active" id="view-tab-landscape">Landscape</button>
+            <button type="button" class="editor-view-tab-btn" id="view-tab-mobile">Mobile</button>
+            <button type="button" class="editor-mobile-upload-btn" id="mobile-image-upload-btn">Upload Mobile</button>
+            <input type="file" id="mobile-image-file-input" accept="image/png,image/jpeg,image/jpg,image/gif,image/webp" hidden>
+        </div>
         <header class="header">
             <div class="header-left">
                 <a href="/dashboard" class="back-btn">← Back</a>
@@ -1324,6 +1376,16 @@
 
     <script>
         const PANORAMA_ID = {{ panorama.id }};
+        const BASE_PANORAMA_ID = PANORAMA_ID;
+        const LANDSCAPE_PANORAMA_META = {
+            id: {{ panorama.id }},
+            name: {{ (panorama.name or '')|tojson }},
+            filename: {{ (panorama.filename or '')|tojson }},
+            is_360: false
+        };
+        let MOBILE_PANORAMA_META = {{ (mobile_panorama if mobile_panorama is not none else none)|tojson }};
+        let ACTIVE_VIEW_MODE = 'landscape';
+        let ACTIVE_PANORAMA_ID = PANORAMA_ID;
         const IS_360 = 0;
         const ORG_SLUG = {{ (org_slug or '')|tojson }};
         const DEFAULT_MARKER_COLOR = '#4ade80';
@@ -1371,6 +1433,10 @@
         const toastContainer = document.getElementById('toast-container');
         const editPanelToggle = document.getElementById('edit-panel-toggle');
         const modeBadgeWrap = document.getElementById('mode-badge-wrap');
+        const viewTabLandscape = document.getElementById('view-tab-landscape');
+        const viewTabMobile = document.getElementById('view-tab-mobile');
+        const mobileImageUploadBtn = document.getElementById('mobile-image-upload-btn');
+        const mobileImageFileInput = document.getElementById('mobile-image-file-input');
 
         let plots = [];
         let isEditMode = false;
@@ -1460,6 +1526,57 @@
             }
         }
 
+        function getActivePanoramaId() {
+            return ACTIVE_PANORAMA_ID;
+        }
+
+        function getActivePanoramaMeta() {
+            if (ACTIVE_VIEW_MODE === 'mobile' && MOBILE_PANORAMA_META && MOBILE_PANORAMA_META.id && MOBILE_PANORAMA_META.filename) {
+                return MOBILE_PANORAMA_META;
+            }
+            return LANDSCAPE_PANORAMA_META;
+        }
+
+        function applyViewTabState() {
+            if (viewTabLandscape) viewTabLandscape.classList.toggle('active', ACTIVE_VIEW_MODE === 'landscape');
+            if (viewTabMobile) viewTabMobile.classList.toggle('active', ACTIVE_VIEW_MODE === 'mobile');
+            if (mobileImageUploadBtn) mobileImageUploadBtn.textContent = MOBILE_PANORAMA_META && MOBILE_PANORAMA_META.id ? 'Replace Mobile' : 'Upload Mobile';
+        }
+
+        async function switchEditorView(mode) {
+            const targetMode = mode === 'mobile' ? 'mobile' : 'landscape';
+            if (targetMode === 'mobile' && (!MOBILE_PANORAMA_META || !MOBILE_PANORAMA_META.id || !MOBILE_PANORAMA_META.filename)) {
+                if (mobileImageFileInput) mobileImageFileInput.click();
+                return;
+            }
+            ACTIVE_VIEW_MODE = targetMode;
+            const activeMeta = getActivePanoramaMeta();
+            ACTIVE_PANORAMA_ID = Number(activeMeta && activeMeta.id ? activeMeta.id : BASE_PANORAMA_ID) || BASE_PANORAMA_ID;
+            applyViewTabState();
+            if (markerManager) {
+                markerManager.plotId = String(getActivePanoramaId());
+            }
+            populatePanoramaSelects();
+            if (panoramaImage && activeMeta && activeMeta.filename) {
+                loading.classList.remove('hidden');
+                panoramaImage.src = `/uploads/${encodeURIComponent(activeMeta.filename)}?size=optimized`;
+            }
+        }
+
+        async function uploadMobileImage(file) {
+            if (!file) return;
+            const headers = await (window.getAuthHeaders ? window.getAuthHeaders() : Promise.resolve({}));
+            const fd = new FormData();
+            fd.append('file', file);
+            fd.append('name', `${String(LANDSCAPE_PANORAMA_META.name || 'Panorama').trim()} Mobile`);
+            const resp = await fetch(`/api/panoramas/${BASE_PANORAMA_ID}/mobile`, { method: 'POST', headers, body: fd });
+            const data = await resp.json().catch(() => ({}));
+            if (!resp.ok) throw new Error((data && data.error) || 'Failed to upload mobile image');
+            MOBILE_PANORAMA_META = data && data.mobile_panorama ? data.mobile_panorama : MOBILE_PANORAMA_META;
+            applyViewTabState();
+            await switchEditorView('mobile');
+        }
+
         // ── Edit Toggle ──
         editToggle.addEventListener('click', () => {
             isEditMode = !isEditMode;
@@ -1493,7 +1610,7 @@
         async function loadPlots() {
             try {
                 const headers = await (window.getAuthHeaders ? window.getAuthHeaders() : Promise.resolve({}));
-                const response = await fetch(`/api/panoramas/${PANORAMA_ID}/plots`, { headers });
+                const response = await fetch(`/api/panoramas/${getActivePanoramaId()}/plots`, { headers });
                 const data = await response.json().catch(() => null);
                 if (!response.ok) {
                     plots = [];
@@ -1709,7 +1826,7 @@
             translateY = 0;
             updateTransform();
             loadPlots();
-            if (markerManager) markerManager.loadMarkers(PANORAMA_ID).catch((error) => console.error('Failed to load markers:', error));
+            if (markerManager) markerManager.loadMarkers(getActivePanoramaId()).catch((error) => console.error('Failed to load markers:', error));
             loading.classList.add('hidden');
         };
 
@@ -1939,7 +2056,7 @@
             try {
                 const headers = await (window.getAuthHeaders ? window.getAuthHeaders() : Promise.resolve({}));
                 headers['Content-Type'] = 'application/json';
-                const response = await fetch(editingPlotId ? `/api/plots/${editingPlotId}` : `/api/panoramas/${PANORAMA_ID}/plots`, {
+                const response = await fetch(editingPlotId ? `/api/plots/${editingPlotId}` : `/api/panoramas/${getActivePanoramaId()}/plots`, {
                     method: editingPlotId ? 'PUT' : 'POST', headers, body: JSON.stringify(plotData)
                 });
                 if (!response.ok) throw new Error('Failed to save');
@@ -2002,16 +2119,55 @@
                 const current = select.value;
                 select.innerHTML = '<option value="">None</option>';
                 panoramas.forEach(p => {
-                    if (String(p.id) === String(PANORAMA_ID)) return;
+                    if (String(p.id) === String(getActivePanoramaId())) return;
                     const opt = document.createElement('option');
                     opt.value = p.id;
                     opt.textContent = p.name || `Panorama #${p.id}`;
                     select.appendChild(opt);
                 });
+                if (MOBILE_PANORAMA_META && MOBILE_PANORAMA_META.id && String(MOBILE_PANORAMA_META.id) !== String(getActivePanoramaId())) {
+                    const mobileOpt = document.createElement('option');
+                    mobileOpt.value = MOBILE_PANORAMA_META.id;
+                    mobileOpt.textContent = (MOBILE_PANORAMA_META.name || 'Mobile Panorama') + ' (Mobile)';
+                    select.appendChild(mobileOpt);
+                }
                 if (current) select.value = current;
             });
         }
         populatePanoramaSelects();
+
+        if (viewTabLandscape) {
+            viewTabLandscape.addEventListener('click', () => {
+                switchEditorView('landscape');
+            });
+        }
+        if (viewTabMobile) {
+            viewTabMobile.addEventListener('click', () => {
+                switchEditorView('mobile');
+            });
+        }
+        if (mobileImageUploadBtn && mobileImageFileInput) {
+            mobileImageUploadBtn.addEventListener('click', () => mobileImageFileInput.click());
+            mobileImageFileInput.addEventListener('change', async () => {
+                const file = mobileImageFileInput.files && mobileImageFileInput.files[0] ? mobileImageFileInput.files[0] : null;
+                if (!file) return;
+                const originalText = mobileImageUploadBtn.textContent;
+                mobileImageUploadBtn.disabled = true;
+                mobileImageUploadBtn.textContent = 'Uploading...';
+                try {
+                    await uploadMobileImage(file);
+                    showToast('Mobile image saved successfully!');
+                } catch (error) {
+                    showToast((error && error.message) ? error.message : 'Failed to upload mobile image', 'error');
+                } finally {
+                    mobileImageFileInput.value = '';
+                    mobileImageUploadBtn.disabled = false;
+                    mobileImageUploadBtn.textContent = originalText;
+                    applyViewTabState();
+                }
+            });
+        }
+        applyViewTabState();
 
         // ── Plot Rendering ──
         function renderPlots() {
@@ -2901,7 +3057,7 @@
 
         // ── Instantiate MarkerManager ──
         const markerManager = new MarkerManager({
-            plotId: String(PANORAMA_ID),
+            plotId: String(getActivePanoramaId()),
             showToast: showToast
         });
 

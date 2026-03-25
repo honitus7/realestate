@@ -7,6 +7,7 @@ from app.core.auth import get_profile
 
 _PANORAMA_FIELDS_BASE = 'id, user_id, name, filename, original_filename, width, height, is_360, created_at, updated_at'
 _PANORAMA_FIELDS_WITH_WORKSPACE = _PANORAMA_FIELDS_BASE + ', workspace_id'
+_MOBILE_PANORAMA_FIELDS_BASE = 'id, user_id, org_id, workspace_id, panorama_parent_id, name, filename, original_filename, width, height, is_360, use_animated_icons, start_view, created_at, updated_at'
 
 
 def _access_rank(access_type):
@@ -82,25 +83,56 @@ def get_panorama_with_access(sb, panorama_id, user_id):
     """
     try:
         r = sb.table('panoramas').select('*').eq('id', panorama_id).limit(1).execute()
-        if not r.data or len(r.data) == 0:
+        if r.data and len(r.data) > 0:
+            p = dict(r.data[0])
+            p['source_table'] = 'panoramas'
+            if str(p.get('user_id')) == str(user_id):
+                return p, 'owner'
+            acc = sb.table('panorama_access').select('access_type').eq('panorama_id', panorama_id).eq('user_id', user_id).limit(1).execute()
+            if acc.data and len(acc.data) > 0:
+                return p, (acc.data[0].get('access_type') or 'viewer')
+            ws_id = p.get('workspace_id')
+            if ws_id:
+                try:
+                    wacc = sb.table('workspace_access').select('access_type').eq('workspace_id', ws_id).eq('user_id', user_id).limit(1).execute()
+                    if wacc.data and len(wacc.data) > 0:
+                        return p, (wacc.data[0].get('access_type') or 'viewer')
+                except Exception:
+                    pass
             return None, None
-        p = r.data[0]
-        if str(p.get('user_id')) == str(user_id):
-            return p, 'owner'
-        acc = sb.table('panorama_access').select('access_type').eq('panorama_id', panorama_id).eq('user_id', user_id).limit(1).execute()
+    except Exception:
+        return None, None
+    try:
+        mr = sb.table('mobile_panoramas').select('*').eq('id', panorama_id).limit(1).execute()
+        if not mr.data or len(mr.data) == 0:
+            return None, None
+        mp = dict(mr.data[0])
+        parent_id = mp.get('panorama_parent_id')
+        if not parent_id:
+            return None, None
+        pr = sb.table('panoramas').select('*').eq('id', parent_id).limit(1).execute()
+        if not pr.data or len(pr.data) == 0:
+            return None, None
+        parent = dict(pr.data[0])
+        mp['workspace_id'] = parent.get('workspace_id')
+        mp['org_id'] = parent.get('org_id')
+        mp['source_table'] = 'mobile_panoramas'
+        if str(parent.get('user_id')) == str(user_id):
+            return mp, 'owner'
+        acc = sb.table('panorama_access').select('access_type').eq('panorama_id', parent_id).eq('user_id', user_id).limit(1).execute()
         if acc.data and len(acc.data) > 0:
-            return p, (acc.data[0].get('access_type') or 'viewer')
-        ws_id = p.get('workspace_id')
+            return mp, (acc.data[0].get('access_type') or 'viewer')
+        ws_id = parent.get('workspace_id')
         if ws_id:
             try:
                 wacc = sb.table('workspace_access').select('access_type').eq('workspace_id', ws_id).eq('user_id', user_id).limit(1).execute()
                 if wacc.data and len(wacc.data) > 0:
-                    return p, (wacc.data[0].get('access_type') or 'viewer')
+                    return mp, (wacc.data[0].get('access_type') or 'viewer')
             except Exception:
                 pass
-        return None, None
     except Exception:
         return None, None
+    return None, None
 
 
 def list_panoramas_for_user(sb, user_id):
@@ -212,10 +244,54 @@ def get_panorama_by_id(sb, panorama_id):
                 row['use_animated_icons'] = False
             if 'start_view' not in row:
                 row['start_view'] = None
+            row['source_table'] = 'panoramas'
+            return row
+    except Exception:
+        pass
+    try:
+        cols = _MOBILE_PANORAMA_FIELDS_BASE
+        r = sb.table('mobile_panoramas').select(cols).eq('id', panorama_id).limit(1).execute()
+        if r.data and len(r.data) > 0:
+            row = dict(r.data[0])
+            if 'use_animated_icons' not in row:
+                row['use_animated_icons'] = False
+            if 'start_view' not in row:
+                row['start_view'] = None
+            row['source_table'] = 'mobile_panoramas'
+            parent_id = row.get('panorama_parent_id')
+            if parent_id:
+                try:
+                    pr = sb.table('panoramas').select('workspace_id, org_id').eq('id', parent_id).limit(1).execute()
+                    if pr.data and len(pr.data) > 0:
+                        if not row.get('workspace_id'):
+                            row['workspace_id'] = pr.data[0].get('workspace_id')
+                        if not row.get('org_id'):
+                            row['org_id'] = pr.data[0].get('org_id')
+                except Exception:
+                    pass
             return row
     except Exception:
         pass
     return None
+
+
+def get_mobile_panorama_by_parent_id(sb, panorama_parent_id):
+    try:
+        if not panorama_parent_id:
+            return None
+        cols = _MOBILE_PANORAMA_FIELDS_BASE
+        r = sb.table('mobile_panoramas').select(cols).eq('panorama_parent_id', panorama_parent_id).order('id').limit(1).execute()
+        if not r.data or len(r.data) == 0:
+            return None
+        row = dict(r.data[0])
+        if 'use_animated_icons' not in row:
+            row['use_animated_icons'] = False
+        if 'start_view' not in row:
+            row['start_view'] = None
+        row['source_table'] = 'mobile_panoramas'
+        return row
+    except Exception:
+        return None
 
 
 def can_edit_plots(access_type):

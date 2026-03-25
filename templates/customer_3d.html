@@ -107,6 +107,9 @@
                 <button id="back-btn" class="hdr-action-btn" type="button" hidden title="Go back">
                     <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
                 </button>
+                <button id="auto-rotate-toggle" class="hdr-action-btn" type="button" title="Pause autoplay" aria-label="Pause autoplay">
+                    <iconify-icon icon="ph:pause"></iconify-icon>
+                </button>
                 <button id="header-more-btn" class="hdr-action-btn header-more-btn" type="button" title="More actions" aria-label="More actions" aria-expanded="false" aria-haspopup="true"><iconify-icon icon="ph:sliders-horizontal"></iconify-icon></button>
                 <div class="header-right-actions" id="header-right-actions">
                     <button id="export-plots-btn" class="hdr-action-btn" type="button" title="Export plots">
@@ -330,10 +333,13 @@
         const START_VIEW = {{ (panorama.get('start_view') if panorama else none) | tojson }};
         const FULL_VIEW = {{ (full_view or false)| tojson }};
         const WORKSPACE_PANORAMAS = {{ (workspace_panoramas or [])| tojson }};
+        const MOBILE_PANORAMA_MAP = {{ (mobile_panorama_map or {})|tojson }};
         const IN_WORKSPACE = Array.isArray(WORKSPACE_PANORAMAS) && WORKSPACE_PANORAMAS.length > 0;
         const INITIAL_PANORAMA_ID = {{ initial_panorama_id if initial_panorama_id is not none else 'null' }};
         const CUSTOMER_VIEW_CONFIG = {{ (customer_view_config or {}) | tojson }};
         var WORKSPACE_ID = {% if workspace_id is not none %}{{ workspace_id|tojson }}{% else %}null{% endif %};
+        const MOBILE_IMAGE_BREAKPOINT = 992;
+        let CURRENT_RENDER_PANORAMA_ID = String(PANORAMA_ID);
 
         function deepMergeCvConfig(target, source) {
             if (!source || typeof source !== 'object') return;
@@ -370,6 +376,50 @@
 
         function getCurrentPanoramaId() {
             return IN_WORKSPACE ? String(currentFullViewPanoramaId || PANORAMA_ID) : String(PANORAMA_ID);
+        }
+
+        function getCurrentDataPanoramaId() {
+            return String(CURRENT_RENDER_PANORAMA_ID || getCurrentPanoramaId());
+        }
+
+        function getMobilePanoramaForBase(panoramaId) {
+            const key = String(panoramaId || '').trim();
+            if (!key) return null;
+            const row = MOBILE_PANORAMA_MAP && typeof MOBILE_PANORAMA_MAP === 'object' ? MOBILE_PANORAMA_MAP[key] : null;
+            if (!row || !row.id || !row.filename) return null;
+            return row;
+        }
+
+        function shouldUseMobileImage() {
+            return typeof window !== 'undefined' && Number(window.innerWidth || 0) > 0 && Number(window.innerWidth || 0) <= MOBILE_IMAGE_BREAKPOINT;
+        }
+
+        function resolveDisplayPanorama(basePanoramaId, meta) {
+            const baseId = String(basePanoramaId || (meta && meta.id) || '').trim();
+            const baseMeta = Object.assign({}, meta || {});
+            baseMeta.id = baseId || String(baseMeta.id || '');
+            const is360 = Boolean(baseMeta.is_360);
+            if (!is360) {
+                const mobile = getMobilePanoramaForBase(baseMeta.id);
+                if (mobile && shouldUseMobileImage()) {
+                    return {
+                        routePanoramaId: baseMeta.id,
+                        dataPanoramaId: String(mobile.id),
+                        meta: {
+                            id: String(mobile.id),
+                            name: String(mobile.name || baseMeta.name || ''),
+                            filename: String(mobile.filename || ''),
+                            is_360: false,
+                            start_view: null
+                        }
+                    };
+                }
+            }
+            return {
+                routePanoramaId: baseMeta.id,
+                dataPanoramaId: String(baseMeta.id),
+                meta: baseMeta
+            };
         }
 
         function getCurrentRouteMode() {
@@ -728,6 +778,7 @@
         const backBtn = document.getElementById('back-btn');
         const toggleOverlaysBtn = document.getElementById('toggle-overlays-btn');
         const fullscreenBtn = document.getElementById('fullscreen-btn');
+        const autoRotateToggleBtn = document.getElementById('auto-rotate-toggle');
         const panoramaNavShell = document.getElementById('panorama-nav-shell');
         const panoramaNavToggle = document.getElementById('panorama-nav-toggle');
         const panoramaNavList = document.getElementById('panorama-nav-list');
@@ -1713,7 +1764,7 @@
         }
 
         async function loadPlots(panoramaId) {
-            const pid = panoramaId != null ? String(panoramaId).trim() : (IN_WORKSPACE ? String(currentFullViewPanoramaId) : String(PANORAMA_ID));
+            const pid = panoramaId != null ? String(panoramaId).trim() : getCurrentDataPanoramaId();
             if (!pid) return;
             try {
                 if (plotsCache[pid] !== undefined) {
@@ -3238,6 +3289,7 @@
         const MAX_PSV_RETRIES = 50;
         let psvRetryCount = 0;
         let autoRotateResumeTimer = null;
+        let autoRotateManuallyPaused = false;
         let imageWidth = 0;
         let imageHeight = 0;
         let containerWidth = 0;
@@ -3388,10 +3440,12 @@
 
         function scheduleAutoRotateResume(delayMs = AUTO_ROTATE_RESUME_DELAY_MS) {
             if (!CURRENT_PANORAMA_IS_360) return;
+            if (autoRotateManuallyPaused) return;
             if (!viewer || typeof viewer.startAutorotate !== 'function') return;
             if (autoRotateResumeTimer) clearTimeout(autoRotateResumeTimer);
             autoRotateResumeTimer = setTimeout(() => {
                 if (!viewer || isModalVisible()) return;
+                if (autoRotateManuallyPaused) return;
                 if (typeof viewer.isAutorotateEnabled === 'function' && viewer.isAutorotateEnabled()) return;
                 viewer.startAutorotate();
             }, delayMs);
@@ -3400,6 +3454,17 @@
         function pauseAutoRotateForInteraction() {
             stopAutoRotate();
             scheduleAutoRotateResume();
+        }
+
+        function syncAutoRotateToggleUi() {
+            if (!autoRotateToggleBtn) return;
+            autoRotateToggleBtn.style.display = CURRENT_PANORAMA_IS_360 ? '' : 'none';
+            const iconEl = autoRotateToggleBtn.querySelector('iconify-icon');
+            const paused = Boolean(autoRotateManuallyPaused);
+            if (iconEl) iconEl.setAttribute('icon', paused ? 'ph:play' : 'ph:pause');
+            const label = paused ? 'Play autoplay' : 'Pause autoplay';
+            autoRotateToggleBtn.title = label;
+            autoRotateToggleBtn.setAttribute('aria-label', label);
         }
 
         function closePlotDetails() {
@@ -3670,7 +3735,7 @@
         }
 
         function loadCurrentPanoramaData(panoramaId) {
-            markerManager.plotId = String(panoramaId || getCurrentPanoramaId());
+            markerManager.plotId = String(panoramaId || getCurrentDataPanoramaId());
             const indexPromise = IN_WORKSPACE ? Promise.resolve([]) : loadPanoramaIndex().catch(() => []);
             const plotsPromise = loadPlots(panoramaId);
             const markersPromise = markerManager.loadMarkers()
@@ -3706,6 +3771,7 @@
             if (workspaceMeta && workspaceMeta.filename) CURRENT_PANORAMA_FILENAME = String(workspaceMeta.filename || '');
             if (workspaceMeta && Object.prototype.hasOwnProperty.call(workspaceMeta, 'is_360')) CURRENT_PANORAMA_IS_360 = Boolean(workspaceMeta.is_360);
             syncProjectBadgeText();
+            syncAutoRotateToggleUi();
             refreshPanoramaMenu();
             if (loading) {
                 loading.classList.remove('hidden');
@@ -3713,12 +3779,16 @@
             }
             return ensurePanoramaViewMeta(id).then(function (meta2) {
                 const mergedMeta = buildInViewPanoramaMeta(Object.assign({}, workspaceMeta || {}, meta2 || {}, { id: id }));
-                CURRENT_PANORAMA_NAME = mergedMeta.name || CURRENT_PANORAMA_NAME;
-                CURRENT_PANORAMA_FILENAME = mergedMeta.filename || CURRENT_PANORAMA_FILENAME;
-                CURRENT_PANORAMA_IS_360 = Boolean(mergedMeta.is_360);
+                const resolved = resolveDisplayPanorama(id, mergedMeta);
+                const displayMeta = resolved.meta;
+                CURRENT_RENDER_PANORAMA_ID = String(resolved.dataPanoramaId || id);
+                CURRENT_PANORAMA_NAME = displayMeta.name || CURRENT_PANORAMA_NAME;
+                CURRENT_PANORAMA_FILENAME = displayMeta.filename || CURRENT_PANORAMA_FILENAME;
+                CURRENT_PANORAMA_IS_360 = Boolean(displayMeta.is_360);
                 syncProjectBadgeText();
-                return (CURRENT_PANORAMA_IS_360 ? initPsv(mergedMeta) : load2dPanorama(mergedMeta))
-                    .then(function () { return loadCurrentPanoramaData(id); })
+                syncAutoRotateToggleUi();
+                return (CURRENT_PANORAMA_IS_360 ? initPsv(displayMeta) : load2dPanorama(displayMeta))
+                    .then(function () { return loadCurrentPanoramaData(CURRENT_RENDER_PANORAMA_ID); })
                     .then(function () {
                         stopLoadingStatusCycle();
                         if (loading) loading.classList.add('hidden');
@@ -3726,6 +3796,7 @@
                             scheduleAutoRotateResume(1200);
                             setTimeout(() => markerManager.updateViewportFocus(), 250);
                         }
+                        syncAutoRotateToggleUi();
                     });
             }).catch(function () {
                 stopLoadingStatusCycle();
@@ -3734,25 +3805,33 @@
                 CURRENT_PANORAMA_NAME = prevName;
                 CURRENT_PANORAMA_FILENAME = prevFilename;
                 CURRENT_PANORAMA_IS_360 = prevMode;
+                CURRENT_RENDER_PANORAMA_ID = String(prevId || PANORAMA_ID);
                 syncProjectBadgeText();
+                syncAutoRotateToggleUi();
                 refreshPanoramaMenu();
             });
         }
 
         function initializeCurrentPanorama() {
-            const meta = buildInViewPanoramaMeta({
+            const baseMeta = buildInViewPanoramaMeta({
                 id: PANORAMA_ID,
                 name: CURRENT_PANORAMA_NAME,
                 filename: CURRENT_PANORAMA_FILENAME,
                 is_360: CURRENT_PANORAMA_IS_360,
                 start_view: START_VIEW
             });
+            const resolved = resolveDisplayPanorama(PANORAMA_ID, baseMeta);
+            const meta = resolved.meta;
+            CURRENT_RENDER_PANORAMA_ID = String(resolved.dataPanoramaId || PANORAMA_ID);
+            CURRENT_PANORAMA_NAME = meta.name || CURRENT_PANORAMA_NAME;
+            CURRENT_PANORAMA_FILENAME = meta.filename || CURRENT_PANORAMA_FILENAME;
+            CURRENT_PANORAMA_IS_360 = Boolean(meta.is_360);
             const renderPromise = CURRENT_PANORAMA_IS_360 ? initPsv(meta) : load2dPanorama(meta);
             renderPromise.then(function () {
                 stopLoadingStatusCycle();
                 if (loading) loading.classList.add('hidden');
                 ensureCustomerViewConfigLoaded().then(function () {
-                    loadCurrentPanoramaData(meta.id).then(function () {
+                    loadCurrentPanoramaData(CURRENT_RENDER_PANORAMA_ID).then(function () {
                         if (IN_WORKSPACE && INITIAL_PANORAMA_ID && INITIAL_PANORAMA_ID !== PANORAMA_ID && !isPanoramaHidden(INITIAL_PANORAMA_ID) && getWorkspacePanoramaById(INITIAL_PANORAMA_ID)) {
                             switchToPanoramaInView(INITIAL_PANORAMA_ID);
                             return;
@@ -3772,6 +3851,7 @@
                     scheduleAutoRotateResume(AUTO_ROTATE_BOOT_DELAY_MS);
                     setTimeout(() => markerManager.updateViewportFocus(), 250);
                 }
+                syncAutoRotateToggleUi();
             }).catch(() => {
                 stopLoadingStatusCycle();
                 if (loading) loading.classList.add('hidden');
@@ -3817,6 +3897,19 @@
                 reset2dView();
             });
         }
+        if (autoRotateToggleBtn) {
+            autoRotateToggleBtn.addEventListener('click', () => {
+                if (!CURRENT_PANORAMA_IS_360) return;
+                autoRotateManuallyPaused = !autoRotateManuallyPaused;
+                if (autoRotateManuallyPaused) {
+                    stopAutoRotate();
+                } else {
+                    scheduleAutoRotateResume(0);
+                }
+                syncAutoRotateToggleUi();
+            });
+        }
+        syncAutoRotateToggleUi();
         if (imageContainer) {
             imageContainer.addEventListener('wheel', (event) => {
                 if (CURRENT_PANORAMA_IS_360) return;
