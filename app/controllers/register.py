@@ -768,7 +768,17 @@ def register_routes(app):
             except Exception:
                 resp.headers['Cache-Control'] = 'private, max-age=900'
             return resp
-        return send_from_directory(current_app.config['UPLOAD_FOLDER'], filename)
+        resp = send_from_directory(current_app.config['UPLOAD_FOLDER'], filename)
+        try:
+            if use_thumb:
+                resp.headers.setdefault('Cache-Control', 'public, max-age=86400')
+            elif use_optimized:
+                resp.headers.setdefault('Cache-Control', f'public, max-age={int(opt_cache_ttl)}')
+            else:
+                resp.headers.setdefault('Cache-Control', 'public, max-age=604800')
+        except Exception:
+            pass
+        return resp
 
     # ----- API: public (no auth) -----
     @app.route('/api/public/panoramas/<int:panorama_id>', methods=['GET'])

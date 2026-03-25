@@ -115,7 +115,7 @@ body {
 
 .marker-overlay-item {
     position: absolute;
-    transform: translate(-50%, -100%);
+    transform: translate(-50%, -100%) scale(var(--mk2d-scale, 1));
     pointer-events: none;
 }
 
@@ -265,6 +265,10 @@ body {
     width: 100%;
     max-width: 420px;
     pointer-events: auto;
+}
+
+body.is-2d .search-shell {
+    display: none !important;
 }
 
 .search-icon {

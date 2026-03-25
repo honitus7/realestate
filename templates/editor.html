@@ -565,7 +565,7 @@
         }
         .marker-pin {
             position: absolute;
-            transform: translate(-50%, -100%);
+            transform: translate(-50%, -100%) scale(var(--pin-ui-scale, 1));
             pointer-events: auto;
             cursor: pointer;
             z-index: 5;
@@ -573,11 +573,11 @@
             filter: drop-shadow(0 2px 6px rgba(0,0,0,0.25));
         }
         .marker-pin:hover {
-            transform: translate(-50%, -100%) scale(1.12);
+            transform: translate(-50%, -100%) scale(calc(var(--pin-ui-scale, 1) * 1.12));
             z-index: 6;
         }
         .marker-pin.is-active {
-            transform: translate(-50%, -100%) scale(1.15);
+            transform: translate(-50%, -100%) scale(calc(var(--pin-ui-scale, 1) * 1.15));
             z-index: 7;
         }
         .marker-pin.dragging {
@@ -1016,7 +1016,7 @@
 
     <div class="image-container" id="image-container">
         <div class="image-wrapper" id="image-wrapper">
-            <img src="/uploads/{{ panorama.filename }}" alt="{{ panorama.name }}" class="panorama-image"
+            <img src="/uploads/{{ panorama.filename }}?size=optimized" alt="{{ panorama.name }}" class="panorama-image"
                 id="panorama-image">
             <canvas class="drawing-canvas" id="drawing-canvas"></canvas>
             <svg class="plots-overlay" id="plots-overlay"></svg>
@@ -1721,6 +1721,12 @@
             translateX = Math.max(-maxTranslateX, Math.min(maxTranslateX, translateX));
             translateY = Math.max(-maxTranslateY, Math.min(maxTranslateY, translateY));
             imageWrapper.style.transform = `translate(-50%, -50%) translate(${translateX}px, ${translateY}px) scale(${scale})`;
+            const pinContainer = document.getElementById('marker-pin-container');
+            if (pinContainer) {
+                const safeScale = (Number.isFinite(scale) && scale > 0) ? scale : 1;
+                const uiScale = (1 / safeScale) * 1.25;
+                pinContainer.style.setProperty('--pin-ui-scale', String(uiScale));
+            }
             document.getElementById('zoom-level').textContent = `${Math.round(scale * 100)}%`;
         }
 

@@ -3292,6 +3292,11 @@
             translateX = Math.max(-maxTranslateX, Math.min(maxTranslateX, translateX));
             translateY = Math.max(-maxTranslateY, Math.min(maxTranslateY, translateY));
             imageWrapper.style.transform = `translate(-50%, -50%) translate(${translateX}px, ${translateY}px) scale(${scale})`;
+            if (markerLayer) {
+                const safeScale = (Number.isFinite(scale) && scale > 0) ? scale : 1;
+                const uiScale = (1 / safeScale) * 1.25;
+                markerLayer.style.setProperty('--mk2d-scale', String(uiScale));
+            }
             if (zoomLevel) zoomLevel.textContent = `${Math.round(scale * 100)}%`;
         }
 
