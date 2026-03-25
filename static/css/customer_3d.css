@@ -490,12 +490,269 @@ body.is-2d .search-shell {
     transform: translateY(-1px);
 }
 
-.status-legend {
+.customer-legends-stack {
     position: fixed;
-    top: 50%;
-    right: 14px;
-    transform: translateY(-50%);
+    top: calc(env(safe-area-inset-top, 0px) + 0.75rem + 8px + 2.5rem + 0.5rem);
+    right: 1rem;
+    bottom: auto;
+    left: auto;
+    transform: none;
+    z-index: 20;
+    display: flex;
+    flex-direction: column;
+    gap: 0.65rem;
+    align-items: flex-end;
+    width: auto;
+    max-width: min(290px, calc(100vw - 2rem));
+    pointer-events: none;
+}
+
+.customer-legends-stack > * {
+    pointer-events: auto;
+}
+
+.plot-size-legend {
+    width: min(268px, calc(100vw - 36px));
+    box-sizing: border-box;
+    background: rgba(255, 255, 255, 0.72);
+    border: 1px solid rgba(22, 35, 56, 0.08);
+    border-radius: 14px;
+    box-shadow: 0 4px 18px rgba(7, 27, 56, 0.1);
+    padding: 0.65rem 0.55rem;
+    backdrop-filter: blur(16px) saturate(150%);
+    -webkit-backdrop-filter: blur(16px) saturate(150%);
+    color: #1a2e4d;
+}
+
+.plot-size-legend-head {
+    display: flex;
+    align-items: center;
+    gap: 0.15rem;
+    margin-bottom: 0.45rem;
+    padding-bottom: 0.35rem;
+    border-bottom: 1px solid rgba(22, 35, 56, 0.08);
+    opacity: 0.92;
+}
+
+.plot-size-drag-handle {
+    cursor: grab;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.2rem;
+    margin-right: 0.05rem;
+    color: inherit;
+    opacity: 0.55;
+    touch-action: none;
+    flex-shrink: 0;
+}
+
+.plot-size-drag-handle:active {
+    cursor: grabbing;
+}
+
+.plot-size-drag-handle iconify-icon {
+    font-size: 1.1rem;
+}
+
+.plot-size-collapse-toggle {
+    flex: 1;
+    min-width: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.35rem;
+    background: transparent;
+    border: none;
+    font-size: 0.62rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    font-family: inherit;
+    color: inherit;
+    cursor: pointer;
+    padding: 0.15rem 0;
+    text-align: left;
+}
+
+.plot-size-head-title {
+    flex: 1;
+    min-width: 0;
+}
+
+.plot-size-caret {
+    flex-shrink: 0;
+    font-size: 1rem;
+    opacity: 0.75;
+}
+
+.plot-size-legend--collapsed .plot-size-bands {
+    display: none;
+}
+
+.plot-size-legend--collapsed .plot-size-legend-head {
+    margin-bottom: 0;
+    padding-bottom: 0;
+    border-bottom: none;
+}
+
+.legend-mobile-floaters {
+    position: fixed;
+    z-index: 25;
+    right: max(0.5rem, env(safe-area-inset-right, 0px));
+    bottom: calc(5.5rem + env(safe-area-inset-bottom, 0px));
+    display: none;
+    flex-direction: column;
+    gap: 0.5rem;
+    pointer-events: none;
+}
+
+body.legend-floater-mode .plot-size-drag-handle {
+    display: none;
+}
+
+.legend-mobile-floaters .legend-floater-btn {
+    pointer-events: auto;
+}
+
+.legend-floater-btn {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    border: 1px solid rgba(22, 35, 56, 0.12);
+    background: rgba(255, 255, 255, 0.94);
+    color: #1a2e4d;
+    box-shadow: 0 6px 20px rgba(7, 27, 56, 0.16);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+    padding: 0;
+}
+
+.legend-floater-btn:hover {
+    transform: scale(1.04);
+    box-shadow: 0 8px 24px rgba(7, 27, 56, 0.2);
+}
+
+.legend-floater-btn iconify-icon {
+    font-size: 1.35rem;
+}
+
+.legend-floater-btn[aria-expanded="true"] {
+    background: rgba(181, 119, 45, 0.2);
+    border-color: rgba(181, 119, 45, 0.38);
+    color: #6b3f12;
+}
+
+.legend-mobile-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 24;
+    background: rgba(10, 18, 34, 0.38);
+    pointer-events: none;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.2s ease, visibility 0.2s ease;
+}
+
+.legend-mobile-backdrop.visible {
+    pointer-events: auto;
+    opacity: 1;
+    visibility: visible;
+}
+
+body.legend-floater-mode .customer-legends-stack.legend-mobile-size-open,
+body.legend-floater-mode .customer-legends-stack.legend-mobile-plots-open {
+    z-index: 25;
+}
+
+body.legend-floater-mode .legend-mobile-floaters {
+    z-index: 27;
+}
+
+body.legend-floater-mode .customer-legends-stack.legend-mobile-size-open #plot-size-legend,
+body.legend-floater-mode .customer-legends-stack.legend-mobile-plots-open #status-legend {
+    position: fixed;
+    z-index: 26;
+    max-height: min(58vh, 520px);
+    overflow-y: auto;
+    bottom: calc(5.5rem + env(safe-area-inset-bottom, 0px));
+    right: calc(max(0.5rem, env(safe-area-inset-right, 0px)) + 48px + 0.5rem);
+    top: auto;
+    left: auto;
+    width: min(
+        268px,
+        calc(
+            100vw - max(0.5rem, env(safe-area-inset-right, 0px)) - 48px - 0.5rem - max(0.5rem, env(safe-area-inset-left, 0px)) -
+                0.5rem
+        )
+    );
+    box-shadow: 0 18px 48px rgba(7, 27, 56, 0.22);
+}
+
+body.legend-floater-mode .customer-legends-stack.legend-mobile-plots-open #status-legend {
+    width: min(
+        200px,
+        calc(
+            100vw - max(0.5rem, env(safe-area-inset-right, 0px)) - 48px - 0.5rem - max(0.5rem, env(safe-area-inset-left, 0px)) -
+                0.5rem
+        )
+    );
+}
+
+.plot-size-bands {
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+}
+
+.plot-size-row {
+    display: flex;
+    flex-direction: row;
+    align-items: stretch;
+    gap: 0.45rem;
+}
+
+.plot-size-swatch {
+    width: 22px;
+    min-width: 22px;
+    border-radius: 6px;
+    border: 1px solid rgba(22, 35, 56, 0.12);
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.25);
+}
+
+.plot-size-card {
+    flex: 1;
+    min-width: 0;
+    border-radius: 10px;
+    border: 1px solid rgba(22, 35, 56, 0.12);
+    background: rgba(255, 255, 255, 0.55);
+    padding: 0.38rem 0.45rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    justify-content: center;
+}
+
+.plot-size-line {
+    font-size: 0.56rem;
+    font-weight: 700;
+    line-height: 1.25;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    white-space: normal;
+    word-break: break-word;
+}
+
+.status-legend {
+    position: relative;
+    top: auto;
+    right: auto;
+    transform: none;
     width: 156px;
+    max-width: 100%;
     background: rgba(255, 255, 255, 0.72);
     border: 1px solid rgba(22, 35, 56, 0.08);
     border-radius: 14px;
@@ -948,7 +1205,9 @@ body.is-2d .zoom-controls {
     color: rgba(255, 244, 244, 0.98);
 }
 
-body.overlays-hidden .status-legend,
+body.overlays-hidden .customer-legends-stack,
+body.overlays-hidden .legend-mobile-floaters,
+body.overlays-hidden .legend-mobile-backdrop,
 body.overlays-hidden .panorama-nav-shell {
     opacity: 0;
     visibility: hidden;
@@ -2893,11 +3152,25 @@ body.overlays-hidden .psv-glass-marker .marker-photo-name {
         height: 18px;
     }
 
-    .status-legend {
-        top: auto;
-        right: 8px;
-        bottom: 8px;
+    .customer-legends-stack {
+        top: calc(env(safe-area-inset-top, 0px) + 0.5rem + 38px + 0.55rem);
+        right: max(0.5rem, env(safe-area-inset-right, 0px));
+        bottom: auto;
+        left: auto;
         transform: none;
+        max-width: min(280px, calc(100vw - 1rem));
+    }
+
+    .plot-size-legend {
+        width: min(252px, calc(100vw - 24px));
+        padding: 0.52rem 0.45rem;
+    }
+
+    .plot-size-line {
+        font-size: 0.52rem;
+    }
+
+    .status-legend {
         width: 130px;
         padding: 0.55rem 0.45rem;
     }

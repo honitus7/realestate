@@ -149,30 +149,41 @@
             <div class="panorama-nav-list" id="panorama-nav-list"></div>
         </aside>
     </div>
-    <div class="status-legend" id="status-legend" style="display:none;">
-        <div class="legend-head">
-            <span>Plot Range</span>
-            <span class="legend-total" id="status-count-total">0</span>
-        </div>
-        <div class="legend-grid">
-            <div class="status-pill available">
-                <span class="status-dot"></span>
-                <span>Available</span>
-                <strong id="status-count-available">0</strong>
+    <div class="customer-legends-stack" id="customer-legends-stack">
+        <div class="plot-size-legend" id="plot-size-legend" style="display:none;"></div>
+        <div class="status-legend" id="status-legend" style="display:none;">
+            <div class="legend-head">
+                <span>Plot Range</span>
+                <span class="legend-total" id="status-count-total">0</span>
             </div>
-            <div class="status-pill hold">
-                <span class="status-dot"></span>
-                <span>On Hold</span>
-                <strong id="status-count-hold">0</strong>
-            </div>
-            <div class="status-pill sold">
-                <span class="status-dot"></span>
-                <span>Sold</span>
-                <strong id="status-count-sold">0</strong>
+            <div class="legend-grid">
+                <div class="status-pill available">
+                    <span class="status-dot"></span>
+                    <span>Available</span>
+                    <strong id="status-count-available">0</strong>
+                </div>
+                <div class="status-pill hold">
+                    <span class="status-dot"></span>
+                    <span>On Hold</span>
+                    <strong id="status-count-hold">0</strong>
+                </div>
+                <div class="status-pill sold">
+                    <span class="status-dot"></span>
+                    <span>Sold</span>
+                    <strong id="status-count-sold">0</strong>
+                </div>
             </div>
         </div>
     </div>
-
+    <div class="legend-mobile-floaters" id="legend-mobile-floaters">
+        <button type="button" class="legend-floater-btn" id="legend-floater-size" aria-expanded="false" aria-controls="plot-size-legend" title="Size guide">
+            <iconify-icon icon="ph:ruler"></iconify-icon>
+        </button>
+        <button type="button" class="legend-floater-btn" id="legend-floater-plots" aria-expanded="false" aria-controls="status-legend" title="Plot range">
+            <iconify-icon icon="ph:chart-bar"></iconify-icon>
+        </button>
+    </div>
+    <div class="legend-mobile-backdrop" id="legend-mobile-backdrop" aria-hidden="true"></div>
 
     <div class="modal-backdrop details-modal" id="plot-details-modal">
         <div class="modal">
@@ -352,11 +363,239 @@
             });
         }
 
+        function getDefaultPlotSizeBands() {
+            return [
+                { color: '#E8D5ED', sqftMin: 1000, sqftMax: 1300, sqmMin: 92.9, sqmMax: 120.77, sqydMin: 111, sqydMax: 144.3 },
+                { color: '#E8B849', sqftMin: 1300, sqftMax: 1600, sqmMin: 120.77, sqmMax: 150, sqydMin: 144.3, sqydMax: 177.6 },
+                { color: '#C5E8C8', sqftMin: 1600, sqftMax: 1800, sqmMin: 148.64, sqmMax: 167.22, sqydMin: 177.77, sqydMax: 200 },
+                { color: '#5BC0EB', sqftMin: 1800, sqftMax: 2200, sqmMin: 165, sqmMax: 205, sqydMin: 199.8, sqydMax: 244.2 },
+                { color: '#FFF4D6', sqftMin: 2200, sqftMax: 2500, sqmMin: 205, sqmMax: 235, sqydMin: 244.2, sqydMax: 277.5 }
+            ];
+        }
+
+        function normalizePlotSizeLegendInCfg(cfg) {
+            if (!cfg || typeof cfg !== 'object') return;
+            if (!cfg.plotSizeLegend || typeof cfg.plotSizeLegend !== 'object') cfg.plotSizeLegend = {};
+            var psl = cfg.plotSizeLegend;
+            if (psl.visible !== false && psl.visible !== true) psl.visible = true;
+            if (psl.collapsed !== true && psl.collapsed !== false) psl.collapsed = false;
+            if (!Array.isArray(psl.bands) || psl.bands.length === 0) psl.bands = getDefaultPlotSizeBands();
+        }
+
+        function formatPlotSizeLegendNum(n) {
+            var x = Number(n);
+            if (!isFinite(x)) return '—';
+            if (Math.abs(x - Math.round(x)) < 1e-6) return String(Math.round(x));
+            var t = x.toFixed(2);
+            if (t.indexOf('.') >= 0) t = t.replace(/0+$/, '').replace(/\.$/, '');
+            return t;
+        }
+
+        function getPlotSizeLegendCollapsedState(psl) {
+            var collapsed = psl && psl.collapsed === true;
+            try {
+                if (sessionStorage.getItem('cvPlotSizeLegTouched') === '1') {
+                    collapsed = sessionStorage.getItem('cvPlotSizeLegCollapsed') === '1';
+                }
+            } catch (e) { }
+            return collapsed;
+        }
+
+        function wirePlotSizeLegendControls(plotSizeEl) {
+            if (!plotSizeEl) return;
+            var tgl = plotSizeEl.querySelector('.plot-size-collapse-toggle');
+            var hdl = plotSizeEl.querySelector('.plot-size-drag-handle');
+            if (tgl) {
+                tgl.addEventListener('click', function (ev) {
+                    ev.preventDefault();
+                    ev.stopPropagation();
+                    var now = plotSizeEl.classList.toggle('plot-size-legend--collapsed');
+                    tgl.setAttribute('aria-expanded', now ? 'false' : 'true');
+                    var ic = tgl.querySelector('.plot-size-caret');
+                    if (ic) ic.setAttribute('icon', now ? 'ph:caret-down' : 'ph:caret-up');
+                    try {
+                        sessionStorage.setItem('cvPlotSizeLegTouched', '1');
+                        sessionStorage.setItem('cvPlotSizeLegCollapsed', now ? '1' : '0');
+                    } catch (e) { }
+                });
+            }
+            if (hdl) {
+                hdl.addEventListener('pointerdown', function (e) {
+                    if (document.body.classList.contains('legend-floater-mode')) return;
+                    e.preventDefault();
+                    e.stopPropagation();
+                    var stack = document.getElementById('customer-legends-stack');
+                    if (!stack) return;
+                    var rect = stack.getBoundingClientRect();
+                    var grabX = e.clientX - rect.left;
+                    var grabY = e.clientY - rect.top;
+                    function move(ev) {
+                        stack.style.position = 'fixed';
+                        stack.style.left = (ev.clientX - grabX) + 'px';
+                        stack.style.top = (ev.clientY - grabY) + 'px';
+                        stack.style.right = 'auto';
+                        stack.style.bottom = 'auto';
+                        stack.style.transform = 'none';
+                    }
+                    function up() {
+                        document.removeEventListener('pointermove', move);
+                        document.removeEventListener('pointerup', up);
+                        try {
+                            var r = stack.getBoundingClientRect();
+                            sessionStorage.setItem('cvLegStackDragTouched', '1');
+                            sessionStorage.setItem('cvLegStackX', String(r.left));
+                            sessionStorage.setItem('cvLegStackY', String(r.top));
+                        } catch (err) { }
+                    }
+                    document.addEventListener('pointermove', move);
+                    document.addEventListener('pointerup', up);
+                });
+            }
+        }
+
+        function renderPlotSizeLegendInto(el, bands, textColor, psl) {
+            if (!el) return;
+            var tc = textColor || '#23395f';
+            var collapsed = getPlotSizeLegendCollapsedState(psl || {});
+            var rows = (Array.isArray(bands) ? bands : []).map(function (b) {
+                var c = b && b.color && String(b.color).indexOf('#') === 0 ? b.color : '#cccccc';
+                var l1 = formatPlotSizeLegendNum(b.sqftMin) + ' – ' + formatPlotSizeLegendNum(b.sqftMax) + ' SQ. FEET';
+                var l2 = formatPlotSizeLegendNum(b.sqmMin) + ' – ' + formatPlotSizeLegendNum(b.sqmMax) + ' SQ. METER';
+                var l3 = formatPlotSizeLegendNum(b.sqydMin) + ' – ' + formatPlotSizeLegendNum(b.sqydMax) + ' SQ. YARDS';
+                return '<div class="plot-size-row"><div class="plot-size-swatch" style="background:' + c + '"></div><div class="plot-size-card"><div class="plot-size-line">' + l1 + '</div><div class="plot-size-line">' + l2 + '</div><div class="plot-size-line">' + l3 + '</div></div></div>';
+            }).join('');
+            el.className = 'plot-size-legend' + (collapsed ? ' plot-size-legend--collapsed' : '');
+            el.innerHTML = '<div class="plot-size-legend-head">' +
+                '<span class="plot-size-drag-handle" title="Drag to move"><iconify-icon icon="ph:dots-six-vertical"></iconify-icon></span>' +
+                '<button type="button" class="plot-size-collapse-toggle" aria-expanded="' + (!collapsed) + '">' +
+                '<span class="plot-size-head-title">Size guide</span><iconify-icon class="plot-size-caret" icon="' + (collapsed ? 'ph:caret-down' : 'ph:caret-up') + '"></iconify-icon></button></div>' +
+                '<div class="plot-size-bands">' + rows + '</div>';
+            el.style.color = tc;
+            wirePlotSizeLegendControls(el);
+        }
+
+        function syncCustomerLegendsStackVisibility() {
+            var stack = document.getElementById('customer-legends-stack');
+            var statusInner = document.getElementById('status-legend');
+            var plotSizeEl = document.getElementById('plot-size-legend');
+            var floatersEl = document.getElementById('legend-mobile-floaters');
+            var cfg = getCvConfig();
+            var sl = cfg.statusLegend || {};
+            var psl = cfg.plotSizeLegend || {};
+            normalizePlotSizeLegendInCfg(cfg);
+            var counts = { total: Array.isArray(plots) ? plots.length : 0 };
+            var hasPlots = counts.total > 0;
+            var showSize = hasPlots && psl.visible !== false && Array.isArray(psl.bands) && psl.bands.length > 0;
+            var showStatusInner = hasPlots && sl.visible !== false;
+            var floater = document.body.classList.contains('legend-floater-mode');
+            var sizeOpen = stack && stack.classList.contains('legend-mobile-size-open');
+            var plotsOpen = stack && stack.classList.contains('legend-mobile-plots-open');
+            if (plotSizeEl) {
+                if (showSize) {
+                    var slc = sl.color || '#23395f';
+                    renderPlotSizeLegendInto(plotSizeEl, psl.bands, slc, psl);
+                    if (floater) plotSizeEl.style.display = sizeOpen ? '' : 'none';
+                    else plotSizeEl.style.display = '';
+                } else plotSizeEl.style.display = 'none';
+            }
+            if (statusInner) {
+                if (showStatusInner) {
+                    if (floater) statusInner.style.display = plotsOpen ? '' : 'none';
+                    else statusInner.style.display = '';
+                } else statusInner.style.display = 'none';
+            }
+            if (stack) {
+                stack.style.display = (showSize || showStatusInner) ? '' : 'none';
+            }
+            if (floatersEl) {
+                floatersEl.style.display = floater && (showSize || showStatusInner) ? 'flex' : 'none';
+            }
+            if (stack && !hasPlots) {
+                stack.classList.remove('legend-mobile-size-open');
+                stack.classList.remove('legend-mobile-plots-open');
+                var bd = document.getElementById('legend-mobile-backdrop');
+                if (bd) {
+                    bd.classList.remove('visible');
+                    bd.setAttribute('aria-hidden', 'true');
+                }
+                var f1 = document.getElementById('legend-floater-size');
+                var f2 = document.getElementById('legend-floater-plots');
+                if (f1) f1.setAttribute('aria-expanded', 'false');
+                if (f2) f2.setAttribute('aria-expanded', 'false');
+            }
+        }
+
+        function syncLegendFloaterBodyClass() {
+            try {
+                document.body.classList.toggle('legend-floater-mode', window.matchMedia('(max-width: 768px)').matches);
+            } catch (e) { }
+            syncCustomerLegendsStackVisibility();
+        }
+
+        function initLegendMobileFloaterUi() {
+            var fs = document.getElementById('legend-floater-size');
+            var fp = document.getElementById('legend-floater-plots');
+            var stack = document.getElementById('customer-legends-stack');
+            var backdrop = document.getElementById('legend-mobile-backdrop');
+            function closeBackdropOnly() {
+                if (backdrop) { backdrop.classList.remove('visible'); backdrop.setAttribute('aria-hidden', 'true'); }
+            }
+            function openBackdrop() {
+                if (backdrop) { backdrop.classList.add('visible'); backdrop.setAttribute('aria-hidden', 'false'); }
+            }
+            function setExpanded(which) {
+                if (!stack) return;
+                var hadSize = stack.classList.contains('legend-mobile-size-open');
+                var hadPlots = stack.classList.contains('legend-mobile-plots-open');
+                stack.classList.remove('legend-mobile-size-open');
+                stack.classList.remove('legend-mobile-plots-open');
+                if (which === 'size' && !hadSize) {
+                    stack.classList.add('legend-mobile-size-open');
+                    if (fs) fs.setAttribute('aria-expanded', 'true');
+                    if (fp) fp.setAttribute('aria-expanded', 'false');
+                    openBackdrop();
+                } else if (which === 'plots' && !hadPlots) {
+                    stack.classList.add('legend-mobile-plots-open');
+                    if (fp) fp.setAttribute('aria-expanded', 'true');
+                    if (fs) fs.setAttribute('aria-expanded', 'false');
+                    openBackdrop();
+                } else {
+                    if (fs) fs.setAttribute('aria-expanded', 'false');
+                    if (fp) fp.setAttribute('aria-expanded', 'false');
+                    closeBackdropOnly();
+                }
+                syncCustomerLegendsStackVisibility();
+            }
+            if (fs) fs.addEventListener('click', function (e) {
+                e.stopPropagation();
+                if (!document.body.classList.contains('legend-floater-mode')) return;
+                setExpanded('size');
+            });
+            if (fp) fp.addEventListener('click', function (e) {
+                e.stopPropagation();
+                if (!document.body.classList.contains('legend-floater-mode')) return;
+                setExpanded('plots');
+            });
+            if (backdrop) backdrop.addEventListener('click', function () {
+                if (stack) {
+                    stack.classList.remove('legend-mobile-size-open');
+                    stack.classList.remove('legend-mobile-plots-open');
+                }
+                if (fs) fs.setAttribute('aria-expanded', 'false');
+                if (fp) fp.setAttribute('aria-expanded', 'false');
+                closeBackdropOnly();
+                syncCustomerLegendsStackVisibility();
+            });
+            window.addEventListener('resize', syncLegendFloaterBodyClass);
+            syncLegendFloaterBodyClass();
+        }
+
         function getCvConfig() {
             var cfg = (typeof CUSTOMER_VIEW_CONFIG === 'string') ? (function () { try { return JSON.parse(CUSTOMER_VIEW_CONFIG); } catch (e) { return {}; } })() : (CUSTOMER_VIEW_CONFIG || {});
             if (!cfg.panoramaList || typeof cfg.panoramaList !== 'object') cfg.panoramaList = {};
             if (!Array.isArray(cfg.panoramaList.hiddenGlobal)) cfg.panoramaList.hiddenGlobal = [];
             if (!cfg.panoramaList.hiddenByPanorama || typeof cfg.panoramaList.hiddenByPanorama !== 'object') cfg.panoramaList.hiddenByPanorama = {};
+            normalizePlotSizeLegendInCfg(cfg);
             return cfg;
         }
 
@@ -521,6 +760,8 @@
             var headerEl = document.querySelector('.ui-overlay .header');
             var gradientEl = document.querySelector('.overlay-gradient');
             var legendEl = document.getElementById('status-legend');
+            var legendStack = document.getElementById('customer-legends-stack');
+            var plotSizeLegendEl = document.getElementById('plot-size-legend');
             var navShell = document.getElementById('panorama-nav-shell');
             var badgeEl = document.querySelector('.project-badge');
             var badgeName = document.querySelector('.project-badge-name');
@@ -583,6 +824,9 @@
                 legendEl.style.background = hexToRgba_cv(sl.bg || '#f7f9fd', tr.statusLegend !== undefined ? tr.statusLegend : 0.85);
                 if (sl.color) legendEl.style.color = sl.color;
             }
+            if (plotSizeLegendEl) {
+                plotSizeLegendEl.style.background = hexToRgba_cv(sl.bg || '#f7f9fd', tr.statusLegend !== undefined ? tr.statusLegend : 0.85);
+            }
             if (tr.panoramaNav !== undefined && navShell) {
                 var panel = navShell.querySelector('.panorama-nav-panel');
                 if (panel && !(cfg.panoramaList && cfg.panoramaList.panelBg)) panel.style.background = hexToRgba_cv('#0a1220', tr.panoramaNav);
@@ -628,7 +872,6 @@
             if (btns.viewCart === false && cartBtn) cartBtn.style.display = 'none';
 
             if (sb.visible === false && searchShell) searchShell.style.display = 'none';
-            if (sl.visible === false && legendEl) legendEl.style.display = 'none';
 
             if (pl.visible === false && navShell) navShell.style.display = 'none';
             if (navShell) {
@@ -703,12 +946,42 @@
                 headerEl.style.right = '';
                 headerEl.style.bottom = '';
             }
-            if (ep.statusLegend && ep.statusLegend.x !== null && ep.statusLegend.y !== null && legendEl) {
-                legendEl.style.position = 'fixed';
-                legendEl.style.left = ep.statusLegend.x + 'px';
-                legendEl.style.top = ep.statusLegend.y + 'px';
-                legendEl.style.bottom = 'auto';
-                legendEl.style.right = 'auto';
+            var epc = ep.customerLegends;
+            var usedDragSession = false;
+            try {
+                if ((!epc || epc.x == null || epc.y == null) && sessionStorage.getItem('cvLegStackDragTouched') === '1') {
+                    var lx = parseFloat(sessionStorage.getItem('cvLegStackX'));
+                    var ly = parseFloat(sessionStorage.getItem('cvLegStackY'));
+                    if (isFinite(lx) && isFinite(ly) && legendStack) {
+                        legendStack.style.position = 'fixed';
+                        legendStack.style.left = lx + 'px';
+                        legendStack.style.top = ly + 'px';
+                        legendStack.style.right = 'auto';
+                        legendStack.style.bottom = 'auto';
+                        legendStack.style.transform = 'none';
+                        usedDragSession = true;
+                    }
+                }
+            } catch (err) { }
+            if (!usedDragSession && epc && epc.x !== null && epc.y !== null && legendStack) {
+                legendStack.style.position = 'fixed';
+                legendStack.style.left = epc.x + 'px';
+                legendStack.style.top = epc.y + 'px';
+                legendStack.style.bottom = 'auto';
+                legendStack.style.right = 'auto';
+                legendStack.style.transform = 'none';
+            } else if (!usedDragSession && legendStack) {
+                legendStack.style.position = '';
+                legendStack.style.left = '';
+                legendStack.style.top = '';
+                legendStack.style.bottom = '';
+                legendStack.style.right = '';
+                legendStack.style.transform = '';
+                if (hdr.position === 'bottom') {
+                    legendStack.style.top = 'auto';
+                    legendStack.style.right = '1rem';
+                    legendStack.style.bottom = 'calc(env(safe-area-inset-bottom, 0px) + 0.75rem + 8px + 2.5rem + 0.5rem)';
+                }
             }
             if (ep.panoramaNav && ep.panoramaNav.x !== null && ep.panoramaNav.y !== null && navShell) {
                 navShell.style.position = 'fixed';
@@ -725,6 +998,7 @@
                 navShell.style.bottom = '';
                 navShell.style.transform = '';
             }
+            syncCustomerLegendsStackVisibility();
         }
 
         const loading = document.getElementById('loading');
@@ -1750,17 +2024,7 @@
             if (totalMeta) {
                 totalMeta.textContent = `${counts.total} ${counts.total === 1 ? 'Plot' : 'Plots'}`;
             }
-            const legendEl = document.getElementById('status-legend');
-            if (legendEl) {
-                if (!counts.total) {
-                    legendEl.style.display = 'none';
-                } else {
-                    var cfg = (typeof CUSTOMER_VIEW_CONFIG === 'string') ? (function () { try { return JSON.parse(CUSTOMER_VIEW_CONFIG); } catch (e) { return {}; } })() : (CUSTOMER_VIEW_CONFIG || {});
-                    var sl = cfg.statusLegend || {};
-                    if (sl.visible === false) legendEl.style.display = 'none';
-                    else legendEl.style.display = '';
-                }
-            }
+            syncCustomerLegendsStackVisibility();
         }
 
         async function loadPlots(panoramaId) {
@@ -4006,8 +4270,22 @@
                     shareModal.classList.remove('visible');
                     scheduleAutoRotateResume(850);
                 }
+                var lm = document.getElementById('customer-legends-stack');
+                var lb = document.getElementById('legend-mobile-backdrop');
+                if (lm && lb && lb.classList.contains('visible')) {
+                    lm.classList.remove('legend-mobile-size-open');
+                    lm.classList.remove('legend-mobile-plots-open');
+                    lb.classList.remove('visible');
+                    var fs = document.getElementById('legend-floater-size');
+                    var fp = document.getElementById('legend-floater-plots');
+                    if (fs) fs.setAttribute('aria-expanded', 'false');
+                    if (fp) fp.setAttribute('aria-expanded', 'false');
+                    syncCustomerLegendsStackVisibility();
+                }
             }
         });
+
+        initLegendMobileFloaterUi();
     </script>
 </body>
 

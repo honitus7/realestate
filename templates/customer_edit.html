@@ -132,15 +132,18 @@
             </aside>
         </div>
 
-        <div class="status-legend ce-editable" id="cv-status-legend" data-ce-id="statusLegend">
-            <div class="legend-head">
-                <span>Plot Range</span>
-                <span class="legend-total">0</span>
-            </div>
-            <div class="legend-grid">
-                <div class="status-pill available"><span class="status-dot"></span><span>Available</span><strong>0</strong></div>
-                <div class="status-pill hold"><span class="status-dot"></span><span>On Hold</span><strong>0</strong></div>
-                <div class="status-pill sold"><span class="status-dot"></span><span>Sold</span><strong>0</strong></div>
+        <div class="customer-legends-stack ce-editable" id="cv-legend-stack" data-ce-id="statusLegend">
+            <div class="plot-size-legend" id="cv-plot-size-legend"></div>
+            <div class="status-legend" id="cv-status-legend">
+                <div class="legend-head">
+                    <span>Plot Range</span>
+                    <span class="legend-total">0</span>
+                </div>
+                <div class="legend-grid">
+                    <div class="status-pill available"><span class="status-dot"></span><span>Available</span><strong>0</strong></div>
+                    <div class="status-pill hold"><span class="status-dot"></span><span>On Hold</span><strong>0</strong></div>
+                    <div class="status-pill sold"><span class="status-dot"></span><span>Sold</span><strong>0</strong></div>
+                </div>
             </div>
         </div>
     </div>
@@ -163,8 +166,19 @@
             buttons: { panoramaNavToggle: true, backBtn: true, exportPlots: true, toggleOverlays: true, fullscreen: true, viewCart: true },
             searchBar: { visible: true },
             statusLegend: { visible: true, color: '#23395f', bg: '#f7f9fd' },
+            plotSizeLegend: {
+                visible: true,
+                collapsed: false,
+                bands: [
+                    { color: '#E8D5ED', sqftMin: 1000, sqftMax: 1300, sqmMin: 92.9, sqmMax: 120.77, sqydMin: 111, sqydMax: 144.3 },
+                    { color: '#E8B849', sqftMin: 1300, sqftMax: 1600, sqmMin: 120.77, sqmMax: 150, sqydMin: 144.3, sqydMax: 177.6 },
+                    { color: '#C5E8C8', sqftMin: 1600, sqftMax: 1800, sqmMin: 148.64, sqmMax: 167.22, sqydMin: 177.77, sqydMax: 200 },
+                    { color: '#5BC0EB', sqftMin: 1800, sqftMax: 2200, sqmMin: 165, sqmMax: 205, sqydMin: 199.8, sqydMax: 244.2 },
+                    { color: '#FFF4D6', sqftMin: 2200, sqftMax: 2500, sqmMin: 205, sqmMax: 235, sqydMin: 244.2, sqydMax: 277.5 }
+                ]
+            },
             panoramaList: { visible: true, order: [], hiddenGlobal: [], position: 'left', title: 'Panorama List', subheader: null, titleFont: 'Syne', subheaderFont: 'Syne', itemFont: 'Syne', titleFontSize: '0.6rem', subheaderFontSize: '0.52rem', itemFontSize: '0.76rem', panelBg: '#0a1220', titleColor: '#7a8ba8', subheaderColor: '#a0aec0', itemColor: '#1a2e4d', titleAlign: 'left', subheaderAlign: 'left', itemAlignX: 'left', itemAlignY: 'center', absorbedHeaderFont: 'Syne', absorbedHeaderFontSize: '0.88rem', absorbedHeaderColor: '#1a2e4d', absorbedHeaderAlign: 'left' },
-            elementPositions: { header: { x: null, y: null }, statusLegend: { x: null, y: null }, panoramaNav: { x: null, y: null } }
+            elementPositions: { header: { x: null, y: null }, customerLegends: { x: null, y: null }, panoramaNav: { x: null, y: null } }
         };
 
         function deepMerge(target, source) {
@@ -179,6 +193,103 @@
             return target;
         }
 
+        function ensurePlotSizeLegendConfig() {
+            if (!config.plotSizeLegend || typeof config.plotSizeLegend !== 'object') config.plotSizeLegend = { visible: true, bands: [] };
+            var psl = config.plotSizeLegend;
+            if (psl.visible !== false && psl.visible !== true) psl.visible = true;
+            if (psl.collapsed !== true && psl.collapsed !== false) psl.collapsed = false;
+            if (!Array.isArray(psl.bands) || psl.bands.length === 0) {
+                psl.bands = [
+                    { color: '#E8D5ED', sqftMin: 1000, sqftMax: 1300, sqmMin: 92.9, sqmMax: 120.77, sqydMin: 111, sqydMax: 144.3 },
+                    { color: '#E8B849', sqftMin: 1300, sqftMax: 1600, sqmMin: 120.77, sqmMax: 150, sqydMin: 144.3, sqydMax: 177.6 },
+                    { color: '#C5E8C8', sqftMin: 1600, sqftMax: 1800, sqmMin: 148.64, sqmMax: 167.22, sqydMin: 177.77, sqydMax: 200 },
+                    { color: '#5BC0EB', sqftMin: 1800, sqftMax: 2200, sqmMin: 165, sqmMax: 205, sqydMin: 199.8, sqydMax: 244.2 },
+                    { color: '#FFF4D6', sqftMin: 2200, sqftMax: 2500, sqmMin: 205, sqmMax: 235, sqydMin: 244.2, sqydMax: 277.5 }
+                ];
+            }
+        }
+
+        function formatPlotSizeLegendNum(n) {
+            var x = Number(n);
+            if (!isFinite(x)) return '—';
+            if (Math.abs(x - Math.round(x)) < 1e-6) return String(Math.round(x));
+            var t = x.toFixed(2);
+            if (t.indexOf('.') >= 0) t = t.replace(/0+$/, '').replace(/\.$/, '');
+            return t;
+        }
+
+        function wireCvPlotSizeLegendPreview(el) {
+            if (!el) return;
+            var tgl = el.querySelector('.plot-size-collapse-toggle');
+            var hdl = el.querySelector('.plot-size-drag-handle');
+            if (tgl) {
+                tgl.addEventListener('click', function (ev) {
+                    ev.preventDefault();
+                    ev.stopPropagation();
+                    var now = el.classList.toggle('plot-size-legend--collapsed');
+                    tgl.setAttribute('aria-expanded', now ? 'false' : 'true');
+                    var ic = tgl.querySelector('.plot-size-caret');
+                    if (ic) ic.setAttribute('icon', now ? 'ph:caret-down' : 'ph:caret-up');
+                });
+            }
+            if (hdl) {
+                hdl.addEventListener('pointerdown', function (e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    var stack = document.getElementById('cv-legend-stack');
+                    if (!stack) return;
+                    var rect = stack.getBoundingClientRect();
+                    var grabX = e.clientX - rect.left;
+                    var grabY = e.clientY - rect.top;
+                    function move(ev) {
+                        stack.style.position = 'fixed';
+                        stack.style.left = (ev.clientX - grabX) + 'px';
+                        stack.style.top = (ev.clientY - grabY) + 'px';
+                        stack.style.right = 'auto';
+                        stack.style.bottom = 'auto';
+                        stack.style.transform = 'none';
+                    }
+                    function up() {
+                        document.removeEventListener('pointermove', move);
+                        document.removeEventListener('pointerup', up);
+                        var r = stack.getBoundingClientRect();
+                        if (!config.elementPositions) config.elementPositions = {};
+                        if (!config.elementPositions.customerLegends) config.elementPositions.customerLegends = { x: null, y: null };
+                        config.elementPositions.customerLegends.x = r.left;
+                        config.elementPositions.customerLegends.y = r.top;
+                        applyConfig();
+                    }
+                    document.addEventListener('pointermove', move);
+                    document.addEventListener('pointerup', up);
+                });
+            }
+        }
+
+        function renderCvPlotSizeLegend() {
+            var el = document.getElementById('cv-plot-size-legend');
+            if (!el) return;
+            ensurePlotSizeLegendConfig();
+            var psl = config.plotSizeLegend;
+            var tc = (config.statusLegend && config.statusLegend.color) || '#23395f';
+            var bands = Array.isArray(psl.bands) ? psl.bands : [];
+            var collapsed = psl.collapsed === true;
+            var rows = bands.map(function (b) {
+                var c = b && b.color && String(b.color).indexOf('#') === 0 ? b.color : '#cccccc';
+                var l1 = formatPlotSizeLegendNum(b.sqftMin) + ' – ' + formatPlotSizeLegendNum(b.sqftMax) + ' SQ. FEET';
+                var l2 = formatPlotSizeLegendNum(b.sqmMin) + ' – ' + formatPlotSizeLegendNum(b.sqmMax) + ' SQ. METER';
+                var l3 = formatPlotSizeLegendNum(b.sqydMin) + ' – ' + formatPlotSizeLegendNum(b.sqydMax) + ' SQ. YARDS';
+                return '<div class="plot-size-row"><div class="plot-size-swatch" style="background:' + c + '"></div><div class="plot-size-card"><div class="plot-size-line">' + l1 + '</div><div class="plot-size-line">' + l2 + '</div><div class="plot-size-line">' + l3 + '</div></div></div>';
+            }).join('');
+            el.className = 'plot-size-legend' + (collapsed ? ' plot-size-legend--collapsed' : '');
+            el.innerHTML = '<div class="plot-size-legend-head">' +
+                '<span class="plot-size-drag-handle" title="Drag to move"><iconify-icon icon="ph:dots-six-vertical"></iconify-icon></span>' +
+                '<button type="button" class="plot-size-collapse-toggle" aria-expanded="' + (!collapsed) + '">' +
+                '<span class="plot-size-head-title">Size guide</span><iconify-icon class="plot-size-caret" icon="' + (collapsed ? 'ph:caret-down' : 'ph:caret-up') + '"></iconify-icon></button></div>' +
+                '<div class="plot-size-bands">' + rows + '</div>';
+            el.style.color = tc;
+            wireCvPlotSizeLegendPreview(el);
+        }
+
         function fetchCustomerConfigThenInit() {
             if (!window.getAuthHeaders) { startPsvInit(); return; }
             return window.getAuthHeaders().then(function (headers) {
@@ -190,6 +301,10 @@
                 if (data && data.config && typeof data.config === 'object') deepMerge(config, data.config);
                 if (config.panoramaList && !Array.isArray(config.panoramaList.order)) config.panoramaList.order = [];
                 if (config.panoramaList && !Array.isArray(config.panoramaList.hiddenGlobal)) config.panoramaList.hiddenGlobal = [];
+                ensurePlotSizeLegendConfig();
+                if (config.elementPositions && typeof config.elementPositions === 'object' && !config.elementPositions.customerLegends) {
+                    config.elementPositions.customerLegends = { x: null, y: null };
+                }
                 startPsvInit();
             }).catch(function (err) {
                 if (err && err.message !== 'Unauthorized') startPsvInit();
@@ -211,6 +326,8 @@
         function saveCustomerConfig() {
             if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = 'Saving...'; }
             if (elementModalSaveBtn) { elementModalSaveBtn.disabled = true; elementModalSaveBtn.textContent = 'Saving...'; }
+            if (!config.elementPositions) config.elementPositions = {};
+            if (!config.elementPositions.customerLegends) config.elementPositions.customerLegends = { x: null, y: null };
             return window.getAuthHeaders().then(function (headers) {
                 headers['Content-Type'] = 'application/json';
                 return fetch('/api/workspaces/' + WORKSPACE_ID + '/customer-config', { method: 'PATCH', headers: headers, body: JSON.stringify({ config: config }) });
@@ -312,7 +429,9 @@
             var header = document.getElementById('cv-header');
             var uiOverlay = document.getElementById('cv-ui-overlay');
             var gradient = document.getElementById('cv-overlay-gradient');
+            var legendStack = document.getElementById('cv-legend-stack');
             var legend = document.getElementById('cv-status-legend');
+            var plotSizeLegendEl = document.getElementById('cv-plot-size-legend');
             var navShell = document.getElementById('cv-panorama-nav-shell');
             var badge = document.getElementById('cv-project-badge');
             var badgeName = document.getElementById('cv-badge-name');
@@ -364,9 +483,14 @@
             });
             if (badgeName) badgeName.style.color = t.primaryColor;
             if (gradient) gradient.style.opacity = config.transparency.overlayGradient;
+            ensurePlotSizeLegendConfig();
             if (legend) {
                 legend.style.background = hexToRgba(config.statusLegend.bg || '#f7f9fd', config.transparency.statusLegend);
                 legend.style.color = config.statusLegend.color || '#23395f';
+            }
+            if (plotSizeLegendEl) {
+                plotSizeLegendEl.style.background = hexToRgba(config.statusLegend.bg || '#f7f9fd', config.transparency.statusLegend);
+                renderCvPlotSizeLegend();
             }
             if (navShell && navShell.querySelector('.panorama-nav-panel')) {
                 navShell.querySelector('.panorama-nav-panel').style.background = hexToRgba('#0a1220', config.transparency.panoramaNav);
@@ -387,7 +511,11 @@
             if (fullscreenBtn) fullscreenBtn.style.display = config.buttons.fullscreen ? '' : 'none';
             if (cartBtn) cartBtn.style.display = config.buttons.viewCart ? '' : 'none';
             if (searchShell) searchShell.style.display = config.searchBar.visible ? '' : 'none';
-            if (legend) legend.style.display = config.statusLegend.visible ? '' : 'none';
+            var showSizePreview = config.plotSizeLegend.visible !== false && Array.isArray(config.plotSizeLegend.bands) && config.plotSizeLegend.bands.length > 0;
+            var showStatusPreview = config.statusLegend.visible !== false;
+            if (plotSizeLegendEl) plotSizeLegendEl.style.display = showSizePreview ? '' : 'none';
+            if (legend) legend.style.display = showStatusPreview ? '' : 'none';
+            if (legendStack) legendStack.style.display = (showSizePreview || showStatusPreview) ? '' : 'none';
             if (navShell) {
                 navShell.style.display = config.panoramaList.visible ? '' : 'none';
                 navShell.classList.remove('pos-left', 'pos-right', 'pos-top', 'pos-bottom');
@@ -467,12 +595,26 @@
                 header.style.right = '';
                 header.style.bottom = '';
             }
-            if (legend && ep.statusLegend && ep.statusLegend.x !== null && ep.statusLegend.y !== null) {
-                legend.style.position = 'fixed';
-                legend.style.left = ep.statusLegend.x + 'px';
-                legend.style.top = ep.statusLegend.y + 'px';
-                legend.style.bottom = 'auto';
-                legend.style.right = 'auto';
+            var epcL = ep.customerLegends;
+            if (epcL && epcL.x !== null && epcL.y !== null && legendStack) {
+                legendStack.style.position = 'fixed';
+                legendStack.style.left = epcL.x + 'px';
+                legendStack.style.top = epcL.y + 'px';
+                legendStack.style.bottom = 'auto';
+                legendStack.style.right = 'auto';
+                legendStack.style.transform = 'none';
+            } else if (legendStack) {
+                legendStack.style.position = '';
+                legendStack.style.left = '';
+                legendStack.style.top = '';
+                legendStack.style.bottom = '';
+                legendStack.style.right = '';
+                legendStack.style.transform = '';
+                if (config.header.position === 'bottom') {
+                    legendStack.style.top = 'auto';
+                    legendStack.style.right = '1rem';
+                    legendStack.style.bottom = 'calc(env(safe-area-inset-bottom, 0px) + 0.75rem + 8px + 2.5rem + 0.5rem)';
+                }
             }
             if (navShell && ep.panoramaNav && ep.panoramaNav.x !== null && ep.panoramaNav.y !== null) {
                 navShell.style.position = 'fixed';
@@ -492,17 +634,17 @@
         }
 
         function getPositionForElement(id) {
-            var key = id === 'statusLegend' ? 'statusLegend' : id === 'panoramaNav' ? 'panoramaNav' : id === 'header' ? 'header' : null;
+            var key = id === 'statusLegend' ? 'customerLegends' : id === 'panoramaNav' ? 'panoramaNav' : id === 'header' ? 'header' : null;
             if (!key || !config.elementPositions[key]) return { x: 0, y: 0 };
             var p = config.elementPositions[key];
             return { x: p.x != null ? p.x : 0, y: p.y != null ? p.y : 0 };
         }
 
         function setPositionForElement(id, dx, dy) {
-            var key = id === 'statusLegend' ? 'statusLegend' : id === 'panoramaNav' ? 'panoramaNav' : id === 'header' ? 'header' : null;
+            var key = id === 'statusLegend' ? 'customerLegends' : id === 'panoramaNav' ? 'panoramaNav' : id === 'header' ? 'header' : null;
             if (!key) return;
             if (!config.elementPositions[key]) config.elementPositions[key] = { x: null, y: null };
-            var el = document.getElementById(id === 'statusLegend' ? 'cv-status-legend' : id === 'panoramaNav' ? 'cv-panorama-nav-shell' : 'cv-header');
+            var el = document.getElementById(id === 'statusLegend' ? 'cv-legend-stack' : id === 'panoramaNav' ? 'cv-panorama-nav-shell' : 'cv-header');
             if (!el) return;
             var rect = el.getBoundingClientRect();
             var curX = config.elementPositions[key].x != null ? config.elementPositions[key].x : rect.left;
@@ -515,6 +657,7 @@
         function openElementModal(elementId) {
             currentElementId = elementId;
             elementModal.classList.toggle('ce-modal-panorama', elementId === 'panoramaNav');
+            elementModal.classList.toggle('ce-modal-status-wide', elementId === 'statusLegend');
             elementModalTitle.textContent = elementLabels[elementId] || elementId;
             elementModalBody.innerHTML = '';
 
@@ -883,6 +1026,123 @@
             });
             frag.appendChild(rowAlpha);
 
+            if (elementId === 'statusLegend') {
+                ensurePlotSizeLegendConfig();
+                var secSz = document.createElement('div');
+                secSz.className = 'ce-modal-section ce-modal-section-plot-sizes';
+                secSz.innerHTML = '<div class="ce-modal-section-title">Size guide</div><div class="ce-modal-section-content" id="ce-plot-size-bands-root"></div>';
+                var root = secSz.querySelector('#ce-plot-size-bands-root');
+                var rowSzVis = document.createElement('div');
+                rowSzVis.className = 'ce-opt-row ce-opt-row-show';
+                rowSzVis.innerHTML = '<label class="ce-opt-label">Show size guide</label><input type="checkbox" id="ce-plot-size-vis" class="ce-opt-checkbox" ' + (config.plotSizeLegend.visible !== false ? 'checked' : '') + '>';
+                rowSzVis.querySelector('#ce-plot-size-vis').addEventListener('change', function () {
+                    config.plotSizeLegend.visible = this.checked;
+                    applyConfig();
+                });
+                root.appendChild(rowSzVis);
+                var rowColDef = document.createElement('div');
+                rowColDef.className = 'ce-opt-row ce-opt-row-show';
+                rowColDef.innerHTML = '<label class="ce-opt-label">Collapsed by default</label><input type="checkbox" id="ce-plot-size-collapsed-def" class="ce-opt-checkbox" ' + (config.plotSizeLegend.collapsed === true ? 'checked' : '') + '>';
+                rowColDef.querySelector('#ce-plot-size-collapsed-def').addEventListener('change', function () {
+                    config.plotSizeLegend.collapsed = this.checked;
+                    applyConfig();
+                });
+                root.appendChild(rowColDef);
+                var bandWrap = document.createElement('div');
+                bandWrap.className = 'ce-plot-size-band-editors';
+                root.appendChild(bandWrap);
+                function ceParseNum(v) {
+                    var x = parseFloat(String(v).replace(/,/g, ''));
+                    return isFinite(x) ? x : 0;
+                }
+                function redrawBandEditors() {
+                    ensurePlotSizeLegendConfig();
+                    bandWrap.innerHTML = '';
+                    config.plotSizeLegend.bands.forEach(function (band, idx) {
+                        var col = band.color && String(band.color).indexOf('#') === 0 ? band.color : '#E8D5ED';
+                        var card = document.createElement('div');
+                        card.className = 'ce-plot-band-card';
+                        var h = document.createElement('div');
+                        h.className = 'ce-plot-band-card-head';
+                        h.innerHTML = '<span class="ce-opt-label">Band ' + (idx + 1) + '</span>';
+                        var colInp = document.createElement('input');
+                        colInp.type = 'color';
+                        colInp.className = 'ce-plot-band-color';
+                        colInp.value = col;
+                        colInp.addEventListener('input', function () {
+                            config.plotSizeLegend.bands[idx].color = this.value;
+                            applyConfig();
+                        });
+                        h.appendChild(colInp);
+                        card.appendChild(h);
+                        var g = document.createElement('div');
+                        g.className = 'ce-plot-band-grid';
+                        function addRow(label, k1, k2) {
+                            var s1 = document.createElement('span');
+                            s1.textContent = label;
+                            g.appendChild(s1);
+                            var i1 = document.createElement('input');
+                            i1.type = 'text';
+                            i1.className = 'ce-plot-band-inp';
+                            i1.dataset.k = k1;
+                            i1.value = band[k1] != null ? String(band[k1]) : '';
+                            var i2 = document.createElement('input');
+                            i2.type = 'text';
+                            i2.className = 'ce-plot-band-inp';
+                            i2.dataset.k = k2;
+                            i2.value = band[k2] != null ? String(band[k2]) : '';
+                            function onCh(inp) {
+                                inp.addEventListener('change', function () {
+                                    var k = this.dataset.k;
+                                    if (k) config.plotSizeLegend.bands[idx][k] = ceParseNum(this.value);
+                                    applyConfig();
+                                });
+                            }
+                            onCh(i1);
+                            onCh(i2);
+                            g.appendChild(i1);
+                            g.appendChild(i2);
+                        }
+                        addRow('Sq ft', 'sqftMin', 'sqftMax');
+                        addRow('Sq m', 'sqmMin', 'sqmMax');
+                        addRow('Sq yd', 'sqydMin', 'sqydMax');
+                        card.appendChild(g);
+                        bandWrap.appendChild(card);
+                    });
+                }
+                redrawBandEditors();
+                var rowAddRem = document.createElement('div');
+                rowAddRem.className = 'ce-opt-row ce-plot-band-actions';
+                var btnAdd = document.createElement('button');
+                btnAdd.type = 'button';
+                btnAdd.className = 'ce-pos-btn';
+                btnAdd.textContent = 'Add band';
+                btnAdd.addEventListener('click', function () {
+                    ensurePlotSizeLegendConfig();
+                    var bands = config.plotSizeLegend.bands;
+                    var last = bands[bands.length - 1];
+                    var tpl = last ? JSON.parse(JSON.stringify(last)) : { color: '#E8D5ED', sqftMin: 0, sqftMax: 0, sqmMin: 0, sqmMax: 0, sqydMin: 0, sqydMax: 0 };
+                    bands.push(tpl);
+                    redrawBandEditors();
+                    applyConfig();
+                });
+                var btnRem = document.createElement('button');
+                btnRem.type = 'button';
+                btnRem.className = 'ce-pos-btn';
+                btnRem.textContent = 'Remove last';
+                btnRem.addEventListener('click', function () {
+                    ensurePlotSizeLegendConfig();
+                    if (config.plotSizeLegend.bands.length <= 1) return;
+                    config.plotSizeLegend.bands.pop();
+                    redrawBandEditors();
+                    applyConfig();
+                });
+                rowAddRem.appendChild(btnAdd);
+                rowAddRem.appendChild(btnRem);
+                root.appendChild(rowAddRem);
+                frag.appendChild(secSz);
+            }
+
             if (elementId === 'header') {
                 var rowPos = document.createElement('div');
                 rowPos.className = 'ce-opt-row';
@@ -997,6 +1257,7 @@
         function closeElementModal() {
             currentElementId = null;
             elementModal.classList.remove('ce-modal-panorama');
+            elementModal.classList.remove('ce-modal-status-wide');
             elementModalBackdrop.classList.remove('visible');
             elementFab.style.display = 'none';
         }
@@ -1054,6 +1315,8 @@
             config.buttons.viewCart = true;
             config.searchBar.visible = true;
             config.statusLegend.visible = true;
+            ensurePlotSizeLegendConfig();
+            config.plotSizeLegend.visible = true;
             config.panoramaList.visible = true;
             applyConfig();
             showToast('All elements shown');

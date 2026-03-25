@@ -336,10 +336,82 @@
 .ce-canvas-wrap #plot-search-input {
     pointer-events: none;
 }
-.ce-canvas-wrap #cv-status-legend {
+.ce-canvas-wrap #cv-legend-stack {
     pointer-events: auto;
     z-index: 15;
     cursor: pointer;
+}
+.ce-canvas-wrap #cv-plot-size-legend,
+.ce-canvas-wrap #cv-status-legend {
+    cursor: pointer;
+}
+.ce-element-modal.ce-modal-status-wide {
+    width: min(420px, 94vw);
+    max-width: 94vw;
+}
+.ce-modal-section-plot-sizes .ce-modal-section-content {
+    max-height: 52vh;
+    overflow-y: auto;
+    padding-right: 0.15rem;
+}
+.ce-plot-size-band-editors {
+    display: flex;
+    flex-direction: column;
+    gap: 0.55rem;
+    margin-top: 0.35rem;
+}
+.ce-plot-band-card {
+    border: 1px solid var(--color-border, rgba(22, 35, 56, 0.12));
+    border-radius: 10px;
+    padding: 0.55rem 0.6rem;
+    background: var(--color-bg, #fff);
+}
+.ce-plot-band-card-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    margin-bottom: 0.45rem;
+}
+.ce-plot-band-color {
+    width: 36px;
+    height: 28px;
+    padding: 0;
+    border: 1px solid var(--color-border);
+    border-radius: 6px;
+    cursor: pointer;
+    background: transparent;
+}
+.ce-plot-band-grid {
+    display: grid;
+    grid-template-columns: auto 1fr 1fr;
+    gap: 0.35rem 0.4rem;
+    align-items: center;
+    font-size: 0.72rem;
+    color: var(--color-text-muted, #5a6b85);
+}
+.ce-plot-band-grid span {
+    font-weight: 600;
+}
+.ce-plot-band-inp {
+    width: 100%;
+    min-width: 0;
+    padding: 0.28rem 0.35rem;
+    font-size: 0.75rem;
+    border: 1px solid var(--color-border);
+    border-radius: 6px;
+    background: var(--color-bg-elevated);
+    color: var(--color-text);
+}
+.ce-plot-band-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    margin-top: 0.5rem;
+}
+.ce-plot-band-actions .ce-pos-btn {
+    flex: 1;
+    min-width: 0;
 }
 #cv-panorama-nav-shell .panorama-nav-head {
     display: flex;
