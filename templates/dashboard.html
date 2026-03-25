@@ -159,6 +159,20 @@
         </div>
     </div>
 
+    <!-- Choose New Main Panorama Modal (shown when deleting main panorama) -->
+    <div class="modal-backdrop" id="choose-main-modal">
+        <div class="modal">
+            <div class="modal-title">Choose New Main Panorama</div>
+            <div class="modal-text">You are deleting the main panorama of this project. Customer/shared links will stop working unless you choose a new main panorama.</div>
+            <div id="choose-main-list" style="margin: 1rem 0; max-height: 260px; overflow-y: auto;"></div>
+            <div id="choose-main-error" class="msg error" style="display:none; margin-bottom: 1rem;"></div>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" id="cancel-choose-main">Cancel</button>
+                <button class="btn btn-danger" id="confirm-choose-main">Delete &amp; Set New Main</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Rename Project Modal -->
     <div class="modal-backdrop" id="rename-modal">
         <div class="modal">
@@ -314,7 +328,7 @@
                     <button class="btn btn-secondary share-link-copy-btn" type="button" id="copy-default-share-link">Copy</button>
                 </div>
             </div>
-            <div class="form-group" style="margin-bottom: 0.85rem;">
+            <div class="form-group share-owner-only" style="margin-bottom: 0.85rem;">
                 <label class="form-label" for="workspace-custom-endpoint-input">Custom endpoint</label>
                 <div class="share-endpoint-row">
                     <span class="share-endpoint-prefix">/panoview/</span>
@@ -322,7 +336,7 @@
                     <button class="btn btn-secondary share-check-btn" type="button" id="check-custom-endpoint-btn">Check</button>
                 </div>
             </div>
-            <div id="workspace-share-status" class="workspace-share-status" style="display:none;"></div>
+            <div id="workspace-share-status" class="workspace-share-status share-owner-only" style="display:none;"></div>
             <div class="form-group" style="margin-bottom: 1rem;">
                 <label class="form-label" for="workspace-effective-share-link">Active customer link</label>
                 <div class="share-link-row">
@@ -332,8 +346,8 @@
             </div>
             <div id="workspace-share-error" class="msg error" style="display:none; margin-bottom: 1rem;"></div>
             <div class="modal-actions">
-                <button class="btn btn-secondary" id="cancel-share-workspace">Cancel</button>
-                <button class="btn btn-primary" id="save-share-workspace">Save endpoint</button>
+                <button class="btn btn-secondary" id="cancel-share-workspace">Close</button>
+                <button class="btn btn-primary share-owner-only" id="save-share-workspace">Save endpoint</button>
             </div>
         </div>
     </div>
@@ -677,6 +691,11 @@
         const deleteModal = document.getElementById('delete-modal');
         const cancelDelete = document.getElementById('cancel-delete');
         const confirmDelete = document.getElementById('confirm-delete');
+        const chooseMainModal = document.getElementById('choose-main-modal');
+        const chooseMainList = document.getElementById('choose-main-list');
+        const chooseMainError = document.getElementById('choose-main-error');
+        const cancelChooseMain = document.getElementById('cancel-choose-main');
+        const confirmChooseMain = document.getElementById('confirm-choose-main');
         const renameModal = document.getElementById('rename-modal');
         const cancelRename = document.getElementById('cancel-rename');
         const confirmRename = document.getElementById('confirm-rename');
@@ -852,16 +871,21 @@
                 items += '<div class="folder-card folder-card--owned ' + (selectedWorkspaceKey === wsKey ? 'active' : '') + '" onclick="setWorkspaceSelection(\'' + wsKey + '\')"' + dragDropAttr + '>';
                 items += '<div class="folder-card-head"><span class="folder-card-title">' + escapeHtml(ws.name || 'Workspace') + '</span><span class="folder-card-count">' + count + '</span></div>';
                 items += '<p class="folder-card-subtitle">' + (isOwner ? 'Owned folder' : ('Shared: ' + escapeHtml(ws.access_type || 'viewer'))) + '</p>';
-                if (isOwner && isDashboardAdmin) {
-                    var hasMainPano = !!getMainPanoramaIdForWorkspace(workspaceId);
+                var isClient = String(ws.access_type || '') === 'client';
+                var hasMainPano = !!getMainPanoramaIdForWorkspace(workspaceId);
+                if ((isOwner && isDashboardAdmin) || isClient) {
                     items += '<div class="folder-card-actions">';
                     if (hasMainPano) {
-                        items += '<button type="button" class="folder-card-btn" onclick="event.stopPropagation(); window.location.href=\'/customer/edit/' + workspaceId + '\'">Set Customer View</button>';
-                        items += '<button type="button" class="folder-card-btn" onclick="event.stopPropagation(); showWorkspaceShareModal(\'' + workspaceId + '\')">Share Client Link</button>';
+                        if (isOwner && isDashboardAdmin) {
+                            items += '<button type="button" class="folder-card-btn" onclick="event.stopPropagation(); window.location.href=\'/customer/edit/' + workspaceId + '\'">Set Customer View</button>';
+                        }
+                        items += '<button type="button" class="folder-card-btn" onclick="event.stopPropagation(); showWorkspaceShareModal(\'' + workspaceId + '\')">Share Customer Link</button>';
                     }
-                    items += '<button type="button" class="folder-card-btn" onclick="event.stopPropagation(); window.location.href=\'/workspace/' + workspaceId + '/access\'">Manage access</button>';
-                    items += '<button type="button" class="folder-card-btn" onclick="event.stopPropagation(); showRenameWorkspaceModal(\'' + workspaceId + '\')">Rename</button>';
-                    items += '<button type="button" class="folder-card-btn folder-card-btn--danger" onclick="event.stopPropagation(); showDeleteWorkspaceModal(\'' + workspaceId + '\')">Delete</button>';
+                    if (isOwner && isDashboardAdmin) {
+                        items += '<button type="button" class="folder-card-btn" onclick="event.stopPropagation(); window.location.href=\'/workspace/' + workspaceId + '/access\'">Manage access</button>';
+                        items += '<button type="button" class="folder-card-btn" onclick="event.stopPropagation(); showRenameWorkspaceModal(\'' + workspaceId + '\')">Rename</button>';
+                        items += '<button type="button" class="folder-card-btn folder-card-btn--danger" onclick="event.stopPropagation(); showDeleteWorkspaceModal(\'' + workspaceId + '\')">Delete</button>';
+                    }
                     items += '</div>';
                 }
                 items += '</div>';
@@ -954,8 +978,17 @@
             showWorkspaceShareError('');
             showWorkspaceShareStatus('', '');
             setWorkspaceShareData(null);
-            if (shareWorkspaceModal) shareWorkspaceModal.classList.add('visible');
-            if (workspaceCustomEndpointInput) workspaceCustomEndpointInput.focus();
+            // Determine if user is owner of this workspace
+            var ws = getWorkspaceById(workspaceId);
+            var isWsOwner = ws && String(ws.access_type || 'owner') === 'owner' && (currentUserRole === 'admin' || currentUserRole === 'superadmin');
+            // Show/hide owner-only controls (custom endpoint, save button)
+            if (shareWorkspaceModal) {
+                shareWorkspaceModal.querySelectorAll('.share-owner-only').forEach(function (el) {
+                    el.style.display = isWsOwner ? '' : 'none';
+                });
+                shareWorkspaceModal.classList.add('visible');
+            }
+            if (isWsOwner && workspaceCustomEndpointInput) workspaceCustomEndpointInput.focus();
             try {
                 const headers = await getAuthHeaders();
                 const response = await fetch('/api/workspaces/' + encodeURIComponent(workspaceId) + '/share-endpoint', { headers });
@@ -1037,7 +1070,8 @@
                     throw new Error('Failed to load folders');
                 }
                 workspaceFeatureReady = true;
-                if (createWorkspaceBtn) createWorkspaceBtn.style.display = '';
+                var isDashboardAdminForBtn = currentUserRole === 'admin' || currentUserRole === 'superadmin';
+                if (createWorkspaceBtn) createWorkspaceBtn.style.display = isDashboardAdminForBtn ? '' : 'none';
                 workspaces = await response.json();
                 if (selectedWorkspaceKey.indexOf('ws:') === 0) {
                     var existing = getWorkspaceById(selectedWorkspaceKey.slice(3));
@@ -1387,7 +1421,7 @@
                 var ta = (a.updated_at && new Date(a.updated_at).getTime()) || 0;
                 var tb = (b.updated_at && new Date(b.updated_at).getTime()) || 0;
                 return tb - ta;
-            });
+            }).slice(0, 3);
             if (list.length === 0) {
                 track.innerHTML = '<div class="recents-empty">No recent projects</div>';
                 return;
@@ -1436,10 +1470,13 @@
                 var openLabel = isOwner ? 'Open Editor' : (isClient ? 'Open as Client' : 'View');
                 var actions = '<button class="project-btn edit" onclick="openEditor(' + project.id + ')">' + openLabel + '</button>';
                 if (isOwner && isDashboardAdmin) {
+                    var isInsideWorkspace = selectedWorkspaceKey && selectedWorkspaceKey.indexOf('ws:') === 0;
                     if (selectedWsId && Boolean(project.is_360) && !isMain) actions += '<button class="project-btn set-main" onclick="setAsMain(' + project.id + ', event)">Set as main</button>';
                     actions += '<button class="project-btn" onclick="window.location.href=\'/panorama/' + project.id + '/access\'">Manage access</button>';
-                    actions += '<button class="project-btn rename" onclick="showRenameModal(' + project.id + ', event)">Rename</button>';
-                    actions += '<button class="project-btn delete" onclick="showDeleteModal(' + project.id + ', event)">Delete</button>';
+                    if (isInsideWorkspace) {
+                        actions += '<button class="project-btn rename" onclick="showRenameModal(' + project.id + ', event)">Rename</button>';
+                        actions += '<button class="project-btn delete" onclick="showDeleteModal(' + project.id + ', event)">Delete</button>';
+                    }
                 }
                 var workspaceName = '';
                 if (project.workspace_id) {
@@ -1584,6 +1621,34 @@
         function showDeleteModal(id, event) {
             if (event) event.stopPropagation();
             deleteTargetId = id;
+            // Check if this is the main panorama of the current workspace
+            var selectedWsId = getSelectedOwnedWorkspaceId();
+            if (selectedWsId) {
+                var currentWs = getWorkspaceById(selectedWsId);
+                var mainId = currentWs && currentWs.main_panorama_id != null ? String(currentWs.main_panorama_id) : null;
+                if (mainId && String(id) === mainId) {
+                    // Get other 360° panoramas in this workspace
+                    var others = projects.filter(function (p) {
+                        return String(p.workspace_id || '') === String(selectedWsId)
+                            && String(p.id) !== String(id)
+                            && Boolean(p.is_360);
+                    });
+                    if (others.length > 0) {
+                        // Show choose-new-main modal
+                        chooseMainList.innerHTML = others.map(function (p) {
+                            return '<label style="display:flex; align-items:center; gap:0.5rem; padding:0.5rem 0.6rem; border-radius:6px; cursor:pointer; border:1px solid var(--color-border); margin-bottom:0.4rem;">' +
+                                '<input type="radio" name="new-main-panorama" value="' + p.id + '"' + (others.length === 1 ? ' checked' : '') + '>' +
+                                '<img src="/uploads/' + escapeHtml(p.filename) + '?size=thumb" style="width:40px;height:40px;object-fit:cover;border-radius:4px;" alt="">' +
+                                '<span>' + escapeHtml(p.name || 'Untitled') + '</span>' +
+                                '</label>';
+                        }).join('');
+                        chooseMainError.style.display = 'none';
+                        chooseMainModal.classList.add('visible');
+                        return;
+                    }
+                    // No other 360° panoramas — proceed with normal delete (main will be cleared)
+                }
+            }
             deleteModal.classList.add('visible');
         }
 
@@ -1633,6 +1698,54 @@
                 renderProjects();
             } catch (error) {
                 showToast('Failed to delete project', 'error');
+            }
+        });
+
+        cancelChooseMain.addEventListener('click', () => {
+            chooseMainModal.classList.remove('visible');
+            deleteTargetId = null;
+        });
+
+        confirmChooseMain.addEventListener('click', async () => {
+            if (!deleteTargetId) return;
+            var selected = chooseMainList.querySelector('input[name="new-main-panorama"]:checked');
+            if (!selected) {
+                chooseMainError.textContent = 'Please select a panorama to be the new main.';
+                chooseMainError.style.display = 'block';
+                return;
+            }
+            var newMainId = parseInt(selected.value, 10);
+            confirmChooseMain.disabled = true;
+            try {
+                const headers = await getAuthHeaders();
+                headers['Content-Type'] = 'application/json';
+                const response = await fetch(`/api/panoramas/${deleteTargetId}`, {
+                    method: 'DELETE',
+                    headers,
+                    body: JSON.stringify({ new_main_panorama_id: newMainId })
+                });
+                if (!response.ok) {
+                    var err = await response.json().catch(() => ({}));
+                    throw new Error(err.error || 'Delete failed');
+                }
+                showToast('Project deleted and main panorama updated', 'success');
+                chooseMainModal.classList.remove('visible');
+                deleteTargetId = null;
+                await Promise.all([loadProjects(), loadWorkspaces()]);
+                renderWorkspaces();
+                renderProjects();
+            } catch (error) {
+                chooseMainError.textContent = error.message || 'Failed to delete project';
+                chooseMainError.style.display = 'block';
+            } finally {
+                confirmChooseMain.disabled = false;
+            }
+        });
+
+        chooseMainModal.addEventListener('click', (e) => {
+            if (e.target === chooseMainModal) {
+                chooseMainModal.classList.remove('visible');
+                deleteTargetId = null;
             }
         });
 

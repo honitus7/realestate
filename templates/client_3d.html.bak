@@ -181,92 +181,100 @@
         .header-left {
             display: flex;
             align-items: center;
-            gap: 0.75rem;
-            pointer-events: auto;
-            background: var(--color-bg-elevated);
-            border: 1px solid var(--color-border);
+            gap: 0.5rem;
+            background: rgba(10, 10, 11, 0.8);
+            border: 1px solid var(--color-accent-dim);
             border-radius: 24px;
             padding: 0.4rem 0.5rem;
-            box-shadow: 0 2px 12px rgba(22,35,56,0.10);
-            backdrop-filter: blur(12px);
-        }
-
-        /* Back button — light card style */
-        .back-btn {
-            display: flex; align-items: center; gap: 0.4rem;
-            padding: 0.45rem 0.85rem;
-            background: transparent;
-            border: none;
-            border-radius: 16px;
-            color: var(--color-text);
-            font-family: var(--font-body);
-            font-size: 0.82rem; font-weight: 600;
-            text-decoration: none; cursor: pointer;
-            transition: background 0.2s;
+            backdrop-filter: blur(10px);
             pointer-events: auto;
         }
-        .back-btn:hover { background: var(--color-surface); }
 
-        /* Tools dropdown */
-        .tools-dropdown { position: relative; pointer-events: auto; }
-        .tools-trigger {
-            display: flex; align-items: center; gap: 0.5rem;
-            padding: 0.45rem 0.85rem;
+        .back-btn {
+            pointer-events: auto;
             background: transparent;
             border: none;
-            border-radius: 16px;
             color: var(--color-text);
-            font-family: var(--font-body);
-            font-size: 0.88rem; font-weight: 700;
-            cursor: pointer;
-            transition: background 0.2s;
-        }
-        .tools-trigger:hover, .tools-trigger.open { background: var(--color-surface); border-color: rgba(22,35,56,0.18); }
-        .tools-trigger-name { font-family: var(--font-display); font-style: italic; }
-        .tools-chevron { width: 14px; height: 14px; color: var(--color-muted); transition: transform 0.2s; flex-shrink: 0; }
-        .tools-trigger.open .tools-chevron { transform: rotate(180deg); }
-        .tools-menu {
-            position: absolute; top: calc(100% + 6px); left: 0;
-            min-width: 230px;
-            background: var(--color-bg-elevated);
-            border: 1px solid var(--color-border);
+            padding: 0.5rem 0.75rem;
             border-radius: 16px;
-            box-shadow: 0 8px 32px rgba(22,35,56,0.12);
-            z-index: 500; overflow: hidden;
-            animation: dropdownIn 0.18s ease;
-        }
-        .tools-menu[hidden] { display: none; }
-        @keyframes dropdownIn {
-            from { opacity: 0; transform: translateY(-6px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-        .tool-item {
-            display: flex; align-items: center; gap: 0.75rem;
-            width: 100%; padding: 0.7rem 1rem;
-            background: transparent; border: none;
             cursor: pointer;
-            font-family: var(--font-body); font-size: 0.875rem; font-weight: 500;
-            color: var(--color-text); text-align: left;
-            transition: background 0.15s;
+            font-family: var(--font-body);
+            font-size: 0.8rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            transition: all 0.2s;
+            text-decoration: none;
         }
-        .tool-item:hover { background: var(--color-surface); }
-        .tool-item.active { background: var(--color-surface); font-weight: 700; }
-        .tool-icon { font-size: 0.95rem; flex-shrink: 0; }
-        .tool-item-left { display: flex; align-items: center; gap: 0.75rem; }
-        .tools-menu-sep { height: 1px; background: var(--color-border); margin: 0.2rem 0; }
-        .tools-menu-header { padding: 0.75rem 1rem 0.5rem; border-bottom: 1px solid var(--color-border); margin-bottom: 0.2rem; }
-        .tools-menu-project { font-size: 0.78rem; color: var(--color-muted); font-weight: 500; }
 
-        /* Mode badge */
-        .mode-badge {
-            padding: 0.35rem 0.75rem;
-            background: var(--color-text);
-            color: var(--color-bg-elevated);
-            border-radius: 999px;
-            font-size: 0.72rem; font-weight: 700; letter-spacing: 0.04em;
+        .back-btn:hover {
+            background: rgba(201, 169, 98, 0.1);
+        }
+
+        .project-info {
+            padding: 0.5rem 1rem;
+        }
+
+        .project-name {
+            font-family: var(--font-display);
+            font-size: 1.1rem;
+            font-style: italic;
+        }
+
+        .header-controls {
+            display: flex;
+            gap: 0.75rem;
+            pointer-events: auto;
+        }
+
+        .edit-toggle {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: rgba(10, 10, 11, 0.8);
+            border: 1px solid var(--color-accent-dim);
+            color: var(--color-text);
+            padding: 0.6rem 1rem;
+            border-radius: 12px;
+            cursor: pointer;
+            font-family: var(--font-body);
+            font-size: 0.75rem;
+            letter-spacing: 0.05em;
             text-transform: uppercase;
-            box-shadow: 0 2px 8px rgba(22,35,56,0.2);
-            pointer-events: none;
+            transition: all 0.2s ease;
+            backdrop-filter: blur(10px);
+        }
+
+        .edit-toggle:hover {
+            border-color: var(--color-accent);
+            background: rgba(201, 169, 98, 0.1);
+        }
+
+        .edit-toggle.active {
+            background: rgba(201, 169, 98, 0.2);
+            border-color: var(--color-accent);
+            color: var(--color-accent);
+        }
+
+        .share-btn {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: rgba(10, 10, 11, 0.8);
+            border: 1px solid var(--color-accent-dim);
+            color: var(--color-text);
+            padding: 0.6rem 1rem;
+            border-radius: 12px;
+            cursor: pointer;
+            font-family: var(--font-body);
+            font-size: 0.75rem;
+            transition: all 0.2s ease;
+            backdrop-filter: blur(10px);
+        }
+
+        .share-btn:hover {
+            border-color: var(--color-accent);
+            background: rgba(201, 169, 98, 0.1);
         }
 
         .footer {
@@ -275,119 +283,238 @@
             align-items: flex-end;
         }
 
-        /* Zoom controls — light style */
         .zoom-controls {
             display: flex;
             flex-direction: column;
-            gap: 0.35rem;
+            gap: 0.5rem;
             pointer-events: auto;
-            background: var(--color-bg-elevated);
-            border: 1px solid var(--color-border);
-            padding: 0.6rem;
-            border-radius: var(--radius);
-            box-shadow: 0 4px 16px rgba(22,35,56,0.08);
-            backdrop-filter: blur(12px);
+            background: rgba(10, 10, 11, 0.8);
+            padding: 0.75rem;
+            border-radius: 16px;
+            backdrop-filter: blur(10px);
         }
 
         .zoom-btn {
-            width: 36px;
-            height: 36px;
-            background: var(--color-surface);
-            border: 1px solid var(--color-border);
-            color: var(--color-text);
-            font-size: 1rem;
+            width: 40px;
+            height: 40px;
+            background: rgba(201, 169, 98, 0.2);
+            border: 1px solid var(--color-accent-dim);
+            color: var(--color-accent);
+            font-size: 1.2rem;
             cursor: pointer;
             display: flex;
             align-items: center;
             justify-content: center;
-            transition: all 0.18s;
-            border-radius: var(--radius-sm);
+            transition: all 0.2s ease;
+            border-radius: 8px;
         }
 
         .zoom-btn:hover {
-            background: var(--color-accent-hover, #ebebea);
-            border-color: rgba(22,35,56,0.18);
+            background: rgba(201, 169, 98, 0.3);
+            border-color: var(--color-accent);
         }
 
         .zoom-info {
             text-align: center;
-            font-size: 0.65rem;
+            font-size: 0.7rem;
             color: var(--color-muted);
-            margin-top: 0.2rem;
+            margin-top: 0.5rem;
         }
 
-        /* Shared floating panel card */
-        .floating-panel {
-            position: fixed;
-            background: var(--color-bg-elevated);
-            border: 1px solid var(--color-border);
-            border-radius: var(--radius);
-            box-shadow: 0 8px 32px rgba(22,35,56,0.1);
-            z-index: 200;
-            overflow: hidden;
-            pointer-events: auto;
-            display: flex;
-            flex-direction: column;
-            animation: panelIn 0.22s ease;
-        }
-        @keyframes panelIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-        .panel-header {
-            display: flex; align-items: center; gap: 0.5rem;
-            padding: 0.75rem 1rem;
-            border-bottom: 1px solid var(--color-border);
-            background: var(--color-surface);
-            flex-shrink: 0;
-        }
-        .panel-title { flex: 1; font-size: 0.85rem; font-weight: 700; color: var(--color-text); }
-        .panel-toggle-btn {
-            width: 24px; height: 24px;
-            border-radius: var(--radius-sm);
-            background: var(--color-bg-elevated);
-            border: 1px solid var(--color-border);
-            color: var(--color-text);
-            cursor: pointer;
-            display: flex; align-items: center; justify-content: center;
-            font-size: 0.7rem; font-weight: 700;
-            transition: background 0.2s;
-            flex-shrink: 0;
-        }
-        .panel-toggle-btn:hover { background: var(--color-surface); border-color: rgba(22,35,56,0.18); }
-        .panel-body { flex: 1; overflow-y: auto; padding: 0.875rem; }
-        .panel-body::-webkit-scrollbar { width: 5px; }
-        .panel-body::-webkit-scrollbar-track { background: var(--color-surface); }
-        .panel-body::-webkit-scrollbar-thumb { background: var(--color-border); border-radius: 3px; }
-        .panel-sep { height: 1px; background: var(--color-border); margin: 0.75rem 0; }
-        .panel-subtitle {
-            font-size: 0.7rem; font-weight: 700; color: var(--color-muted);
-            text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.65rem;
-        }
-
-        /* Edit Panel — bottom-left floating card */
         .edit-panel {
-            bottom: 5.5rem; left: 1.25rem;
-            width: 300px; max-height: calc(100vh - 7rem);
+            display: none;
+            flex-direction: column;
+            gap: 0;
+            pointer-events: auto;
+            background: linear-gradient(180deg, 
+                rgba(20, 20, 21, 0.98) 0%, 
+                rgba(18, 18, 19, 0.98) 100%);
+            padding: 0;
+            border-radius: 0;
+            backdrop-filter: blur(10px);
+            border: none;
+            border-right: 2px solid rgba(201, 169, 98, 0.3);
+            width: 380px;
+            max-width: 380px;
+            height: 100vh;
+            max-height: 100vh;
+            overflow-y: auto;
+            overflow-x: hidden;
+            position: fixed;
+            top: 0;
+            left: 0;
+            z-index: 200;
+            box-shadow: 
+                4px 0 24px rgba(0, 0, 0, 0.5),
+                0 0 0 1px rgba(255, 255, 255, 0.05) inset;
+            animation: slideInLeft 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+            transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1), transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .edit-panel.visible {
+            display: flex;
+        }
+
+        .edit-panel.collapsed {
+            width: 60px;
+            max-width: 60px;
+            overflow: visible;
+        }
+
+        .edit-panel.collapsed > *:not(.panel-toggle-btn) {
             display: none;
         }
-        .edit-panel.visible { display: flex; }
-        .edit-panel.collapsed { max-height: 52px !important; }
-        .edit-panel.collapsed .panel-body { display: none; }
 
-        /* Edit controls — light theme */
-        .edit-instruction {
-            font-size: 0.82rem; color: var(--color-muted); line-height: 1.5; margin-bottom: 0.875rem;
+        .edit-panel.collapsed .panel-toggle-btn {
+            right: auto;
+            left: 50%;
+            transform: translateX(-50%);
         }
-        .edit-actions { display: flex; gap: 0.5rem; margin-bottom: 0.5rem; }
+
+        .edit-panel.collapsed .panel-toggle-btn:hover::after {
+            content: 'Plot Drawing';
+            position: absolute;
+            left: 100%;
+            margin-left: 0.5rem;
+            padding: 0.5rem 0.75rem;
+            background: rgba(20, 20, 21, 0.95);
+            border: 1px solid rgba(201, 169, 98, 0.3);
+            border-radius: 6px;
+            white-space: nowrap;
+            font-size: 0.75rem;
+            color: var(--color-text);
+            pointer-events: none;
+            z-index: 1000;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        }
+
+        .edit-panel::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .edit-panel::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.2);
+        }
+
+        .edit-panel::-webkit-scrollbar-thumb {
+            background: rgba(201, 169, 98, 0.3);
+            border-radius: 4px;
+        }
+
+        .edit-panel::-webkit-scrollbar-thumb:hover {
+            background: rgba(201, 169, 98, 0.5);
+        }
+
+        .panel-toggle-btn {
+            position: absolute;
+            top: 0.75rem;
+            right: 0.75rem;
+            width: 26px;
+            height: 26px;
+            border-radius: 5px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: var(--color-text);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.8rem;
+            transition: all 0.3s ease;
+            z-index: 100;
+            backdrop-filter: blur(10px);
+        }
+
+        #plot-form-modal .panel-toggle-btn {
+            width: 26px;
+            height: 26px;
+            font-size: 0.8rem;
+            border-radius: 5px;
+            padding: 0;
+            line-height: 1;
+            min-width: 26px;
+            min-height: 26px;
+        }
+
+        .panel-toggle-btn:hover {
+            background: rgba(255, 255, 255, 0.15);
+            border-color: rgba(201, 169, 98, 0.5);
+            transform: scale(1.1);
+        }
+
+        .panel-toggle-btn:active {
+            transform: scale(0.95);
+        }
+
+        .edit-panel.collapsed .panel-toggle-btn:hover {
+            transform: translateX(-50%) scale(1.1);
+        }
+
+        .edit-panel.collapsed .panel-toggle-btn:active {
+            transform: translateX(-50%) scale(0.95);
+        }
+
+        #plot-form-modal .modal.collapsed .panel-toggle-btn:hover {
+            transform: translateX(-50%) scale(1.1);
+        }
+
+        #plot-form-modal .modal.collapsed .panel-toggle-btn:active {
+            transform: translateX(-50%) scale(0.95);
+        }
+
+        .edit-panel-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--color-accent);
+            padding: 1.5rem 1.5rem 1rem 1.5rem;
+            border-bottom: 2px solid rgba(201, 169, 98, 0.2);
+            background: linear-gradient(135deg, rgba(201, 169, 98, 0.1) 0%, transparent 100%);
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            backdrop-filter: blur(10px);
+        }
+
+        .edit-panel-title:not(:first-child) {
+            margin-top: 0;
+            padding-top: 1.5rem;
+            border-top: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .edit-instruction {
+            font-size: 0.875rem;
+            color: rgba(255, 255, 255, 0.7);
+            line-height: 1.6;
+            padding: 0 1.5rem;
+            margin: 1rem 0;
+        }
+
+        .edit-actions {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+            padding: 1.5rem;
+            margin-top: 0;
+        }
+
         .edit-btn {
-            flex: 1; padding: 0.55rem 0.875rem;
-            border-radius: var(--radius-sm);
-            font-size: 0.8rem; font-family: var(--font-body); font-weight: 600;
-            cursor: pointer; border: none; transition: all 0.18s;
+            width: 100%;
+            padding: 0.875rem 1.25rem;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            font-family: var(--font-body);
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            border: none;
             position: relative;
             overflow: hidden;
         }
+
         .edit-btn::before {
             content: '';
             position: absolute;
@@ -396,357 +523,985 @@
             width: 0;
             height: 0;
             border-radius: 50%;
-            background: transparent;
+            background: rgba(255, 255, 255, 0.2);
             transform: translate(-50%, -50%);
-            transition: none;
+            transition: width 0.6s, height 0.6s;
         }
 
-        .edit-btn.primary { background: var(--color-text); color: var(--color-bg-elevated); }
-        .edit-btn.primary:hover:not(:disabled) { opacity: 0.85; }
-        .edit-btn.primary:disabled { opacity: 0.35; cursor: not-allowed; }
+        .edit-btn:hover::before {
+            width: 300px;
+            height: 300px;
+        }
+
+        .edit-btn.primary {
+            background: linear-gradient(135deg, var(--color-accent) 0%, #b8944f 100%);
+            border: 1px solid rgba(201, 169, 98, 0.3);
+            color: var(--color-bg);
+            box-shadow: 0 4px 16px rgba(201, 169, 98, 0.4);
+            order: 2;
+        }
+
+        .edit-btn.primary:hover:not(:disabled) {
+            background: linear-gradient(135deg, #d4b06e 0%, var(--color-accent) 100%);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px rgba(201, 169, 98, 0.5);
+        }
+
+        .edit-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed !important;
+        }
+
         .edit-btn.secondary {
-            background: var(--color-surface); border: 1px solid var(--color-border); color: var(--color-text);
-        }
-        .edit-btn.secondary:hover { background: var(--color-accent-hover, #ebebea); border-color: rgba(22,35,56,0.18); }
-
-        /* Plots list */
-        .plots-list { display: flex; flex-direction: column; gap: 0.4rem; }
-        .plot-item {
-            display: flex; justify-content: space-between; align-items: center;
-            padding: 0.55rem 0.65rem;
-            background: var(--color-surface); border: 1px solid var(--color-border);
-            border-radius: var(--radius-sm); font-size: 0.82rem; transition: all 0.18s;
-        }
-        .plot-item:hover { border-color: rgba(22,35,56,0.18); background: var(--color-accent-hover, #ebebea); }
-        .plot-item-name { display: flex; align-items: center; gap: 0.4rem; color: var(--color-text); font-weight: 500; }
-        .plot-item-color { width: 10px; height: 10px; border-radius: 3px; flex-shrink: 0; }
-        .plot-item-actions { display: flex; gap: 0.2rem; }
-        .plot-item-edit {
-            background: transparent;
-            border: 1px solid var(--color-border);
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.15);
             color: var(--color-text);
-            cursor: pointer;
-            font-size: 0.72rem;
-            padding: 0.25rem 0.45rem;
-            border-radius: var(--radius-sm);
-            transition: all 0.18s;
-            font-family: var(--font-body);
+            backdrop-filter: blur(10px);
+            order: 1;
         }
-        .plot-item-edit:hover { background: var(--color-surface); border-color: rgba(22,35,56,0.18); }
+
+        .edit-btn.secondary:hover {
+            background: rgba(255, 255, 255, 0.1);
+            border-color: rgba(201, 169, 98, 0.5);
+            color: var(--color-text);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+        }
+
+        .plots-list {
+            max-height: none;
+            overflow-y: auto;
+            padding: 0 1.5rem 1.5rem 1.5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+
+        .plot-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem;
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.06) 0%, rgba(255, 255, 255, 0.03) 100%);
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            font-size: 0.875rem;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+        }
+
+        .plot-item:hover {
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.05) 100%);
+            border-color: rgba(201, 169, 98, 0.3);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        }
+
+        .plot-item-name {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .plot-item-color {
+            width: 20px;
+            height: 20px;
+            border-radius: 6px;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .plot-item-actions {
+            display: flex;
+            align-items: center;
+            gap: 0.35rem;
+        }
+
+        .plot-item-edit {
+            background: rgba(201, 169, 98, 0.1);
+            border: 1px solid rgba(201, 169, 98, 0.3);
+            color: var(--color-accent);
+            cursor: pointer;
+            font-size: 0.875rem;
+            padding: 0.4rem 0.6rem;
+            border-radius: 6px;
+            transition: all 0.2s ease;
+            opacity: 1;
+        }
+
+        .plot-item-edit:hover {
+            background: rgba(201, 169, 98, 0.2);
+            border-color: rgba(201, 169, 98, 0.5);
+            transform: scale(1.05);
+        }
+
         .plot-item-delete {
-            background: transparent;
-            border: 1px solid rgba(239,68,68,0.2);
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid rgba(239, 68, 68, 0.3);
             color: var(--color-danger);
             cursor: pointer;
-            font-size: 0.72rem;
-            padding: 0.25rem 0.45rem;
-            border-radius: var(--radius-sm);
-            transition: all 0.18s;
-            font-family: var(--font-body);
+            font-size: 0.875rem;
+            padding: 0.4rem 0.6rem;
+            border-radius: 6px;
+            transition: all 0.2s ease;
+            opacity: 1;
         }
-        .plot-item-delete:hover { background: rgba(239,68,68,0.08); border-color: rgba(239,68,68,0.4); }
 
-        /* 360 Adjustment Panel — light */
+        .plot-item-delete:hover {
+            background: rgba(239, 68, 68, 0.2);
+            border-color: rgba(239, 68, 68, 0.5);
+            transform: scale(1.05);
+        }
+
+        /* 360° Adjustment Panel */
         .adjustment-panel {
-            background: var(--color-bg-elevated); border: 1px solid var(--color-border);
-            border-radius: var(--radius); padding: 1.1rem;
-            pointer-events: auto; max-width: 280px; max-height: 70vh; overflow-y: auto;
-            box-shadow: 0 4px 16px rgba(22,35,56,0.08);
-            display: flex; flex-direction: column; gap: 1rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            pointer-events: auto;
+            background: rgba(10, 10, 11, 0.9);
+            padding: 1.25rem;
+            border-radius: 8px;
+            backdrop-filter: blur(10px);
+            border: 1px solid var(--color-accent-dim);
+            max-width: 320px;
+            max-height: 70vh;
+            overflow-y: auto;
         }
-        .adjustment-group { display: flex; flex-direction: column; gap: 0.5rem; }
-        .adjustment-label { display: flex; justify-content: space-between; align-items: center; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--color-muted); }
-        .adjustment-value { color: var(--color-text); font-weight: 700; }
-        .adjustment-slider { width: 100%; height: 3px; background: var(--color-border); border-radius: 2px; outline: none; -webkit-appearance: none; appearance: none; }
-        .adjustment-slider::-webkit-slider-thumb { -webkit-appearance: none; width: 14px; height: 14px; background: var(--color-text); border-radius: 50%; cursor: pointer; }
-        .adjustment-slider::-moz-range-thumb { width: 14px; height: 14px; background: var(--color-text); border-radius: 50%; cursor: pointer; border: none; }
-        .preset-buttons { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem; margin-top: 0.5rem; }
+
+        .adjustment-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .adjustment-label {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--color-muted);
+        }
+
+        .adjustment-value {
+            color: var(--color-accent);
+            font-weight: 600;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .adjustment-slider {
+            width: 100%;
+            height: 4px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 2px;
+            outline: none;
+            -webkit-appearance: none;
+            appearance: none;
+        }
+
+        .adjustment-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 14px;
+            height: 14px;
+            background: var(--color-accent);
+            border-radius: 50%;
+            cursor: pointer;
+        }
+
+        .adjustment-slider::-moz-range-thumb {
+            width: 14px;
+            height: 14px;
+            background: var(--color-accent);
+            border-radius: 50%;
+            cursor: pointer;
+            border: none;
+        }
+
+        .preset-buttons {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 0.5rem;
+            margin-top: 0.5rem;
+        }
+
         .preset-btn {
-            padding: 0.4rem 0.6rem; background: var(--color-surface); border: 1px solid var(--color-border); color: var(--color-text); border-radius: var(--radius-sm); font-size: 0.68rem; font-family: var(--font-body); cursor: pointer; transition: all 0.18s; text-transform: uppercase; letter-spacing: 0.04em;
+            padding: 0.5rem 0.75rem;
+            background: rgba(201, 169, 98, 0.1);
+            border: 1px solid var(--color-accent-dim);
+            color: var(--color-text);
+            border-radius: 4px;
+            font-size: 0.7rem;
+            font-family: var(--font-body);
+            cursor: pointer;
+            transition: all 0.2s;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
         }
-        .preset-btn:hover { background: var(--color-accent-hover, #ebebea); border-color: rgba(22,35,56,0.18); }
-        .reset-btn { grid-column: 1 / -1; }
 
-        /* All modals — light theme */
+        .preset-btn:hover {
+            background: rgba(201, 169, 98, 0.2);
+            border-color: var(--color-accent);
+        }
+
+        .reset-btn {
+            grid-column: 1 / -1;
+            background: rgba(201, 169, 98, 0.2);
+            border-color: var(--color-accent);
+            color: var(--color-accent);
+        }
+
         .modal-backdrop {
-            position: fixed; inset: 0;
-            background: rgba(22,35,56,0.35);
-            z-index: 1000; display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            z-index: 100;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            backdrop-filter: blur(12px) saturate(180%);
+            animation: fadeIn 0.3s ease-out;
         }
-        .modal-backdrop.visible { display: flex; }
 
-        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-        @keyframes modalIn {
-            from { opacity: 0; transform: scale(0.97) translateY(8px); }
-            to { opacity: 1; transform: scale(1) translateY(0); }
+        /* Paint Tool Kit Style - Left Side Panel */
+        #plot-form-modal {
+            background: transparent;
+            backdrop-filter: none;
+            align-items: flex-start;
+            justify-content: flex-start;
+            padding: 0;
+        }
+
+        #plot-form-modal.visible {
+            display: flex;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+            }
+            to {
+                opacity: 1;
+            }
+        }
+
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px) scale(0.95);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+        }
+
+        .modal-backdrop.visible {
+            display: flex;
         }
 
         .modal {
-            background: var(--color-bg-elevated);
-            border: 1px solid var(--color-border);
+            background: linear-gradient(135deg, rgba(26, 26, 27, 0.95) 0%, rgba(20, 20, 21, 0.98) 100%);
             border-radius: 24px;
-            box-shadow: 0 16px 48px rgba(22,35,56,0.14);
-            color: var(--color-text);
-            padding: 0; overflow: hidden;
-            animation: modalIn 0.25s ease;
-            display: flex; flex-direction: column;
+            padding: 0;
+            max-width: 520px;
+            width: 94%;
+            max-height: 90vh;
+            overflow: hidden;
+            border: 1px solid rgba(201, 169, 98, 0.2);
+            box-shadow: 
+                0 25px 60px rgba(0, 0, 0, 0.6),
+                0 0 0 1px rgba(255, 255, 255, 0.05) inset,
+                0 0 80px rgba(201, 169, 98, 0.1);
+            display: flex;
+            flex-direction: column;
+            animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1);
             position: relative;
         }
 
-        /* Plot form modal — centered card */
+        /* Paint Tool Kit Style Modal */
         #plot-form-modal .modal {
-            width: 420px; max-width: 94vw; max-height: 88vh;
-            overflow-y: auto; border-radius: 24px;
-            box-shadow: 0 16px 48px rgba(22,35,56,0.14);
+            width: 380px;
+            max-width: 380px;
+            height: 100vh;
+            max-height: 100vh;
+            border-radius: 0;
+            border: none;
+            border-right: 2px solid rgba(201, 169, 98, 0.3);
+            box-shadow: 
+                4px 0 24px rgba(0, 0, 0, 0.5),
+                0 0 0 1px rgba(255, 255, 255, 0.05) inset;
+            animation: slideInLeft 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+            background: linear-gradient(180deg, 
+                rgba(20, 20, 21, 0.98) 0%, 
+                rgba(18, 18, 19, 0.98) 100%);
+            overflow-y: auto;
+            overflow-x: hidden;
+            transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1), transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
-        #plot-form-modal {
-            display: none; align-items: center; justify-content: center;
-        }
-        #plot-form-modal.visible { display: flex; }
 
-        .modal-title {
-            font-family: var(--font-display);
-            font-size: 1.15rem;
-            font-weight: 700;
+        #plot-form-modal .modal.collapsed {
+            width: 60px;
+            max-width: 60px;
+            overflow: visible;
+        }
+
+        #plot-form-modal .modal.collapsed > *:not(.panel-toggle-btn) {
+            display: none;
+        }
+
+        #plot-form-modal .modal.collapsed .panel-toggle-btn {
+            right: auto;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+
+        #plot-form-modal .modal.collapsed .panel-toggle-btn:hover::after {
+            content: 'Define Plot';
+            position: absolute;
+            left: 100%;
+            margin-left: 0.5rem;
+            padding: 0.5rem 0.75rem;
+            background: rgba(20, 20, 21, 0.95);
+            border: 1px solid rgba(201, 169, 98, 0.3);
+            border-radius: 6px;
+            white-space: nowrap;
+            font-size: 0.75rem;
             color: var(--color-text);
-            margin: 0;
-            font-style: normal;
-            padding: 1.25rem 1.5rem 1rem;
-            border-bottom: 1px solid var(--color-border);
-            background: var(--color-surface);
-            position: sticky;
-            top: 0;
-            z-index: 10;
+            pointer-events: none;
+            z-index: 1000;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
         }
 
-        .form-group { margin-bottom: 1.1rem; }
-        .form-label {
-            display: block; font-size: 0.72rem; font-weight: 600;
-            color: var(--color-text); margin-bottom: 0.4rem;
-            text-transform: uppercase; letter-spacing: 0.04em;
-        }
-        .form-input {
-            width: 100%; padding: 0.65rem 0.875rem;
-            background: var(--color-bg-elevated);
-            border: 1px solid var(--color-border);
-            border-radius: var(--radius-sm);
-            color: var(--color-text); font-family: var(--font-body); font-size: 0.875rem;
-            transition: border-color 0.2s, box-shadow 0.2s;
-        }
-        .form-input:focus { outline: none; border-color: rgba(22,35,56,0.3); box-shadow: 0 0 0 3px rgba(22,35,56,0.05); }
-        .form-helper { font-size: 0.72rem; color: var(--color-muted); margin-top: 0.35rem; line-height: 1.4; }
-        textarea.form-input { resize: vertical; min-height: 72px; }
-
-        /* Color options */
-        .color-options { display: flex; gap: 0.5rem; flex-wrap: wrap; }
-        .color-option {
-            width: 32px; height: 32px; border-radius: var(--radius-sm);
-            cursor: pointer; border: 2px solid transparent; transition: all 0.18s;
-        }
-        .color-option:hover { transform: scale(1.1); }
-        .color-option.selected { border-color: var(--color-text); box-shadow: 0 0 0 2px var(--color-bg-elevated); }
-
-        /* Modal actions bar */
-        .modal-actions {
-            display: flex; gap: 0.75rem; justify-content: flex-end;
-            padding: 1rem 1.5rem;
-            border-top: 1px solid var(--color-border);
-            background: var(--color-surface);
-        }
-        .modal-body { padding: 1.25rem 1.5rem; }
-
-        .modal-btn {
-            padding: 0.55rem 1.1rem; border-radius: var(--radius-sm);
-            font-size: 0.82rem; font-family: var(--font-body); font-weight: 600;
-            cursor: pointer; border: none; transition: all 0.18s;
-        }
-        .modal-btn.primary { background: var(--color-text); color: var(--color-bg-elevated); }
-        .modal-btn.primary:hover { opacity: 0.85; }
-        .modal-btn.secondary {
-            background: var(--color-surface); border: 1px solid var(--color-border); color: var(--color-text);
-        }
-        .modal-btn.secondary:hover {
-            background: var(--color-accent-hover, #ebebea); border-color: rgba(22,35,56,0.18);
-            color: var(--color-text);
+        /* When edit panel is visible, offset form modal */
+        .edit-panel.visible:not(.collapsed) ~ * #plot-form-modal.visible .modal {
+            left: 380px;
         }
 
-        /* Details modal — light theme */
-        .details-modal .modal { width: 520px; max-width: 94vw; max-height: 88vh; overflow: hidden; display: flex; flex-direction: column; }
-        .details-header {
-            display: flex; align-items: center; gap: 1rem;
-            padding: 1.25rem 1.5rem; border-bottom: 1px solid var(--color-border);
-            background: var(--color-surface);
-        }
-        .details-color { width: 44px; height: 44px; border-radius: 10px; border: 2px solid var(--color-border); flex-shrink: 0; }
-        .details-title { font-family: var(--font-display); font-size: 1.4rem; font-weight: 700; color: var(--color-text); }
-        .details-grid {
-            display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;
-            padding: 1.25rem 1.5rem; overflow-y: auto; flex: 1;
-        }
-        .details-modal .modal-actions { flex-shrink: 0; }
-        .detail-item {
-            background: var(--color-surface); border: 1px solid var(--color-border);
-            border-radius: var(--radius-sm); padding: 1rem; transition: border-color 0.18s;
-        }
-        .detail-item:hover { border-color: rgba(22,35,56,0.18); }
-        .detail-item.full-width { grid-column: 1 / -1; }
-        .detail-label { font-size: 0.68rem; font-weight: 700; color: var(--color-muted); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 0.4rem; }
-        .detail-value { font-size: 0.9rem; color: var(--color-text); font-weight: 500; }
-        .detail-value.price { font-size: 1.05rem; font-weight: 700; color: var(--color-text); }
-        .detail-value.description { font-size: 0.95rem; line-height: 1.6; color: var(--color-muted); white-space: pre-wrap; }
-
-        /* Media container */
-        .details-media-column { grid-column: 1; grid-row: 1 / span 4; min-width: 0; overflow: hidden; }
-        .details-info-column { grid-column: 2; display: flex; flex-direction: column; gap: 1rem; }
-        .details-media { display: flex; flex-direction: column; gap: 1rem; width: 100%; min-width: 0; }
-        .media-wrapper {
-            position: relative; width: 100%; max-width: 100%; padding-bottom: 62.5%;
-            background: var(--color-surface); border-radius: var(--radius);
-            overflow: hidden; border: 1px solid var(--color-border); box-sizing: border-box;
-            display: flex; align-items: center; justify-content: center;
-        }
-        .media-wrapper iframe, .media-wrapper video, .media-wrapper img { position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: none; }
-        .media-wrapper iframe { width: 100%; height: 100%; max-width: 100%; background: #0c0c0d; box-sizing: border-box; }
-        .media-wrapper video { object-fit: contain; background: #0c0c0d; }
-        .media-wrapper img { object-fit: cover; }
-
-        @media (max-width: 768px) {
-            .details-grid { grid-template-columns: 1fr; gap: 1.5rem; }
-            .details-media-column { grid-column: 1; grid-row: auto; }
-            .details-info-column { grid-column: 1; }
+        .edit-panel.visible.collapsed ~ * #plot-form-modal.visible .modal {
+            left: 60px;
         }
 
-        /* Loading overlay — light */
-        .loading-overlay {
-            position: fixed; inset: 0; background: var(--color-bg);
-            z-index: 9999; display: flex; flex-direction: column;
-            align-items: center; justify-content: center;
-            gap: 1rem; transition: opacity 0.6s ease, visibility 0.6s ease;
-        }
-        .loading-overlay.hidden { opacity: 0; visibility: hidden; }
-        .loading-text { font-size: 0.85rem; color: var(--color-muted); }
-        .loading-spinner {
-            width: 36px; height: 36px; border: 2px solid var(--color-border);
-            border-top-color: var(--color-text); border-radius: 50%; animation: spin 0.8s linear infinite;
+        .edit-panel.visible:not(.collapsed) ~ * #plot-form-modal.visible .modal:not(.collapsed) {
+            left: 380px;
         }
 
-        .toast-container { position: fixed; bottom: 2rem; right: 2rem; z-index: 300; display: flex; flex-direction: column; gap: 0.5rem; }
-        .toast {
-            background: var(--color-bg-elevated);
-            border: 1px solid var(--color-border);
-            border-radius: var(--radius-sm);
-            padding: 0.75rem 1rem; font-size: 0.85rem; color: var(--color-text);
-            animation: slideIn 0.3s ease; box-shadow: 0 4px 16px rgba(22,35,56,0.1);
+        .edit-panel.visible.collapsed ~ * #plot-form-modal.visible .modal:not(.collapsed) {
+            left: 60px;
         }
 
-        .toast.error {
-            border-color: var(--color-danger);
-        }
-
-        @keyframes spin {
-            to {
-                transform: rotate(360deg);
-            }
-        }
-
-        @keyframes slideIn {
+        @keyframes slideInLeft {
             from {
                 opacity: 0;
-                transform: translateX(100%);
+                transform: translateX(-100%);
             }
-
             to {
                 opacity: 1;
                 transform: translateX(0);
             }
         }
 
-        /* Share modal — light theme */
-        .share-modal .modal { width: 400px; max-width: 94vw; }
-        .share-modal-header { padding: 1.25rem 1.5rem 1rem; border-bottom: 1px solid var(--color-border); background: var(--color-surface); }
-        .share-modal-title { font-size: 1rem; font-weight: 700; color: var(--color-text); margin-bottom: 0.25rem; }
-        .share-modal-subtitle { font-size: 0.78rem; color: var(--color-muted); line-height: 1.4; }
-        .share-link-options { padding: 1rem 1.5rem; }
-        .share-link-card {
-            background: var(--color-surface); border: 1px solid var(--color-border);
-            border-radius: var(--radius-sm); padding: 1rem; overflow: hidden;
+        #plot-form-modal .modal::-webkit-scrollbar {
+            width: 8px;
         }
-        .share-link-header { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.75rem; }
-        .share-link-icon { font-size: 1.1rem; }
-        .share-link-info { flex: 1; }
-        .share-link-title { font-size: 0.85rem; font-weight: 700; color: var(--color-text); }
-        .share-link-desc { font-size: 0.75rem; color: var(--color-muted); }
-        .share-link-url-container { display: flex; gap: 0.5rem; align-items: center; }
-        .share-link-url {
-            flex: 1; font-size: 0.75rem; color: var(--color-muted);
-            background: var(--color-bg-elevated); border: 1px solid var(--color-border);
-            border-radius: var(--radius-sm); padding: 0.45rem 0.65rem;
-            overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-        }
-        .share-link-copy-btn {
-            padding: 0.45rem 0.75rem; background: var(--color-text);
-            color: var(--color-bg-elevated); border: none; border-radius: var(--radius-sm);
-            font-size: 0.75rem; font-weight: 600; cursor: pointer; font-family: var(--font-body);
-            display: flex; align-items: center; gap: 0.35rem; white-space: nowrap;
-            transition: opacity 0.18s;
-        }
-        .share-link-copy-btn:hover { opacity: 0.85; }
-        .share-link-copy-btn.copied { background: #16a34a; }
-        .copy-icon { font-size: 1rem; }
 
-        /* Marker modal — light theme */
-        .marker-modal-backdrop { position: fixed; inset: 0; background: rgba(15,23,42,0.28); z-index: 1000; display: none; align-items: center; justify-content: center; }
-        .marker-modal-backdrop.visible { display: flex; }
-        .marker-modal {
-            background: var(--color-bg-elevated); border: 1px solid var(--color-border);
-            border-radius: 24px; box-shadow: 0 16px 48px rgba(22,35,56,0.14);
-            width: 400px; max-width: 94vw; max-height: 88vh; overflow-y: auto; padding: 0;
-            animation: modalIn 0.25s ease;
+        #plot-form-modal .modal::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.2);
         }
-        .marker-modal-header { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; padding: 1.1rem 1.25rem; border-bottom: 1px solid var(--color-border); background: var(--color-surface); }
-        .marker-modal-title { font-size: 0.95rem; font-weight: 700; color: var(--color-text); flex: 1; margin: 0; }
-        .marker-form-row { padding: 0.875rem 1.25rem; border-bottom: 1px solid var(--color-border); }
-        .marker-form-label { display: block; font-size: 0.72rem; font-weight: 600; color: var(--color-text); margin-bottom: 0.4rem; text-transform: uppercase; letter-spacing: 0.04em; }
-        .marker-form-input, .marker-form-textarea, .marker-form-select { width: 100%; padding: 0.6rem 0.8rem; background: var(--color-bg-elevated); border: 1px solid var(--color-border); border-radius: var(--radius-sm); color: var(--color-text); font-family: var(--font-body); font-size: 0.875rem; transition: border-color 0.2s; }
-        .marker-form-select { appearance: none; background-image: linear-gradient(45deg, transparent 50%, var(--color-muted) 50%), linear-gradient(135deg, var(--color-muted) 50%, transparent 50%); background-position: calc(100% - 14px) calc(50% - 2px), calc(100% - 8px) calc(50% - 2px); background-size: 6px 6px, 6px 6px; background-repeat: no-repeat; padding-right: 1.9rem; }
-        .marker-icon-select { position: relative; margin-bottom: 0.4rem; }
-        .marker-icon-trigger { display: flex; align-items: center; gap: 0.5rem; width: 100%; padding: 0.6rem 0.8rem; background: var(--color-bg-elevated); border: 1px solid var(--color-border); border-radius: var(--radius-sm); cursor: pointer; font-family: var(--font-body); font-size: 0.875rem; color: var(--color-text); transition: border-color 0.2s; }
-        .marker-icon-trigger:hover, .marker-icon-trigger[aria-expanded="true"] { border-color: rgba(22,35,56,0.3); }
-        .marker-icon-caret { color: var(--color-muted); font-size: 0.8rem; }
-        .marker-icon-value { color: var(--color-text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
-        .marker-icon-swatch { width: 28px; height: 28px; border-radius: var(--radius-sm); border: 1px solid var(--color-border); background: var(--color-surface); display: inline-flex; align-items: center; justify-content: center; font-size: 18px; color: var(--color-text); flex-shrink: 0; }
-        .marker-icon-swatch iconify-icon { width: 18px; height: 18px; }
-        .marker-icon-panel { position: absolute; top: calc(100% + 6px); left: 0; right: 0; z-index: 25; display: none; border: 1px solid var(--color-border); border-radius: var(--radius-sm); background: var(--color-bg-elevated); box-shadow: 0 8px 24px rgba(22,35,56,0.12); padding: 0.55rem; }
-        .marker-icon-panel.open { display: block; }
-        .marker-icon-search { margin-bottom: 0.5rem; }
-        .marker-icon-options { max-height: 232px; overflow-y: auto; display: grid; gap: 0.3rem; padding-right: 0.15rem; }
-        .marker-icon-option { width: 100%; border: 1px solid var(--color-border); background: var(--color-surface); border-radius: var(--radius-sm); color: var(--color-text); display: grid; grid-template-columns: auto 1fr; align-items: center; gap: 0.55rem; padding: 0.44rem 0.5rem; font-size: 0.78rem; cursor: pointer; text-align: left; }
-        .marker-icon-option:hover, .marker-icon-option.is-active { border-color: rgba(22,35,56,0.18); background: var(--color-accent-hover, #ebebea); }
-        .marker-icon-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--color-text); }
-        .marker-icon-empty { border: 1px dashed var(--color-border); border-radius: var(--radius-sm); padding: 0.55rem 0.6rem; font-size: 0.74rem; color: var(--color-muted); text-align: center; }
-        .marker-form-textarea { min-height: 72px; resize: vertical; }
-        .marker-form-input:focus, .marker-form-textarea:focus, .marker-form-select:focus { outline: none; border-color: rgba(22,35,56,0.3); box-shadow: 0 0 0 3px rgba(22,35,56,0.05); }
-        .marker-color-input { height: 42px; padding: 0.35rem; cursor: pointer; }
-        .marker-icon-helper { margin-top: 0.3rem; font-size: 0.68rem; color: var(--color-muted); }
-        .marker-form-helper { font-size: 0.7rem; color: var(--color-muted); margin-top: 0.32rem; line-height: 1.4; }
-        .marker-image-preview { margin-top: 0.45rem; display: none; }
-        .marker-image-preview img { width: 100%; max-height: 140px; object-fit: cover; border-radius: var(--radius-sm); border: 1px solid var(--color-border); }
-        .marker-media-preview { margin-top: 0.45rem; display: none; }
-        .marker-media-preview iframe, .marker-media-preview video { width: 100%; border-radius: var(--radius-sm); border: 1px solid var(--color-border); background: var(--color-surface); }
-        .marker-media-preview iframe { height: 190px; }
-        .marker-coordinates { font-size: 0.7rem; color: var(--color-muted); padding: 0.5rem 1.25rem; border-bottom: 1px solid var(--color-border); background: var(--color-surface); }
-        .marker-form-actions { display: flex; gap: 0.65rem; justify-content: flex-end; padding: 0.875rem 1.25rem; background: var(--color-surface); border-top: 1px solid var(--color-border); }
-        .marker-form-btn { padding: 0.55rem 1.1rem; border-radius: var(--radius-sm); font-size: 0.82rem; font-family: var(--font-body); font-weight: 600; cursor: pointer; border: none; transition: opacity 0.18s; }
-        .marker-form-btn.primary { background: var(--color-text); color: var(--color-bg-elevated); }
-        .marker-form-btn.primary:hover { opacity: 0.85; }
-        .marker-form-btn.secondary { background: var(--color-surface); border: 1px solid var(--color-border); color: var(--color-text); }
-        .marker-form-btn.secondary:hover { background: var(--color-accent-hover, #ebebea); border-color: rgba(22,35,56,0.18); }
+
+        #plot-form-modal .modal::-webkit-scrollbar-thumb {
+            background: rgba(201, 169, 98, 0.3);
+            border-radius: 4px;
+        }
+
+        #plot-form-modal .modal::-webkit-scrollbar-thumb:hover {
+            background: rgba(201, 169, 98, 0.5);
+        }
+
+        .modal::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 1px;
+            background: linear-gradient(90deg, 
+                transparent 0%, 
+                rgba(201, 169, 98, 0.3) 50%, 
+                transparent 100%);
+        }
+
+        .modal-title {
+            font-family: var(--font-display);
+            font-size: 1.5rem;
+            font-style: italic;
+            margin-bottom: 1.5rem;
+            color: var(--color-accent);
+        }
+
+        /* Paint Tool Kit Title */
+        #plot-form-modal .modal-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            padding: 1.5rem 1.5rem 1rem 1.5rem;
+            margin: 0;
+            border-bottom: 2px solid rgba(201, 169, 98, 0.2);
+            background: linear-gradient(135deg, rgba(201, 169, 98, 0.1) 0%, transparent 100%);
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            font-style: normal;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            backdrop-filter: blur(10px);
+        }
+
+        .form-group {
+            margin-bottom: 1.25rem;
+        }
+
+        /* Paint Tool Kit Form Groups */
+        #plot-form-modal .form-group {
+            margin-bottom: 1.5rem;
+            padding: 0 1.5rem;
+        }
+
+        #plot-form-modal .form-group:first-of-type {
+            margin-top: 1rem;
+        }
+
+        .form-label {
+            display: block;
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--color-muted);
+            margin-bottom: 0.5rem;
+        }
+
+        /* Paint Tool Kit Labels */
+        #plot-form-modal .form-label {
+            font-size: 0.65rem;
+            font-weight: 600;
+            margin-bottom: 0.75rem;
+            color: rgba(255, 255, 255, 0.7);
+            letter-spacing: 0.12em;
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 0.75rem;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 6px;
+            color: var(--color-text);
+            font-family: var(--font-body);
+            font-size: 0.9rem;
+            transition: border-color 0.2s;
+        }
+
+        .form-input:focus {
+            outline: none;
+            border-color: var(--color-accent);
+        }
+
+        /* Paint Tool Kit Inputs */
+        #plot-form-modal .form-input {
+            padding: 0.875rem 1rem;
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 8px;
+            font-size: 0.875rem;
+            transition: all 0.2s ease;
+        }
+
+        #plot-form-modal .form-input:focus {
+            background: rgba(255, 255, 255, 0.08);
+            border-color: rgba(201, 169, 98, 0.5);
+            box-shadow: 0 0 0 3px rgba(201, 169, 98, 0.1);
+        }
+
+        #plot-form-modal .form-input:hover {
+            border-color: rgba(255, 255, 255, 0.2);
+        }
+
+        textarea.form-input {
+            resize: vertical;
+            min-height: 80px;
+        }
+
+        /* Paint Tool Kit Textarea */
+        #plot-form-modal textarea.form-input {
+            min-height: 100px;
+            font-family: var(--font-body);
+            line-height: 1.5;
+        }
+
+        .form-helper {
+            font-size: 0.7rem;
+            color: var(--color-muted);
+            margin-top: 0.4rem;
+        }
+
+        /* Paint Tool Kit Helper Text */
+        #plot-form-modal .form-helper {
+            font-size: 0.65rem;
+            margin-top: 0.5rem;
+            color: rgba(255, 255, 255, 0.5);
+            line-height: 1.4;
+        }
+
+        .color-options {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+
+        .color-option {
+            width: 36px;
+            height: 36px;
+            border-radius: 6px;
+            cursor: pointer;
+            border: 2px solid transparent;
+            transition: all 0.2s ease;
+        }
+
+        .color-option:hover {
+            transform: scale(1.1);
+        }
+
+        .color-option.selected {
+            border-color: var(--color-text);
+            box-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
+        }
+
+        /* Paint Tool Kit Color Options */
+        #plot-form-modal .color-options {
+            gap: 0.75rem;
+            margin-top: 0.5rem;
+        }
+
+        #plot-form-modal .color-option {
+            width: 44px;
+            height: 44px;
+            border-radius: 10px;
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+        }
+
+        #plot-form-modal .color-option:hover {
+            transform: scale(1.08);
+            border-color: rgba(255, 255, 255, 0.3);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+        }
+
+        #plot-form-modal .color-option.selected {
+            border-color: rgba(201, 169, 98, 0.8);
+            box-shadow: 
+                0 0 0 2px rgba(201, 169, 98, 0.3),
+                0 4px 16px rgba(201, 169, 98, 0.4);
+            transform: scale(1.05);
+        }
+
+        .modal-actions {
+            display: flex;
+            gap: 1rem;
+            margin-top: 0;
+            padding-top: 2rem;
+            border-top: 1px solid rgba(255, 255, 255, 0.08);
+            background: linear-gradient(180deg, transparent 0%, rgba(0, 0, 0, 0.2) 100%);
+        }
+
+        /* Paint Tool Kit Actions */
+        #plot-form-modal .modal-actions {
+            flex-direction: column;
+            gap: 0.75rem;
+            padding: 1.5rem;
+            margin-top: 2rem;
+            padding-top: 2rem;
+            border-top: 2px solid rgba(201, 169, 98, 0.2);
+            background: linear-gradient(180deg, transparent 0%, rgba(0, 0, 0, 0.3) 100%);
+            position: sticky;
+            bottom: 0;
+            z-index: 10;
+            backdrop-filter: blur(10px);
+        }
+
+        /* Section Dividers for Tool Kit */
+        #plot-form-modal .form-group + .form-group {
+            position: relative;
+        }
+
+        /* Add visual separation for media sections */
+        #plot-form-modal .form-group:nth-of-type(6),
+        #plot-form-modal .form-group:nth-of-type(7) {
+            margin-top: 1rem;
+            padding-top: 1.5rem;
+            border-top: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .modal-btn {
+            flex: 1;
+            padding: 1rem 1.5rem;
+            border-radius: 12px;
+            font-size: 0.9rem;
+            font-family: var(--font-body);
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            border: none;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .modal-btn::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 0;
+            height: 0;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.2);
+            transform: translate(-50%, -50%);
+            transition: width 0.6s, height 0.6s;
+        }
+
+        .modal-btn:hover::before {
+            width: 300px;
+            height: 300px;
+        }
+
+        .modal-btn.primary {
+            background: linear-gradient(135deg, var(--color-accent) 0%, #b8944f 100%);
+            color: var(--color-bg);
+            box-shadow: 0 4px 16px rgba(201, 169, 98, 0.4);
+        }
+
+        .modal-btn.primary:hover {
+            background: linear-gradient(135deg, #d4b06e 0%, var(--color-accent) 100%);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px rgba(201, 169, 98, 0.5);
+        }
+
+        .modal-btn.secondary {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            color: var(--color-text);
+            backdrop-filter: blur(10px);
+        }
+
+        .modal-btn.secondary:hover {
+            background: rgba(255, 255, 255, 0.1);
+            border-color: rgba(201, 169, 98, 0.5);
+            color: var(--color-text);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+        }
+
+        /* Paint Tool Kit Buttons */
+        #plot-form-modal .modal-btn {
+            width: 100%;
+            padding: 0.875rem 1.25rem;
+            font-size: 0.85rem;
+            border-radius: 8px;
+            font-weight: 600;
+        }
+
+        #plot-form-modal .modal-btn.primary {
+            order: 2;
+        }
+
+        #plot-form-modal .modal-btn.secondary {
+            order: 1;
+        }
+
+        .details-modal .modal {
+            max-width: 520px;
+            width: 94%;
+            max-height: 90vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .modal > * {
+            padding: 2.5rem;
+        }
+
+        .modal > *:first-child {
+            padding-top: 2.5rem;
+        }
+
+        .modal > *:last-child {
+            padding-bottom: 2.5rem;
+        }
+
+        .details-header {
+            display: flex;
+            align-items: center;
+            gap: 1.25rem;
+            margin-bottom: 0;
+            padding-bottom: 2rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+            background: linear-gradient(135deg, rgba(201, 169, 98, 0.05) 0%, transparent 100%);
+        }
+
+        .details-color {
+            width: 56px;
+            height: 56px;
+            border-radius: 14px;
+            box-shadow: 
+                0 8px 24px rgba(0, 0, 0, 0.3),
+                0 0 0 2px rgba(255, 255, 255, 0.1) inset;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .details-color:hover {
+            transform: scale(1.05);
+            box-shadow: 
+                0 12px 32px rgba(0, 0, 0, 0.4),
+                0 0 0 2px rgba(255, 255, 255, 0.15) inset;
+        }
+
+        .details-title {
+            font-family: var(--font-display);
+            font-size: 2rem;
+            font-style: italic;
+            color: var(--color-text);
+            font-weight: 500;
+            letter-spacing: -0.02em;
+            text-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+        }
+
+        .details-grid {
+            display: grid;
+            grid-template-columns: 1.5fr 1fr;
+            gap: 2.5rem;
+            align-items: start;
+            padding: 2.5rem;
+            overflow-y: auto;
+            flex: 1;
+            min-height: 0;
+        }
+
+        .details-modal .modal-actions {
+            flex-shrink: 0;
+        }
+
+        .detail-item {
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.06) 0%, rgba(255, 255, 255, 0.03) 100%);
+            padding: 1.5rem;
+            border-radius: 16px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            backdrop-filter: blur(10px);
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        }
+
+        .detail-item:hover {
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.05) 100%);
+            border-color: rgba(201, 169, 98, 0.3);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+        }
+
+        .detail-item.full-width {
+            grid-column: 1 / -1;
+        }
+
+        .detail-label {
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 0.12em;
+            color: var(--color-muted);
+            margin-bottom: 0.75rem;
+            font-weight: 600;
+            opacity: 0.8;
+        }
+
+        .detail-value {
+            font-size: 1.15rem;
+            color: var(--color-text);
+            line-height: 1.5;
+        }
+
+        .detail-value.price {
+            color: var(--color-accent);
+            font-family: var(--font-display);
+            font-size: 2.25rem;
+            font-weight: 500;
+            text-shadow: 0 2px 12px rgba(201, 169, 98, 0.3);
+            letter-spacing: -0.02em;
+        }
+
+        .detail-value.description {
+            font-size: 0.95rem;
+            line-height: 1.6;
+            color: var(--color-muted);
+            white-space: pre-wrap;
+        }
+
+        /* Media container takes the first column */
+        .details-media-column {
+            grid-column: 1;
+            grid-row: 1 / span 4;
+            min-width: 0;
+            overflow: hidden;
+        }
+
+        .details-info-column {
+            grid-column: 2;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .details-media {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            width: 100%;
+            min-width: 0;
+        }
+
+        .media-wrapper {
+            position: relative;
+            width: 100%;
+            max-width: 100%;
+            padding-bottom: 62.5%;
+            /* 16:10 Aspect Ratio - extra space for player controls */
+            background: linear-gradient(135deg, rgba(0, 0, 0, 0.4) 0%, rgba(0, 0, 0, 0.2) 100%);
+            border-radius: 16px;
+            overflow: hidden;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-sizing: border-box;
+            box-shadow: 
+                0 8px 24px rgba(0, 0, 0, 0.4),
+                0 0 0 1px rgba(255, 255, 255, 0.05) inset;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .media-wrapper iframe,
+        .media-wrapper video,
+        .media-wrapper img {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+
+        .media-wrapper iframe {
+            width: 100%;
+            height: 100%;
+            max-width: 100%;
+            background: #0c0c0d;
+            box-sizing: border-box;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+        }
+
+        .media-wrapper video {
+            object-fit: contain;
+            background: #0c0c0d;
+        }
+
+        .media-wrapper img {
+            object-fit: cover;
+        }
+
+        @media (max-width: 768px) {
+            .details-grid {
+                grid-template-columns: 1fr;
+                gap: 1.5rem;
+            }
+
+            .details-media-column {
+                grid-column: 1;
+                grid-row: auto;
+            }
+
+            .details-info-column {
+                grid-column: 1;
+            }
+        }
+
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: var(--color-bg);
+            z-index: 200;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 1.5rem;
+            transition: opacity 0.6s ease, visibility 0.6s ease;
+        }
+
+        .loading-overlay.hidden {
+            opacity: 0;
+            visibility: hidden;
+        }
+
+        .loading-text {
+            font-family: var(--font-display);
+            font-size: 1.2rem;
+            font-style: italic;
+            color: var(--color-accent);
+        }
+
+        .loading-spinner {
+            width: 40px;
+            height: 40px;
+            border: 2px solid var(--color-accent-dim);
+            border-top-color: var(--color-accent);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        .toast-container {
+            position: fixed;
+            bottom: 2rem;
+            right: 2rem;
+            z-index: 300;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .toast {
+            background: #1a1a1b;
+            border: 1px solid var(--color-accent);
+            border-radius: 8px;
+            padding: 0.75rem 1rem;
+            font-size: 0.85rem;
+            animation: slideIn 0.3s ease;
+        }
+
+        .toast.error {
+            border-color: var(--color-danger);
+        }
 
         .psv-glass-marker {
             --mk-rgb: var(--marker-available-rgb);
-            --rot-x: 0rad;
-            --rot-y: 0rad;
-            --rot-z: 0rad;
             position: relative;
             width: var(--marker-size);
             height: calc(var(--marker-size) + 10px);
@@ -755,9 +1510,9 @@
             padding: 0;
             cursor: pointer;
             outline: none;
-            transform: translateZ(0) rotateX(var(--rot-x)) rotateY(var(--rot-y)) rotateZ(var(--rot-z));
-            transition: transform 220ms cubic-bezier(0.2, 0.8, 0.2, 1), filter 220ms ease;
+            transform: translateZ(0);
             filter: drop-shadow(0 0 8px rgba(var(--mk-rgb), 0.38));
+            transition: transform 220ms cubic-bezier(0.2, 0.8, 0.2, 1), filter 220ms ease;
         }
 
         .psv-glass-marker .marker-halo {
@@ -790,24 +1545,6 @@
             border: 1.5px solid var(--marker-ring);
             box-shadow: var(--marker-shadow), var(--marker-inner-glow), 0 0 0 1px rgba(255, 255, 255, 0.2);
             animation: markerIdleFloat 2.9s ease-in-out infinite;
-        }
-
-        .psv-glass-marker .marker-core::before {
-            content: '';
-            position: absolute;
-            inset: -2px;
-            border-radius: inherit;
-            border: 1px solid rgba(255, 255, 255, 0.68);
-            pointer-events: none;
-        }
-
-        .psv-glass-marker .marker-core::after {
-            content: '';
-            position: absolute;
-            inset: 5px;
-            border-radius: inherit;
-            box-shadow: inset 0 0 8px rgba(255, 255, 255, 0.28);
-            pointer-events: none;
         }
 
         .psv-glass-marker .marker-dot {
@@ -864,25 +1601,17 @@
         .psv-glass-marker.reserved { --mk-rgb: var(--marker-reserved-rgb); }
 
         .psv-glass-marker:hover {
-            transform: scale(1.1) translateY(-1px) rotateX(var(--rot-x)) rotateY(var(--rot-y)) rotateZ(var(--rot-z));
+            transform: scale(1.1) translateY(-1px);
             filter: drop-shadow(0 0 10px rgba(var(--mk-rgb), 0.48));
         }
 
-        .psv-glass-marker:hover .marker-halo { opacity: 0.92; }
-
-        .psv-glass-marker.is-active {
-            transform: scale(1.14) translateY(-1px) rotateX(var(--rot-x)) rotateY(var(--rot-y)) rotateZ(var(--rot-z));
-            filter: drop-shadow(0 0 14px rgba(var(--mk-rgb), 0.58));
+        .psv-glass-marker:hover .marker-halo {
+            opacity: 0.92;
         }
 
-        .psv-glass-marker.is-active .marker-halo { opacity: 1; }
-
-        .psv-glass-marker.is-active .marker-core {
-            box-shadow:
-                0 12px 24px rgba(0, 0, 0, 0.52),
-                0 0 0 2px rgba(255, 255, 255, 0.26),
-                0 0 14px rgba(var(--mk-rgb), 0.52),
-                var(--marker-inner-glow);
+        .psv-glass-marker.is-active {
+            transform: scale(1.14) translateY(-1px);
+            filter: drop-shadow(0 0 14px rgba(var(--mk-rgb), 0.58));
         }
 
         .psv-glass-marker.marker-theme-neon .marker-core {
@@ -894,8 +1623,14 @@
             border-radius: 8px;
         }
 
-        .psv-glass-marker.marker-theme-orb .marker-pointer { display: none; }
-        .psv-glass-marker.marker-theme-orb { height: var(--marker-size); }
+        .psv-glass-marker.marker-theme-orb .marker-pointer {
+            display: none;
+        }
+
+        .psv-glass-marker.marker-theme-orb {
+            height: var(--marker-size);
+        }
+
         .psv-glass-marker.marker-theme-orb .marker-halo {
             width: calc(var(--marker-size) + 18px);
             height: calc(var(--marker-size) + 18px);
@@ -905,22 +1640,38 @@
             border-radius: 50% 50% 50% 0;
             transform: translateX(-50%) rotate(-45deg);
         }
+
         .psv-glass-marker.marker-theme-pin .marker-dot,
         .psv-glass-marker.marker-theme-pin .marker-icon {
             transform: translate(-50%, -50%) rotate(45deg);
         }
-        .psv-glass-marker.marker-theme-pin .marker-pointer { display: none; }
 
-        .psv-glass-marker.marker-theme-chip .marker-core { border-radius: 10px; }
+        .psv-glass-marker.marker-theme-pin .marker-pointer {
+            display: none;
+        }
+
+        .psv-glass-marker.marker-theme-chip .marker-core {
+            border-radius: 10px;
+        }
 
         .psv-glass-marker.marker-theme-ring .marker-core {
             background: rgba(8, 10, 12, 0.18);
             box-shadow: 0 0 0 3px rgba(var(--mk-rgb), 0.78), inset 0 0 0 1px rgba(255, 255, 255, 0.28);
         }
-        .psv-glass-marker.marker-theme-ring .marker-dot { width: 6px; height: 6px; }
 
-        .psv-glass-marker.marker-theme-minimal { --marker-size: 24px; height: 32px; }
-        .psv-glass-marker.marker-theme-beacon .marker-halo { animation-duration: 1.5s; }
+        .psv-glass-marker.marker-theme-ring .marker-dot {
+            width: 6px;
+            height: 6px;
+        }
+
+        .psv-glass-marker.marker-theme-minimal {
+            --marker-size: 24px;
+            height: 32px;
+        }
+
+        .psv-glass-marker.marker-theme-beacon .marker-halo {
+            animation-duration: 1.5s;
+        }
 
         .psv-glass-marker.marker-theme-gem .marker-core {
             clip-path: polygon(50% 0%, 85% 22%, 100% 58%, 76% 100%, 24% 100%, 0% 58%, 15% 22%);
@@ -934,73 +1685,96 @@
         }
 
         .psv-glass-marker.marker-theme-comet .marker-pointer {
-            width: 12px; height: 16px;
+            width: 12px;
+            height: 16px;
             top: calc(var(--marker-size) - 2px);
             border-radius: 0 0 8px 8px;
             transform: translateX(-50%) rotate(0deg);
         }
 
         .psv-glass-marker.marker-super {
-            width: 148px; height: 128px; filter: none;
+            width: 148px;
+            height: 128px;
+            filter: none;
         }
+
         .psv-glass-marker.marker-super:hover,
         .psv-glass-marker.marker-super.is-active {
-            transform: translateZ(0); filter: none;
+            transform: translateZ(0);
+            filter: none;
         }
 
         .psv-glass-marker.marker-super .marker-callout {
-            position: absolute; left: 50%; top: 0; transform: translateX(-50%);
-            display: flex; flex-direction: column; align-items: center;
-            pointer-events: none; opacity: 0; transition: opacity 0.2s ease;
+            position: absolute;
+            left: 50%;
+            top: 0;
+            transform: translateX(-50%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.2s ease;
         }
 
         .psv-glass-marker.marker-super .marker-stem {
-            width: 2px; height: 66px;
+            width: 2px;
+            height: 66px;
             background: rgba(233, 239, 247, 0.92);
             box-shadow: 0 0 0 1px rgba(22, 41, 72, 0.12);
         }
 
         .psv-glass-marker.marker-super .marker-tag {
-            margin-bottom: 7px; margin-top: -2px;
-            background: #1f3660; color: #f4f8ff;
-            font-size: 0.82rem; line-height: 1; font-weight: 700;
-            letter-spacing: 0.01em; padding: 0.42rem 0.62rem 0.4rem;
-            white-space: nowrap; border-radius: 2px;
+            margin-bottom: 7px;
+            margin-top: -2px;
+            background: #1f3660;
+            color: #f4f8ff;
+            font-size: 0.82rem;
+            line-height: 1;
+            font-weight: 700;
+            letter-spacing: 0.01em;
+            padding: 0.42rem 0.62rem 0.4rem;
+            white-space: nowrap;
+            border-radius: 2px;
             box-shadow: 0 7px 18px rgba(8, 24, 48, 0.4);
         }
 
-        .psv-glass-marker .marker-tag {
-            display: inline-flex; align-items: center; gap: 0.35rem;
-        }
-        .psv-glass-marker .marker-tag-icon {
-            flex: 0 0 auto; font-size: 0.86em; opacity: 0.92; transform: translateY(-0.5px);
-        }
-        .psv-glass-marker .marker-tag-text {
-            min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-        }
-
         .psv-glass-marker.marker-super .marker-base {
-            position: absolute; left: 50%; bottom: 9px;
-            width: 42px; height: 42px; transform: translateX(-50%);
-            display: grid; place-items: center; pointer-events: none;
+            position: absolute;
+            left: 50%;
+            bottom: 9px;
+            width: 42px;
+            height: 42px;
+            transform: translateX(-50%);
+            display: grid;
+            place-items: center;
+            pointer-events: none;
         }
 
         .psv-glass-marker.marker-super .marker-ring-outer {
-            position: absolute; width: 42px; height: 42px; border-radius: 999px;
+            position: absolute;
+            width: 42px;
+            height: 42px;
+            border-radius: 999px;
             border: 6px solid rgba(215, 222, 233, 0.85);
             background: rgba(255, 255, 255, 0.06);
             box-shadow: 0 8px 16px rgba(5, 19, 38, 0.24);
         }
 
         .psv-glass-marker.marker-super .marker-ring-inner {
-            position: absolute; width: 14px; height: 14px; border-radius: 999px;
+            position: absolute;
+            width: 14px;
+            height: 14px;
+            border-radius: 999px;
             border: 2px solid rgba(247, 251, 255, 0.94);
             background: rgba(196, 206, 221, 0.9);
             box-shadow: 0 0 0 4px rgba(95, 121, 161, 0.22);
         }
 
         .psv-glass-marker.marker-super:hover .marker-callout,
-        .psv-glass-marker.marker-super.is-active .marker-callout { opacity: 1; }
+        .psv-glass-marker.marker-super.is-active .marker-callout {
+            opacity: 1;
+        }
 
         .psv-glass-marker.marker-super:hover .marker-ring-outer,
         .psv-glass-marker.marker-super.is-active .marker-ring-outer {
@@ -1008,93 +1782,399 @@
             box-shadow: 0 0 0 6px rgba(106, 131, 172, 0.16), 0 10px 20px rgba(4, 22, 46, 0.32);
         }
 
-        .psv-glass-marker.marker-super.is-active .marker-tag { background: #1b2e54; color: #ffffff; }
-
-        .psv-glass-marker.marker-navigator { width: 48px; height: 48px; filter: none; }
-        .psv-glass-marker.marker-navigator:hover,
-        .psv-glass-marker.marker-navigator.is-active { transform: translateZ(0); filter: none; }
-
-        .psv-glass-marker.marker-navigator .marker-nav-base {
-            position: absolute; left: 50%; top: 50%; width: 100%; height: 100%;
-            transform: translate(-50%, -50%); display: flex; align-items: center;
-            justify-content: center; pointer-events: none; perspective: 90px;
+        .psv-glass-marker.marker-super.is-active .marker-tag {
+            background: #1b2e54;
+            color: #ffffff;
         }
-        .psv-glass-marker.marker-navigator .marker-nav-ring {
-            position: absolute; width: 42px; height: 42px; border-radius: 999px;
-            border: 3px solid rgba(255, 255, 255, 0.95);
-            background: rgba(255, 255, 255, 0.15);
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
-        }
-        .psv-glass-marker.marker-navigator .marker-nav-chevron {
-            position: relative; width: 16px; height: 16px;
-            color: rgba(255, 255, 255, 0.98);
-            transform: rotateX(-16deg);
-            filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.5)) drop-shadow(0 3px 6px rgba(0, 0, 0, 0.25));
-            transition: transform 0.2s ease, filter 0.2s ease;
-        }
-        .psv-glass-marker.marker-navigator .marker-nav-chevron iconify-icon { width: 100%; height: 100%; }
-        .psv-glass-marker.marker-navigator:hover .marker-nav-chevron,
-        .psv-glass-marker.marker-navigator.is-active .marker-nav-chevron {
-            transform: rotateX(-20deg);
-            filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.55)) drop-shadow(0 4px 8px rgba(0, 0, 0, 0.3));
-        }
-        .psv-glass-marker.marker-navigator:hover .marker-nav-ring,
-        .psv-glass-marker.marker-navigator.is-active .marker-nav-ring {
-            border-color: rgba(255, 255, 255, 1);
-            box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.2), 0 6px 16px rgba(0, 0, 0, 0.3);
+        .psv-glass-marker.marker-photo {
+            width: 156px;
+            height: 158px;
+            filter: none;
+            transition: transform 0.24s ease;
         }
 
-        .psv-glass-marker.marker-photo { width: 156px; height: 158px; filter: none; transition: transform 0.24s ease; }
         .psv-glass-marker.marker-photo:hover,
-        .psv-glass-marker.marker-photo.is-active { transform: translateZ(0) scale(1.03); filter: none; }
+        .psv-glass-marker.marker-photo.is-active {
+            transform: translateZ(0) scale(1.03);
+            filter: none;
+        }
 
         .psv-glass-marker.marker-photo .marker-photo-stem {
-            position: absolute; left: 50%; bottom: 16px; width: 3px; height: 76px;
+            position: absolute;
+            left: 50%;
+            bottom: 16px;
+            width: 3px;
+            height: 76px;
             transform: translateX(-50%);
             background: linear-gradient(180deg, rgba(238, 214, 118, 0.98) 0%, rgba(223, 188, 84, 0.98) 100%);
-            border-radius: 999px; box-shadow: 0 0 0 1px rgba(56, 61, 42, 0.14); pointer-events: none;
+            border-radius: 999px;
+            box-shadow: 0 0 0 1px rgba(56, 61, 42, 0.14);
+            pointer-events: none;
         }
+
         .psv-glass-marker.marker-photo .marker-photo-base {
-            position: absolute; left: 50%; bottom: 8px; width: 14px; height: 14px;
-            transform: translateX(-50%); border-radius: 999px;
+            position: absolute;
+            left: 50%;
+            bottom: 8px;
+            width: 14px;
+            height: 14px;
+            transform: translateX(-50%);
+            border-radius: 999px;
             background: linear-gradient(180deg, rgba(238, 214, 118, 0.98) 0%, rgba(223, 188, 84, 0.98) 100%);
             border: 2px solid rgba(255, 255, 255, 0.92);
-            box-shadow: 0 3px 8px rgba(0, 0, 0, 0.34); pointer-events: none;
+            box-shadow: 0 3px 8px rgba(0, 0, 0, 0.34);
+            pointer-events: none;
         }
+
         .psv-glass-marker.marker-photo .marker-photo-disc {
-            position: absolute; left: 50%; top: 20px; width: 60px; height: 60px;
-            transform: translateX(-50%); border-radius: 999px;
+            position: absolute;
+            left: 50%;
+            top: 20px;
+            width: 60px;
+            height: 60px;
+            transform: translateX(-50%);
+            border-radius: 999px;
             border: 3px solid rgba(236, 204, 97, 0.96);
-            background: rgba(255, 245, 211, 0.86); overflow: hidden;
+            background: rgba(255, 245, 211, 0.86);
+            overflow: hidden;
             box-shadow: 0 8px 16px rgba(14, 29, 51, 0.26), 0 0 0 2px rgba(255, 255, 255, 0.38) inset;
-            transition: transform 0.24s ease, box-shadow 0.24s ease; pointer-events: none;
+            transition: transform 0.24s ease, box-shadow 0.24s ease;
+            pointer-events: none;
         }
-        .psv-glass-marker.marker-photo .marker-photo-image { width: 100%; height: 100%; object-fit: cover; display: block; pointer-events: none; }
+
+        .psv-glass-marker.marker-photo .marker-photo-image {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+            pointer-events: none;
+        }
+
         .psv-glass-marker.marker-photo .marker-photo-placeholder {
-            width: 100%; height: 100%; display: grid; place-items: center;
-            color: #3a4d68; font-size: 0.68rem; font-weight: 700;
-            letter-spacing: 0.03em; text-transform: uppercase;
+            width: 100%;
+            height: 100%;
+            display: grid;
+            place-items: center;
+            color: #3a4d68;
+            font-size: 0.68rem;
+            font-weight: 700;
+            letter-spacing: 0.03em;
+            text-transform: uppercase;
             background: linear-gradient(140deg, rgba(225, 237, 255, 0.88) 0%, rgba(197, 216, 238, 0.88) 100%);
             pointer-events: none;
         }
+
         .psv-glass-marker.marker-photo .marker-photo-name {
-            position: absolute; left: 50%; top: 0; transform: translateX(-50%);
-            background: #1f3660; color: #f4f8ff;
-            font-size: 0.82rem; line-height: 1; font-weight: 700;
-            letter-spacing: 0.01em; padding: 0.42rem 0.62rem 0.4rem;
-            white-space: nowrap; border-radius: 2px;
+            position: absolute;
+            left: 50%;
+            top: 0;
+            transform: translateX(-50%);
+            background: #1f3660;
+            color: #f4f8ff;
+            font-size: 0.82rem;
+            line-height: 1;
+            font-weight: 700;
+            letter-spacing: 0.01em;
+            padding: 0.42rem 0.62rem 0.4rem;
+            white-space: nowrap;
+            border-radius: 2px;
             box-shadow: 0 7px 18px rgba(8, 24, 48, 0.4);
-            opacity: 0; transition: opacity 0.2s ease; pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.2s ease;
+            pointer-events: none;
         }
+
         .psv-glass-marker.marker-photo:hover .marker-photo-name,
-        .psv-glass-marker.marker-photo.is-active .marker-photo-name { opacity: 1; }
+        .psv-glass-marker.marker-photo.is-active .marker-photo-name {
+            opacity: 1;
+        }
+
         .psv-glass-marker.marker-photo:hover .marker-photo-disc,
         .psv-glass-marker.marker-photo.is-active .marker-photo-disc {
             transform: translateX(-50%) scale(1.06);
             box-shadow: 0 12px 22px rgba(14, 29, 51, 0.32), 0 0 0 2px rgba(255, 255, 255, 0.45) inset;
         }
-
         .psv-glass-marker.is-entering { animation: markerBounceIn 520ms cubic-bezier(0.16, 0.84, 0.34, 1.22); }
+
+        .marker-modal-backdrop {
+            position: fixed;
+            inset: 0;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            background: rgba(6, 6, 7, 0.74);
+            z-index: 260;
+            padding: 1rem;
+        }
+
+        .marker-modal-backdrop.visible {
+            display: flex;
+        }
+
+        .marker-modal {
+            position: relative;
+            width: min(400px, 94vw);
+            background: linear-gradient(180deg, rgba(24, 24, 25, 0.98) 0%, rgba(16, 16, 17, 0.98) 100%);
+            border: 1px solid rgba(201, 169, 98, 0.28);
+            border-radius: 24px;
+            padding: 1rem;
+            box-shadow: 0 16px 30px rgba(0, 0, 0, 0.45);
+            max-height: 92vh;
+            overflow: auto;
+        }
+
+        .marker-modal-close {
+            position: absolute;
+            top: 0.55rem;
+            right: 0.55rem;
+            width: 30px;
+            height: 30px;
+            border-radius: 999px;
+            border: 1px solid rgba(255, 255, 255, 0.18);
+            background: rgba(255, 255, 255, 0.05);
+            color: #fff;
+            font-size: 1.1rem;
+            line-height: 1;
+            cursor: pointer;
+            transition: transform 0.15s ease, background 0.15s ease;
+        }
+
+        .marker-modal-close:hover {
+            background: rgba(255, 255, 255, 0.1);
+            transform: scale(1.06);
+        }
+
+        .marker-modal-title {
+            font-size: 1.02rem;
+            font-weight: 600;
+            color: var(--color-accent);
+            margin-bottom: 0.75rem;
+        }
+
+        .marker-form-label {
+            display: block;
+            font-size: 0.72rem;
+            margin-bottom: 0.28rem;
+            color: var(--color-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+        }
+
+        .marker-form-input,
+        .marker-form-textarea,
+        .marker-form-select {
+            width: 100%;
+            padding: 0.65rem 0.75rem;
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.14);
+            background: rgba(255, 255, 255, 0.04);
+            color: var(--color-text);
+            font-family: var(--font-body);
+            font-size: 0.84rem;
+            margin-bottom: 0.65rem;
+        }
+
+        .marker-form-select {
+            appearance: none;
+            background-image:
+                linear-gradient(45deg, transparent 50%, rgba(255, 255, 255, 0.7) 50%),
+                linear-gradient(135deg, rgba(255, 255, 255, 0.7) 50%, transparent 50%);
+            background-position:
+                calc(100% - 14px) calc(50% - 2px),
+                calc(100% - 8px) calc(50% - 2px);
+            background-size: 6px 6px, 6px 6px;
+            background-repeat: no-repeat;
+            padding-right: 1.9rem;
+        }
+
+        .marker-icon-select {
+            position: relative;
+            margin-bottom: 0.5rem;
+        }
+
+        .marker-icon-trigger {
+            width: 100%;
+            display: grid;
+            grid-template-columns: auto 1fr auto;
+            align-items: center;
+            gap: 0.6rem;
+            padding: 0.58rem 0.72rem;
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.14);
+            background: rgba(255, 255, 255, 0.04);
+            color: var(--color-text);
+            cursor: pointer;
+            font-family: var(--font-body);
+            font-size: 0.84rem;
+            text-align: left;
+        }
+
+        .marker-icon-trigger:hover {
+            border-color: rgba(201, 169, 98, 0.5);
+            background: rgba(255, 255, 255, 0.08);
+        }
+
+        .marker-icon-trigger[aria-expanded="true"] {
+            border-color: rgba(201, 169, 98, 0.75);
+        }
+
+        .marker-icon-caret {
+            color: rgba(255, 255, 255, 0.72);
+            font-size: 0.78rem;
+        }
+
+        .marker-icon-value {
+            color: rgba(255, 255, 255, 0.9);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .marker-icon-swatch {
+            width: 28px;
+            height: 28px;
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(255, 255, 255, 0.08);
+            color: #ffffff;
+            font-size: 18px;
+            flex-shrink: 0;
+        }
+
+        .marker-icon-swatch iconify-icon {
+            width: 18px;
+            height: 18px;
+        }
+
+        .marker-icon-panel {
+            position: absolute;
+            top: calc(100% + 6px);
+            left: 0;
+            right: 0;
+            z-index: 25;
+            display: none;
+            border: 1px solid rgba(201, 169, 98, 0.36);
+            border-radius: 10px;
+            background: rgba(14, 14, 16, 0.98);
+            box-shadow: 0 12px 28px rgba(0, 0, 0, 0.48);
+            padding: 0.55rem;
+        }
+
+        .marker-icon-panel.open {
+            display: block;
+        }
+
+        .marker-icon-search {
+            margin-bottom: 0.5rem;
+        }
+
+        .marker-icon-options {
+            max-height: 232px;
+            overflow-y: auto;
+            display: grid;
+            gap: 0.3rem;
+            padding-right: 0.15rem;
+        }
+
+        .marker-icon-option {
+            width: 100%;
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            background: rgba(255, 255, 255, 0.04);
+            border-radius: 8px;
+            color: var(--color-text);
+            display: grid;
+            grid-template-columns: auto 1fr;
+            align-items: center;
+            gap: 0.55rem;
+            padding: 0.44rem 0.5rem;
+            font-size: 0.78rem;
+            cursor: pointer;
+            text-align: left;
+        }
+
+        .marker-icon-option:hover,
+        .marker-icon-option.is-active {
+            border-color: rgba(201, 169, 98, 0.52);
+            background: rgba(201, 169, 98, 0.16);
+        }
+
+        .marker-icon-name {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            color: rgba(255, 255, 255, 0.92);
+        }
+
+        .marker-icon-empty {
+            border: 1px dashed rgba(255, 255, 255, 0.18);
+            border-radius: 8px;
+            padding: 0.55rem 0.6rem;
+            font-size: 0.74rem;
+            color: var(--color-muted);
+            text-align: center;
+        }
+
+        .marker-color-input {
+            height: 42px;
+            padding: 0.35rem;
+            cursor: pointer;
+        }
+
+        .marker-icon-helper {
+            margin: -0.3rem 0 0.65rem;
+            color: var(--color-muted);
+            font-size: 0.74rem;
+        }
+
+        .marker-form-textarea {
+            min-height: 88px;
+            resize: vertical;
+        }
+
+        .marker-image-preview {
+            margin-bottom: 0.65rem;
+            display: none;
+        }
+
+        .marker-image-preview img {
+            width: 100%;
+            max-height: 130px;
+            object-fit: cover;
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.14);
+        }
+
+        .marker-media-preview {
+            margin: 0.2rem 0 0.65rem;
+            display: none;
+        }
+
+        .marker-media-preview iframe,
+        .marker-media-preview video {
+            width: 100%;
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.14);
+            background: rgba(0, 0, 0, 0.35);
+        }
+
+        .marker-media-preview iframe {
+            height: 180px;
+        }
+
+        .marker-media-helper {
+            margin: -0.3rem 0 0.65rem;
+            color: var(--color-muted);
+            font-size: 0.74rem;
+        }
+
+        .marker-modal-actions {
+            display: flex;
+            gap: 0.6rem;
+            justify-content: flex-end;
+        }
 
         @keyframes markerPulse {
             0% { transform: translate(-50%, -50%) scale(0.88); opacity: 0.72; }
@@ -1114,13 +2194,206 @@
             100% { transform: translateX(-50%) translateY(0); }
         }
 
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateX(100%);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        /* Share Modal Styles */
+        .share-modal .modal {
+            max-width: 400px;
+            width: 94%;
+        }
+
+        .share-modal-header {
+            padding: 2rem 2.5rem 1.5rem 2.5rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+            background: linear-gradient(135deg, rgba(201, 169, 98, 0.05) 0%, transparent 100%);
+        }
+
+        .share-modal-title {
+            font-family: var(--font-display);
+            font-size: 1.75rem;
+            font-style: italic;
+            color: var(--color-accent);
+            margin-bottom: 0.5rem;
+        }
+
+        .share-modal-subtitle {
+            font-size: 0.875rem;
+            color: var(--color-muted);
+            line-height: 1.5;
+        }
+
+        .share-link-options {
+            padding: 1.5rem 2.5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1.25rem;
+        }
+
+        .share-link-card {
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.06) 0%, rgba(255, 255, 255, 0.03) 100%);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 12px;
+            padding: 1.25rem;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(10px);
+        }
+
+        .share-link-card:hover {
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.05) 100%);
+            border-color: rgba(201, 169, 98, 0.3);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        }
+
+        .share-link-header {
+            display: flex;
+            align-items: flex-start;
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .share-link-icon {
+            font-size: 1.5rem;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(201, 169, 98, 0.1);
+            border-radius: 8px;
+            flex-shrink: 0;
+        }
+
+        .share-link-info {
+            flex: 1;
+        }
+
+        .share-link-title {
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--color-text);
+            margin-bottom: 0.25rem;
+        }
+
+        .share-link-desc {
+            font-size: 0.8rem;
+            color: var(--color-muted);
+            line-height: 1.4;
+        }
+
+        .share-link-url-container {
+            display: flex;
+            gap: 0.75rem;
+            align-items: center;
+        }
+
+        .share-link-url {
+            flex: 1;
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            padding: 0.75rem 1rem;
+            font-family: 'Monaco', 'Menlo', 'Courier New', monospace;
+            font-size: 0.8rem;
+            color: var(--color-accent);
+            word-break: break-all;
+            line-height: 1.4;
+            min-height: 44px;
+            display: flex;
+            align-items: center;
+        }
+
+        .share-link-copy-btn {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.75rem 1.25rem;
+            background: linear-gradient(135deg, var(--color-accent) 0%, #b8944f 100%);
+            border: 1px solid rgba(201, 169, 98, 0.3);
+            border-radius: 8px;
+            color: var(--color-bg);
+            font-size: 0.85rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            white-space: nowrap;
+            box-shadow: 0 2px 8px rgba(201, 169, 98, 0.3);
+        }
+
+        .share-link-copy-btn:hover {
+            background: linear-gradient(135deg, #d4b06e 0%, var(--color-accent) 100%);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(201, 169, 98, 0.4);
+        }
+
+        .share-link-copy-btn:active {
+            transform: translateY(0);
+        }
+
+        .share-link-copy-btn.copied {
+            background: linear-gradient(135deg, #4ade80 0%, #22c55e 100%);
+            border-color: rgba(74, 222, 128, 0.3);
+        }
+
+        .share-link-copy-btn.copied .copy-text {
+            content: 'Copied!';
+        }
+
+        .copy-icon {
+            font-size: 1rem;
+        }
+
+        .share-modal .modal-actions {
+            padding: 1.5rem 2.5rem 2rem 2.5rem;
+            border-top: 1px solid rgba(255, 255, 255, 0.08);
+            margin-top: 0;
+        }
+
         @media (max-width: 768px) {
-            .ui-overlay { padding: 1rem; }
-            .details-grid { grid-template-columns: 1fr; }
-            .share-link-url-container { flex-direction: column; }
-            .share-link-copy-btn { width: 100%; justify-content: center; }
-            .edit-panel { width: calc(100vw - 2rem); left: 1rem; right: 1rem; bottom: 4.5rem; }
-            .tools-menu { min-width: 200px; }
+            .ui-overlay {
+                padding: 1rem;
+            }
+
+            .project-info {
+                display: none;
+            }
+
+            .details-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .share-link-url-container {
+                flex-direction: column;
+            }
+
+            .share-link-copy-btn {
+                width: 100%;
+                justify-content: center;
+            }
+
+            .share-modal-header,
+            .share-link-options,
+            .share-modal .modal-actions {
+                padding-left: 1.5rem;
+                padding-right: 1.5rem;
+            }
+
         }
     </style>
     <script src="/static/js/supabase.min.js"></script>
@@ -1150,31 +2423,24 @@
             <div class="header-left">
                 <a href="/dashboard" class="back-btn">← Back</a>
                 <span class="access-badge access-badge--client">Client</span>
-                <div class="tools-dropdown" id="tools-dropdown">
-                    <button class="tools-trigger" id="tools-trigger" type="button" aria-haspopup="true" aria-expanded="false">
-                        <span class="tools-trigger-name">{{ panorama.name }}</span>
-                        <svg class="tools-chevron" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="4 6 8 10 12 6"/></svg>
-                    </button>
-                    <div class="tools-menu" id="tools-menu" hidden>
-                        <div class="tools-menu-header">
-                            <div class="tools-menu-project">360° Client View</div>
-                        </div>
-                        <button class="tool-item" id="share-btn" type="button">
-                            <span class="tool-icon">🔗</span>
-                            <span>Share</span>
-                        </button>
-                        <button class="tool-item" id="edit-toggle" type="button">
-                            <span class="tool-icon">✏️</span>
-                            <span id="edit-toggle-text">Edit Mode</span>
-                        </button>
-                        <button class="tool-item" id="export-plots-btn" type="button">
-                            <span class="tool-icon">⬇️</span>
-                            <span>Export Plots</span>
-                        </button>
-                    </div>
+                <div class="project-info">
+                    <div class="project-name">{{ panorama.name }}</div>
                 </div>
             </div>
-            <div class="header-right" id="mode-badge-wrap" style="pointer-events:none;"></div>
+            <div class="header-controls">
+                <button class="share-btn" id="share-btn">
+                    <span>🔗</span>
+                    <span>Share</span>
+                </button>
+                <button class="share-btn" id="export-plots-btn" type="button">
+                    <span>⬇️</span>
+                    <span>Export Plots</span>
+                </button>
+                <button class="edit-toggle" id="edit-toggle">
+                    <span>✏️</span>
+                    <span id="edit-toggle-text">Edit Mode</span>
+                </button>
+            </div>
         </header>
 
         <footer class="footer">
@@ -1184,29 +2450,26 @@
                 <button class="zoom-btn" id="zoom-reset" style="font-size: 0.9rem;">⌂</button>
                 <div class="zoom-info" id="zoom-level">100%</div>
             </div>
-        </footer>
-    </div>
 
-    <!-- Edit Panel (floating card, outside footer) -->
-    <div class="floating-panel edit-panel" id="edit-panel">
-        <div class="panel-header">
-            <span class="panel-title">Edit Plots</span>
-            <button class="panel-toggle-btn" id="edit-panel-toggle" title="Collapse/Expand">−</button>
-        </div>
-        <div class="panel-body">
-            <p class="edit-instruction" id="edit-instruction">Click a plot to edit its details. You cannot add or delete plots.</p>
-            <div class="panel-sep"></div>
-            <div class="panel-subtitle">Saved Plots</div>
-            <div class="plots-list" id="plots-list">
-                <div class="edit-instruction" style="font-style:italic;">Loading...</div>
+            <div class="edit-panel" id="edit-panel">
+                <button class="panel-toggle-btn" id="edit-panel-toggle" title="Collapse/Expand">◀</button>
+                <div class="edit-panel-title">Edit Plots</div>
+                <div class="edit-instruction" id="edit-instruction">Click a plot to edit its details. You cannot add or delete plots.</div>
+
+                <div class="edit-panel-title" style="margin-top: 1rem;">Saved Plots</div>
+                <div class="plots-list" id="plots-list">
+                    <div class="edit-instruction" style="font-style: italic;">Loading...</div>
+                </div>
             </div>
-        </div>
+
+            <div style="width: 200px;"></div>
+        </footer>
     </div>
 
     <div class="modal-backdrop" id="plot-form-modal">
         <div class="modal">
+            <button class="panel-toggle-btn" id="form-modal-toggle" title="Collapse/Expand">◀</button>
             <div class="modal-title" id="plot-form-title">Define Plot</div>
-            <div class="modal-body">
             <div class="form-group">
                 <label class="form-label">Plot Name *</label>
                 <input type="text" class="form-input" id="plot-name" placeholder="e.g., Plot A-12">
@@ -1256,7 +2519,6 @@
                         style="background: linear-gradient(135deg, #ef4444, #b91c1c);"></div>
                 </div>
             </div>
-            </div><!-- close modal-body -->
             <div class="modal-actions">
                 <button class="modal-btn secondary" id="cancel-plot">Cancel</button>
                 <button class="modal-btn primary" id="save-plot">Save Plot</button>
@@ -1336,62 +2598,45 @@
 
     <div class="marker-modal-backdrop" id="marker-form-modal">
         <div class="marker-modal">
-            <div class="marker-modal-header">
-                <div class="marker-modal-title" id="marker-form-title">Edit Marker</div>
-            </div>
-            <div class="marker-coordinates" id="marker-coordinates">Longitude: —, Latitude: —</div>
-            <div class="marker-form-row">
-                <label class="marker-form-label" for="marker-name">Name *</label>
-                <input id="marker-name" type="text" class="marker-form-input" maxlength="120" placeholder="e.g., Main Gate">
-            </div>
-            <div class="marker-form-row">
-                <label class="marker-form-label" for="marker-description">Description</label>
-                <textarea id="marker-description" class="marker-form-textarea" maxlength="2000"
-                    placeholder="Optional description"></textarea>
-                <div class="marker-media-preview" id="marker-media-preview"></div>
-                <div class="marker-form-helper">Tip: paste a YouTube or Google Drive link in the description to embed it.</div>
-            </div>
-            <div class="marker-form-row" id="marker-style-row">
-                <label class="marker-form-label" for="marker-style">Marker Type</label>
-                <select id="marker-style" class="marker-form-select"></select>
-            </div>
-            <div class="marker-form-row" id="marker-icon-row">
-                <label class="marker-form-label" for="marker-icon-search">Marker Icon</label>
-                <div class="marker-icon-select" id="marker-icon-select">
-                    <button class="marker-icon-trigger" id="marker-icon-trigger" type="button" aria-haspopup="listbox" aria-expanded="false">
-                        <span class="marker-icon-swatch marker-icon-swatch--trigger">
-                            <iconify-icon id="marker-icon-preview" icon="mdi:map-marker-radius"></iconify-icon>
-                        </span>
-                        <span class="marker-icon-value" id="marker-icon-value">mdi:map-marker-radius</span>
-                        <span class="marker-icon-caret" aria-hidden="true">▾</span>
-                    </button>
-                    <div class="marker-icon-panel" id="marker-icon-panel" role="listbox" aria-label="Marker icons">
-                        <input id="marker-icon-search" type="text" class="marker-form-input marker-icon-search" maxlength="80" placeholder="Search icons (e.g. tree, home)">
-                        <div class="marker-icon-options" id="marker-icon-options"></div>
-                    </div>
+            <button class="marker-modal-close" id="close-marker-form" type="button" aria-label="Close marker form">×</button>
+            <div class="marker-modal-title">Edit Marker</div>
+            <label class="marker-form-label" for="marker-name">Name</label>
+            <input id="marker-name" class="marker-form-input" type="text" maxlength="120">
+            <label class="marker-form-label" for="marker-description">Description</label>
+            <textarea id="marker-description" class="marker-form-textarea" maxlength="2000"></textarea>
+            <div class="marker-media-preview" id="marker-media-preview"></div>
+            <div class="marker-media-helper">Tip: paste a YouTube or Google Drive link in the description to embed it.</div>
+            <label class="marker-form-label" for="marker-style">Marker Type</label>
+            <select id="marker-style" class="marker-form-select"></select>
+            <label class="marker-form-label" for="marker-icon-search">Marker Icon</label>
+            <div class="marker-icon-select" id="marker-icon-select">
+                <button class="marker-icon-trigger" id="marker-icon-trigger" type="button" aria-haspopup="listbox" aria-expanded="false">
+                    <span class="marker-icon-swatch marker-icon-swatch--trigger">
+                        <iconify-icon id="marker-icon-preview" icon="mdi:map-marker-radius"></iconify-icon>
+                    </span>
+                    <span class="marker-icon-value" id="marker-icon-value">mdi:map-marker-radius</span>
+                    <span class="marker-icon-caret" aria-hidden="true">▾</span>
+                </button>
+                <div class="marker-icon-panel" id="marker-icon-panel" role="listbox" aria-label="Marker icons">
+                    <input id="marker-icon-search" class="marker-form-input marker-icon-search" type="text" maxlength="80" placeholder="Search icons (e.g. tree, home)">
+                    <div class="marker-icon-options" id="marker-icon-options"></div>
                 </div>
-                <input id="marker-icon" type="hidden" value="mdi:map-marker-radius">
-                <div class="marker-icon-helper">Pick icon options with live preview, or type custom Iconify id in search.</div>
             </div>
-            <div class="marker-form-row" id="marker-color-row">
-                <label class="marker-form-label" for="marker-color">Marker Color</label>
-                <input id="marker-color" type="color" class="marker-form-input marker-color-input" value="#4ade80">
+            <input id="marker-icon" type="hidden" value="mdi:map-marker-radius">
+            <div class="marker-icon-helper">Pick from icon options with preview, or type a custom Iconify id in search (e.g. `mdi:tree`).</div>
+            <label class="marker-form-label" for="marker-color">Marker Color</label>
+            <input id="marker-color" class="marker-form-input marker-color-input" type="color" value="#4ade80">
+            <label class="marker-form-label" for="marker-image">Image</label>
+            <input id="marker-image" class="marker-form-input" type="file" accept="image/png,image/jpeg,image/jpg,image/webp">
+            <div class="marker-image-preview" id="marker-image-preview"></div>
+            <label class="marker-form-label" for="marker-voiceover">Voice-over</label>
+            <div style="display:flex;flex-wrap:wrap;align-items:center;gap:0.5rem;">
+                <input id="marker-voiceover" class="marker-form-input" type="file" accept="audio/*,.mp3,.wav,.m4a,.ogg,.webm" style="max-width:220px;">
+                <button type="button" class="modal-btn secondary" id="upload-voiceover-btn">Upload file</button>
+                <button type="button" class="modal-btn secondary" id="record-voiceover-btn">Record</button>
             </div>
-            <div class="marker-form-row">
-                <label class="marker-form-label" for="marker-image">Image Upload</label>
-                <input id="marker-image" type="file" class="marker-form-input" accept="image/png,image/jpeg,image/jpg,image/webp">
-                <div class="marker-image-preview" id="marker-image-preview"></div>
-            </div>
-            <div class="marker-form-row">
-                <label class="marker-form-label" for="marker-voiceover">Voice-over</label>
-                <div style="display:flex;flex-wrap:wrap;align-items:center;gap:0.5rem;">
-                    <input id="marker-voiceover" type="file" class="marker-form-input" accept="audio/*,.mp3,.wav,.m4a,.ogg,.webm" style="max-width:220px;">
-                    <button type="button" class="modal-btn secondary" id="upload-voiceover-btn">Upload file</button>
-                    <button type="button" class="modal-btn secondary" id="record-voiceover-btn">Record</button>
-                </div>
-                <div class="marker-form-helper" id="marker-voiceover-status">No voice-over. Upload a file or record directly (MP3, WAV, M4A, or record in browser).</div>
-            </div>
-            <div class="modal-actions">
+            <div class="marker-form-helper" id="marker-voiceover-status">No voice-over. Upload a file or record directly (MP3, WAV, M4A, or record in browser).</div>
+            <div class="marker-modal-actions">
                 <button class="modal-btn secondary" id="cancel-marker">Cancel</button>
                 <button class="modal-btn primary" id="save-marker">Save Marker</button>
             </div>
@@ -1417,7 +2662,23 @@
         const plotDetailsModal = document.getElementById('plot-details-modal');
         const toastContainer = document.getElementById('toast-container');
         const editPanelToggle = document.getElementById('edit-panel-toggle');
+        const formModalToggle = document.getElementById('form-modal-toggle');
         const formModal = plotFormModal ? plotFormModal.querySelector('.modal') : null;
+
+        function syncToggleIcon(button, isCollapsed) {
+            if (!button) return;
+            button.textContent = isCollapsed ? '▶' : '◀';
+        }
+
+        // Collapse/Expand functionality for edit panel
+        if (editPanelToggle && editPanel) {
+            editPanelToggle.addEventListener('click', (e) => {
+                e.stopPropagation();
+                editPanel.classList.toggle('collapsed');
+                syncToggleIcon(editPanelToggle, editPanel.classList.contains('collapsed'));
+                setTimeout(updateFormModalPosition, 100);
+            });
+        }
 
         // Watch for edit panel visibility changes
         if (editPanel) {
@@ -1427,9 +2688,32 @@
             observer.observe(editPanel, { attributes: true, attributeFilter: ['class'] });
         }
 
-        // Function to update form modal position (centered modal, simplified)
+        // Collapse/Expand functionality for form modal
+        if (formModalToggle && formModal) {
+            formModalToggle.addEventListener('click', (e) => {
+                e.stopPropagation();
+                formModal.classList.toggle('collapsed');
+                syncToggleIcon(formModalToggle, formModal.classList.contains('collapsed'));
+            });
+        }
+
+        syncToggleIcon(editPanelToggle, editPanel && editPanel.classList.contains('collapsed'));
+        syncToggleIcon(formModalToggle, formModal && formModal.classList.contains('collapsed'));
+
+        // Function to update form modal position based on edit panel state
         function updateFormModalPosition() {
-            if (!formModal) return;
+            if (!formModal || !plotFormModal.classList.contains('visible')) return;
+            
+            const editPanelCollapsed = editPanel && editPanel.classList.contains('collapsed');
+            const editPanelVisible = editPanel && editPanel.classList.contains('visible');
+            
+            if (editPanelVisible && !editPanelCollapsed) {
+                formModal.style.left = '380px';
+            } else if (editPanelVisible && editPanelCollapsed) {
+                formModal.style.left = '60px';
+            } else {
+                formModal.style.left = '0';
+            }
         }
 
         // Shared variables and functions (available in both modes)
@@ -3258,36 +4542,6 @@
                 else if (isEditMode) editToggle.click();
             }
         });
-
-        // Tools dropdown toggle
-        (function() {
-            const trigger = document.getElementById('tools-trigger');
-            const menu = document.getElementById('tools-menu');
-            if (!trigger || !menu) return;
-            trigger.addEventListener('click', function(e) {
-                e.stopPropagation();
-                const isOpen = !menu.hidden;
-                menu.hidden = isOpen;
-                trigger.classList.toggle('open', !isOpen);
-                trigger.setAttribute('aria-expanded', String(!isOpen));
-            });
-            document.addEventListener('click', function(e) {
-                if (!menu.hidden && !trigger.contains(e.target) && !menu.contains(e.target)) {
-                    menu.hidden = true;
-                    trigger.classList.remove('open');
-                    trigger.setAttribute('aria-expanded', 'false');
-                }
-            });
-            // Panel collapse toggle
-            const editPanelToggle2 = document.getElementById('edit-panel-toggle');
-            const editPanel2 = document.getElementById('edit-panel');
-            if (editPanelToggle2 && editPanel2) {
-                editPanelToggle2.addEventListener('click', function() {
-                    editPanel2.classList.toggle('collapsed');
-                    editPanelToggle2.textContent = editPanel2.classList.contains('collapsed') ? '+' : '\u2212';
-                });
-            }
-        })();
     </script>
 </body>
 

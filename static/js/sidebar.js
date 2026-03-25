@@ -77,20 +77,40 @@
                 show('nav-explore', isAdmin);
                 show('nav-daynight', isAdmin);
                 show('nav-floorplans', isAdmin);
+                show('nav-user-mgmt', isAdmin);
                 show('nav-orgs', role === 'superadmin');
                 show('sidebar-upload-wrap', isAdmin);
 
-                // CRM: visible for admin/superadmin — page-specific scripts can
-                // refine this (e.g. also show for users who own projects).
-                show('nav-crm', isAdmin);
+                // CRM: visible for admin/superadmin immediately.
+                // For regular users, check if they have client access to any plot.
+                if (isAdmin) {
+                    show('nav-crm', true);
+                    finishSidebar();
+                } else {
+                    fetch('/api/crm/me', {
+                        headers: { 'Authorization': 'Bearer ' + accessToken }
+                    })
+                    .then(function (r) { return r.ok ? r.json() : null; })
+                    .then(function (crmData) {
+                        var hasCrm = crmData && crmData.has_crm_access;
+                        show('nav-crm', hasCrm);
+                        finishSidebar();
+                    })
+                    .catch(function () {
+                        show('nav-crm', false);
+                        finishSidebar();
+                    });
+                }
 
-                _resolve({
-                    role: role,
-                    profile: profile,
-                    org: data && data.org ? data.org : null,
-                    accessToken: accessToken,
-                    isAdmin: isAdmin
-                });
+                function finishSidebar() {
+                    _resolve({
+                        role: role,
+                        profile: profile,
+                        org: data && data.org ? data.org : null,
+                        accessToken: accessToken,
+                        isAdmin: isAdmin
+                    });
+                }
             })
             .catch(function () {
                 _resolve({ role: '', profile: null, org: null, accessToken: accessToken, isAdmin: false });

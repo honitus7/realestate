@@ -44,13 +44,13 @@
         <nav class="crm-sidebar" id="crm-sidebar">
             <div class="sidebar-label">Main</div>
             <a class="active" data-section="interests"><span class="sidebar-icon">&#9733;</span> Interests</a>
-            <a data-section="projects"><span class="sidebar-icon">&#128193;</span> Projects</a>
-            <a data-section="panoramas"><span class="sidebar-icon">&#9881;</span> Panoramas</a>
+            <a data-section="projects" id="nav-crm-projects" style="display:none;"><span class="sidebar-icon">&#128193;</span> Projects</a>
+            <a data-section="panoramas" id="nav-crm-panoramas" style="display:none;"><span class="sidebar-icon">&#9881;</span> Panoramas</a>
             <a data-section="plots"><span class="sidebar-icon">&#9632;</span> Plots</a>
-            <div class="sidebar-divider"></div>
-            <div class="sidebar-label">Lock Management</div>
+            <div class="sidebar-divider" id="crm-lock-divider" style="display:none;"></div>
+            <div class="sidebar-label" id="crm-lock-label" style="display:none;">Lock Management</div>
             <a data-section="manage-lock" id="nav-manage-lock" style="display:none;"><span class="sidebar-icon">&#128274;</span> Manage Lock</a>
-            <a data-section="lock-plots" id="nav-lock-plots"><span class="sidebar-icon">&#128275;</span> Lock Plots</a>
+            <a data-section="lock-plots" id="nav-lock-plots" style="display:none;"><span class="sidebar-icon">&#128275;</span> Lock Plots</a>
         </nav>
 
         <!-- Content -->
@@ -114,7 +114,9 @@
                             <option value="lost">Lost</option>
                         </select>
                         <select class="toolbar-select" id="filter-category"><option value="">All Categories</option></select>
-                        <select class="toolbar-select" id="filter-project"><option value="">All Projects</option></select>
+                        <select class="toolbar-select" id="filter-workspace"><option value="">All Projects</option></select>
+                        <select class="toolbar-select" id="filter-project"><option value="">All Panoramas</option></select>
+                        <select class="toolbar-select" id="filter-plot"><option value="">All Plots</option></select>
                         <button class="toolbar-btn" id="btn-clear" type="button">Clear</button>
                     </div>
                 </div>
@@ -734,8 +736,20 @@
             if (r.ok) {
                 const d = await r.json();
                 userRole = d.role || 'user';
-                if (userRole === 'admin' || userRole === 'superadmin') {
+                const isAdminRole = userRole === 'admin' || userRole === 'superadmin';
+                // Show admin-only CRM sidebar sections
+                if (isAdminRole) {
+                    $('nav-crm-projects').style.display = '';
+                    $('nav-crm-panoramas').style.display = '';
                     $('nav-manage-lock').style.display = '';
+                    $('nav-lock-plots').style.display = '';
+                    $('crm-lock-divider').style.display = '';
+                    $('crm-lock-label').style.display = '';
+                } else {
+                    // Regular users with client access: show lock plots if they have lock access
+                    $('nav-lock-plots').style.display = '';
+                    $('crm-lock-divider').style.display = '';
+                    $('crm-lock-label').style.display = '';
                 }
             }
         } catch(e) { console.warn('Failed to load user info', e); }
@@ -747,7 +761,9 @@
     const qEl = $('q');
     const statusEl = $('filter-status');
     const categoryEl = $('filter-category');
+    const workspaceEl = $('filter-workspace');
     const projectEl = $('filter-project');
+    const plotEl = $('filter-plot');
     const reportCard = $('report-card');
     const reportTypeEl = $('report-type');
     const reportPrintArea = $('report-print-area');
@@ -786,15 +802,51 @@
         categoryEl.innerHTML = opts.map(v => '<option value="'+esc(v)+'">'+(v?esc(v):'All Categories')+'</option>').join('');
         categoryEl.value = opts.includes(cur)?cur:'';
     }
+    function renderWorkspaceOptions() {
+        const cur = workspaceEl.value;
+        const wsMap = new Map();
+        projects.forEach(p => {
+            const wsid = p.workspace_id;
+            const wsname = p.workspace_name;
+            if (wsid && wsname && !wsMap.has(wsid)) wsMap.set(wsid, wsname);
+        });
+        const sorted = Array.from(wsMap.entries()).sort((a,b) => a[1].localeCompare(b[1]));
+        workspaceEl.innerHTML = '<option value="">All Projects</option>' +
+            sorted.map(([id,name]) => '<option value="'+esc(id)+'">'+esc(name)+'</option>').join('');
+        if (sorted.some(([id]) => id === cur)) workspaceEl.value = cur; else workspaceEl.value = '';
+    }
     function renderProjectOptions() {
         const cur = projectEl.value;
-        const opts = [''].concat(projects.map(p => String(p.id)));
+        const wsFilter = String(workspaceEl.value||'').trim();
+        const filteredProjects = wsFilter
+            ? projects.filter(p => String(p.workspace_id||'') === wsFilter)
+            : projects;
+        const opts = [''].concat(filteredProjects.map(p => String(p.id)));
         projectEl.innerHTML = opts.map(id => {
-            if(!id) return '<option value="">All Projects</option>';
-            const name = (projectById.get(String(id))||{}).name||('Project #'+id);
+            if(!id) return '<option value="">All Panoramas</option>';
+            const name = (projectById.get(String(id))||{}).name||('Panorama #'+id);
             return '<option value="'+esc(id)+'">'+esc(name)+'</option>';
         }).join('');
         projectEl.value = opts.includes(cur)?cur:'';
+    }
+    function renderPlotOptions() {
+        const cur = plotEl.value;
+        const plotMap = new Map();
+        // Use filtered interests to show only relevant plots
+        const src = filtered.length || qEl.value || statusEl.value || categoryEl.value || workspaceEl.value || projectEl.value ? filtered : interests;
+        (src.length ? src : interests).forEach(i => {
+            if (!Array.isArray(i.plots)) return;
+            i.plots.forEach(p => {
+                if (p && p.name && !plotMap.has(p.name)) {
+                    plotMap.set(p.name, { name: p.name, id: p.id || p.name });
+                }
+            });
+        });
+        const sorted = Array.from(plotMap.values()).sort((a,b) => (a.name||'').localeCompare(b.name||''));
+        plotEl.innerHTML = '<option value="">All Plots</option>' + sorted.map(p =>
+            '<option value="'+esc(p.name)+'">'+esc(p.name)+'</option>'
+        ).join('');
+        if (sorted.some(p => p.name === cur)) plotEl.value = cur; else plotEl.value = '';
     }
 
     // -- Filters --
@@ -802,13 +854,29 @@
         const q = String(qEl.value||'').trim().toLowerCase();
         const status = String(statusEl.value||'').trim().toLowerCase();
         const category = String(categoryEl.value||'').trim().toLowerCase();
+        const workspace = String(workspaceEl.value||'').trim();
         const project = String(projectEl.value||'').trim();
+        const plotName = String(plotEl.value||'').trim();
+        // Build set of panorama IDs belonging to selected workspace
+        let wsPanoIds = null;
+        if (workspace) {
+            wsPanoIds = new Set();
+            projects.forEach(p => {
+                if (String(p.workspace_id||'') === workspace) wsPanoIds.add(String(p.id));
+            });
+        }
         filtered = interests.filter(i => {
             if(status && String(i.status||'').toLowerCase()!==status) return false;
             if(category && String(i.category||'').toLowerCase()!==category) return false;
+            if(wsPanoIds && !wsPanoIds.has(String(i.panorama_id||''))) return false;
             if(project && String(i.panorama_id||'')!==project) return false;
+            if(plotName) {
+                const plots = Array.isArray(i.plots) ? i.plots : [];
+                if(!plots.some(p => p && String(p.name||'') === plotName)) return false;
+            }
             if(q) {
-                const hay = [i.customer_name,i.customer_email,i.customer_phone,i.category,(projectById.get(String(i.panorama_id))||{}).name,(Array.isArray(i.plots)?i.plots.map(p=>p&&p.name).join(' '):'')].join(' ').toLowerCase();
+                const pj = projectById.get(String(i.panorama_id));
+                const hay = [i.customer_name,i.customer_email,i.customer_phone,i.category,(pj&&pj.name)||'',(pj&&pj.workspace_name)||'',(Array.isArray(i.plots)?i.plots.map(p=>p&&p.name).join(' '):'')].join(' ').toLowerCase();
                 if(!hay.includes(q)) return false;
             }
             return true;
@@ -1015,8 +1083,15 @@
     qEl.addEventListener('input', refreshInterestsUI);
     statusEl.addEventListener('change', refreshInterestsUI);
     categoryEl.addEventListener('change', refreshInterestsUI);
+    workspaceEl.addEventListener('change', () => {
+        // Cascade: when workspace changes, re-render panorama options for that workspace
+        renderProjectOptions();
+        projectEl.value = '';
+        refreshInterestsUI();
+    });
     projectEl.addEventListener('change', refreshInterestsUI);
-    $('btn-clear').addEventListener('click', () => { qEl.value=''; statusEl.value=''; categoryEl.value=''; projectEl.value=''; refreshInterestsUI(); });
+    plotEl.addEventListener('change', refreshInterestsUI);
+    $('btn-clear').addEventListener('click', () => { qEl.value=''; statusEl.value=''; categoryEl.value=''; workspaceEl.value=''; projectEl.value=''; plotEl.value=''; renderProjectOptions(); refreshInterestsUI(); });
 
     // -- Export --
     $('btn-export').addEventListener('click', function() {
@@ -1067,6 +1142,7 @@
         const all = await r.json();
         projects = Array.isArray(all)?all:[];
         projectById = new Map(projects.map(p=>[String(p.id),p]));
+        renderWorkspaceOptions();
         renderProjectOptions();
     }
     async function loadInterests() {
@@ -1075,6 +1151,7 @@
         if(!r.ok) throw new Error((data&&data.error)?data.error:('Failed ('+r.status+')'));
         interests = Array.isArray(data)?data:[];
         renderCategoryOptions();
+        renderPlotOptions();
         refreshInterestsUI();
     }
 
