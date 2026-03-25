@@ -1471,7 +1471,7 @@
                 var actions = '<button class="project-btn edit" onclick="openEditor(' + project.id + ')">' + openLabel + '</button>';
                 if (isOwner && isDashboardAdmin) {
                     var isInsideWorkspace = selectedWorkspaceKey && selectedWorkspaceKey.indexOf('ws:') === 0;
-                    if (selectedWsId && Boolean(project.is_360) && !isMain) actions += '<button class="project-btn set-main" onclick="setAsMain(' + project.id + ', event)">Set as main</button>';
+                    if (selectedWsId && !isMain) actions += '<button class="project-btn set-main" onclick="setAsMain(' + project.id + ', event)">Set as main</button>';
                     actions += '<button class="project-btn" onclick="window.location.href=\'/panorama/' + project.id + '/access\'">Manage access</button>';
                     if (isInsideWorkspace) {
                         actions += '<button class="project-btn rename" onclick="showRenameModal(' + project.id + ', event)">Rename</button>';
@@ -1627,11 +1627,10 @@
                 var currentWs = getWorkspaceById(selectedWsId);
                 var mainId = currentWs && currentWs.main_panorama_id != null ? String(currentWs.main_panorama_id) : null;
                 if (mainId && String(id) === mainId) {
-                    // Get other 360° panoramas in this workspace
+                    // Get other panoramas in this workspace
                     var others = projects.filter(function (p) {
                         return String(p.workspace_id || '') === String(selectedWsId)
                             && String(p.id) !== String(id)
-                            && Boolean(p.is_360);
                     });
                     if (others.length > 0) {
                         // Show choose-new-main modal

@@ -1683,7 +1683,7 @@
         plotsOverlay = document.getElementById('plots-overlay');
         ctx = drawingCanvas.getContext('2d');
 
-        let scale = 1.5, translateX = 0, translateY = 0;
+        let scale = 1.0, translateX = 0, translateY = 0;
         let isDragging = false, dragStartX = 0, dragStartY = 0, dragStartTranslateX = 0, dragStartTranslateY = 0;
         let imageWidth = 0, imageHeight = 0, containerWidth = 0, containerHeight = 0;
         let minScale = 0.3, maxScale = 5.0;
@@ -1701,6 +1701,12 @@
             drawingCanvas.style.width = `${imageWidth}px`; drawingCanvas.style.height = `${imageHeight}px`;
             plotsOverlay.setAttribute('width', imageWidth); plotsOverlay.setAttribute('height', imageHeight);
             plotsOverlay.style.width = `${imageWidth}px`; plotsOverlay.style.height = `${imageHeight}px`;
+            // Start with the full image visible (contain). Allow whitespace if needed.
+            const fitContainScale = Math.min(containerWidth / imageWidth, containerHeight / imageHeight);
+            minScale = Math.max(0.01, fitContainScale);
+            scale = minScale;
+            translateX = 0;
+            translateY = 0;
             updateTransform();
             loadPlots();
             if (markerManager) markerManager.loadMarkers(PANORAMA_ID).catch((error) => console.error('Failed to load markers:', error));
@@ -1720,8 +1726,18 @@
 
         document.getElementById('zoom-in').addEventListener('click', () => { scale = Math.min(maxScale, scale * 1.2); updateTransform(); });
         document.getElementById('zoom-out').addEventListener('click', () => { scale = Math.max(minScale, scale / 1.2); updateTransform(); });
-        document.getElementById('zoom-reset').addEventListener('click', () => { scale = 1.5; translateX = 0; translateY = 0; updateTransform(); });
+        document.getElementById('zoom-reset').addEventListener('click', () => { scale = minScale; translateX = 0; translateY = 0; updateTransform(); });
         imageContainer.addEventListener('wheel', (e) => { if (isDrawing) return; e.preventDefault(); scale = Math.max(minScale, Math.min(maxScale, scale + (e.deltaY > 0 ? -0.1 : 0.1))); updateTransform(); }, { passive: false });
+
+        window.addEventListener('resize', () => {
+            if (!imageContainer || !imageWidth || !imageHeight) return;
+            containerWidth = imageContainer.clientWidth;
+            containerHeight = imageContainer.clientHeight;
+            const fitContainScale = Math.min(containerWidth / imageWidth, containerHeight / imageHeight);
+            minScale = Math.max(0.01, fitContainScale);
+            if (scale < minScale) scale = minScale;
+            updateTransform();
+        });
 
         imageContainer.addEventListener('mousedown', (e) => { if (isEditMode || e.button !== 0) return; if (imageContainer.classList.contains('marker-mode')) return; isDragging = true; imageContainer.classList.add('dragging'); dragStartX = e.clientX; dragStartY = e.clientY; dragStartTranslateX = translateX; dragStartTranslateY = translateY; });
         document.addEventListener('mousemove', (e) => { if (!isDragging) return; translateX = dragStartTranslateX + (e.clientX - dragStartX); translateY = dragStartTranslateY + (e.clientY - dragStartY); updateTransform(true); });

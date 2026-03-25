@@ -443,6 +443,69 @@ def register_routes(app):
         org_name, org_slug = get_org_name_and_slug_for_panorama(sb, panorama)
         return render_template('editor.html', panorama=panorama, mode='admin', org_name=org_name, org_slug=org_slug, **auth_ctx())
 
+    def load_customer_workspace_panoramas(sb, workspace_id, main_id=None):
+        workspace_panoramas = []
+        if not workspace_id:
+            return workspace_panoramas
+        try:
+            r = sb.table('panoramas').select('id, name, filename, is_360').eq('workspace_id', workspace_id).order('id').execute()
+            rows = list(r.data or [])
+            if main_id is not None:
+                try:
+                    mid = int(main_id)
+                except Exception:
+                    mid = None
+                if mid is not None:
+                    def sort_key(p):
+                        pid = p.get('id')
+                        if pid == mid:
+                            return (0, pid or 0)
+                        return (1, pid or 0)
+                    rows.sort(key=sort_key)
+            for p in rows:
+                workspace_panoramas.append({
+                    'id': p.get('id'),
+                    'name': (p.get('name') or '').strip() or ('Panorama #' + str(p.get('id') or '')),
+                    'filename': p.get('filename') or '',
+                    'is_360': bool(p.get('is_360')),
+                })
+        except Exception:
+            pass
+        return workspace_panoramas
+
+    def build_customer_workspace_context(sb, panorama):
+        workspace_id = (panorama or {}).get('workspace_id')
+        customer_view_config = {}
+        workspace_panoramas = []
+        if workspace_id:
+            try:
+                customer_view_config = ws_get_customer_config(sb, workspace_id) or {}
+            except Exception:
+                pass
+            workspace_panoramas = load_customer_workspace_panoramas(
+                sb,
+                workspace_id,
+                (get_workspace_by_id(sb, workspace_id) or {}).get('main_panorama_id')
+            )
+        return workspace_id, workspace_panoramas, customer_view_config
+
+    def render_customer_panorama_template(sb, panorama, org_name, canonical_slug, full_view=False, initial_panorama_id=None):
+        workspace_id, workspace_panoramas, customer_view_config = build_customer_workspace_context(sb, panorama)
+        resp = make_response(render_template(
+            'customer_3d.html',
+            panorama=panorama,
+            org_name=org_name,
+            org_slug=canonical_slug,
+            full_view=full_view,
+            workspace_panoramas=workspace_panoramas,
+            initial_panorama_id=initial_panorama_id,
+            workspace_id=workspace_id,
+            customer_view_config=customer_view_config,
+            **auth_ctx()
+        ))
+        resp.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate'
+        return resp
+
     @app.route('/customer/edit/<workspace_id>')
     def customer_edit_view(workspace_id):
         sb = get_supabase()
@@ -457,34 +520,15 @@ def register_routes(app):
             panorama = get_panorama_by_id(sb, main_id)
         if not panorama:
             try:
-                r = sb.table('panoramas').select('*').eq('workspace_id', workspace_id).eq('is_360', True).order('id').limit(1).execute()
+                r = sb.table('panoramas').select('*').eq('workspace_id', workspace_id).order('id').limit(1).execute()
                 if r.data and len(r.data) > 0:
                     panorama = dict(r.data[0])
             except Exception:
                 pass
         if not panorama:
-            return "No 360 panorama in this workspace", 404
+            return "No panorama in this workspace", 404
         org_name, canonical_slug = get_org_name_and_slug_for_panorama(sb, panorama)
-        workspace_panoramas = []
-        try:
-            r = sb.table('panoramas').select('id, name, filename').eq('workspace_id', workspace_id).eq('is_360', True).order('id').execute()
-            rows = list(r.data or [])
-            if main_id is not None:
-                mid = int(main_id)
-                def sort_key(p):
-                    pid = p.get('id')
-                    if pid == mid:
-                        return (0, pid or 0)
-                    return (1, pid or 0)
-                rows.sort(key=sort_key)
-            for p in rows:
-                workspace_panoramas.append({
-                    'id': p.get('id'),
-                    'name': (p.get('name') or '').strip() or ('Panorama #' + str(p.get('id') or '')),
-                    'filename': p.get('filename') or '',
-                })
-        except Exception:
-            pass
+        workspace_panoramas = load_customer_workspace_panoramas(sb, workspace_id, main_id)
         return render_template(
             'customer_edit.html',
             panorama=panorama,
@@ -529,7 +573,7 @@ def register_routes(app):
             return redirect(f"/customer/{canonical_slug}/3d/{panorama_id}{suffix}", code=302)
         if str(org_slug or '').lower() != str(canonical_slug).lower():
             return redirect(f"/customer/{canonical_slug}/{panorama_id}{suffix}", code=302)
-        return render_template('viewer.html', panorama=panorama, org_name=org_name, org_slug=canonical_slug, **auth_ctx())
+        return render_customer_panorama_template(sb, panorama, org_name, canonical_slug)
 
     @app.route('/client/<int:panorama_id>')
     def client(panorama_id):
@@ -602,49 +646,7 @@ def register_routes(app):
             return redirect(f"/customer/{canonical_slug}/{panorama_id}{suffix}", code=302)
         if str(org_slug or '').lower() != str(canonical_slug).lower():
             return redirect(f"/customer/{canonical_slug}/3d/{panorama_id}{suffix}", code=302)
-        customer_view_config = {}
-        workspace_id = (panorama or {}).get('workspace_id')
-        workspace_panoramas = []
-        if workspace_id:
-            try:
-                customer_view_config = ws_get_customer_config(sb, workspace_id) or {}
-            except Exception:
-                pass
-            try:
-                r = sb.table('panoramas').select('id, name, filename').eq('workspace_id', workspace_id).eq('is_360', True).order('id').execute()
-                rows = list(r.data or [])
-                ws_row = get_workspace_by_id(sb, workspace_id)
-                main_id = (ws_row or {}).get('main_panorama_id')
-                if main_id is not None:
-                    main_id = int(main_id)
-                def sort_key(p):
-                    pid = p.get('id')
-                    if main_id is not None and pid == main_id:
-                        return (0, pid or 0)
-                    return (1, pid or 0)
-                rows.sort(key=sort_key)
-                for p in rows:
-                    workspace_panoramas.append({
-                        'id': p.get('id'),
-                        'name': (p.get('name') or '').strip() or ('Panorama #' + str(p.get('id') or '')),
-                        'filename': p.get('filename') or '',
-                    })
-            except Exception:
-                pass
-        resp = make_response(render_template(
-            'customer_3d.html',
-            panorama=panorama,
-            org_name=org_name,
-            org_slug=canonical_slug,
-            full_view=False,
-            workspace_panoramas=workspace_panoramas,
-            initial_panorama_id=None,
-            workspace_id=workspace_id,
-            customer_view_config=customer_view_config,
-            **auth_ctx()
-        ))
-        resp.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate'
-        return resp
+        return render_customer_panorama_template(sb, panorama, org_name, canonical_slug)
 
     @app.route('/customer/project/<workspace_id>')
     def customer_project_view(workspace_id):
@@ -661,7 +663,9 @@ def register_routes(app):
         if not panorama:
             return "Panorama not found", 404
         org_name, canonical_slug = get_org_name_and_slug_for_panorama(sb, panorama)
-        return redirect(f"/customer/{canonical_slug}/3d/{main_id}", code=302)
+        # IMPORTANT: Keep this URL stable (no redirects). It should always open the
+        # current workspace main panorama, even if the main panorama changes later.
+        return render_customer_panorama_template(sb, panorama, org_name, canonical_slug)
 
     @app.route('/panoview/<endpoint>')
     def customer_project_share_view(endpoint):
@@ -680,47 +684,8 @@ def register_routes(app):
         panorama = get_panorama_by_id(sb, main_id)
         if not panorama:
             return "Panorama not found", 404
-        if not bool((panorama or {}).get('is_360')):
-            return "Main panorama must be 360", 400
         org_name, canonical_slug = get_org_name_and_slug_for_panorama(sb, panorama)
-        customer_view_config = {}
-        workspace_panoramas = []
-        try:
-            customer_view_config = ws_get_customer_config(sb, workspace_id) or {}
-        except Exception:
-            pass
-        try:
-            r = sb.table('panoramas').select('id, name, filename').eq('workspace_id', workspace_id).eq('is_360', True).order('id').execute()
-            rows = list(r.data or [])
-            main_sort_id = int(main_id)
-            def sort_key(p):
-                pid = p.get('id')
-                if main_sort_id is not None and pid == main_sort_id:
-                    return (0, pid or 0)
-                return (1, pid or 0)
-            rows.sort(key=sort_key)
-            for p in rows:
-                workspace_panoramas.append({
-                    'id': p.get('id'),
-                    'name': (p.get('name') or '').strip() or ('Panorama #' + str(p.get('id') or '')),
-                    'filename': p.get('filename') or '',
-                })
-        except Exception:
-            pass
-        resp = make_response(render_template(
-            'customer_3d.html',
-            panorama=panorama,
-            org_name=org_name,
-            org_slug=canonical_slug,
-            full_view=False,
-            workspace_panoramas=workspace_panoramas,
-            initial_panorama_id=None,
-            workspace_id=workspace_id,
-            customer_view_config=customer_view_config,
-            **auth_ctx()
-        ))
-        resp.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate'
-        return resp
+        return render_customer_panorama_template(sb, panorama, org_name, canonical_slug)
 
     @app.route('/uploads/<filename>')
     def uploaded_file(filename):
@@ -2140,14 +2105,12 @@ def register_routes(app):
         if new_main_id and workspace_id:
             try:
                 new_main_id = int(new_main_id)
-                # Verify the new main panorama exists, is 360°, and belongs to the same workspace
+                # Verify the new main panorama exists and belongs to the same workspace
                 new_pano = get_panorama_by_id(sb, new_main_id)
                 if not new_pano:
                     return jsonify({'error': 'New main panorama not found'}), 400
                 if str(new_pano.get('workspace_id') or '') != str(workspace_id):
                     return jsonify({'error': 'New main panorama must be in the same project'}), 400
-                if not new_pano.get('is_360'):
-                    return jsonify({'error': 'New main panorama must be a 360° panorama'}), 400
                 # Update workspace main_panorama_id to the new panorama
                 sb.table('workspaces').update({
                     'main_panorama_id': new_main_id,

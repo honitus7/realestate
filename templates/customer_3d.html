@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ panorama.name }} - 360° View</title>
+    <title>{{ panorama.name }} - Panorama View</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link
@@ -57,6 +57,20 @@
     </div>
 
     <div id="psv-container"></div>
+    <div class="image-container" id="image-container" hidden>
+        <div class="image-wrapper" id="image-wrapper">
+            <img class="panorama-image" id="panorama-image" alt="{{ panorama.name }}" draggable="false">
+            <svg class="plots-overlay" id="plots-overlay"></svg>
+            <div class="marker-layer" id="marker-layer"></div>
+        </div>
+    </div>
+
+    <div class="zoom-controls" id="zoom-controls" hidden>
+        <button class="zoom-btn" id="zoom-in" type="button" aria-label="Zoom in">+</button>
+        <button class="zoom-btn" id="zoom-out" type="button" aria-label="Zoom out">−</button>
+        <button class="zoom-btn" id="zoom-reset" type="button" aria-label="Reset zoom" style="font-size: 0.9rem;">⌂</button>
+        <div class="zoom-info" id="zoom-level">100%</div>
+    </div>
 
     <div class="overlay-gradient"></div>
 
@@ -74,7 +88,7 @@
                 <div class="project-badge">
                     <span class="project-badge-name">{{ panorama.name }}</span>
                     <span class="project-badge-dot"></span>
-                    <span class="project-badge-label">360° Explorer</span>
+                    <span class="project-badge-label">{{ '360° Explorer' if panorama.get('is_360') else 'Panorama Explorer' }}</span>
                 </div>
             </div>
             <div class="header-center">
@@ -119,7 +133,7 @@
                 <div class="project-badge">
                     <span class="project-badge-name">{{ panorama.name }}</span>
                     <span class="project-badge-dot"></span>
-                    <span class="project-badge-label">360° Explorer</span>
+                        <span class="project-badge-label">{{ '360° Explorer' if panorama.get('is_360') else 'Panorama Explorer' }}</span>
                 </div>
             </div>
             <button type="button" class="panorama-nav-collapse-btn" id="panorama-nav-collapse" title="Close" aria-label="Close panorama list">&lt;</button>
@@ -308,7 +322,9 @@
     <script>
         const PANORAMA_ID = {{ panorama.id }};
         let CURRENT_PANORAMA_NAME = {{ (panorama.name or '')| tojson }};
-        const IS_360 = 1; // Always 360 for 3D routes
+        const IS_360 = {{ (panorama.get('is_360', false) if panorama else false) | tojson }};
+        let CURRENT_PANORAMA_IS_360 = Boolean(IS_360);
+        let CURRENT_PANORAMA_FILENAME = {{ (panorama.get('filename') or '') | tojson }};
         const ORG_SLUG = {{ (org_slug or '')| tojson }};
         const USE_ANIMATED_ICONS = {{ (panorama.get('use_animated_icons', false) if panorama else false) | tojson }};
         const START_VIEW = {{ (panorama.get('start_view') if panorama else none) | tojson }};
@@ -350,6 +366,35 @@
         function isPanoramaHidden(panoramaId, forPanoramaId) {
             if (!panoramaId) return false;
             return getHiddenPanoramaSet(forPanoramaId).has(String(panoramaId));
+        }
+
+        function getCurrentPanoramaId() {
+            return IN_WORKSPACE ? String(currentFullViewPanoramaId || PANORAMA_ID) : String(PANORAMA_ID);
+        }
+
+        function getCurrentRouteMode() {
+            return CURRENT_PANORAMA_IS_360 ? '3d' : '2d';
+        }
+
+        function getPanoramaPathByMeta(panoramaId, is360) {
+            const slug = String(ORG_SLUG || '').trim();
+            if (is360) {
+                return slug ? `/customer/${encodeURIComponent(slug)}/3d/${encodeURIComponent(panoramaId)}` : `/customer/3d/${encodeURIComponent(panoramaId)}`;
+            }
+            return slug ? `/customer/${encodeURIComponent(slug)}/${encodeURIComponent(panoramaId)}` : `/customer/${encodeURIComponent(panoramaId)}`;
+        }
+
+        function syncProjectBadgeText() {
+            const cfg = getCvConfig();
+            const badgeCfg = cfg && cfg.projectBadge ? cfg.projectBadge : {};
+            document.querySelectorAll('.project-badge-name').forEach(function (el) {
+                el.textContent = badgeCfg.customText || CURRENT_PANORAMA_NAME || 'Panorama';
+            });
+            if (badgeCfg.customLabel) return;
+            const label = CURRENT_PANORAMA_IS_360 ? '360° Explorer' : 'Panorama Explorer';
+            document.querySelectorAll('.project-badge-label').forEach(function (el) {
+                el.textContent = label;
+            });
         }
 
         var transitionSound = null;
@@ -780,11 +825,10 @@
                 if (!currentWorkspaceId) return { inWorkspace: false, panoramas: [] };
                 var list = panoramaIndexCache.filter(function (row) {
                     if (!row || !row.id) return false;
-                    if (!row.is_360) return false;
                     var rowWorkspaceId = row.workspace_id != null ? String(row.workspace_id) : null;
                     return rowWorkspaceId === currentWorkspaceId;
                 }).map(function (row) {
-                    return { id: row.id, name: (row.name || '').trim() || ('Panorama #' + String(row.id)), filename: row.filename || '' };
+                    return { id: row.id, name: (row.name || '').trim() || ('Panorama #' + String(row.id)), filename: row.filename || '', is_360: Boolean(row.is_360) };
                 });
                 var inWs = list.some(function (p) { return String(p.id) === currentId; });
                 return { inWorkspace: inWs, panoramas: list };
@@ -846,13 +890,10 @@
                     meta = await ensurePanoramaMeta(targetId);
                 }
                 const is360 = meta ? Boolean(meta.is_360) : true;
-                const slug = String(ORG_SLUG || '').trim();
-                const basePath = is360
-                    ? (slug ? `/customer/${encodeURIComponent(slug)}/3d/${encodeURIComponent(targetId)}` : `/customer/3d/${encodeURIComponent(targetId)}`)
-                    : (slug ? `/customer/${encodeURIComponent(slug)}/${encodeURIComponent(targetId)}` : `/customer/${encodeURIComponent(targetId)}`);
+                const basePath = getPanoramaPathByMeta(targetId, is360);
                 const params = new URLSearchParams();
-                params.set('from', String(PANORAMA_ID));
-                params.set('from_mode', '3d');
+                params.set('from', getCurrentPanoramaId());
+                params.set('from_mode', getCurrentRouteMode());
                 window.location.href = `${basePath}?${params.toString()}`;
             };
 
@@ -2321,6 +2362,10 @@
             }
 
             syncViewerMarkers() {
+                if (!CURRENT_PANORAMA_IS_360) {
+                    this.sync2dMarkers();
+                    return;
+                }
                 if (!this.markersPlugin) return;
                 const existing = new Set();
                 (this.markersPlugin.getMarkers ? this.markersPlugin.getMarkers() : []).forEach((marker) => {
@@ -2343,6 +2388,38 @@
                 requestAnimationFrame(() => this.applyMarkerVisualStyle());
                 setTimeout(() => this.applyMarkerVisualStyle(), 60);
                 setTimeout(() => this.updateViewportFocus(), 90);
+            }
+
+            create2dMarkerElement(marker) {
+                if (!markerLayer) return null;
+                const host = document.createElement('div');
+                host.className = 'marker-overlay-item';
+                host.style.pointerEvents = 'auto';
+                // Editor stores marker longitude/latitude as percentages (0..1). Convert to pixels.
+                const lon = Number(marker.longitude || 0);
+                const lat = Number(marker.latitude || 0);
+                // Keep the same percent-based positioning as `editor.html`.
+                host.style.left = `${lon * 100}%`;
+                host.style.top = `${lat * 100}%`;
+                host.innerHTML = this.buildViewerMarker(marker).html;
+                const button = host.firstElementChild;
+                if (!button) return null;
+                button.addEventListener('click', (event) => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    this.handleMarkerSelection({ config: { data: { markerType: 'poi', markerId: marker.id } } });
+                });
+                return host;
+            }
+
+            sync2dMarkers() {
+                if (!markerLayer) return;
+                markerLayer.innerHTML = '';
+                this.markerMap.forEach((marker) => {
+                    const el = this.create2dMarkerElement(marker);
+                    if (el) markerLayer.appendChild(el);
+                });
+                requestAnimationFrame(() => this.applyMarkerVisualStyle());
             }
 
             handleMarkerSelection(marker) {
@@ -2372,6 +2449,11 @@
                 if (!marker) return;
                 this.selectedMarkerId = String(markerId);
                 this.setActiveState(markerId, true);
+                if (!CURRENT_PANORAMA_IS_360) {
+                    focusMarkerIn2d(marker);
+                    this.setViewportFocus(markerId);
+                    return;
+                }
                 if (rotate && this.markersPlugin) {
                     this.markersPlugin.gotoMarker(this.toViewerMarkerId(markerId), '6rpm').catch(() => { });
                 }
@@ -2615,6 +2697,7 @@
             }
 
             updateViewportFocus() {
+                if (!CURRENT_PANORAMA_IS_360) return;
                 if (!this.viewer || this.markerMap.size === 0) return;
                 let position = null;
                 try {
@@ -2709,8 +2792,9 @@
                 viewer.toggleFullscreen();
                 return;
             }
-            if (!document.fullscreenElement && psvContainer && psvContainer.requestFullscreen) {
-                psvContainer.requestFullscreen().catch(() => { });
+            const viewportEl = getActiveViewportElement();
+            if (!document.fullscreenElement && viewportEl && viewportEl.requestFullscreen) {
+                viewportEl.requestFullscreen().catch(() => { });
             } else if (document.fullscreenElement && document.exitFullscreen) {
                 document.exitFullscreen().catch(() => { });
             }
@@ -2755,8 +2839,12 @@
             }
 
             const plotMatch = plots.find((plot) => String(plot.name || '').toLowerCase().includes(query));
-            if (plotMatch && markersPlugin) {
-                markersPlugin.gotoMarker(`plot-label-${plotMatch.id}`, '6rpm').catch(() => { });
+            if (plotMatch) {
+                if (CURRENT_PANORAMA_IS_360 && markersPlugin) {
+                    markersPlugin.gotoMarker(`plot-label-${plotMatch.id}`, '6rpm').catch(() => { });
+                } else {
+                    focusPlotIn2d(plotMatch);
+                }
                 return true;
             }
             return false;
@@ -2868,8 +2956,14 @@
                 return;
             }
 
-            if (item.kind === 'plot' && markersPlugin) {
-                markersPlugin.gotoMarker(`plot-label-${item.id}`, '6rpm').catch(() => { });
+            if (item.kind === 'plot') {
+                const plot = plots.find((entry) => String(entry.id) === String(item.id));
+                if (!plot) return;
+                if (CURRENT_PANORAMA_IS_360 && markersPlugin) {
+                    markersPlugin.gotoMarker(`plot-label-${item.id}`, '6rpm').catch(() => { });
+                } else {
+                    focusPlotIn2d(plot);
+                }
             }
         }
 
@@ -3131,9 +3225,140 @@
         let viewer = null;
         let markersPlugin = null;
         const psvContainer = document.getElementById('psv-container');
+        const imageContainer = document.getElementById('image-container');
+        const imageWrapper = document.getElementById('image-wrapper');
+        const panoramaImage = document.getElementById('panorama-image');
+        const plotsOverlay = document.getElementById('plots-overlay');
+        const markerLayer = document.getElementById('marker-layer');
+        const zoomControls = document.getElementById('zoom-controls');
+        const zoomInBtn = document.getElementById('zoom-in');
+        const zoomOutBtn = document.getElementById('zoom-out');
+        const zoomResetBtn = document.getElementById('zoom-reset');
+        const zoomLevel = document.getElementById('zoom-level');
         const MAX_PSV_RETRIES = 50;
         let psvRetryCount = 0;
         let autoRotateResumeTimer = null;
+        let imageWidth = 0;
+        let imageHeight = 0;
+        let containerWidth = 0;
+        let containerHeight = 0;
+        let scale = 1;
+        let translateX = 0;
+        let translateY = 0;
+        let minScale2d = 0.3;
+        let maxScale2d = 5.0;
+        let isImageDragging = false;
+        let dragStartX = 0;
+        let dragStartY = 0;
+        let dragStartTranslateX = 0;
+        let dragStartTranslateY = 0;
+        let customerConfigLoaded = false;
+        let customerConfigLoadPromise = null;
+
+        function getActiveViewportElement() {
+            return CURRENT_PANORAMA_IS_360 ? psvContainer : imageContainer;
+        }
+
+        function set2dViewportVisible(visible) {
+            if (imageContainer) imageContainer.hidden = !visible;
+            if (psvContainer) psvContainer.hidden = visible;
+            if (zoomControls) zoomControls.hidden = !visible;
+            if (markerLayer) markerLayer.style.pointerEvents = visible ? 'auto' : 'none';
+            document.body.classList.toggle('is-2d', Boolean(visible));
+        }
+
+        function destroyViewer() {
+            if (viewer && typeof viewer.destroy === 'function') {
+                try { viewer.destroy(); } catch (e) { }
+            }
+            viewer = null;
+            markersPlugin = null;
+            markerManager.init(null, null);
+        }
+
+        function update2dTransform(noTransition = false) {
+            if (!imageWrapper || !imageWidth || !imageHeight) return;
+            if (!containerWidth || !Number.isFinite(containerWidth) || containerWidth <= 0) {
+                containerWidth = (imageContainer && imageContainer.clientWidth) ? imageContainer.clientWidth : window.innerWidth;
+            }
+            if (!containerHeight || !Number.isFinite(containerHeight) || containerHeight <= 0) {
+                containerHeight = (imageContainer && imageContainer.clientHeight) ? imageContainer.clientHeight : window.innerHeight;
+            }
+            imageWrapper.classList.toggle('no-transition', Boolean(noTransition));
+            const scaledWidth = imageWidth * scale;
+            const scaledHeight = imageHeight * scale;
+            const maxTranslateX = Math.max(0, (scaledWidth - containerWidth) / 2);
+            const maxTranslateY = Math.max(0, (scaledHeight - containerHeight) / 2);
+            translateX = Math.max(-maxTranslateX, Math.min(maxTranslateX, translateX));
+            translateY = Math.max(-maxTranslateY, Math.min(maxTranslateY, translateY));
+            imageWrapper.style.transform = `translate(-50%, -50%) translate(${translateX}px, ${translateY}px) scale(${scale})`;
+            if (zoomLevel) zoomLevel.textContent = `${Math.round(scale * 100)}%`;
+        }
+
+        function reset2dView() {
+            if (!imageContainer || !imageWidth || !imageHeight) return;
+            var rect = (typeof imageContainer.getBoundingClientRect === 'function') ? imageContainer.getBoundingClientRect() : null;
+            containerWidth = (rect && rect.width > 0) ? rect.width : (imageContainer.clientWidth || window.innerWidth || 1);
+            containerHeight = (rect && rect.height > 0) ? rect.height : (imageContainer.clientHeight || window.innerHeight || 1);
+            // Show the full image initially (allow whitespace if aspect differs).
+            const fitContainScale = Math.min(containerWidth / imageWidth, containerHeight / imageHeight);
+            minScale2d = Math.max(0.01, fitContainScale);
+            maxScale2d = 5.0;
+            // Start at the minimum zoom: full image visible.
+            scale = minScale2d;
+            translateX = 0;
+            translateY = 0;
+            update2dTransform();
+        }
+
+        function center2dOnPoint(x, y) {
+            if (!imageWidth || !imageHeight) return;
+            if (!containerWidth || !Number.isFinite(containerWidth) || containerWidth <= 0 || !containerHeight || !Number.isFinite(containerHeight) || containerHeight <= 0) {
+                var rect = (imageContainer && typeof imageContainer.getBoundingClientRect === 'function') ? imageContainer.getBoundingClientRect() : null;
+                containerWidth = (rect && rect.width > 0) ? rect.width : (imageContainer && imageContainer.clientWidth ? imageContainer.clientWidth : window.innerWidth);
+                containerHeight = (rect && rect.height > 0) ? rect.height : (imageContainer && imageContainer.clientHeight ? imageContainer.clientHeight : window.innerHeight);
+            }
+            translateX = -((x - (imageWidth / 2)) * scale);
+            translateY = -((y - (imageHeight / 2)) * scale);
+            update2dTransform();
+        }
+
+        function focusMarkerIn2d(marker) {
+            if (!marker || !imageWidth || !imageHeight) return;
+            // Editor stores marker longitude/latitude as percentages (0..1). Convert to pixels.
+            const lon = Number(marker.longitude || 0);
+            const lat = Number(marker.latitude || 0);
+            const x = imageWidth * lon;
+            const y = imageHeight * lat;
+            center2dOnPoint(x, y);
+        }
+
+        function focusPlotIn2d(plot) {
+            const centroid = getCentroid(plot && plot.points);
+            if (!centroid) return;
+            center2dOnPoint(centroid.x, centroid.y);
+        }
+
+        function ensureCustomerViewConfigLoaded() {
+            if (customerConfigLoaded) return Promise.resolve();
+            if (customerConfigLoadPromise) return customerConfigLoadPromise;
+            customerConfigLoadPromise = (WORKSPACE_ID
+                ? fetch('/api/workspaces/' + WORKSPACE_ID + '/customer-view-config')
+                    .then(function (r) { return r.json(); })
+                    .then(function (data) {
+                        if (data && data.config && typeof data.config === 'object') {
+                            deepMergeCvConfig(CUSTOMER_VIEW_CONFIG, data.config);
+                        }
+                    })
+                    .catch(function () { })
+                : Promise.resolve()
+            ).then(function () {
+                customerConfigLoaded = true;
+                applyCustomerViewConfig();
+                syncProjectBadgeText();
+            });
+            return customerConfigLoadPromise;
+        }
 
         function isModalVisible() {
             return Boolean(
@@ -3150,12 +3375,14 @@
                 clearTimeout(autoRotateResumeTimer);
                 autoRotateResumeTimer = null;
             }
+            if (!CURRENT_PANORAMA_IS_360) return;
             if (!viewer || typeof viewer.stopAutorotate !== 'function') return;
             if (typeof viewer.isAutorotateEnabled === 'function' && !viewer.isAutorotateEnabled()) return;
             viewer.stopAutorotate();
         }
 
         function scheduleAutoRotateResume(delayMs = AUTO_ROTATE_RESUME_DELAY_MS) {
+            if (!CURRENT_PANORAMA_IS_360) return;
             if (!viewer || typeof viewer.startAutorotate !== 'function') return;
             if (autoRotateResumeTimer) clearTimeout(autoRotateResumeTimer);
             autoRotateResumeTimer = setTimeout(() => {
@@ -3183,6 +3410,96 @@
         }
 
         function renderPlots() {
+            if (!CURRENT_PANORAMA_IS_360) {
+                if (!plotsOverlay || !imageWidth || !imageHeight) return;
+                plotsOverlay.innerHTML = '';
+
+                const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
+                Object.entries(statusColorMap).forEach(([name, colors]) => {
+                    const gradient = document.createElementNS('http://www.w3.org/2000/svg', 'linearGradient');
+                    gradient.setAttribute('id', `gradient-${name}`);
+                    gradient.setAttribute('x1', '0%');
+                    gradient.setAttribute('y1', '0%');
+                    gradient.setAttribute('x2', '100%');
+                    gradient.setAttribute('y2', '100%');
+                    const stop1 = document.createElementNS('http://www.w3.org/2000/svg', 'stop');
+                    stop1.setAttribute('offset', '0%');
+                    stop1.setAttribute('stop-color', colors.start);
+                    const stop2 = document.createElementNS('http://www.w3.org/2000/svg', 'stop');
+                    stop2.setAttribute('offset', '100%');
+                    stop2.setAttribute('stop-color', colors.end);
+                    gradient.appendChild(stop1);
+                    gradient.appendChild(stop2);
+                    defs.appendChild(gradient);
+                });
+                plotsOverlay.appendChild(defs);
+
+                plots
+                    .filter(plot => Array.isArray(plot.points) && plot.points.length >= 3)
+                    .forEach(plot => {
+                        const statusKey = getStatusKey(plot.status);
+                        const colors = statusColorMap[statusKey];
+                        const pointsStr = plot.points.map(p => `${p.x},${p.y}`).join(' ');
+
+                        const polygon = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+                        polygon.setAttribute('class', 'plot-boundary');
+                        polygon.setAttribute('points', pointsStr);
+                        polygon.setAttribute('fill', `rgba(${hexToMarkerRgb(colors.fillHex)}, 0.3)`);
+                        polygon.setAttribute('stroke', `url(#gradient-${statusKey})`);
+                        polygon.setAttribute('stroke-width', '3');
+                        polygon.setAttribute('stroke-linejoin', 'round');
+                        polygon.style.cursor = 'pointer';
+
+                        const outline = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+                        outline.setAttribute('class', 'plot-outline');
+                        outline.setAttribute('points', pointsStr);
+                        outline.setAttribute('fill', 'none');
+                        outline.setAttribute('stroke', 'rgba(255, 255, 255, 0.7)');
+                        outline.setAttribute('stroke-width', '1.1');
+                        outline.setAttribute('stroke-dasharray', '10 7');
+                        outline.setAttribute('stroke-linejoin', 'round');
+                        outline.setAttribute('stroke-opacity', '0.58');
+
+                        plotsOverlay.appendChild(polygon);
+                        plotsOverlay.appendChild(outline);
+
+                        const centroid = getCentroid(plot.points);
+                        if (centroid && plot.name) {
+                            const labelGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+                            labelGroup.setAttribute('class', `plot-label-group ${statusKey === 'sold' ? 'is-sold' : (statusKey === 'on_hold' ? 'is-hold' : 'is-available')}`);
+                            const labelBg = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+                            labelBg.setAttribute('class', 'plot-label-bg');
+                            labelBg.setAttribute('rx', '13');
+                            labelBg.setAttribute('ry', '13');
+                            const labelText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                            labelText.setAttribute('class', 'plot-label-text');
+                            labelText.setAttribute('x', centroid.x);
+                            labelText.setAttribute('y', centroid.y);
+                            labelText.setAttribute('text-anchor', 'middle');
+                            labelText.setAttribute('dominant-baseline', 'middle');
+                            labelText.textContent = String(plot.name || '').toUpperCase();
+                            labelGroup.appendChild(labelBg);
+                            labelGroup.appendChild(labelText);
+                            plotsOverlay.appendChild(labelGroup);
+                            const bbox = labelText.getBBox();
+                            const width = Math.max(84, bbox.width + 32);
+                            const height = bbox.height + 18;
+                            labelBg.setAttribute('x', centroid.x - (width / 2));
+                            labelBg.setAttribute('y', centroid.y - (height / 2));
+                            labelBg.setAttribute('width', width);
+                            labelBg.setAttribute('height', height);
+                        }
+
+                        polygon.addEventListener('click', (e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            showPlotDetails(plot);
+                        });
+                    });
+
+                markerManager.syncViewerMarkers();
+                return;
+            }
             if (!markersPlugin || !viewer) return;
             const markers = [];
             plots
@@ -3237,18 +3554,18 @@
             return plots.find(item => String(item.id) === String(plotId));
         }
 
-        function initPsv() {
-            if (!psvContainer) return;
+        function initPsv(meta) {
+            if (!psvContainer || !meta || !meta.filename) return Promise.resolve();
             playTransitionSound();
-            const imageUrl = '/uploads/{{ panorama.filename }}?size=optimized';
+            const imageUrl = '/uploads/' + encodeURIComponent(meta.filename) + '?size=optimized';
             var startLon = null;
             var startLat = null;
             var startZoom = null;
             try {
-                if (START_VIEW && typeof START_VIEW === 'object') {
-                    startLon = Number(START_VIEW.longitude);
-                    startLat = Number(START_VIEW.latitude);
-                    startZoom = START_VIEW.zoom !== undefined && START_VIEW.zoom !== null ? Number(START_VIEW.zoom) : null;
+                if (meta.start_view && typeof meta.start_view === 'object') {
+                    startLon = Number(meta.start_view.longitude);
+                    startLat = Number(meta.start_view.latitude);
+                    startZoom = meta.start_view.zoom !== undefined && meta.start_view.zoom !== null ? Number(meta.start_view.zoom) : null;
                     if (!Number.isFinite(startLon) || !Number.isFinite(startLat)) {
                         startLon = null;
                         startLat = null;
@@ -3256,6 +3573,17 @@
                     if (!Number.isFinite(startZoom)) startZoom = null;
                 }
             } catch (e) { startLon = null; startLat = null; startZoom = null; }
+            set2dViewportVisible(false);
+            if (viewer && typeof viewer.setPanorama === 'function') {
+                const opts = { showLoader: false, transition: 900 };
+                if (startLon !== null && startLat !== null) {
+                    opts.longitude = startLon;
+                    opts.latitude = startLat;
+                }
+                if (startZoom !== null) opts.zoom = startZoom;
+                return viewer.setPanorama(imageUrl, opts);
+            }
+            return new Promise((resolve) => {
             viewer = new PhotoSphereViewer.Viewer({
                 container: psvContainer,
                 panorama: imageUrl,
@@ -3281,39 +3609,7 @@
             markerManager.init(viewer, markersPlugin);
 
             viewer.on('ready', () => {
-                stopLoadingStatusCycle();
-                loading.classList.add('hidden');
-                var configPromise = WORKSPACE_ID ? fetch('/api/workspaces/' + WORKSPACE_ID + '/customer-view-config').then(function (r) { return r.json(); }).then(function (data) { if (data && data.config && typeof data.config === 'object') deepMergeCvConfig(CUSTOMER_VIEW_CONFIG, data.config); }).catch(function () {}) : Promise.resolve();
-                configPromise.then(function () {
-                    applyCustomerViewConfig();
-                    const indexPromise = IN_WORKSPACE ? Promise.resolve([]) : loadPanoramaIndex().catch(() => []);
-                    const plotsPromise = loadPlots();
-                    const markersPromise = markerManager.loadMarkers()
-                        .then(() => updateSearchDropdown(plotSearchInput ? plotSearchInput.value : ''))
-                        .catch(() => { });
-                    Promise.all([indexPromise, plotsPromise, markersPromise])
-                        .then(() => {
-                            refreshPanoramaMenu().catch(() => { });
-                            if (IN_WORKSPACE && INITIAL_PANORAMA_ID && INITIAL_PANORAMA_ID !== PANORAMA_ID && !isPanoramaHidden(INITIAL_PANORAMA_ID) && getWorkspacePanoramaById(INITIAL_PANORAMA_ID)) {
-                                switchToPanoramaInView(INITIAL_PANORAMA_ID);
-                            }
-                            const runPrefetch = () => {
-                                prefetchLinkedPanoramas().catch(() => { });
-                                if (IN_WORKSPACE) {
-                                    preloadWorkspacePanoramas().catch(() => { });
-                                    preloadWorkspacePlotsAndMarkers().catch(() => { });
-                                }
-                            };
-                            if (typeof requestIdleCallback === 'function') {
-                                requestIdleCallback(runPrefetch, { timeout: 2500 });
-                            } else {
-                                setTimeout(runPrefetch, 1200);
-                            }
-                        })
-                        .catch(() => { });
-                    scheduleAutoRotateResume(AUTO_ROTATE_BOOT_DELAY_MS);
-                    setTimeout(() => markerManager.updateViewportFocus(), 250);
-                });
+                resolve();
             });
 
             viewer.on('position-updated', () => markerManager.updateViewportFocus());
@@ -3337,10 +3633,148 @@
             ['pointerdown', 'wheel', 'touchstart'].forEach((eventName) => {
                 psvContainer.addEventListener(eventName, pauseAutoRotateForInteraction, { passive: true });
             });
+            });
+        }
+
+        function load2dPanorama(meta) {
+            if (!imageContainer || !imageWrapper || !panoramaImage || !plotsOverlay || !meta || !meta.filename) return Promise.resolve();
+            destroyViewer();
+            set2dViewportVisible(true);
+            playTransitionSound();
+            return new Promise((resolve, reject) => {
+                panoramaImage.onload = function () {
+                    imageWidth = panoramaImage.naturalWidth || 0;
+                    imageHeight = panoramaImage.naturalHeight || 0;
+                    panoramaImage.style.width = `${imageWidth}px`;
+                    panoramaImage.style.height = `${imageHeight}px`;
+                    plotsOverlay.setAttribute('width', imageWidth);
+                    plotsOverlay.setAttribute('height', imageHeight);
+                    plotsOverlay.style.width = `${imageWidth}px`;
+                    plotsOverlay.style.height = `${imageHeight}px`;
+                    if (markerLayer) {
+                        markerLayer.style.width = `${imageWidth}px`;
+                        markerLayer.style.height = `${imageHeight}px`;
+                    }
+                    reset2dView();
+                    updateFullscreenButton();
+                    resolve();
+                };
+                panoramaImage.onerror = reject;
+                panoramaImage.src = '/uploads/' + encodeURIComponent(meta.filename) + '?size=optimized';
+            });
+        }
+
+        function loadCurrentPanoramaData(panoramaId) {
+            markerManager.plotId = String(panoramaId || getCurrentPanoramaId());
+            const indexPromise = IN_WORKSPACE ? Promise.resolve([]) : loadPanoramaIndex().catch(() => []);
+            const plotsPromise = loadPlots(panoramaId);
+            const markersPromise = markerManager.loadMarkers()
+                .then(() => updateSearchDropdown(plotSearchInput ? plotSearchInput.value : ''))
+                .catch(() => { });
+            return Promise.all([indexPromise, plotsPromise, markersPromise]).then(() => {
+                refreshPanoramaMenu().catch(() => { });
+            });
+        }
+
+        function buildInViewPanoramaMeta(meta) {
+            const currentId = meta && meta.id != null ? String(meta.id) : getCurrentPanoramaId();
+            return {
+                id: currentId,
+                name: meta && meta.name ? String(meta.name) : (getPanoramaMenuName(currentId) || CURRENT_PANORAMA_NAME),
+                filename: meta && meta.filename ? String(meta.filename) : CURRENT_PANORAMA_FILENAME,
+                is_360: meta ? Boolean(meta.is_360) : CURRENT_PANORAMA_IS_360,
+                start_view: meta && meta.start_view ? meta.start_view : null
+            };
+        }
+
+        function switchToPanoramaInView(panoramaId) {
+            const id = String(panoramaId || '').trim();
+            if (!id) return Promise.resolve();
+            const workspaceMeta = getWorkspacePanoramaById(id) || {};
+            playTransitionSound();
+            const prevId = currentFullViewPanoramaId;
+            const prevName = CURRENT_PANORAMA_NAME;
+            const prevFilename = CURRENT_PANORAMA_FILENAME;
+            const prevMode = CURRENT_PANORAMA_IS_360;
+            currentFullViewPanoramaId = id;
+            if (workspaceMeta && workspaceMeta.name) CURRENT_PANORAMA_NAME = String(workspaceMeta.name || '').trim() || CURRENT_PANORAMA_NAME;
+            if (workspaceMeta && workspaceMeta.filename) CURRENT_PANORAMA_FILENAME = String(workspaceMeta.filename || '');
+            if (workspaceMeta && Object.prototype.hasOwnProperty.call(workspaceMeta, 'is_360')) CURRENT_PANORAMA_IS_360 = Boolean(workspaceMeta.is_360);
+            syncProjectBadgeText();
+            refreshPanoramaMenu();
+            if (loading) {
+                loading.classList.remove('hidden');
+                startLoadingStatusCycle();
+            }
+            return ensurePanoramaViewMeta(id).then(function (meta2) {
+                const mergedMeta = buildInViewPanoramaMeta(Object.assign({}, workspaceMeta || {}, meta2 || {}, { id: id }));
+                CURRENT_PANORAMA_NAME = mergedMeta.name || CURRENT_PANORAMA_NAME;
+                CURRENT_PANORAMA_FILENAME = mergedMeta.filename || CURRENT_PANORAMA_FILENAME;
+                CURRENT_PANORAMA_IS_360 = Boolean(mergedMeta.is_360);
+                syncProjectBadgeText();
+                return (CURRENT_PANORAMA_IS_360 ? initPsv(mergedMeta) : load2dPanorama(mergedMeta))
+                    .then(function () { return loadCurrentPanoramaData(id); })
+                    .then(function () {
+                        stopLoadingStatusCycle();
+                        if (loading) loading.classList.add('hidden');
+                        if (CURRENT_PANORAMA_IS_360) {
+                            scheduleAutoRotateResume(1200);
+                            setTimeout(() => markerManager.updateViewportFocus(), 250);
+                        }
+                    });
+            }).catch(function () {
+                stopLoadingStatusCycle();
+                if (loading) loading.classList.add('hidden');
+                currentFullViewPanoramaId = prevId;
+                CURRENT_PANORAMA_NAME = prevName;
+                CURRENT_PANORAMA_FILENAME = prevFilename;
+                CURRENT_PANORAMA_IS_360 = prevMode;
+                syncProjectBadgeText();
+                refreshPanoramaMenu();
+            });
+        }
+
+        function initializeCurrentPanorama() {
+            const meta = buildInViewPanoramaMeta({
+                id: PANORAMA_ID,
+                name: CURRENT_PANORAMA_NAME,
+                filename: CURRENT_PANORAMA_FILENAME,
+                is_360: CURRENT_PANORAMA_IS_360,
+                start_view: START_VIEW
+            });
+            const renderPromise = CURRENT_PANORAMA_IS_360 ? initPsv(meta) : load2dPanorama(meta);
+            renderPromise.then(function () {
+                stopLoadingStatusCycle();
+                if (loading) loading.classList.add('hidden');
+                ensureCustomerViewConfigLoaded().then(function () {
+                    loadCurrentPanoramaData(meta.id).then(function () {
+                        if (IN_WORKSPACE && INITIAL_PANORAMA_ID && INITIAL_PANORAMA_ID !== PANORAMA_ID && !isPanoramaHidden(INITIAL_PANORAMA_ID) && getWorkspacePanoramaById(INITIAL_PANORAMA_ID)) {
+                            switchToPanoramaInView(INITIAL_PANORAMA_ID);
+                            return;
+                        }
+                        const runPrefetch = () => {
+                            prefetchLinkedPanoramas().catch(() => { });
+                            if (IN_WORKSPACE) {
+                                preloadWorkspacePanoramas().catch(() => { });
+                                preloadWorkspacePlotsAndMarkers().catch(() => { });
+                            }
+                        };
+                        if (typeof requestIdleCallback === 'function') requestIdleCallback(runPrefetch, { timeout: 2500 });
+                        else setTimeout(runPrefetch, 1200);
+                    }).catch(() => { });
+                });
+                if (CURRENT_PANORAMA_IS_360) {
+                    scheduleAutoRotateResume(AUTO_ROTATE_BOOT_DELAY_MS);
+                    setTimeout(() => markerManager.updateViewportFocus(), 250);
+                }
+            }).catch(() => {
+                stopLoadingStatusCycle();
+                if (loading) loading.classList.add('hidden');
+            });
         }
 
         function startPsvInit() {
-            if (typeof THREE === 'undefined' || typeof PhotoSphereViewer === 'undefined' || !PhotoSphereViewer.MarkersPlugin) {
+            if (CURRENT_PANORAMA_IS_360 && (typeof THREE === 'undefined' || typeof PhotoSphereViewer === 'undefined' || !PhotoSphereViewer.MarkersPlugin)) {
                 psvRetryCount += 1;
                 if (psvRetryCount < MAX_PSV_RETRIES) {
                     setTimeout(startPsvInit, 100);
@@ -3349,7 +3783,7 @@
                 }
                 return;
             }
-            initPsv();
+            initializeCurrentPanorama();
         }
 
         if (document.readyState === 'loading') {
@@ -3358,19 +3792,81 @@
             startPsvInit();
         }
 
+        if (zoomInBtn) {
+            zoomInBtn.addEventListener('click', () => {
+                if (CURRENT_PANORAMA_IS_360) return;
+                scale = Math.min(maxScale2d, scale * 1.2);
+                update2dTransform();
+            });
+        }
+        if (zoomOutBtn) {
+            zoomOutBtn.addEventListener('click', () => {
+                if (CURRENT_PANORAMA_IS_360) return;
+                scale = Math.max(minScale2d, scale / 1.2);
+                update2dTransform();
+            });
+        }
+        if (zoomResetBtn) {
+            zoomResetBtn.addEventListener('click', () => {
+                if (CURRENT_PANORAMA_IS_360) return;
+                reset2dView();
+            });
+        }
+        if (imageContainer) {
+            imageContainer.addEventListener('wheel', (event) => {
+                if (CURRENT_PANORAMA_IS_360) return;
+                event.preventDefault();
+                scale = Math.max(minScale2d, Math.min(maxScale2d, scale + (event.deltaY > 0 ? -0.1 : 0.1)));
+                update2dTransform();
+            }, { passive: false });
+            imageContainer.addEventListener('mousedown', (event) => {
+                if (CURRENT_PANORAMA_IS_360 || event.button !== 0) return;
+                if (event.target && typeof event.target.closest === 'function' && event.target.closest('.psv-glass-marker')) return;
+                isImageDragging = true;
+                imageContainer.classList.add('dragging');
+                dragStartX = event.clientX;
+                dragStartY = event.clientY;
+                dragStartTranslateX = translateX;
+                dragStartTranslateY = translateY;
+            });
+        }
+        document.addEventListener('mousemove', (event) => {
+            if (CURRENT_PANORAMA_IS_360 || !isImageDragging) return;
+            translateX = dragStartTranslateX + (event.clientX - dragStartX);
+            translateY = dragStartTranslateY + (event.clientY - dragStartY);
+            update2dTransform(true);
+        });
+        document.addEventListener('mouseup', () => {
+            if (!isImageDragging) return;
+            isImageDragging = false;
+            if (imageContainer) imageContainer.classList.remove('dragging');
+            update2dTransform();
+        });
+        window.addEventListener('resize', () => {
+            if (!CURRENT_PANORAMA_IS_360) {
+                containerWidth = imageContainer ? (imageContainer.getBoundingClientRect ? imageContainer.getBoundingClientRect().width : imageContainer.clientWidth) : containerWidth;
+                containerHeight = imageContainer ? (imageContainer.getBoundingClientRect ? imageContainer.getBoundingClientRect().height : imageContainer.clientHeight) : containerHeight;
+                const fitContainScale = Math.min(containerWidth / imageWidth, containerHeight / imageHeight);
+                minScale2d = Math.max(0.01, fitContainScale);
+                maxScale2d = 5.0;
+                if (scale < minScale2d) scale = minScale2d;
+                if (scale > maxScale2d) scale = maxScale2d;
+                update2dTransform();
+            }
+            updateFullscreenButton();
+        });
+
         if (shareBtn) {
             shareBtn.addEventListener('click', () => {
                 stopAutoRotate();
-                const slug = String(ORG_SLUG || '').trim();
-                const viewUrl = `${window.location.origin}${slug ? `/customer/${encodeURIComponent(slug)}/3d/${PANORAMA_ID}` : `/customer/3d/${PANORAMA_ID}`}`;
+                const viewUrl = `${window.location.origin}${getPanoramaPathByMeta(getCurrentPanoramaId(), CURRENT_PANORAMA_IS_360)}`;
                 shareUrl.textContent = viewUrl;
                 shareModal.classList.add('visible');
             });
 
             if (copyBtn) {
                 copyBtn.addEventListener('click', () => {
-                    const slug = String(ORG_SLUG || '').trim();
-                    const viewUrl = `${window.location.origin}${slug ? `/customer/${encodeURIComponent(slug)}/3d/${PANORAMA_ID}` : `/customer/3d/${PANORAMA_ID}`}`;
+                    const viewUrl = `${window.location.origin}${getPanoramaPathByMeta(getCurrentPanoramaId(), CURRENT_PANORAMA_IS_360)}`;
                     navigator.clipboard.writeText(viewUrl).then(() => {
                         copyBtn.textContent = 'Copied!';
                         setTimeout(() => {

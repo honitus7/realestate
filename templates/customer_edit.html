@@ -81,7 +81,7 @@
                     <div class="project-badge ce-editable" id="cv-project-badge" data-ce-id="projectBadge">
                         <span class="project-badge-name" id="cv-badge-name">{{ panorama.name }}</span>
                         <span class="project-badge-dot"></span>
-                        <span class="project-badge-label" id="cv-badge-label">360° Explorer</span>
+                        <span class="project-badge-label" id="cv-badge-label">{{ '360° Explorer' if panorama.get('is_360') else 'Panorama Explorer' }}</span>
                     </div>
                 </div>
                 <div class="header-center" id="cv-header-center">
@@ -118,7 +118,7 @@
                     <div class="project-badge">
                         <span class="project-badge-name" id="cv-absorbed-badge-name">{{ panorama.name }}</span>
                         <span class="project-badge-dot"></span>
-                        <span class="project-badge-label" id="cv-absorbed-badge-label">360° Explorer</span>
+                        <span class="project-badge-label" id="cv-absorbed-badge-label">{{ '360° Explorer' if panorama.get('is_360') else 'Panorama Explorer' }}</span>
                     </div>
                     <button type="button" class="panorama-nav-collapse-btn" id="cv-panorama-nav-collapse" title="Close" aria-label="Close panorama list">×</button>
                 </div>
@@ -151,6 +151,7 @@
         var WORKSPACE_ID = {{ workspace_id | tojson }};
         var WORKSPACE_PANORAMAS = {{ (workspace_panoramas or []) | tojson }};
         var PANORAMA_ID = {{ panorama.id }};
+        var IS_360 = {{ (panorama.get('is_360', false) if panorama else false) | tojson }};
         var CE_FONTS = ['Abel', 'Abril Fatface', 'Acme', 'Alfa Slab One', 'Amatic SC', 'Anton', 'Archivo', 'Archivo Black', 'Bebas Neue', 'Bitter', 'Bodoni Moda', 'Bree Serif', 'Cabin', 'Caveat', 'Cinzel', 'Comfortaa', 'Cormorant', 'Crimson Text', 'Dancing Script', 'DM Sans', 'Domine', 'Dosis', 'EB Garamond', 'Exo 2', 'Fira Sans', 'Fjalla One', 'Francois One', 'Fredoka', 'Gloria Hallelujah', 'Great Vibes', 'Heebo', 'IBM Plex Sans', 'IBM Plex Serif', 'Inconsolata', 'Instrument Serif', 'Inter', 'Josefin Sans', 'Josefin Slab', 'Jost', 'Kanit', 'Karla', 'Kaushan Script', 'Kreon', 'Lato', 'League Spartan', 'Libre Baskerville', 'Libre Franklin', 'Lobster', 'Lora', 'Manrope', 'Merriweather', 'Montserrat', 'Mukta', 'Nunito', 'Open Sans', 'Oswald', 'Outfit', 'Overpass', 'Pacifico', 'Passion One', 'Patua One', 'Permanent Marker', 'Playfair Display', 'Poppins', 'PT Sans', 'PT Serif', 'Quicksand', 'Raleway', 'Red Hat Display', 'Righteous', 'Roboto', 'Roboto Condensed', 'Roboto Mono', 'Roboto Slab', 'Rock Salt', 'Rubik', 'Rufina', 'Source Sans 3', 'Source Serif 4', 'Space Grotesk', 'Space Mono', 'Spectral', 'Spectral SC', 'Syne', 'Tajawal', 'Taviraj', 'Tinos', 'Titillium Web', 'Ubuntu', 'Unbounded', 'Urbanist', 'Work Sans', 'Yanone Kaffeesatz', 'Yeseva One', 'Zilla Slab'];
         var MOVE_STEP = 10;
 
@@ -376,7 +377,7 @@
             }
             if (badge) badge.style.display = config.projectBadge.visible ? '' : 'none';
             if (badgeName) badgeName.textContent = config.projectBadge.customText || {{ (panorama.name or '') | tojson }};
-            if (badgeLabel) badgeLabel.textContent = config.projectBadge.customLabel || '360° Explorer';
+            if (badgeLabel) badgeLabel.textContent = config.projectBadge.customLabel || (IS_360 ? '360° Explorer' : 'Panorama Explorer');
             if (badge) badge.style.fontFamily = config.projectBadge.font + ', sans-serif';
             if (badgeName) badgeName.style.fontSize = config.projectBadge.fontSize;
             if (navToggle) navToggle.style.display = config.buttons.panoramaNavToggle ? '' : 'none';
@@ -446,7 +447,7 @@
                         absorbedName.style.fontSize = config.panoramaList.absorbedHeaderFontSize || '0.88rem';
                     }
                     if (absorbedLabel) {
-                        absorbedLabel.textContent = config.projectBadge.customLabel || '360° Explorer';
+                        absorbedLabel.textContent = config.projectBadge.customLabel || (IS_360 ? '360° Explorer' : 'Panorama Explorer');
                         absorbedLabel.style.fontFamily = (config.panoramaList.absorbedHeaderFont || 'Syne') + ', sans-serif';
                     }
                 }
@@ -618,7 +619,7 @@
                 var absorbedPreview = document.createElement('div');
                 absorbedPreview.className = 'ce-opt-row ce-current-preview';
                 var absorbedNamePreview = config.projectBadge.customText || {{ (panorama.name or '') | tojson }};
-                var absorbedLabelPreview = config.projectBadge.customLabel || '360° Explorer';
+                var absorbedLabelPreview = config.projectBadge.customLabel || (IS_360 ? '360° Explorer' : 'Panorama Explorer');
                 absorbedPreview.innerHTML = '<label class="ce-opt-label">Preview</label><div class="ce-preview-text"><strong>' + escapeHtml(absorbedNamePreview) + '</strong><span>' + escapeHtml(absorbedLabelPreview) + '</span></div>';
                 addTo(secAbsorbed, absorbedPreview);
                 var absorbedAlign = config.panoramaList.absorbedHeaderAlign || 'left';
@@ -686,7 +687,7 @@
                 rowItemColor.querySelector('#ce-pano-item-color').addEventListener('input', function () { config.panoramaList.itemColor = this.value; rowItemColor.querySelector('#ce-pano-item-color-hex').textContent = this.value; applyConfig(); });
                 addTo(secList, rowItemColor);
                 var configOrder = config.panoramaList && config.panoramaList.order;
-                var ordered = configOrder && configOrder.length > 0 ? configOrder.map(function (id) { return WORKSPACE_PANORAMAS.find(function (p) { return String(p.id) === String(id); }); }).filter(Boolean) : WORKSPACE_PANORAMAS.slice().sort(function (a, b) { return (a.name || '').localeCompare(b.name || ''); });
+                var ordered = configOrder && configOrder.length > 0 ? configOrder.map(function (id) { return WORKSPACE_PANORAMAS.find(function (p) { return String(p.id) === String(id); }); }).filter(Boolean) : WORKSPACE_PANORAMAS.slice();
                 if (configOrder && configOrder.length > 0) WORKSPACE_PANORAMAS.forEach(function (p) { if (!ordered.find(function (o) { return o && String(o.id) === String(p.id); })) ordered.push(p); });
                 var hiddenGlobalSet = new Set((Array.isArray(config.panoramaList.hiddenGlobal) ? config.panoramaList.hiddenGlobal : []).map(function (id) { return String(id); }));
                 var rowOrder = document.createElement('div');
@@ -1090,7 +1091,7 @@
                     if (!ordered.find(function (o) { return o && String(o.id) === String(p.id); })) ordered.push(p);
                 });
             } else {
-                ordered = WORKSPACE_PANORAMAS.slice().sort(function (a, b) { return (a.name || '').localeCompare(b.name || ''); });
+                ordered = WORKSPACE_PANORAMAS.slice();
             }
             if (subtitleEl) {
                 var hasSub = config.panoramaList.subheader != null && config.panoramaList.subheader !== '';
@@ -1112,6 +1113,12 @@
 
         function initPsv() {
             if (!psvContainer) return;
+            if (!IS_360) {
+                psvContainer.style.background = 'var(--color-bg) url("/uploads/{{ panorama.filename }}?size=optimized") center center / contain no-repeat';
+                applyConfig();
+                renderPanoramaNavList();
+                return;
+            }
             var imageUrl = '/uploads/{{ panorama.filename }}';
             viewer = new PhotoSphereViewer.Viewer({
                 container: psvContainer,
@@ -1130,6 +1137,10 @@
         }
 
         function startPsvInit() {
+            if (!IS_360) {
+                initPsv();
+                return;
+            }
             if (typeof THREE === 'undefined' || typeof PhotoSphereViewer === 'undefined' || !PhotoSphereViewer.MarkersPlugin) {
                 psvRetryCount += 1;
                 if (psvRetryCount < 50) setTimeout(startPsvInit, 100);

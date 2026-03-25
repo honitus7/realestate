@@ -239,8 +239,6 @@ def update_workspace(sb, workspace_id, user_id, name=None, main_panorama_id=None
             pano = get_panorama_by_id(sb, main_panorama_id)
             if not pano or str(pano.get('workspace_id') or '') != str(workspace_id):
                 raise ValueError('Panorama not in workspace')
-            if not bool(pano.get('is_360')):
-                raise ValueError('Main must be 360')
             update_fields['main_panorama_id'] = main_panorama_id
     for k in _PROJECT_KEYS:
         if k in project_fields:
