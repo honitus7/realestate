@@ -984,10 +984,6 @@
                 '</div>' +
                 '<hr class="fp-card-divider">' +
                 '<div class="fp-card-body">' +
-                    '<div class="fp-share-row">' +
-                        '<input type="text" value="' + esc(m.share_url || '') + '" readonly onclick="this.select()">' +
-                        '<button class="btn btn-sm fp-copy-btn" data-url="' + esc(m.share_url || '') + '">Copy</button>' +
-                    '</div>' +
                     '<div class="fp-card-actions">' +
                         '<button class="btn btn-secondary bm-manage-btn" data-id="' + m.id + '">Manage</button>' +
                         '<button class="btn btn-danger bm-del-btn" data-id="' + m.id + '" data-name="' + esc(m.name) + '">Delete</button>' +
@@ -995,16 +991,6 @@
                 '</div>' +
             '</div>';
         }).join('');
-
-        grid.querySelectorAll('.fp-copy-btn').forEach(function(btn) {
-            btn.addEventListener('click', function(e) {
-                e.stopPropagation();
-                navigator.clipboard.writeText(btn.dataset.url).then(function() {
-                    btn.textContent = 'Copied!';
-                    setTimeout(function() { btn.textContent = 'Copy'; }, 1500);
-                });
-            });
-        });
         grid.querySelectorAll('.bm-manage-btn').forEach(function(btn) {
             btn.addEventListener('click', function(e) {
                 e.stopPropagation();
