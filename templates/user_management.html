@@ -83,20 +83,26 @@
                 <div class="modal-title">Invite User</div>
                 <button class="btn btn-secondary" id="close-invite-modal" type="button">Close</button>
             </div>
-            <div class="modal-body">
-                <label class="label" for="invite-name">Display Name <span style="color:var(--color-danger);">*</span></label>
-                <input class="input" id="invite-name" placeholder="User's full name (required)" autocomplete="name">
-                <div class="spacer"></div>
-                <label class="label" for="invite-email">Email <span style="color:var(--color-danger);">*</span></label>
-                <input class="input" id="invite-email" type="email" placeholder="user@company.com" autocomplete="email">
-                <div class="spacer"></div>
-                <label class="label" for="invite-role">Role</label>
-                <select class="input" id="invite-role">
-                    <option value="user">User</option>
-                    <option value="admin">Admin</option>
-                </select>
-                <div class="msg error" id="invite-error" style="display:none;"></div>
-                <div class="msg success" id="invite-success" style="display:none;"></div>
+            <div class="modal-body-edit">
+                <div class="edit-section edit-section--invite">
+                    <div class="form-field">
+                        <label class="label" for="invite-name">Display Name <span style="color:var(--color-danger);">*</span></label>
+                        <input class="input" id="invite-name" type="text" placeholder="User's full name (required)" autocomplete="name">
+                    </div>
+                    <div class="form-field" style="margin-top:0.85rem;">
+                        <label class="label" for="invite-email">Email <span style="color:var(--color-danger);">*</span></label>
+                        <input class="input" id="invite-email" type="email" placeholder="user@company.com" autocomplete="email">
+                    </div>
+                    <div class="form-field" style="margin-top:0.85rem;">
+                        <label class="label" for="invite-role">Role</label>
+                        <select class="input" id="invite-role">
+                            <option value="user">User</option>
+                            <option value="admin">Admin</option>
+                        </select>
+                    </div>
+                    <div class="msg error" id="invite-error" style="display:none;"></div>
+                    <div class="msg success" id="invite-success" style="display:none;"></div>
+                </div>
             </div>
             <div class="modal-actions">
                 <button class="btn btn-secondary" id="cancel-invite" type="button">Cancel</button>
