@@ -499,11 +499,16 @@
                     recentsTrack.scrollBy({ left: 280, behavior: 'smooth' });
                 });
             }
+            var _searchDebounceTimer = null;
             function onSearchOrFilterChange() {
                 if (typeof renderRecents === 'function') renderRecents();
                 if (typeof renderProjects === 'function') renderProjects();
             }
-            if (searchInput) searchInput.addEventListener('input', onSearchOrFilterChange);
+            function onSearchInputDebounced() {
+                clearTimeout(_searchDebounceTimer);
+                _searchDebounceTimer = setTimeout(onSearchOrFilterChange, 150);
+            }
+            if (searchInput) searchInput.addEventListener('input', onSearchInputDebounced);
             if (filterType) filterType.addEventListener('change', onSearchOrFilterChange);
             if (filterDate) filterDate.addEventListener('change', onSearchOrFilterChange);
         })();
@@ -1103,6 +1108,7 @@
                 // State already set by loadProjects/loadWorkspaces; single render below.
             }
             renderWorkspaces();
+            renderRecents();
             if (projectsLoadFailed) {
                 projectsContainer.innerHTML = '<div class="empty-state"><div class="empty-text">Failed to load projects</div></div>';
             } else {
@@ -1413,6 +1419,37 @@
             }
         }
 
+        // ── Lazy image loading via IntersectionObserver ──
+        var _lazyImageObserver = null;
+        (function initLazyObserver() {
+            if (!('IntersectionObserver' in window)) return;
+            _lazyImageObserver = new IntersectionObserver(function (entries) {
+                for (var i = 0; i < entries.length; i++) {
+                    if (entries[i].isIntersecting) {
+                        var img = entries[i].target;
+                        var src = img.getAttribute('data-src');
+                        if (src) {
+                            img.src = src;
+                            img.removeAttribute('data-src');
+                            img.onload = function () {
+                                this.classList.remove('loading-placeholder', 'lazy-hidden');
+                                this.classList.add('lazy-loaded');
+                            };
+                        }
+                        _lazyImageObserver.unobserve(img);
+                    }
+                }
+            }, { rootMargin: '200px 0px', threshold: 0.01 });
+        })();
+
+        function observeLazyImages(container) {
+            if (!_lazyImageObserver || !container) return;
+            var images = container.querySelectorAll('img[data-src]');
+            for (var i = 0; i < images.length; i++) {
+                _lazyImageObserver.observe(images[i]);
+            }
+        }
+
         function renderRecents() {
             var track = document.getElementById('recents-track');
             if (!track) return;
@@ -1433,16 +1470,23 @@
                 var openLabel = isOwner ? 'Open' : (at === 'client' ? 'Open as Client' : 'View');
                 var openFn = isOwner ? 'openEditor(' + project.id + ')' : "window.location.href='/panorama/" + project.id + "/client'";
                 return '<div class="recent-card" onclick="' + openFn + '">' +
-                    '<img src="/uploads/' + escapeHtml(project.filename) + '?size=thumb" alt="" class="recent-card-thumb loading-placeholder" loading="lazy" onload="this.classList.remove(\'loading-placeholder\')">' +
+                    '<img data-src="/uploads/' + escapeHtml(project.filename) + '?size=thumb" alt="" class="recent-card-thumb loading-placeholder lazy-hidden" decoding="async">' +
                     '<div class="recent-card-body">' +
                     '<div class="recent-card-title">' + escapeHtml(project.name || 'Untitled') + '</div>' +
                     '<div class="recent-card-meta">Edited ' + formatDate(project.updated_at) + '</div>' +
                     '</div></div>';
             }).join('');
             track.innerHTML = html;
+            observeLazyImages(track);
         }
 
+        var _renderProjectsRAF = null;
         function renderProjects() {
+            if (_renderProjectsRAF) cancelAnimationFrame(_renderProjectsRAF);
+            _renderProjectsRAF = requestAnimationFrame(_renderProjectsNow);
+        }
+        function _renderProjectsNow() {
+            _renderProjectsRAF = null;
             const visibleProjects = getFilteredProjects();
             var isDashboardAdmin = currentUserRole === 'admin' || currentUserRole === 'superadmin';
             var emptyHint = isDashboardAdmin ? 'Upload a panorama or drag an existing one into this folder' : 'Projects you have access to will appear here';
@@ -1460,9 +1504,10 @@
             var selectedWsId = getSelectedOwnedWorkspaceId();
             var currentWs = selectedWsId ? getWorkspaceById(selectedWsId) : null;
             var mainPanoramaId = (currentWs && currentWs.main_panorama_id != null) ? String(currentWs.main_panorama_id) : null;
-            projectsContainer.innerHTML = `
-                <div class="projects-grid">
-                    ${visibleProjects.map(project => {
+            // Build HTML as array for fast concatenation
+            var parts = ['<div class="projects-grid">'];
+            for (var i = 0; i < visibleProjects.length; i++) {
+                var project = visibleProjects[i];
                 var at = accessType(project);
                 var isOwner = at === 'owner';
                 var isClient = at === 'client';
@@ -1484,31 +1529,25 @@
                     workspaceName = ws && ws.name ? ws.name : 'Workspace';
                 }
                 var mainBadge = isMain ? '<span class="project-main-badge">Main</span>' : '';
-                var dragAttr = (isOwner && isDashboardAdmin) ? 'draggable=\"true\" ondragstart=\"onProjectDragStart(event,' + project.id + ')\" ondragend=\"onProjectDragEnd(event)\"' : '';
+                var dragAttr = (isOwner && isDashboardAdmin) ? ' draggable="true" ondragstart="onProjectDragStart(event,' + project.id + ')" ondragend="onProjectDragEnd(event)"' : '';
                 var dragClass = (isOwner && isDashboardAdmin) ? ' owner-draggable' : '';
                 var mainClass = isMain ? ' is-main-panorama' : '';
-                return `
-                        <div class="project-card${dragClass}${mainClass}" data-id="${project.id}" ${dragAttr}>
-                            <img src="/uploads/${project.filename}?size=thumb" alt="${escapeHtml(project.name)}" class="project-image loading-placeholder" loading="lazy" decoding="async" onload="this.classList.remove('loading-placeholder')">
-                            <div class="project-content">
-                                <div class="project-name">${escapeHtml(project.name)} ${mainBadge}</div>
-                                <div class="project-meta">
-                                    <span class="project-plots">
-                                        <span>📍</span>
-                                        <span>${project.plot_count || 0} plots</span>
-                                    </span>
-                                    <span class="project-date">${formatDate(project.updated_at)}</span>
-                                    ${isOwner ? '' : '<span style="font-size:0.7rem;color:var(--color-text-dim);">(' + at + ')</span>'}
-                                </div>
-                                ${workspaceName ? '<div style="margin-top:0.45rem; font-size:0.72rem; color:var(--color-text-dim);">Folder: ' + escapeHtml(workspaceName) + '</div>' : ''}
-                            </div>
-                            <div class="project-actions">${actions}</div>
-                        </div>
-                    `;
-            }).join('')}
-                </div>
-            `;
-            if (typeof renderRecents === 'function') renderRecents();
+                parts.push('<div class="project-card' + dragClass + mainClass + '" data-id="' + project.id + '"' + dragAttr + '>');
+                parts.push('<img data-src="/uploads/' + escapeHtml(project.filename) + '?size=thumb" alt="' + escapeHtml(project.name) + '" class="project-image loading-placeholder lazy-hidden" decoding="async">');
+                parts.push('<div class="project-content">');
+                parts.push('<div class="project-name">' + escapeHtml(project.name) + ' ' + mainBadge + '</div>');
+                parts.push('<div class="project-meta"><span class="project-plots"><span>📍</span><span>' + (project.plot_count || 0) + ' plots</span></span>');
+                parts.push('<span class="project-date">' + formatDate(project.updated_at) + '</span>');
+                if (!isOwner) parts.push('<span style="font-size:0.7rem;color:var(--color-text-dim);">(' + at + ')</span>');
+                parts.push('</div>');
+                if (workspaceName) parts.push('<div style="margin-top:0.45rem; font-size:0.72rem; color:var(--color-text-dim);">Folder: ' + escapeHtml(workspaceName) + '</div>');
+                parts.push('</div>');
+                parts.push('<div class="project-actions">' + actions + '</div>');
+                parts.push('</div>');
+            }
+            parts.push('</div>');
+            projectsContainer.innerHTML = parts.join('');
+            observeLazyImages(projectsContainer);
         }
 
         async function movePanoramaWorkspace(panoramaId, targetKey) {

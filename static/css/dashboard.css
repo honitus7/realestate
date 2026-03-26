@@ -370,6 +370,8 @@
     scroll-behavior: smooth;
     padding: 0.25rem 0 1rem;
     scrollbar-width: thin;
+    -webkit-overflow-scrolling: touch;
+    transform: translateZ(0);
 }
 
 .recents-track::-webkit-scrollbar {
@@ -395,6 +397,7 @@
     overflow: hidden;
     cursor: pointer;
     transition: box-shadow 0.2s, border-color 0.2s;
+    contain: layout style paint;
 }
 
 .recent-card:hover {
@@ -407,6 +410,13 @@
     height: 120px;
     object-fit: cover;
     background: var(--color-surface);
+}
+.recent-card-thumb.lazy-hidden {
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+.recent-card-thumb.lazy-loaded {
+    opacity: 1;
 }
 
 .recent-card-body {
@@ -508,6 +518,9 @@
     border-radius: var(--radius);
     background: var(--color-bg-elevated);
     padding: 0.75rem;
+    -webkit-overflow-scrolling: touch;
+    will-change: scroll-position;
+    transform: translateZ(0);
 }
 
 .dashboard-folders-scroll::-webkit-scrollbar {
@@ -542,6 +555,9 @@
     max-height: min(60vh, 520px);
     overflow-y: auto;
     overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
+    will-change: scroll-position;
+    transform: translateZ(0);
 }
 
 .dashboard-projects-scroll::-webkit-scrollbar {
@@ -599,7 +615,13 @@
 }
 
 .folder-card.active {
-    border-color: var(--border-strong);
+    border-color: rgba(22, 35, 56, 0.28);
+    box-shadow: 0 0 0 2px rgba(22, 35, 56, 0.10);
+}
+
+.folder-card--system:not(.active) {
+    background: transparent;
+    border-color: transparent;
 }
 
 .folder-card--system.active {
@@ -608,7 +630,7 @@
 
 .folder-card--owned.active {
     background: var(--color-surface);
-    box-shadow: 0 0 0 2px rgba(22, 35, 56, 0.08);
+    box-shadow: 0 0 0 2px rgba(22, 35, 56, 0.10);
 }
 
 .folder-card.drop-target {
@@ -944,8 +966,11 @@
     border-radius: var(--radius);
     overflow: hidden;
     border: 1px solid var(--color-border);
-    transition: all 0.3s ease;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
     cursor: pointer;
+    content-visibility: auto;
+    contain-intrinsic-size: auto 320px;
+    contain: layout style paint;
 }
 
 .project-card.owner-draggable {
@@ -967,11 +992,19 @@
     height: 180px;
     object-fit: cover;
     background: var(--color-bg);
+    will-change: auto;
 }
 .project-image.loading-placeholder {
     background-image: linear-gradient(90deg, var(--color-bg) 0%, rgba(255,255,255,0.03) 50%, var(--color-bg) 100%);
     background-size: 200% 100%;
     animation: skeleton-shimmer 1.2s ease-in-out infinite;
+}
+.project-image.lazy-hidden {
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+.project-image.lazy-loaded {
+    opacity: 1;
 }
 .projects-container-transition {
     transition: opacity 0.18s ease-out;
