@@ -214,9 +214,17 @@
 /* ---- Top bar ---- */
 .dashboard-topbar {
     flex-shrink: 0;
-    padding: 1.25rem 2rem;
+    padding: 1rem 2rem;
     border-bottom: 1px solid var(--color-border);
     background: var(--color-bg-elevated);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1.5rem;
+}
+
+.dashboard-topbar-title {
+    flex-shrink: 0;
 }
 
 .dashboard-org-name {
@@ -239,15 +247,6 @@
     flex: 1;
     overflow-y: auto;
     padding: 1.5rem 2rem 2rem;
-}
-
-/* Top bar: search + filters in one row */
-.dashboard-topbar {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    margin-bottom: 1.25rem;
-    flex-wrap: wrap;
 }
 
 /* Search bar */
@@ -353,137 +352,76 @@
     margin: 0 0 0.75rem 0;
 }
 
-/* Recents: horizontal scroll */
-.recents-section .dashboard-section-title {
-    margin-bottom: 0.6rem;
-}
-
-.recents-scroll-wrap {
-    position: relative;
-    margin-bottom: 0.5rem;
-}
-
-.recents-track {
+/* Topbar recents: small thumbnails in header */
+.topbar-recents {
     display: flex;
-    gap: 1rem;
-    overflow-x: auto;
-    scroll-behavior: smooth;
-    padding: 0.25rem 0 1rem;
-    scrollbar-width: thin;
-    -webkit-overflow-scrolling: touch;
-    transform: translateZ(0);
+    align-items: center;
+    gap: 0.65rem;
+    flex-shrink: 0;
 }
 
-.recents-track::-webkit-scrollbar {
-    height: 6px;
+.topbar-recents-label {
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: var(--color-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    white-space: nowrap;
 }
 
-.recents-track::-webkit-scrollbar-track {
-    background: var(--color-surface);
-    border-radius: 3px;
+.topbar-recents-track {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
 }
 
-.recents-track::-webkit-scrollbar-thumb {
-    background: var(--color-border);
-    border-radius: 3px;
-}
-
-.recent-card {
-    flex: 0 0 200px;
-    width: 200px;
-    background: var(--color-bg-elevated);
+.topbar-recent-item {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.25rem 0.5rem 0.25rem 0.25rem;
+    border-radius: 8px;
     border: 1px solid var(--color-border);
-    border-radius: var(--radius);
-    overflow: hidden;
+    background: var(--color-surface);
     cursor: pointer;
-    transition: box-shadow 0.2s, border-color 0.2s;
-    contain: layout style paint;
+    transition: border-color 0.15s, box-shadow 0.15s;
+    max-width: 150px;
 }
 
-.recent-card:hover {
+.topbar-recent-item:hover {
     border-color: var(--border-strong);
     box-shadow: var(--shadow);
 }
 
-.recent-card-thumb {
-    width: 100%;
-    height: 120px;
+.topbar-recent-thumb {
+    width: 32px;
+    height: 32px;
+    border-radius: 5px;
     object-fit: cover;
-    background: var(--color-surface);
+    background: var(--color-bg);
+    flex-shrink: 0;
 }
-.recent-card-thumb.lazy-hidden {
+.topbar-recent-thumb.lazy-hidden {
     opacity: 0;
-    transition: opacity 0.3s ease;
+    transition: opacity 0.25s ease;
 }
-.recent-card-thumb.lazy-loaded {
+.topbar-recent-thumb.lazy-loaded {
     opacity: 1;
 }
 
-.recent-card-body {
-    padding: 0.65rem 0.75rem;
-}
-
-.recent-card-title {
-    font-size: 0.85rem;
+.topbar-recent-name {
+    font-size: 0.72rem;
     font-weight: 600;
     color: var(--color-text);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    margin-bottom: 0.2rem;
-}
-
-.recent-card-meta {
-    font-size: 0.72rem;
-    color: var(--color-muted);
-}
-
-.recents-skeleton {
-    display: flex;
-    gap: 1rem;
-}
-
-.recent-card-skeleton {
-    width: 200px;
-    height: 180px;
-    border-radius: var(--radius);
-    background: var(--color-surface);
-    background-image: linear-gradient(90deg, var(--color-surface) 0%, var(--color-bg-elevated) 50%, var(--color-surface) 100%);
-    background-size: 200% 100%;
-    animation: skeleton-shimmer 1.2s ease-in-out infinite;
-}
-
-.recents-arrow {
-    position: absolute;
-    top: 50%;
-    transform: translateY(-50%);
-    width: 36px;
-    height: 36px;
-    border-radius: 50%;
-    background: var(--color-bg-elevated);
-    border: 1px solid var(--color-border);
-    color: var(--color-text);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    box-shadow: var(--shadow);
-    opacity: 0.9;
-}
-
-.recents-arrow:hover {
-    opacity: 1;
-    background: var(--color-surface);
-}
-
-.recents-arrow-right {
-    right: -8px;
+    max-width: 90px;
 }
 
 .recents-empty {
-    font-size: 0.9rem;
+    font-size: 0.78rem;
     color: var(--color-muted);
-    padding: 1rem 0;
 }
 
 /* Two-column layout: Folders (left) | Projects (right), both scrollable */
@@ -577,17 +515,17 @@
 .workspace-list {
     display: flex;
     flex-direction: column;
-    gap: 0.75rem;
+    gap: 0.45rem;
     transition: opacity 0.18s ease-out;
 }
 
-/* Folder cards – card-based structure (All/Unfiled = system, owned = elevated) */
+/* Folder cards – compact card structure */
 .folder-card {
     position: relative;
     width: 100%;
     text-align: left;
     border-radius: var(--radius);
-    padding: 1rem 1.1rem;
+    padding: 0.6rem 0.8rem;
     cursor: pointer;
     transition: border-color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
     border: 1px solid var(--color-border);
@@ -646,36 +584,36 @@
 }
 
 .folder-card-title {
-    font-size: 0.95rem;
+    font-size: 0.82rem;
     font-weight: 700;
     color: var(--color-text);
 }
 
 .folder-card-count {
-    font-size: 0.8rem;
+    font-size: 0.72rem;
     font-weight: 600;
     color: var(--color-muted);
 }
 
 .folder-card-subtitle {
-    font-size: 0.8rem;
+    font-size: 0.7rem;
     color: var(--color-muted);
-    margin: 0.5rem 0 0 0;
-    line-height: 1.3;
+    margin: 0.2rem 0 0 0;
+    line-height: 1.2;
 }
 
 .folder-card-actions {
     display: flex;
     flex-wrap: wrap;
-    gap: 0.5rem;
-    margin-top: 0.75rem;
-    padding-top: 0.65rem;
+    gap: 0.35rem;
+    margin-top: 0.5rem;
+    padding-top: 0.45rem;
     border-top: 1px solid var(--color-border);
 }
 
 .folder-card-btn {
-    padding: 0.35rem 0.65rem;
-    font-size: 0.75rem;
+    padding: 0.25rem 0.5rem;
+    font-size: 0.68rem;
     font-weight: 600;
     color: var(--color-text);
     background: var(--color-surface);
@@ -950,27 +888,25 @@
     text-align: center;
 }
 
-/* Projects Grid */
-.projects-section {
-    margin-bottom: 3rem;
-}
-
+/* Projects Grid – compact horizontal cards */
 .projects-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-    gap: 1.5rem;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 0.6rem;
 }
 
 .project-card {
+    display: flex;
+    align-items: center;
+    gap: 0.7rem;
     background: var(--color-bg-card);
     border-radius: var(--radius);
-    overflow: hidden;
     border: 1px solid var(--color-border);
-    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    padding: 0.45rem;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
     cursor: pointer;
-    content-visibility: auto;
-    contain-intrinsic-size: auto 320px;
-    contain: layout style paint;
+    position: relative;
+    overflow: visible;
 }
 
 .project-card.owner-draggable {
@@ -988,11 +924,12 @@
 }
 
 .project-image {
-    width: 100%;
-    height: 180px;
+    width: 48px;
+    height: 48px;
+    border-radius: 6px;
     object-fit: cover;
     background: var(--color-bg);
-    will-change: auto;
+    flex-shrink: 0;
 }
 .project-image.loading-placeholder {
     background-image: linear-gradient(90deg, var(--color-bg) 0%, rgba(255,255,255,0.03) 50%, var(--color-bg) 100%);
@@ -1001,7 +938,7 @@
 }
 .project-image.lazy-hidden {
     opacity: 0;
-    transition: opacity 0.3s ease;
+    transition: opacity 0.25s ease;
 }
 .project-image.lazy-loaded {
     opacity: 1;
@@ -1011,25 +948,30 @@
 }
 
 .project-content {
-    padding: 1.25rem;
+    flex: 1;
+    min-width: 0;
+    padding: 0.1rem 0;
 }
 
 .project-name {
-    font-size: 1.1rem;
+    font-size: 0.82rem;
     font-weight: 600;
-    margin-bottom: 0.5rem;
     color: var(--color-text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    line-height: 1.3;
 }
 
 .project-main-badge {
     display: inline-block;
-    font-size: 0.65rem;
+    font-size: 0.58rem;
     font-weight: 700;
     letter-spacing: 0.04em;
     text-transform: uppercase;
-    padding: 0.18rem 0.5rem;
-    margin-left: 0.4rem;
-    border-radius: 4px;
+    padding: 0.1rem 0.35rem;
+    margin-left: 0.3rem;
+    border-radius: 3px;
     background: #2563eb;
     color: #fff;
     border: none;
@@ -1037,22 +979,23 @@
 }
 
 .project-card.is-main-panorama {
-    border: 2px solid #2563eb;
-    box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.15);
+    border: 1.5px solid #2563eb;
+    box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.12);
 }
 
 .project-meta {
     display: flex;
-    justify-content: space-between;
     align-items: center;
-    font-size: 0.75rem;
+    gap: 0.6rem;
+    font-size: 0.68rem;
     color: var(--color-muted);
+    margin-top: 0.1rem;
 }
 
 .project-plots {
     display: flex;
     align-items: center;
-    gap: 0.35rem;
+    gap: 0.2rem;
     color: var(--color-text);
     font-weight: 600;
 }
@@ -1061,53 +1004,86 @@
     opacity: 0.7;
 }
 
-.project-actions {
+/* Config icon + dropdown menu */
+.project-config-wrap {
+    position: relative;
+    flex-shrink: 0;
+}
+
+.project-config-btn {
     display: flex;
-    gap: 0.5rem;
-    padding: 0 1.25rem 1.25rem;
-}
-
-.project-btn {
-    flex: 1;
-    padding: 0.6rem;
-    font-size: 0.75rem;
-    text-align: center;
-    border-radius: var(--radius-sm);
-    cursor: pointer;
-    transition: all 0.2s;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
     border: none;
-    font-family: var(--font-body);
-    font-weight: 600;
+    background: transparent;
+    color: var(--color-muted);
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+    font-size: 1.1rem;
+    line-height: 1;
+    padding: 0;
 }
 
-.project-btn.edit {
+.project-config-btn:hover,
+.project-config-btn.active {
     background: var(--color-surface);
     color: var(--color-text);
+}
+
+.project-config-menu {
+    display: none;
+    position: absolute;
+    right: 0;
+    top: 100%;
+    margin-top: 4px;
+    min-width: 150px;
+    background: var(--color-bg-elevated);
     border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    box-shadow: 0 6px 20px rgba(22, 35, 56, 0.12);
+    z-index: 100;
+    padding: 0.25rem 0;
+    animation: configMenuIn 0.12s ease-out;
 }
 
-.project-btn.edit:hover {
-    background: var(--color-accent-hover);
+@keyframes configMenuIn {
+    from { opacity: 0; transform: translateY(-4px); }
+    to { opacity: 1; transform: translateY(0); }
 }
 
-.project-btn.rename {
-    background: transparent;
+.project-config-menu.visible {
+    display: block;
+}
+
+.project-config-menu-item {
+    display: block;
+    width: 100%;
+    padding: 0.45rem 0.85rem;
+    font-size: 0.75rem;
+    font-weight: 500;
+    font-family: var(--font-body);
     color: var(--color-text);
-    border: 1px solid var(--color-border);
+    background: none;
+    border: none;
+    text-align: left;
+    cursor: pointer;
+    transition: background 0.12s;
+    white-space: nowrap;
 }
 
-.project-btn.rename:hover {
-    background: var(--bg-elev-1);
-    border-color: var(--border-strong);
+.project-config-menu-item:hover {
+    background: var(--color-surface);
 }
 
-.project-btn.delete {
-    background: rgba(239, 68, 68, 0.1);
+.project-config-menu-item.danger {
     color: var(--color-danger);
 }
 
-.project-btn.delete:hover {
-    background: rgba(239, 68, 68, 0.2);
+.project-config-menu-item.danger:hover {
+    background: rgba(239, 68, 68, 0.08);
 }
 
 /* Empty State */
@@ -1157,6 +1133,25 @@
 }
 
 /* Skeleton placeholders */
+.skeleton-card-compact {
+    display: flex;
+    align-items: center;
+    gap: 0.7rem;
+    padding: 0.45rem;
+    background: var(--color-bg-card);
+    border-radius: var(--radius);
+    border: 1px solid var(--color-border);
+}
+.skeleton-thumb-compact {
+    width: 48px;
+    height: 48px;
+    border-radius: 6px;
+    flex-shrink: 0;
+    background: var(--color-bg);
+    background-image: linear-gradient(90deg, var(--color-bg) 0%, rgba(255,255,255,0.04) 50%, var(--color-bg) 100%);
+    background-size: 200% 100%;
+    animation: skeleton-shimmer 1.2s ease-in-out infinite;
+}
 .skeleton-card {
     background: var(--color-bg-card);
     border-radius: var(--radius);
@@ -1171,7 +1166,7 @@
     background-size: 200% 100%;
     animation: skeleton-shimmer 1.2s ease-in-out infinite;
 }
-.skeleton-content { padding: 1.25rem; }
+.skeleton-content { padding: 0.5rem 0; flex: 1; min-width: 0; }
 .skeleton-line {
     height: 0.75rem;
     border-radius: 4px;
@@ -1376,8 +1371,8 @@
         font-size: 1.25rem;
     }
 
-    .recents-track {
-        padding-bottom: 0.75rem;
+    .topbar-recents {
+        display: none;
     }
 
     .dashboard-two-col {
@@ -1390,15 +1385,6 @@
 
     .dashboard-projects-scroll {
         max-height: none;
-    }
-
-    .recent-card {
-        flex: 0 0 160px;
-        width: 160px;
-    }
-
-    .recent-card-thumb {
-        height: 100px;
     }
 
     .upload-preview {

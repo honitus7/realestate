@@ -16,6 +16,10 @@
                 <h1 class="dashboard-org-name" id="org-name">PropMark</h1>
                 <p class="dashboard-org-subtitle" id="org-subtitle">Plot Marker</p>
             </div>
+            <div class="topbar-recents" id="topbar-recents">
+                <span class="topbar-recents-label">Recents</span>
+                <div class="topbar-recents-track" id="recents-track"></div>
+            </div>
         </header>
 
         <!-- Main content area -->
@@ -43,22 +47,6 @@
                 <button type="button" class="dashboard-filter-btn" id="create-workspace-btn" style="display:none;">New Project</button>
             </div>
 
-            <!-- Recents: horizontal scroll of panorama cards -->
-            <section class="dashboard-section recents-section">
-                <h2 class="dashboard-section-title">Recents</h2>
-                <div class="recents-scroll-wrap">
-                    <div class="recents-track" id="recents-track">
-                        <div class="recents-skeleton" id="recents-skeleton">
-                            <div class="recent-card-skeleton"></div>
-                            <div class="recent-card-skeleton"></div>
-                            <div class="recent-card-skeleton"></div>
-                            <div class="recent-card-skeleton"></div>
-                        </div>
-                    </div>
-                    <div class="recents-arrow recents-arrow-right" id="recents-arrow-right" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg></div>
-                </div>
-            </section>
-
             <!-- Two columns: Folders (left) | Projects (right) -->
             <div class="dashboard-two-col">
                 <aside class="dashboard-folders-col" aria-label="Folders">
@@ -76,9 +64,10 @@
                     <div class="dashboard-projects-scroll">
                         <div id="projects-container" class="projects-container-transition">
                             <div class="projects-grid" id="projects-skeleton">
-                                <div class="skeleton-card"><div class="skeleton-image"></div><div class="skeleton-content"><div class="skeleton-line medium"></div><div class="skeleton-line short"></div></div></div>
-                                <div class="skeleton-card"><div class="skeleton-image"></div><div class="skeleton-content"><div class="skeleton-line medium"></div><div class="skeleton-line short"></div></div></div>
-                                <div class="skeleton-card"><div class="skeleton-image"></div><div class="skeleton-content"><div class="skeleton-line medium"></div><div class="skeleton-line short"></div></div></div>
+                                <div class="skeleton-card-compact"><div class="skeleton-thumb-compact"></div><div class="skeleton-content"><div class="skeleton-line medium"></div><div class="skeleton-line short"></div></div></div>
+                                <div class="skeleton-card-compact"><div class="skeleton-thumb-compact"></div><div class="skeleton-content"><div class="skeleton-line medium"></div><div class="skeleton-line short"></div></div></div>
+                                <div class="skeleton-card-compact"><div class="skeleton-thumb-compact"></div><div class="skeleton-content"><div class="skeleton-line medium"></div><div class="skeleton-line short"></div></div></div>
+                                <div class="skeleton-card-compact"><div class="skeleton-thumb-compact"></div><div class="skeleton-content"><div class="skeleton-line medium"></div><div class="skeleton-line short"></div></div></div>
                             </div>
                         </div>
                     </div>
@@ -456,8 +445,6 @@
             var uploadModal = document.getElementById('upload-modal');
             var uploadModalClose = document.getElementById('upload-modal-close');
             var cancelUploadEl = document.getElementById('cancel-upload');
-            var recentsTrack = document.getElementById('recents-track');
-            var recentsArrowRight = document.getElementById('recents-arrow-right');
             var searchInput = document.getElementById('dashboard-search');
             var filterType = document.getElementById('filter-type');
             var filterDate = document.getElementById('filter-date');
@@ -492,11 +479,6 @@
             if (cancelUploadEl && uploadModal) {
                 cancelUploadEl.addEventListener('click', function () {
                     uploadModal.classList.remove('visible');
-                });
-            }
-            if (recentsArrowRight && recentsTrack) {
-                recentsArrowRight.addEventListener('click', function () {
-                    recentsTrack.scrollBy({ left: 280, behavior: 'smooth' });
                 });
             }
             var _searchDebounceTimer = null;
@@ -1453,28 +1435,23 @@
         function renderRecents() {
             var track = document.getElementById('recents-track');
             if (!track) return;
-            var list = getFilteredProjects();
-            list = list.slice().sort(function (a, b) {
+            var list = projects.slice().sort(function (a, b) {
                 var ta = (a.updated_at && new Date(a.updated_at).getTime()) || 0;
                 var tb = (b.updated_at && new Date(b.updated_at).getTime()) || 0;
                 return tb - ta;
-            }).slice(0, 3);
+            }).slice(0, 4);
             if (list.length === 0) {
-                track.innerHTML = '<div class="recents-empty">No recent projects</div>';
+                track.innerHTML = '';
                 return;
             }
-            var accessType = function (p) { return p.access_type || 'owner'; };
             var html = list.map(function (project) {
-                var at = accessType(project);
+                var at = project.access_type || 'owner';
                 var isOwner = at === 'owner';
-                var openLabel = isOwner ? 'Open' : (at === 'client' ? 'Open as Client' : 'View');
                 var openFn = isOwner ? 'openEditor(' + project.id + ')' : "window.location.href='/panorama/" + project.id + "/client'";
-                return '<div class="recent-card" onclick="' + openFn + '">' +
-                    '<img data-src="/uploads/' + escapeHtml(project.filename) + '?size=thumb" alt="" class="recent-card-thumb loading-placeholder lazy-hidden" decoding="async">' +
-                    '<div class="recent-card-body">' +
-                    '<div class="recent-card-title">' + escapeHtml(project.name || 'Untitled') + '</div>' +
-                    '<div class="recent-card-meta">Edited ' + formatDate(project.updated_at) + '</div>' +
-                    '</div></div>';
+                return '<div class="topbar-recent-item" onclick="' + openFn + '" title="' + escapeHtml(project.name || 'Untitled') + '">' +
+                    '<img data-src="/uploads/' + escapeHtml(project.filename) + '?size=thumb" alt="" class="topbar-recent-thumb loading-placeholder lazy-hidden" decoding="async">' +
+                    '<span class="topbar-recent-name">' + escapeHtml(project.name || 'Untitled') + '</span>' +
+                    '</div>';
             }).join('');
             track.innerHTML = html;
             observeLazyImages(track);
@@ -1512,37 +1489,36 @@
                 var isOwner = at === 'owner';
                 var isClient = at === 'client';
                 var isMain = mainPanoramaId && String(project.id) === mainPanoramaId;
-                var openLabel = isOwner ? 'Open Editor' : (isClient ? 'Open as Client' : 'View');
-                var actions = '<button class="project-btn edit" onclick="openEditor(' + project.id + ')">' + openLabel + '</button>';
-                if (isOwner && isDashboardAdmin) {
-                    var isInsideWorkspace = selectedWorkspaceKey && selectedWorkspaceKey.indexOf('ws:') === 0;
-                    if (selectedWsId && !isMain) actions += '<button class="project-btn set-main" onclick="setAsMain(' + project.id + ', event)">Set as main</button>';
-                    actions += '<button class="project-btn" onclick="window.location.href=\'/panorama/' + project.id + '/access\'">Manage access</button>';
-                    if (isInsideWorkspace) {
-                        actions += '<button class="project-btn rename" onclick="showRenameModal(' + project.id + ', event)">Rename</button>';
-                        actions += '<button class="project-btn delete" onclick="showDeleteModal(' + project.id + ', event)">Delete</button>';
-                    }
-                }
-                var workspaceName = '';
-                if (project.workspace_id) {
-                    var ws = getWorkspaceById(project.workspace_id);
-                    workspaceName = ws && ws.name ? ws.name : 'Workspace';
-                }
+                var isInsideWorkspace = selectedWorkspaceKey && selectedWorkspaceKey.indexOf('ws:') === 0;
                 var mainBadge = isMain ? '<span class="project-main-badge">Main</span>' : '';
                 var dragAttr = (isOwner && isDashboardAdmin) ? ' draggable="true" ondragstart="onProjectDragStart(event,' + project.id + ')" ondragend="onProjectDragEnd(event)"' : '';
                 var dragClass = (isOwner && isDashboardAdmin) ? ' owner-draggable' : '';
                 var mainClass = isMain ? ' is-main-panorama' : '';
-                parts.push('<div class="project-card' + dragClass + mainClass + '" data-id="' + project.id + '"' + dragAttr + '>');
+                // Build config menu items
+                var menuItems = '';
+                var openLabel = isOwner ? 'Open Editor' : (isClient ? 'Open as Client' : 'View');
+                menuItems += '<button class="project-config-menu-item" onclick="event.stopPropagation(); openEditor(' + project.id + ')">' + openLabel + '</button>';
+                if (isOwner && isDashboardAdmin) {
+                    if (selectedWsId && !isMain) menuItems += '<button class="project-config-menu-item" onclick="event.stopPropagation(); setAsMain(' + project.id + ', event)">Set as main</button>';
+                    menuItems += '<button class="project-config-menu-item" onclick="event.stopPropagation(); window.location.href=\'/panorama/' + project.id + '/access\'">Manage access</button>';
+                    if (isInsideWorkspace) {
+                        menuItems += '<button class="project-config-menu-item" onclick="event.stopPropagation(); showRenameModal(' + project.id + ', event)">Rename</button>';
+                        menuItems += '<button class="project-config-menu-item danger" onclick="event.stopPropagation(); showDeleteModal(' + project.id + ', event)">Delete</button>';
+                    }
+                }
+                parts.push('<div class="project-card' + dragClass + mainClass + '" data-id="' + project.id + '"' + dragAttr + ' onclick="openEditor(' + project.id + ')">');
                 parts.push('<img data-src="/uploads/' + escapeHtml(project.filename) + '?size=thumb" alt="' + escapeHtml(project.name) + '" class="project-image loading-placeholder lazy-hidden" decoding="async">');
                 parts.push('<div class="project-content">');
                 parts.push('<div class="project-name">' + escapeHtml(project.name) + ' ' + mainBadge + '</div>');
-                parts.push('<div class="project-meta"><span class="project-plots"><span>📍</span><span>' + (project.plot_count || 0) + ' plots</span></span>');
+                parts.push('<div class="project-meta"><span class="project-plots"><span>📍</span><span>' + (project.plot_count || 0) + '</span></span>');
                 parts.push('<span class="project-date">' + formatDate(project.updated_at) + '</span>');
-                if (!isOwner) parts.push('<span style="font-size:0.7rem;color:var(--color-text-dim);">(' + at + ')</span>');
+                if (!isOwner) parts.push('<span style="font-size:0.65rem;color:var(--color-text-dim);">(' + at + ')</span>');
                 parts.push('</div>');
-                if (workspaceName) parts.push('<div style="margin-top:0.45rem; font-size:0.72rem; color:var(--color-text-dim);">Folder: ' + escapeHtml(workspaceName) + '</div>');
                 parts.push('</div>');
-                parts.push('<div class="project-actions">' + actions + '</div>');
+                parts.push('<div class="project-config-wrap">');
+                parts.push('<button class="project-config-btn" type="button" onclick="event.stopPropagation(); toggleProjectMenu(this)" aria-label="Actions">&#8942;</button>');
+                parts.push('<div class="project-config-menu">' + menuItems + '</div>');
+                parts.push('</div>');
                 parts.push('</div>');
             }
             parts.push('</div>');
@@ -2075,6 +2051,28 @@
             div.textContent = text;
             return div.innerHTML;
         }
+
+        function toggleProjectMenu(btn) {
+            var menu = btn.nextElementSibling;
+            if (!menu) return;
+            var wasVisible = menu.classList.contains('visible');
+            closeAllProjectMenus();
+            if (!wasVisible) {
+                menu.classList.add('visible');
+                btn.classList.add('active');
+            }
+        }
+        function closeAllProjectMenus() {
+            document.querySelectorAll('.project-config-menu.visible').forEach(function (m) {
+                m.classList.remove('visible');
+            });
+            document.querySelectorAll('.project-config-btn.active').forEach(function (b) {
+                b.classList.remove('active');
+            });
+        }
+        document.addEventListener('click', function (e) {
+            if (!e.target.closest('.project-config-wrap')) closeAllProjectMenus();
+        });
 
         function showToast(message, type = 'success') {
             const toast = document.createElement('div');
