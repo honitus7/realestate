@@ -187,17 +187,25 @@
 
     supabase.auth.getSession().then(function (r) {
         var session = r.data.session;
-        if (session && session.user && session.user.id) {
-            applyPendingSignupProfile(session).finally(function () {
-                window.location.replace('/dashboard/' + encodeURIComponent(session.user.id));
-            });
-            return;
-        }
-        if (session) {
-            applyPendingSignupProfile(session).finally(function () { window.location.replace('/dashboard'); });
-            return;
-        }
-        showAuthUI();
+        if (!session) { showAuthUI(); return; }
+        // Validate the token is actually usable before redirecting
+        fetch('/api/org/me', {
+            headers: { 'Authorization': 'Bearer ' + session.access_token }
+        }).then(function (res) {
+            if (res.ok) {
+                // Token is valid — redirect to dashboard
+                var uid = session.user && session.user.id ? session.user.id : '';
+                applyPendingSignupProfile(session).finally(function () {
+                    window.location.replace(uid ? '/dashboard/' + encodeURIComponent(uid) : '/dashboard');
+                });
+            } else {
+                // Token rejected by server — clear stale session and show login
+                supabase.auth.signOut().then(function () { showAuthUI(); }).catch(function () { showAuthUI(); });
+            }
+        }).catch(function () {
+            // Network error — show login rather than loop
+            showAuthUI();
+        });
     }).catch(function () { showAuthUI(); });
 
     function switchPanel(panelId) {

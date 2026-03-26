@@ -436,14 +436,15 @@
         }) ();
 
         (function initUploadModal() {
-            var uploadBtn = document.getElementById('sidebar-upload-btn');
+            var uploadBtn = document.getElementById('sidebar-upload-link');
             var uploadModal = document.getElementById('upload-modal');
             var uploadModalClose = document.getElementById('upload-modal-close');
             var cancelUploadEl = document.getElementById('cancel-upload');
             var searchInput = document.getElementById('dashboard-search');
             var filterType = document.getElementById('filter-type');
             if (uploadBtn && uploadModal) {
-                uploadBtn.addEventListener('click', function () {
+                uploadBtn.addEventListener('click', function (e) {
+                    e.preventDefault();
                     // Populate workspace select with owned folders
                     var wsSelect = document.getElementById('upload-workspace-select');
                     if (wsSelect && typeof workspaces !== 'undefined') {

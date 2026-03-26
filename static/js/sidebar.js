@@ -15,12 +15,23 @@
     var sb = window.supabase.createClient(url, key);
     window._supabase = sb;
 
-    // ---- Collapse / expand ----
+    // ---- Active link highlight based on current URL ----
+    var currentPath = window.location.pathname.replace(/\/+$/, '') || '/';
+    document.querySelectorAll('.sidebar-link[data-page]').forEach(function (link) {
+        var href = (link.getAttribute('href') || '').replace(/\/+$/, '') || '/';
+        if (currentPath === href || currentPath.indexOf(href + '/') === 0) {
+            link.classList.add('active');
+        } else {
+            link.classList.remove('active');
+        }
+    });
+
+    // ---- Collapse / expand (collapsed by default) ----
     var toggle = document.getElementById('sidebar-toggle');
     var sidebar = document.getElementById('dashboard-sidebar');
     if (toggle && sidebar) {
-        var collapsed = localStorage.getItem('dashboard-sidebar-collapsed') === '1';
-        if (collapsed) sidebar.classList.add('sidebar-collapsed');
+        var expanded = localStorage.getItem('dashboard-sidebar-collapsed') === '0';
+        if (!expanded) sidebar.classList.add('sidebar-collapsed');
         toggle.addEventListener('click', function () {
             sidebar.classList.toggle('sidebar-collapsed');
             localStorage.setItem(
@@ -45,8 +56,16 @@
         fetch('/api/org/me', {
             headers: { 'Authorization': 'Bearer ' + accessToken }
         })
-            .then(function (res) { return res.ok ? res.json() : null; })
+            .then(function (res) {
+                if (res.status === 401 || res.status === 403) {
+                    // Token is invalid — sign out to clear stale storage, then redirect
+                    sb.auth.signOut().finally(function () { window.location.replace('/login'); });
+                    return null;
+                }
+                return res.ok ? res.json() : null;
+            })
             .then(function (data) {
+                if (!data) return;
                 var profile = data && data.profile ? data.profile : null;
                 var role = profile && profile.role ? String(profile.role).toLowerCase() : '';
                 var isAdmin = role === 'admin' || role === 'superadmin';
@@ -72,14 +91,21 @@
                 var orgName = data && data.org && data.org.name ? String(data.org.name) : '';
                 if (orgNameEl) orgNameEl.textContent = orgName || 'PropMark';
 
+                // User name in footer
+                var userNameEl = document.getElementById('sidebar-user-name');
+                if (userNameEl && profile) {
+                    userNameEl.textContent = profile.name || profile.email || '';
+                }
+
                 // Role-based visibility
-                show('nav-users', isAdmin);
                 show('nav-explore', isAdmin);
                 show('nav-daynight', isAdmin);
                 show('nav-floorplans', isAdmin);
-                show('nav-user-mgmt', isAdmin);
                 show('nav-orgs', role === 'superadmin');
                 show('sidebar-upload-wrap', isAdmin);
+                // Dropdown admin items
+                show('dropdown-add-user', isAdmin);
+                show('dropdown-user-mgmt', isAdmin);
 
                 // CRM: visible for admin/superadmin immediately.
                 // For regular users, check if they have client access to any plot.
@@ -135,8 +161,23 @@
             });
         }
     }).catch(function () {
-        window.location.replace('/login');
+        sb.auth.signOut().finally(function () { window.location.replace('/login'); });
     });
+
+    // ---- User dropdown toggle ----
+    var userBtn = document.getElementById('sidebar-user-btn');
+    var userDropdown = document.getElementById('sidebar-user-dropdown');
+    if (userBtn && userDropdown) {
+        userBtn.addEventListener('click', function (e) {
+            e.stopPropagation();
+            userDropdown.classList.toggle('visible');
+        });
+        document.addEventListener('click', function (e) {
+            if (!userDropdown.contains(e.target) && e.target !== userBtn) {
+                userDropdown.classList.remove('visible');
+            }
+        });
+    }
 
     function show(id, visible) {
         var el = document.getElementById(id);
