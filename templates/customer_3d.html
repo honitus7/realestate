@@ -4267,6 +4267,71 @@
             });
         }
 
+        // ── Panorama Background Audio ──
+        (function initPanoramaAudio() {
+            var _panoAudio = null;
+            var _panoAudioId = null;
+            var _panoAudioVolume = 0.5;
+            var _userInteracted = false;
+
+            function onFirstInteraction() {
+                if (_userInteracted) return;
+                _userInteracted = true;
+                if (_panoAudio && _panoAudio.paused && _panoAudio.src) {
+                    _panoAudio.play().catch(function () {});
+                }
+                document.removeEventListener('click', onFirstInteraction);
+                document.removeEventListener('touchstart', onFirstInteraction);
+            }
+            document.addEventListener('click', onFirstInteraction);
+            document.addEventListener('touchstart', onFirstInteraction);
+
+            function loadAudioForPanorama(panoramaId) {
+                var id = String(panoramaId || '').trim();
+                if (!id) return;
+                if (_panoAudioId === id) return;
+                _panoAudioId = id;
+                if (_panoAudio) { _panoAudio.pause(); _panoAudio.src = ''; }
+                fetch('/api/panoramas/' + encodeURIComponent(id) + '/audio-url')
+                    .then(function (r) { return r.json(); })
+                    .then(function (data) {
+                        if (String(_panoAudioId) !== String(id)) return;
+                        if (!data.audio_url) {
+                            if (_panoAudio) { _panoAudio.pause(); _panoAudio.src = ''; }
+                            return;
+                        }
+                        if (!_panoAudio) {
+                            _panoAudio = new Audio();
+                            _panoAudio.loop = true;
+                        }
+                        _panoAudio.volume = _panoAudioVolume;
+                        _panoAudio.src = data.audio_url;
+                        if (_userInteracted) {
+                            _panoAudio.play().catch(function () {});
+                        }
+                    }).catch(function () {});
+            }
+
+            // Load audio for the initial panorama
+            var initialId = getCurrentPanoramaId();
+            loadAudioForPanorama(initialId);
+
+            // Hook into panorama switching
+            var _origSwitchToPanoramaInView = window.switchToPanoramaInView || (typeof switchToPanoramaInView === 'function' ? switchToPanoramaInView : null);
+            if (typeof switchToPanoramaInView === 'function') {
+                window._panoAudioLoadForPanorama = loadAudioForPanorama;
+            }
+        })();
+
+        // Patch switchToPanoramaInView to trigger audio load
+        if (typeof switchToPanoramaInView === 'function') {
+            var _origSwitchFn = switchToPanoramaInView;
+            switchToPanoramaInView = function (panoramaId) {
+                if (window._panoAudioLoadForPanorama) window._panoAudioLoadForPanorama(panoramaId);
+                return _origSwitchFn.apply(this, arguments);
+            };
+        }
+
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') {
                 if (isMarkerPhotoLightboxVisible()) closeMarkerPhotoLightbox();

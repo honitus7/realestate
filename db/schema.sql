@@ -89,6 +89,7 @@ create table if not exists public.panoramas (
   start_view jsonb default null,
   image_data text default null,
   image_content_type text default 'image/jpeg',
+  audio_filename text default null,
   created_at timestamptz default now(),
   updated_at timestamptz default now()
 );

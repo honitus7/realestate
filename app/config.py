@@ -44,6 +44,7 @@ SUPABASE_S3_UPLOAD_URL_TTL = max(60, int(os.environ.get('SUPABASE_S3_UPLOAD_URL_
 SUPABASE_S3_PLOT_PREFIX = os.environ.get('SUPABASE_S3_PLOT_PREFIX', 'plot-images').strip('/')
 SUPABASE_S3_MARKER_PREFIX = os.environ.get('SUPABASE_S3_MARKER_PREFIX', 'marker-images').strip('/')
 SUPABASE_S3_VOICEOVER_PREFIX = os.environ.get('SUPABASE_S3_VOICEOVER_PREFIX', 'marker-voiceovers').strip('/')
+SUPABASE_S3_PANORAMA_AUDIO_PREFIX = os.environ.get('SUPABASE_S3_PANORAMA_AUDIO_PREFIX', 'panorama-audio').strip('/')
 SUPABASE_S3_DAYNIGHT_PREFIX = os.environ.get('SUPABASE_S3_DAYNIGHT_PREFIX', 'daynight').strip('/')
 SUPABASE_S3_FLOORPLAN_PREFIX = os.environ.get('SUPABASE_S3_FLOORPLAN_PREFIX', 'floor-plans').strip('/')
 SUPABASE_S3_BUILDING_MAP_PREFIX = os.environ.get('SUPABASE_S3_BUILDING_MAP_PREFIX', 'building-maps').strip('/')

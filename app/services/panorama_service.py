@@ -232,12 +232,15 @@ def get_panorama_by_id(sb, panorama_id):
     try:
         cols = 'id, user_id, name, filename, original_filename, width, height, is_360, created_at, updated_at'
         try:
-            r = sb.table('panoramas').select(cols + ', workspace_id, use_animated_icons, start_view').eq('id', panorama_id).limit(1).execute()
+            r = sb.table('panoramas').select(cols + ', workspace_id, use_animated_icons, start_view, audio_filename').eq('id', panorama_id).limit(1).execute()
         except Exception:
             try:
-                r = sb.table('panoramas').select(cols + ', workspace_id, start_view').eq('id', panorama_id).limit(1).execute()
+                r = sb.table('panoramas').select(cols + ', workspace_id, use_animated_icons, start_view').eq('id', panorama_id).limit(1).execute()
             except Exception:
-                r = sb.table('panoramas').select(cols).eq('id', panorama_id).limit(1).execute()
+                try:
+                    r = sb.table('panoramas').select(cols + ', workspace_id, start_view').eq('id', panorama_id).limit(1).execute()
+                except Exception:
+                    r = sb.table('panoramas').select(cols).eq('id', panorama_id).limit(1).execute()
         if r.data and len(r.data) > 0:
             row = dict(r.data[0])
             if 'use_animated_icons' not in row:

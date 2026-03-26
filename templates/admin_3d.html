@@ -1580,6 +1580,30 @@
                             <span>Panorama visibility</span>
                         </button>
                         {% endif %}
+                        <div class="tools-menu-sep"></div>
+                        <div class="tool-item tool-item--toggle" style="flex-direction:column;align-items:stretch;gap:0.5rem;">
+                            <div style="display:flex;align-items:center;gap:0.75rem;">
+                                <span class="tool-icon">🔊</span>
+                                <span>Panorama Audio</span>
+                            </div>
+                            <div id="pano-audio-controls" style="display:flex;flex-direction:column;gap:0.45rem;padding-left:1.7rem;">
+                                <div id="pano-audio-status" style="font-size:0.78rem;color:var(--color-muted);">
+                                    {{ 'Audio attached' if panorama.get('audio_filename') else 'No audio' }}
+                                </div>
+                                <div id="pano-audio-player-wrap" style="display:{{ 'flex' if panorama.get('audio_filename') else 'none' }};align-items:center;gap:0.5rem;">
+                                    <button type="button" id="pano-audio-play-btn" style="background:var(--color-surface);border:1px solid var(--color-border);border-radius:6px;padding:0.3rem 0.55rem;cursor:pointer;font-size:0.82rem;color:var(--color-text);">&#9654;</button>
+                                    <input type="range" id="pano-audio-volume" min="0" max="100" value="80" style="flex:1;height:4px;accent-color:var(--color-text);cursor:pointer;">
+                                    <span id="pano-audio-vol-label" style="font-size:0.7rem;color:var(--color-muted);min-width:28px;">80%</span>
+                                </div>
+                                <div style="display:flex;gap:0.4rem;flex-wrap:wrap;">
+                                    <label style="font-size:0.75rem;font-weight:600;padding:0.3rem 0.6rem;border-radius:6px;background:var(--color-surface);border:1px solid var(--color-border);cursor:pointer;color:var(--color-text);">
+                                        Upload
+                                        <input type="file" id="pano-audio-upload" accept=".mp3,.wav,.m4a,.ogg,.webm" hidden>
+                                    </label>
+                                    <button type="button" id="pano-audio-remove" style="font-size:0.75rem;font-weight:600;padding:0.3rem 0.6rem;border-radius:6px;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);cursor:pointer;color:var(--color-danger);display:{{ 'inline' if panorama.get('audio_filename') else 'none' }};">Remove</button>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -5216,6 +5240,119 @@
                 }
             });
         }
+
+        // ── Panorama Audio Controls ──
+        (function initPanoramaAudio() {
+            const uploadInput = document.getElementById('pano-audio-upload');
+            const removeBtn = document.getElementById('pano-audio-remove');
+            const playBtn = document.getElementById('pano-audio-play-btn');
+            const volumeSlider = document.getElementById('pano-audio-volume');
+            const volLabel = document.getElementById('pano-audio-vol-label');
+            const statusEl = document.getElementById('pano-audio-status');
+            const playerWrap = document.getElementById('pano-audio-player-wrap');
+            if (!uploadInput) return;
+
+            let audioEl = null;
+            let currentAudioUrl = null;
+            let hasAudio = {{ 'true' if panorama.get('audio_filename') else 'false' }};
+
+            function createAudioElement(url) {
+                if (audioEl) { audioEl.pause(); audioEl.src = ''; }
+                audioEl = new Audio(url);
+                audioEl.volume = (volumeSlider ? parseInt(volumeSlider.value) : 80) / 100;
+                audioEl.loop = true;
+                audioEl.addEventListener('ended', function () {
+                    playBtn.innerHTML = '&#9654;';
+                });
+                return audioEl;
+            }
+
+            // Load existing audio URL if present
+            if (hasAudio) {
+                fetch(`/api/panoramas/${PANORAMA_ID}/audio-url`)
+                    .then(r => r.json())
+                    .then(data => {
+                        if (data.audio_url) {
+                            currentAudioUrl = data.audio_url;
+                            createAudioElement(currentAudioUrl);
+                        }
+                    }).catch(() => {});
+            }
+
+            playBtn.addEventListener('click', function () {
+                if (!audioEl || !currentAudioUrl) {
+                    if (typeof showToast === 'function') showToast('No audio loaded', 'error');
+                    return;
+                }
+                if (audioEl.paused) {
+                    audioEl.play().then(() => { playBtn.innerHTML = '&#9646;&#9646;'; }).catch(() => {});
+                } else {
+                    audioEl.pause();
+                    playBtn.innerHTML = '&#9654;';
+                }
+            });
+
+            volumeSlider.addEventListener('input', function () {
+                var v = parseInt(this.value);
+                volLabel.textContent = v + '%';
+                if (audioEl) audioEl.volume = v / 100;
+            });
+
+            uploadInput.addEventListener('change', async function () {
+                const file = this.files && this.files[0];
+                if (!file) return;
+                statusEl.textContent = 'Uploading...';
+                try {
+                    const headers = await (window.getAuthHeaders ? window.getAuthHeaders() : Promise.resolve({}));
+                    const fd = new FormData();
+                    fd.append('file', file);
+                    const r = await fetch(`/api/panoramas/${PANORAMA_ID}/audio`, {
+                        method: 'POST',
+                        headers,
+                        body: fd
+                    });
+                    const data = await r.json();
+                    if (!r.ok) throw new Error(data.error || 'Upload failed');
+                    hasAudio = true;
+                    currentAudioUrl = data.audio_url;
+                    if (currentAudioUrl) createAudioElement(currentAudioUrl);
+                    statusEl.textContent = 'Audio attached';
+                    playerWrap.style.display = 'flex';
+                    removeBtn.style.display = 'inline';
+                    playBtn.innerHTML = '&#9654;';
+                    if (typeof showToast === 'function') showToast('Audio uploaded', 'success');
+                } catch (e) {
+                    statusEl.textContent = hasAudio ? 'Audio attached' : 'No audio';
+                    if (typeof showToast === 'function') showToast(e.message || 'Upload failed', 'error');
+                }
+                uploadInput.value = '';
+            });
+
+            removeBtn.addEventListener('click', async function () {
+                if (!hasAudio) return;
+                statusEl.textContent = 'Removing...';
+                try {
+                    const headers = await (window.getAuthHeaders ? window.getAuthHeaders() : Promise.resolve({}));
+                    const r = await fetch(`/api/panoramas/${PANORAMA_ID}/audio`, {
+                        method: 'DELETE',
+                        headers
+                    });
+                    const data = await r.json();
+                    if (!r.ok) throw new Error(data.error || 'Delete failed');
+                    hasAudio = false;
+                    currentAudioUrl = null;
+                    if (audioEl) { audioEl.pause(); audioEl.src = ''; audioEl = null; }
+                    statusEl.textContent = 'No audio';
+                    playerWrap.style.display = 'none';
+                    removeBtn.style.display = 'none';
+                    playBtn.innerHTML = '&#9654;';
+                    if (typeof showToast === 'function') showToast('Audio removed', 'success');
+                } catch (e) {
+                    statusEl.textContent = 'Audio attached';
+                    if (typeof showToast === 'function') showToast(e.message || 'Delete failed', 'error');
+                }
+            });
+        })();
 
         // Keyboard shortcuts for 360° mode
         document.addEventListener('keydown', (e) => {

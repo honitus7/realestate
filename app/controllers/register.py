@@ -77,6 +77,10 @@ from app.services.storage_service import (
     voiceover_object_key,
     get_voiceover_s3_url,
     delete_voiceover_from_s3,
+    panorama_audio_object_key,
+    get_panorama_audio_s3_url,
+    delete_panorama_audio_from_s3,
+    MAX_PANORAMA_AUDIO_BYTES,
     delete_panorama_from_s3,
     upload_panorama_to_s3,
     read_uploaded_file_bytes,
@@ -2438,6 +2442,107 @@ def register_routes(app):
         if start_view is not None:
             out['start_view'] = update_fields.get('start_view')
         return jsonify(out)
+
+    # ── Panorama Audio Upload ──
+    @app.route('/api/panoramas/<int:panorama_id>/audio', methods=['POST'])
+    @require_auth
+    def upload_panorama_audio(user_id, role, panorama_id):
+        if not use_s3():
+            return jsonify({'error': 'Supabase S3 is not configured'}), 503
+        sb = get_supabase()
+        if not sb:
+            return jsonify({'error': 'Database not configured'}), 503
+        panorama, access_type = get_panorama_with_access(sb, panorama_id, user_id)
+        if not panorama:
+            return jsonify({'error': 'Panorama not found'}), 404
+        if not can_edit_plots(access_type):
+            return jsonify({'error': 'Forbidden'}), 403
+        old_filename = str(panorama.get('audio_filename') or '').strip()
+        file_storage = request.files.get('file') or request.files.get('audio')
+        if not file_storage or not getattr(file_storage, 'filename', None):
+            return jsonify({'error': 'No audio file (use form field "file" or "audio")'}), 400
+        filename_orig = (file_storage.filename or '').strip()
+        ext = (filename_orig.rsplit('.', 1)[-1].lower() if '.' in filename_orig else '').strip()
+        if ext not in ALLOWED_AUDIO_EXTENSIONS:
+            return jsonify({'error': 'Audio type not allowed. Use: mp3, wav, m4a, ogg, webm'}), 400
+        data = read_uploaded_file_bytes(file_storage, MAX_PANORAMA_AUDIO_BYTES)
+        if len(data) > MAX_PANORAMA_AUDIO_BYTES:
+            return jsonify({'error': f'Audio too large (max {MAX_PANORAMA_AUDIO_BYTES // (1024*1024)}MB)'}), 413
+        if not data:
+            return jsonify({'error': 'Empty file'}), 400
+        unique = uuid.uuid4().hex[:10]
+        filename = f"pano_audio_{panorama_id}_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}_{unique}.{ext}"
+        content_type = AUDIO_CONTENT_TYPES.get(ext, 'audio/mpeg')
+        client = get_s3_client()
+        if not client:
+            return jsonify({'error': 'Supabase S3 is not configured'}), 503
+        try:
+            client.put_object(
+                Bucket=SUPABASE_S3_BUCKET,
+                Key=panorama_audio_object_key(filename),
+                Body=data,
+                ContentType=content_type,
+            )
+        except Exception as e:
+            current_app.logger.exception('Panorama audio S3 upload failed')
+            return jsonify({'error': str(e)}), 500
+        try:
+            sb.table('panoramas').update({
+                'audio_filename': filename,
+                'updated_at': datetime.utcnow().isoformat(),
+            }).eq('id', panorama_id).execute()
+        except Exception as e:
+            current_app.logger.exception('Failed to update panorama audio_filename')
+            try:
+                delete_panorama_audio_from_s3(filename)
+            except Exception:
+                pass
+            return jsonify({'error': 'Failed to save'}), 500
+        if old_filename and old_filename != filename:
+            delete_panorama_audio_from_s3(old_filename)
+        audio_url = get_panorama_audio_s3_url(filename)
+        return jsonify({'success': True, 'audio_filename': filename, 'audio_url': audio_url})
+
+    @app.route('/api/panoramas/<int:panorama_id>/audio', methods=['DELETE'])
+    @require_auth
+    def delete_panorama_audio(user_id, role, panorama_id):
+        sb = get_supabase()
+        if not sb:
+            return jsonify({'error': 'Database not configured'}), 503
+        panorama, access_type = get_panorama_with_access(sb, panorama_id, user_id)
+        if not panorama:
+            return jsonify({'error': 'Panorama not found'}), 404
+        if not can_edit_plots(access_type):
+            return jsonify({'error': 'Forbidden'}), 403
+        old_filename = str(panorama.get('audio_filename') or '').strip()
+        if not old_filename:
+            return jsonify({'success': True})
+        try:
+            sb.table('panoramas').update({
+                'audio_filename': None,
+                'updated_at': datetime.utcnow().isoformat(),
+            }).eq('id', panorama_id).execute()
+        except Exception as e:
+            return jsonify({'error': str(e)}), 500
+        delete_panorama_audio_from_s3(old_filename)
+        return jsonify({'success': True})
+
+    @app.route('/api/panoramas/<int:panorama_id>/audio-url', methods=['GET'])
+    def get_panorama_audio_url(panorama_id):
+        sb = get_supabase()
+        if not sb:
+            return jsonify({'error': 'Database not configured'}), 503
+        try:
+            r = sb.table('panoramas').select('audio_filename').eq('id', panorama_id).limit(1).execute()
+            if not r.data:
+                return jsonify({'error': 'Panorama not found'}), 404
+            fname = (r.data[0].get('audio_filename') or '').strip()
+        except Exception:
+            return jsonify({'error': 'audio_filename column missing'}), 503
+        if not fname:
+            return jsonify({'audio_url': None})
+        url = get_panorama_audio_s3_url(fname)
+        return jsonify({'audio_url': url})
 
     # ── Resolve Google Maps short links & reverse-geocode ──
     @app.route('/api/resolve-maps-link', methods=['POST'])

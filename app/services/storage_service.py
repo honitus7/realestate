@@ -486,6 +486,42 @@ def delete_voiceover_from_s3(filename):
         pass
 
 
+def panorama_audio_object_key(filename):
+    safe_name = os.path.basename(filename or '').strip()
+    if app_config.SUPABASE_S3_PANORAMA_AUDIO_PREFIX:
+        return f"{app_config.SUPABASE_S3_PANORAMA_AUDIO_PREFIX}/{safe_name}"
+    return safe_name
+
+
+def get_panorama_audio_s3_url(filename):
+    client = get_s3_client()
+    if not client or not filename:
+        return None
+    key = panorama_audio_object_key(filename)
+    try:
+        client.head_object(Bucket=app_config.SUPABASE_S3_BUCKET, Key=key)
+    except Exception:
+        return None
+    return client.generate_presigned_url(
+        ClientMethod='get_object',
+        Params={'Bucket': app_config.SUPABASE_S3_BUCKET, 'Key': key},
+        ExpiresIn=app_config.SUPABASE_S3_SIGNED_URL_TTL,
+    )
+
+
+def delete_panorama_audio_from_s3(filename):
+    client = get_s3_client()
+    if not client or not filename:
+        return
+    try:
+        client.delete_object(Bucket=app_config.SUPABASE_S3_BUCKET, Key=panorama_audio_object_key(filename))
+    except Exception:
+        pass
+
+
+MAX_PANORAMA_AUDIO_BYTES = 20 * 1024 * 1024
+
+
 def probe_image_dimensions(stream):
     """Return (width, height) without full decode."""
     try:
