@@ -673,6 +673,13 @@
             return slug ? `/customer/${encodeURIComponent(slug)}/${encodeURIComponent(panoramaId)}` : `/customer/${encodeURIComponent(panoramaId)}`;
         }
 
+        function getProjectShareUrl() {
+            if (WORKSPACE_ID) {
+                return `${window.location.origin}/customer/project/${encodeURIComponent(WORKSPACE_ID)}`;
+            }
+            return `${window.location.origin}${getPanoramaPathByMeta(getCurrentPanoramaId(), CURRENT_PANORAMA_IS_360)}`;
+        }
+
         function syncProjectBadgeText() {
             const cfg = getCvConfig();
             const badgeCfg = cfg && cfg.projectBadge ? cfg.projectBadge : {};
@@ -4221,14 +4228,14 @@
         if (shareBtn) {
             shareBtn.addEventListener('click', () => {
                 stopAutoRotate();
-                const viewUrl = `${window.location.origin}${getPanoramaPathByMeta(getCurrentPanoramaId(), CURRENT_PANORAMA_IS_360)}`;
+                const viewUrl = getProjectShareUrl();
                 shareUrl.textContent = viewUrl;
                 shareModal.classList.add('visible');
             });
 
             if (copyBtn) {
                 copyBtn.addEventListener('click', () => {
-                    const viewUrl = `${window.location.origin}${getPanoramaPathByMeta(getCurrentPanoramaId(), CURRENT_PANORAMA_IS_360)}`;
+                    const viewUrl = getProjectShareUrl();
                     navigator.clipboard.writeText(viewUrl).then(() => {
                         copyBtn.textContent = 'Copied!';
                         setTimeout(() => {
