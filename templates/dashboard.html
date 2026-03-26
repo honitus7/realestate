@@ -39,11 +39,6 @@
                     <option value="360">360°</option>
                     <option value="flat">Flat</option>
                 </select>
-                <select class="dashboard-filter-select" id="filter-date" aria-label="Date modified">
-                    <option value="">Date modified</option>
-                    <option value="recent">Recent</option>
-                    <option value="oldest">Oldest first</option>
-                </select>
                 <button type="button" class="dashboard-filter-btn" id="create-workspace-btn" style="display:none;">New Project</button>
             </div>
 
@@ -107,7 +102,7 @@
                             <div class="form-group">
                                 <label class="form-label">Add to Project (Folder)</label>
                                 <select class="form-input" id="upload-workspace-select">
-                                    <option value="">Unfiled</option>
+                                    <option value="">Unlinked</option>
                                 </select>
                             </div>
                         </div>
@@ -297,7 +292,7 @@
     <div class="modal-backdrop" id="delete-workspace-modal">
         <div class="modal">
             <div class="modal-title">Delete Folder?</div>
-            <div class="modal-text">This removes the folder only. Panoramas inside it will remain and move to Unfiled.</div>
+            <div class="modal-text">This removes the project only. Panoramas inside it will become unlinked.</div>
             <div id="workspace-delete-error" class="msg error" style="display:none; margin-bottom: 1rem;"></div>
             <div class="modal-actions">
                 <button class="btn btn-secondary" id="cancel-delete-workspace">Cancel</button>
@@ -447,14 +442,13 @@
             var cancelUploadEl = document.getElementById('cancel-upload');
             var searchInput = document.getElementById('dashboard-search');
             var filterType = document.getElementById('filter-type');
-            var filterDate = document.getElementById('filter-date');
             if (uploadBtn && uploadModal) {
                 uploadBtn.addEventListener('click', function () {
                     // Populate workspace select with owned folders
                     var wsSelect = document.getElementById('upload-workspace-select');
                     if (wsSelect && typeof workspaces !== 'undefined') {
                         var currentVal = wsSelect.value;
-                        wsSelect.innerHTML = '<option value="">Unfiled</option>';
+                        wsSelect.innerHTML = '<option value="">Unlinked</option>';
                         workspaces.forEach(function(ws) {
                             if (ws.access_type === 'owner') {
                                 var opt = document.createElement('option');
@@ -492,7 +486,6 @@
             }
             if (searchInput) searchInput.addEventListener('input', onSearchInputDebounced);
             if (filterType) filterType.addEventListener('change', onSearchOrFilterChange);
-            if (filterDate) filterDate.addEventListener('change', onSearchOrFilterChange);
         })();
 
         function extractCoordsFromGoogleMapsLink(link) {
@@ -642,7 +635,7 @@
         // State
         let projects = [];
         let workspaces = [];
-        let selectedWorkspaceKey = 'all';
+        let selectedWorkspaceKey = 'unfiled';
         let selectedFile = null;
         let selectedImageWidth = 0;
         let selectedImageHeight = 0;
@@ -734,7 +727,6 @@
             var list = getVisibleProjects();
             var searchEl = document.getElementById('dashboard-search');
             var typeEl = document.getElementById('filter-type');
-            var dateEl = document.getElementById('filter-date');
             var q = (searchEl && searchEl.value) ? String(searchEl.value).trim().toLowerCase() : '';
             if (q) {
                 list = list.filter(function (p) { return (p.name || '').toLowerCase().indexOf(q) !== -1; });
@@ -742,12 +734,11 @@
             var typeVal = typeEl ? typeEl.value : '';
             if (typeVal === '360') list = list.filter(function (p) { return Boolean(p.is_360); });
             if (typeVal === 'flat') list = list.filter(function (p) { return !p.is_360; });
-            var dateVal = dateEl ? dateEl.value : '';
             list = list.slice();
             list.sort(function (a, b) {
                 var ta = (a.updated_at && new Date(a.updated_at).getTime()) || 0;
                 var tb = (b.updated_at && new Date(b.updated_at).getTime()) || 0;
-                return dateVal === 'oldest' ? ta - tb : tb - ta;
+                return tb - ta;
             });
             return list;
         }
@@ -804,7 +795,6 @@
         }
 
         function getVisibleProjects() {
-            if (selectedWorkspaceKey === 'all') return projects.slice();
             if (selectedWorkspaceKey === 'unfiled') {
                 return projects.filter(function (p) { return !p.workspace_id; });
             }
@@ -816,7 +806,7 @@
         }
 
         function setWorkspaceSelection(key) {
-            selectedWorkspaceKey = key || 'all';
+            selectedWorkspaceKey = key || 'unfiled';
             renderWorkspaces();
             renderProjects();
         }
@@ -837,14 +827,10 @@
             });
 
             var items = '';
-            items += '<div class="folder-card folder-card--system ' + (selectedWorkspaceKey === 'all' ? 'active' : '') + '" onclick="setWorkspaceSelection(\'all\')" ondragover="onWorkspaceDragOver(event)" ondragleave="onWorkspaceDragLeave(event)" ondrop="onWorkspaceDrop(event,\'all\')">';
-            items += '<div class="folder-card-head"><span class="folder-card-title">All Projects</span><span class="folder-card-count">' + projects.length + '</span></div>';
-            items += '<p class="folder-card-subtitle">Everything</p>';
-            items += '</div>';
 
             items += '<div class="folder-card folder-card--system ' + (selectedWorkspaceKey === 'unfiled' ? 'active' : '') + '" onclick="setWorkspaceSelection(\'unfiled\')" ondragover="onWorkspaceDragOver(event)" ondragleave="onWorkspaceDragLeave(event)" ondrop="onWorkspaceDrop(event,\'unfiled\')">';
-            items += '<div class="folder-card-head"><span class="folder-card-title">Unfiled</span><span class="folder-card-count">' + unfiledCount + '</span></div>';
-            items += '<p class="folder-card-subtitle">No folder assigned</p>';
+            items += '<div class="folder-card-head"><span class="folder-card-title"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:6px;opacity:0.7"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>Unlinked Panoramas</span><span class="folder-card-count">' + unfiledCount + '</span></div>';
+            items += '<p class="folder-card-subtitle">Not assigned to any project</p>';
             items += '</div>';
 
             workspaces.forEach(function (ws) {
@@ -968,14 +954,7 @@
             // Determine if user is owner of this workspace
             var ws = getWorkspaceById(workspaceId);
             var isWsOwner = ws && String(ws.access_type || 'owner') === 'owner' && (currentUserRole === 'admin' || currentUserRole === 'superadmin');
-            // Show/hide owner-only controls (custom endpoint, save button)
-            if (shareWorkspaceModal) {
-                shareWorkspaceModal.querySelectorAll('.share-owner-only').forEach(function (el) {
-                    el.style.display = isWsOwner ? '' : 'none';
-                });
-                shareWorkspaceModal.classList.add('visible');
-            }
-            if (isWsOwner && workspaceCustomEndpointInput) workspaceCustomEndpointInput.focus();
+            // Fetch link data BEFORE opening modal so it appears instantly
             try {
                 const headers = await getAuthHeaders();
                 const response = await fetch('/api/workspaces/' + encodeURIComponent(workspaceId) + '/share-endpoint', { headers });
@@ -988,6 +967,14 @@
             } catch (error) {
                 showWorkspaceShareError(error.message || 'Failed to load share link');
             }
+            // Now open the modal with data already populated
+            if (shareWorkspaceModal) {
+                shareWorkspaceModal.querySelectorAll('.share-owner-only').forEach(function (el) {
+                    el.style.display = isWsOwner ? '' : 'none';
+                });
+                shareWorkspaceModal.classList.add('visible');
+            }
+            if (isWsOwner && workspaceCustomEndpointInput) workspaceCustomEndpointInput.focus();
         }
 
         function openCreateWorkspaceModal() {
@@ -1062,7 +1049,7 @@
                 workspaces = await response.json();
                 if (selectedWorkspaceKey.indexOf('ws:') === 0) {
                     var existing = getWorkspaceById(selectedWorkspaceKey.slice(3));
-                    if (!existing) selectedWorkspaceKey = 'all';
+                    if (!existing) selectedWorkspaceKey = 'unfiled';
                 }
             } catch (error) {
                 workspaceFeatureReady = false;
@@ -1535,7 +1522,7 @@
             let workspaceId = null;
             if (targetKey && targetKey.indexOf('ws:') === 0) workspaceId = targetKey.slice(3);
             if (targetKey === 'all') {
-                showToast('Drop into a folder or Unfiled', 'error');
+                showToast('Drop into a project or Unlinked Panoramas', 'error');
                 return;
             }
             try {
@@ -1912,7 +1899,7 @@
                     }
                     closeDeleteWorkspaceModal();
                     showToast('Folder deleted', 'success');
-                    if (selectedWorkspaceKey === 'ws:' + deleteWorkspaceTargetId) selectedWorkspaceKey = 'all';
+                    if (selectedWorkspaceKey === 'ws:' + deleteWorkspaceTargetId) selectedWorkspaceKey = 'unfiled';
                     await Promise.all([loadProjects(), loadWorkspaces()]);
                     renderWorkspaces();
                     renderProjects();

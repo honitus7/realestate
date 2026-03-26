@@ -245,8 +245,11 @@
 /* ---- Main content ---- */
 .dashboard-content {
     flex: 1;
-    overflow-y: auto;
+    overflow: hidden;
     padding: 1.5rem 2rem 2rem;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
 }
 
 /* Search bar */
@@ -258,7 +261,7 @@
     border: 1px solid var(--color-border);
     border-radius: var(--radius);
     padding: 0 1rem;
-    flex: 1;
+    flex-shrink: 0;
     min-width: 200px;
     box-shadow: 0 1px 3px rgba(22, 35, 56, 0.04);
 }
@@ -429,7 +432,7 @@
     display: grid;
     grid-template-columns: minmax(280px, 340px) 1fr;
     gap: 1.5rem;
-    align-items: start;
+    align-items: stretch;
     min-height: 0;
     flex: 1;
 }
@@ -449,7 +452,6 @@
 .dashboard-folders-scroll {
     flex: 1;
     min-height: 200px;
-    max-height: min(60vh, 520px);
     overflow-y: auto;
     overflow-x: hidden;
     border: 1px solid var(--color-border);
@@ -490,7 +492,6 @@
 .dashboard-projects-scroll {
     flex: 1;
     min-height: 200px;
-    max-height: min(60vh, 520px);
     overflow-y: auto;
     overflow-x: hidden;
     -webkit-overflow-scrolling: touch;
