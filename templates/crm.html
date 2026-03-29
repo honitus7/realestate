@@ -5,93 +5,66 @@
 <link rel="stylesheet" href="/static/css/crm.css">
 {% endblock %}
 {% block content %}
-<div class="crm-page crm-page--with-sidebar">
+<div class="crm-page">
     {% set active_page = 'crm' %}
     {% include 'components/sidebar.html' %}
     <div class="crm-page-content">
-    <header class="header">
-        <div class="header-left">
-            <a class="logo" href="/dashboard" aria-label="Back to dashboard">
-                <img src="/static/Logo.png" alt="Logo" loading="eager">
-            </a>
-            <span class="header-sep"></span>
-            <div class="page-title">
-                <h1>CRM</h1>
-                <p id="subtitle">Leads · Plots · Lock Access</p>
-            </div>
-        </div>
-        <div class="header-actions">
-            <button class="hdr-btn" id="btn-export" type="button">
-                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                Export CSV
-            </button>
-            <button class="hdr-btn" id="btn-reports" type="button">
-                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
-                Reports
-            </button>
-            <button class="hdr-btn hdr-btn--icon" id="btn-refresh" type="button" title="Refresh data">
-                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
-            </button>
-            <a class="hdr-btn hdr-btn--primary" href="/dashboard">
-                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
-                Dashboard
-            </a>
-        </div>
-    </header>
+    <!-- Tab Navigation -->
+    <div class="crm-tabs" id="crm-tabs">
+        <button class="crm-tab active" data-tab="interests" id="tab-interests">Interests</button>
+        <button class="crm-tab" data-tab="projects" id="tab-projects" style="display:none;">Projects</button>
+        <button class="crm-tab" data-tab="panoramas" id="tab-panoramas" style="display:none;">Panoramas</button>
+        <button class="crm-tab" data-tab="plots" id="tab-plots">Plots</button>
+        <button class="crm-tab" data-tab="manage-lock" id="tab-manage-lock" style="display:none;">Manage Lock</button>
+        <button class="crm-tab" data-tab="lock-plots" id="tab-lock-plots" style="display:none;">Lock Plots</button>
+        <div class="crm-tabs-spacer"></div>
+        <button class="crm-tab-action" id="btn-reports" type="button" title="Download Excel">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+        </button>
+    </div>
 
-    <div class="crm-layout">
-        <!-- Sidebar -->
-        <nav class="crm-sidebar" id="crm-sidebar">
-            <div class="sidebar-label">Main</div>
-            <a class="active" data-section="interests"><span class="sidebar-icon">&#9733;</span> Interests</a>
-            <a data-section="projects" id="nav-crm-projects" style="display:none;"><span class="sidebar-icon">&#128193;</span> Projects</a>
-            <a data-section="panoramas" id="nav-crm-panoramas" style="display:none;"><span class="sidebar-icon">&#9881;</span> Panoramas</a>
-            <a data-section="plots"><span class="sidebar-icon">&#9632;</span> Plots</a>
-            <div class="sidebar-divider" id="crm-lock-divider" style="display:none;"></div>
-            <div class="sidebar-label" id="crm-lock-label" style="display:none;">Lock Management</div>
-            <a data-section="manage-lock" id="nav-manage-lock" style="display:none;"><span class="sidebar-icon">&#128274;</span> Manage Lock</a>
-            <a data-section="lock-plots" id="nav-lock-plots" style="display:none;"><span class="sidebar-icon">&#128275;</span> Lock Plots</a>
-        </nav>
-
-        <!-- Content -->
-        <main class="crm-content">
+    <!-- Content -->
+    <main class="crm-content">
             <!-- ══════════ INTERESTS SECTION ══════════ -->
             <section class="crm-section active" id="sec-interests">
-                <!-- Stats Row -->
-                <div class="interest-stats" id="interest-stats">
-                    <div class="istat">
-                        <div class="istat-icon istat-icon--total">
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-                        </div>
-                        <div class="istat-body"><div class="istat-val" id="stat-total">0</div><div class="istat-label">Total Leads</div></div>
+                <!-- KPI Strip -->
+                <div class="kpi-strip" id="interest-stats">
+                    <div class="kpi-chip kpi-chip--accent">
+                        <div class="kpi-chip-dot kpi-chip-dot--total"></div>
+                        <div class="kpi-chip-data"><div class="kpi-chip-val" id="stat-total">0</div><div class="kpi-chip-label">Total</div></div>
                     </div>
-                    <div class="istat">
-                        <div class="istat-icon istat-icon--new">
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
-                        </div>
-                        <div class="istat-body"><div class="istat-val" id="stat-new">0</div><div class="istat-label">New</div></div>
+                    <div class="kpi-chip">
+                        <div class="kpi-chip-dot kpi-chip-dot--new"></div>
+                        <div class="kpi-chip-data"><div class="kpi-chip-val" id="stat-new">0</div><div class="kpi-chip-label">New</div></div>
+                        <div class="kpi-chip-bar"><div class="kpi-chip-fill kpi-fill--new" id="bar-new"></div></div>
                     </div>
-                    <div class="istat">
-                        <div class="istat-icon istat-icon--qualified">
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
-                        </div>
-                        <div class="istat-body"><div class="istat-val" id="stat-qualified">0</div><div class="istat-label">Qualified</div></div>
+                    <div class="kpi-chip">
+                        <div class="kpi-chip-dot kpi-chip-dot--contacted"></div>
+                        <div class="kpi-chip-data"><div class="kpi-chip-val" id="stat-contacted">0</div><div class="kpi-chip-label">Contacted</div></div>
+                        <div class="kpi-chip-bar"><div class="kpi-chip-fill kpi-fill--contacted" id="bar-contacted"></div></div>
                     </div>
-                    <div class="istat">
-                        <div class="istat-icon istat-icon--won">
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
-                        </div>
-                        <div class="istat-body"><div class="istat-val" id="stat-won">0</div><div class="istat-label">Won</div></div>
+                    <div class="kpi-chip">
+                        <div class="kpi-chip-dot kpi-chip-dot--qualified"></div>
+                        <div class="kpi-chip-data"><div class="kpi-chip-val" id="stat-qualified">0</div><div class="kpi-chip-label">Qualified</div></div>
+                        <div class="kpi-chip-bar"><div class="kpi-chip-fill kpi-fill--qualified" id="bar-qualified"></div></div>
                     </div>
-                    <div class="istat">
-                        <div class="istat-icon istat-icon--conversion">
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="20" x2="12" y2="10"/><line x1="18" y1="20" x2="18" y2="4"/><line x1="6" y1="20" x2="6" y2="16"/></svg>
-                        </div>
-                        <div class="istat-body"><div class="istat-val" id="stat-conversion">0%</div><div class="istat-label">Conversion</div></div>
+                    <div class="kpi-chip">
+                        <div class="kpi-chip-dot kpi-chip-dot--won"></div>
+                        <div class="kpi-chip-data"><div class="kpi-chip-val" id="stat-won">0</div><div class="kpi-chip-label">Won</div></div>
+                        <div class="kpi-chip-bar"><div class="kpi-chip-fill kpi-fill--won" id="bar-won"></div></div>
+                    </div>
+                    <div class="kpi-chip">
+                        <div class="kpi-chip-dot kpi-chip-dot--lost"></div>
+                        <div class="kpi-chip-data"><div class="kpi-chip-val" id="stat-lost">0</div><div class="kpi-chip-label">Lost</div></div>
+                        <div class="kpi-chip-bar"><div class="kpi-chip-fill kpi-fill--lost" id="bar-lost"></div></div>
+                    </div>
+                    <div class="kpi-chip kpi-chip--accent">
+                        <div class="kpi-chip-dot kpi-chip-dot--conversion"></div>
+                        <div class="kpi-chip-data"><div class="kpi-chip-val" id="stat-conversion">0%</div><div class="kpi-chip-label">Conversion</div></div>
                     </div>
                 </div>
 
-                <!-- Toolbar: view toggle + filters -->
+                <!-- Toolbar -->
                 <div class="interest-toolbar">
                     <div class="interest-toolbar-left">
                         <div class="view-toggle">
@@ -105,19 +78,54 @@
                         <input class="toolbar-search" id="q" placeholder="Search leads..." autocomplete="off">
                     </div>
                     <div class="interest-toolbar-right">
-                        <select class="toolbar-select" id="filter-status">
-                            <option value="">All Status</option>
-                            <option value="new">New</option>
-                            <option value="contacted">Contacted</option>
-                            <option value="qualified">Qualified</option>
-                            <option value="won">Won</option>
-                            <option value="lost">Lost</option>
-                        </select>
-                        <select class="toolbar-select" id="filter-category"><option value="">All Categories</option></select>
-                        <select class="toolbar-select" id="filter-workspace"><option value="">All Projects</option></select>
-                        <select class="toolbar-select" id="filter-project"><option value="">All Panoramas</option></select>
-                        <select class="toolbar-select" id="filter-plot"><option value="">All Plots</option></select>
-                        <button class="toolbar-btn" id="btn-clear" type="button">Clear</button>
+                        <button class="filter-btn" id="btn-open-filters" type="button">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+                            <span>Filters</span>
+                            <span class="filter-badge" id="filter-badge" style="display:none;">0</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Filter Modal -->
+                <div class="filter-modal-backdrop" id="filter-modal-backdrop">
+                    <div class="filter-modal" id="filter-modal">
+                        <div class="filter-modal-head">
+                            <h3>Filters</h3>
+                            <button class="filter-modal-close" id="filter-modal-close" type="button">&times;</button>
+                        </div>
+                        <div class="filter-modal-body">
+                            <div class="filter-group">
+                                <label class="filter-group-label">Status</label>
+                                <select class="filter-group-select" id="filter-status">
+                                    <option value="">All Status</option>
+                                    <option value="new">New</option>
+                                    <option value="contacted">Contacted</option>
+                                    <option value="qualified">Qualified</option>
+                                    <option value="won">Won</option>
+                                    <option value="lost">Lost</option>
+                                </select>
+                            </div>
+                            <div class="filter-group">
+                                <label class="filter-group-label">Category</label>
+                                <select class="filter-group-select" id="filter-category"><option value="">All Categories</option></select>
+                            </div>
+                            <div class="filter-group">
+                                <label class="filter-group-label">Project</label>
+                                <select class="filter-group-select" id="filter-workspace"><option value="">All Projects</option></select>
+                            </div>
+                            <div class="filter-group">
+                                <label class="filter-group-label">Panorama</label>
+                                <select class="filter-group-select" id="filter-project"><option value="">All Panoramas</option></select>
+                            </div>
+                            <div class="filter-group">
+                                <label class="filter-group-label">Plot</label>
+                                <select class="filter-group-select" id="filter-plot"><option value="">All Plots</option></select>
+                            </div>
+                        </div>
+                        <div class="filter-modal-foot">
+                            <button class="btn" id="btn-clear" type="button">Clear All</button>
+                            <button class="btn primary" id="btn-apply-filters" type="button">Apply Filters</button>
+                        </div>
                     </div>
                 </div>
 
@@ -396,7 +404,6 @@
                 </div>
             </section>
         </main>
-    </div>
 
     <!-- ══════════ PANORAMA DETAIL MODAL ══════════ -->
     <div class="crm-modal-backdrop" id="panorama-modal-backdrop">
@@ -586,6 +593,7 @@
     </div>
     </div><!-- .crm-page-content -->
 </div>
+<div id="toast-container" style="position:fixed;top:1rem;right:1rem;z-index:9999;display:flex;flex-direction:column;gap:0.5rem;pointer-events:none;"></div>
 
 {% endblock %}
 {% block scripts %}
@@ -594,6 +602,7 @@
     window.__SUPABASE_ANON_KEY__ = {{ (supabase_anon_key or '')|tojson }};
 </script>
 <script src="/static/js/sidebar.js"></script>
+<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 <script>
 (function () {
     function waitForAuthSession(maxAttempts, delayMs) {
@@ -686,6 +695,18 @@
         return parts.length >= 2 ? (parts[0][0] + parts[parts.length-1][0]).toUpperCase() : (parts[0][0] || '?').toUpperCase();
     }
 
+    function showToast(message, type) {
+        const c = document.getElementById('toast-container');
+        if(!c) return;
+        const t = document.createElement('div');
+        t.style.cssText = 'pointer-events:auto;padding:0.65rem 1rem;border-radius:8px;font-size:0.82rem;font-weight:600;color:#fff;box-shadow:0 4px 16px rgba(0,0,0,0.15);opacity:0;transform:translateY(-8px);transition:opacity 0.25s,transform 0.25s;';
+        t.style.background = type === 'error' ? '#ef4444' : '#162338';
+        t.textContent = message;
+        c.appendChild(t);
+        requestAnimationFrame(() => { t.style.opacity = '1'; t.style.transform = 'translateY(0)'; });
+        setTimeout(() => { t.style.opacity = '0'; t.style.transform = 'translateY(-8px)'; setTimeout(() => t.remove(), 300); }, 3000);
+    }
+
     async function api(path, opts) {
         const headers = await ensureAuthenticated();
         const o = Object.assign({headers:Object.assign({'Content-Type':'application/json'}, headers)}, opts||{});
@@ -706,20 +727,18 @@
     // ── DOM refs ──
     const $ = id => document.getElementById(id);
 
-    // ── Section switching ──
-    const sidebar = $('crm-sidebar');
+    // ── Tab-based section switching ──
     const sections = document.querySelectorAll('.crm-section');
-    const sidebarLinks = sidebar.querySelectorAll('a[data-section]');
+    const tabButtons = document.querySelectorAll('.crm-tab[data-tab]');
 
     function switchSection(name) {
         sections.forEach(s => s.classList.toggle('active', s.id === 'sec-'+name));
-        sidebarLinks.forEach(a => a.classList.toggle('active', a.getAttribute('data-section') === name));
+        tabButtons.forEach(t => t.classList.toggle('active', t.getAttribute('data-tab') === name));
     }
 
-    sidebarLinks.forEach(a => {
-        a.addEventListener('click', function(e) {
-            e.preventDefault();
-            const sec = this.getAttribute('data-section');
+    tabButtons.forEach(tab => {
+        tab.addEventListener('click', function() {
+            const sec = this.getAttribute('data-tab');
             switchSection(sec);
             if (sec === 'projects') loadWorkspaces();
             if (sec === 'panoramas') loadPanoramas();
@@ -737,19 +756,15 @@
                 const d = await r.json();
                 userRole = d.role || 'user';
                 const isAdminRole = userRole === 'admin' || userRole === 'superadmin';
-                // Show admin-only CRM sidebar sections
+                // Show admin-only CRM tabs
                 if (isAdminRole) {
-                    $('nav-crm-projects').style.display = '';
-                    $('nav-crm-panoramas').style.display = '';
-                    $('nav-manage-lock').style.display = '';
-                    $('nav-lock-plots').style.display = '';
-                    $('crm-lock-divider').style.display = '';
-                    $('crm-lock-label').style.display = '';
+                    $('tab-projects').style.display = '';
+                    $('tab-panoramas').style.display = '';
+                    $('tab-manage-lock').style.display = '';
+                    $('tab-lock-plots').style.display = '';
                 } else {
-                    // Regular users with client access: show lock plots if they have lock access
-                    $('nav-lock-plots').style.display = '';
-                    $('crm-lock-divider').style.display = '';
-                    $('crm-lock-label').style.display = '';
+                    // Regular users: show lock plots if they have lock access
+                    $('tab-lock-plots').style.display = '';
                 }
             }
         } catch(e) { console.warn('Failed to load user info', e); }
@@ -775,9 +790,15 @@
         const t = Math.max(1, c.total);
         $('stat-total').textContent = c.total;
         $('stat-new').textContent = c.new;
+        if($('stat-contacted')) $('stat-contacted').textContent = c.contacted;
         $('stat-qualified').textContent = c.qualified;
         $('stat-won').textContent = c.won;
+        if($('stat-lost')) $('stat-lost').textContent = c.lost;
         $('stat-conversion').textContent = ((c.won / t) * 100).toFixed(0) + '%';
+        ['new','contacted','qualified','won','lost'].forEach(key => {
+            const bar = $('bar-'+key);
+            if(bar) bar.style.width = Math.max((t > 0 ? ((c[key]||0)/t)*100 : 0), 2) + '%';
+        });
     }
 
     // -- View toggle --
@@ -885,7 +906,7 @@
 
     // -- Kanban Board --
     const stages = ['new','contacted','qualified','won','lost'];
-    const stageColors = {new:'#6366f1',contacted:'#f59e0b',qualified:'#3b82f6',won:'#22c55e',lost:'#ef4444'};
+    const stageColors = {new:'#6366f1',contacted:'#f59e42',qualified:'#3b82f6',won:'#34d399',lost:'#f87171'};
 
     function renderKanban() {
         const byStage = {};
@@ -906,7 +927,7 @@
 
             container.innerHTML = items.map(i => {
                 const pj = projectById.get(String(i.panorama_id));
-                const pn = pj&&pj.name?pj.name:'Project #'+i.panorama_id;
+                const pn = pj&&pj.name?pj.name:'';
                 const plots = Array.isArray(i.plots)?i.plots:[];
                 const plotCount = plots.length;
                 const plotLabel = plotCount === 0 ? '' : plotCount === 1 ? (plots[0].name||'1 plot') : plotCount + ' plots';
@@ -915,17 +936,13 @@
                         '<div class="kb-avatar" style="background:'+stageColors[s]+'">'+esc(initials(i.customer_name))+'</div>' +
                         '<div class="kb-card-info">' +
                             '<div class="kb-card-name">'+esc(i.customer_name||'Unknown')+'</div>' +
-                            '<div class="kb-card-time">'+esc(fmtRelative(i.created_at))+'</div>' +
+                            '<div class="kb-card-meta">'+(i.customer_phone?esc(i.customer_phone):esc(i.customer_email||''))+'</div>' +
                         '</div>' +
                     '</div>' +
-                    '<div class="kb-card-details">' +
-                        (i.customer_email ? '<div class="kb-card-row"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg><span>'+esc(i.customer_email)+'</span></div>' : '') +
-                        (i.customer_phone ? '<div class="kb-card-row"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg><span>'+esc(i.customer_phone)+'</span></div>' : '') +
-                    '</div>' +
-                    '<div class="kb-card-footer">' +
-                        '<span class="kb-card-project">'+esc(pn)+'</span>' +
+                    (pn || plotLabel ? '<div class="kb-card-footer">' +
+                        (pn ? '<span class="kb-card-project">'+esc(pn)+'</span>' : '') +
                         (plotLabel ? '<span class="kb-card-plots">'+esc(plotLabel)+'</span>' : '') +
-                    '</div>' +
+                    '</div>' : '') +
                 '</div>';
             }).join('');
 
@@ -945,7 +962,7 @@
             });
         });
 
-        // Drop targets
+        // Drop targets — optimistic UI: move card instantly, revert on failure
         document.querySelectorAll('.kanban-cards').forEach(zone => {
             zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('kb-drop-active'); });
             zone.addEventListener('dragleave', () => { zone.classList.remove('kb-drop-active'); });
@@ -956,12 +973,20 @@
                 const newStage = zone.closest('.kanban-col').getAttribute('data-stage');
                 const item = interests.find(x => String(x.id) === id);
                 if(!item || String(item.status||'new').toLowerCase() === newStage) return;
+                // Optimistic: update immediately
+                const prevStatus = item.status;
+                item.status = newStage;
+                refreshInterestsUI();
+                // Fire API in background — revert on failure
                 try {
                     const r = await api('/api/buy-interests/'+encodeURIComponent(id), {method:'PATCH', body:JSON.stringify({status:newStage})});
                     if(!r.ok) { const d = await r.json().catch(()=>({})); throw new Error(d.error||'Failed'); }
-                    item.status = newStage;
+                } catch(err) {
+                    console.warn('Status update failed, reverting:', err.message);
+                    item.status = prevStatus;
                     refreshInterestsUI();
-                } catch(err) { console.warn('Status update failed:', err.message); }
+                    if(typeof showToast==='function') showToast('Failed to update status: '+err.message, 'error');
+                }
             });
         });
 
@@ -1061,15 +1086,27 @@
     async function saveSelected(partial) {
         if(!selected)return;
         btnSave.disabled=true; btnContacted.disabled=true; showDrawerMsg('');
+        // Optimistic: apply changes locally first
+        const prev = { status: selected.status, notes: selected.notes };
+        if(partial.status) selected.status = partial.status;
+        if('notes' in partial) selected.notes = partial.notes;
+        refreshInterestsUI();
+        openDrawer(selected);
         try {
             const r = await api('/api/buy-interests/'+encodeURIComponent(String(selected.id)),{method:'PATCH',body:JSON.stringify(partial||{})});
             const data = await r.json().catch(()=>({}));
             if(!r.ok) throw new Error((data&&data.error)?data.error:('Update failed ('+r.status+')'));
             showDrawerMsg('Saved.');
-            await loadInterests();
-            const updated = interests.find(x=>String(x.id)===String(selected.id));
-            if(updated) openDrawer(updated);
-        } catch(e) { showDrawerMsg(e.message||'Failed to save','error'); }
+            showToast('Changes saved');
+        } catch(e) {
+            // Revert on failure
+            selected.status = prev.status;
+            if('notes' in partial) selected.notes = prev.notes;
+            refreshInterestsUI();
+            openDrawer(selected);
+            showDrawerMsg(e.message||'Failed to save','error');
+            showToast(e.message||'Failed to save','error');
+        }
         finally { btnSave.disabled=false; btnContacted.disabled=false; }
     }
 
@@ -1079,37 +1116,38 @@
     btnContacted.addEventListener('click', () => saveSelected({status:'contacted'}));
     btnSave.addEventListener('click', () => saveSelected({status:dStatus.value,notes:dNotes.value}));
 
-    // -- Filter listeners --
-    qEl.addEventListener('input', refreshInterestsUI);
-    statusEl.addEventListener('change', refreshInterestsUI);
-    categoryEl.addEventListener('change', refreshInterestsUI);
-    workspaceEl.addEventListener('change', () => {
-        // Cascade: when workspace changes, re-render panorama options for that workspace
-        renderProjectOptions();
-        projectEl.value = '';
-        refreshInterestsUI();
-    });
-    projectEl.addEventListener('change', refreshInterestsUI);
-    plotEl.addEventListener('change', refreshInterestsUI);
-    $('btn-clear').addEventListener('click', () => { qEl.value=''; statusEl.value=''; categoryEl.value=''; workspaceEl.value=''; projectEl.value=''; plotEl.value=''; renderProjectOptions(); refreshInterestsUI(); });
+    // -- Filter modal --
+    const filterBackdrop = $('filter-modal-backdrop');
+    function openFilterModal() { filterBackdrop.classList.add('visible'); }
+    function closeFilterModal() { filterBackdrop.classList.remove('visible'); }
+    function updateFilterBadge() {
+        let count = 0;
+        if(statusEl.value) count++;
+        if(categoryEl.value) count++;
+        if(workspaceEl.value) count++;
+        if(projectEl.value) count++;
+        if(plotEl.value) count++;
+        const badge = $('filter-badge');
+        const btn = $('btn-open-filters');
+        if(count > 0) { badge.textContent = count; badge.style.display = ''; btn.classList.add('filter-btn--active'); }
+        else { badge.style.display = 'none'; btn.classList.remove('filter-btn--active'); }
+    }
 
-    // -- Export --
-    $('btn-export').addEventListener('click', function() {
-        if(!filtered.length){ alert('No data to export.'); return; }
-        const header = ['Created At','Status','Category','Project ID','Project Name','Customer Name','Customer Email','Customer Phone','Plot Count','Plots','Notes'];
-        const lines = ['sep=,',header.join(',')];
-        filtered.forEach(i => {
-            const pj=projectById.get(String(i.panorama_id)); const pn=(pj&&pj.name)?pj.name:'';
-            const plotNames=Array.isArray(i.plots)?i.plots.map(p=>(p&&p.name)?p.name:'').filter(Boolean):[];
-            lines.push([toCsvValue(toExportDateTime(i.created_at||'')),toCsvValue(toStatusLabel(i.status||'')),toCsvValue(i.category||''),toCsvValue(i.panorama_id||''),toCsvValue(pn),toCsvValue(i.customer_name||''),toCsvValue(i.customer_email||''),toCsvValue(i.customer_phone||''),toCsvValue(plotNames.length),toCsvValue(plotNames.join('; ')),toCsvValue(i.notes||'')].join(','));
-        });
-        const stamp = new Date().toISOString().slice(0,10);
-        const csv = '\ufeff'+lines.join('\r\n')+'\r\n';
-        const blob = new Blob([csv],{type:'text/csv;charset=utf-8;'});
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a'); a.href=url; a.download='buy_interests_'+stamp+'.csv'; a.style.display='none'; document.body.appendChild(a); a.click(); document.body.removeChild(a);
-        setTimeout(()=>URL.revokeObjectURL(url),5000);
-    });
+    $('btn-open-filters').addEventListener('click', openFilterModal);
+    $('filter-modal-close').addEventListener('click', closeFilterModal);
+    filterBackdrop.addEventListener('click', e => { if(e.target === filterBackdrop) closeFilterModal(); });
+
+    // Cascade workspace → panorama
+    workspaceEl.addEventListener('change', () => { renderProjectOptions(); projectEl.value = ''; });
+
+    // Apply filters button
+    $('btn-apply-filters').addEventListener('click', () => { closeFilterModal(); updateFilterBadge(); refreshInterestsUI(); });
+
+    // Clear all
+    $('btn-clear').addEventListener('click', () => { statusEl.value=''; categoryEl.value=''; workspaceEl.value=''; projectEl.value=''; plotEl.value=''; renderProjectOptions(); updateFilterBadge(); refreshInterestsUI(); closeFilterModal(); });
+
+    // Search is live (stays outside modal)
+    qEl.addEventListener('input', refreshInterestsUI);
 
     // -- Reports --
     function buildReportContent() {
@@ -1130,7 +1168,247 @@
             reportPrintArea.innerHTML = '<h2>Lead list</h2><div class="report-meta">Generated '+esc(stamp)+' &middot; '+rows.length+' row(s)</div><table><thead><tr>'+header.map(h=>'<th>'+esc(h)+'</th>').join('')+'</tr></thead><tbody>'+(body||'<tr><td colspan="8">No data</td></tr>')+'</tbody></table>';
         }
     }
-    $('btn-reports').addEventListener('click', () => { buildReportContent(); reportCard.style.display='block'; });
+    $('btn-reports').addEventListener('click', function() {
+        if(typeof XLSX === 'undefined') { alert('Excel library loading, please wait...'); return; }
+        const rows = filtered.length ? filtered : interests;
+        if(!rows.length) { showToast('No data to export', 'error'); return; }
+        const wb = XLSX.utils.book_new();
+        const c = countByStatus(rows);
+        const stageNames = ['New','Contacted','Qualified','Won','Lost'];
+        const stageKeys = ['new','contacted','qualified','won','lost'];
+        const stageColors = ['6366F1','F59E42','3B82F6','34D399','F87171'];
+
+        // Helper: apply bold/size styles to cells in a sheet
+        function styleCell(ws, addr, style) {
+            if(!ws[addr]) ws[addr] = { t:'s', v:'' };
+            ws[addr].s = style;
+        }
+        const bold = { font: { bold: true } };
+        const boldLg = { font: { bold: true, sz: 14 } };
+        const boldMd = { font: { bold: true, sz: 12 } };
+        const boldSm = { font: { bold: true, sz: 11 } };
+        const headerStyle = { font: { bold: true, sz: 10 }, border: { bottom: { style: 'thin', color: { rgb: '999999' } } } };
+        const totalStyle = { font: { bold: true, sz: 11 }, border: { top: { style: 'thin', color: { rgb: '999999' } } } };
+
+        // ── Sheet 1: Executive Summary ──
+        const totalRow = 12;
+        const summary = [
+            ['CRM EXECUTIVE SUMMARY REPORT'],
+            [''],
+            ['Generated:', new Date().toLocaleString()],
+            ['Total Leads Analyzed:', rows.length],
+            [],
+            ['PIPELINE OVERVIEW'],
+            ['Stage', 'Count', '% of Total', 'Cumulative'],
+        ];
+        stageKeys.forEach((k, idx) => {
+            const r = summary.length + 1;
+            const cumFormula = idx === 0 ? 'B'+r : 'D'+(r-1)+'+B'+r;
+            summary.push([
+                stageNames[idx],
+                c[k],
+                { t: 'n', f: 'B'+r+'/B'+totalRow, z: '0.0%' },
+                { t: 'n', f: cumFormula, z: '#,##0' },
+            ]);
+        });
+        summary.push([
+            'TOTAL',
+            { t: 'n', f: 'SUM(B8:B12)', z: '#,##0' },
+            { t: 'n', v: 1, z: '0%' },
+            '',
+        ]);
+        summary.push([]);
+        summary.push(['KEY METRICS']);
+        summary.push(['Conversion Rate (Won / Total)', { t: 'n', f: 'B10/B'+totalRow, z: '0.00%' }]);
+        summary.push(['Win-Loss Ratio', { t: 'n', f: 'IF(B11=0,"N/A",B10/B11)', z: '0.00' }]);
+        summary.push(['Active Pipeline (New + Contacted + Qualified)', { t: 'n', f: 'SUM(B8:B10)', z: '#,##0' }]);
+        summary.push(['Average Leads per Stage', { t: 'n', f: 'B'+totalRow+'/5', z: '0.0' }]);
+        summary.push(['Pipeline Health Score', { t: 'n', f: 'IF(B'+totalRow+'=0,0,(B10+B11*0.5)/(B'+totalRow+')*100)', z: '0.0"%" ' }]);
+        summary.push([]);
+
+        // Category breakdown
+        summary.push(['CATEGORY BREAKDOWN']);
+        const catMap = {};
+        rows.forEach(i => { const cat = i.category || 'Uncategorized'; catMap[cat] = (catMap[cat] || 0) + 1; });
+        summary.push(['Category', 'Count', '% of Total']);
+        const catEntries = Object.entries(catMap).sort((a, b) => b[1] - a[1]);
+        const catStartRow = summary.length + 1;
+        catEntries.forEach(([cat, cnt], idx) => {
+            summary.push([cat, cnt, { t: 'n', f: 'B'+(catStartRow+idx)+'/B'+totalRow, z: '0.0%' }]);
+        });
+        if(catEntries.length) {
+            summary.push(['Total Categories', catEntries.length, '']);
+        }
+        summary.push([]);
+
+        // Project breakdown
+        summary.push(['PROJECT BREAKDOWN']);
+        const projMap = {};
+        const projStatusMap = {};
+        rows.forEach(i => {
+            const pj = projectById.get(String(i.panorama_id));
+            const pn = (pj && pj.name) ? pj.name : 'Project #' + i.panorama_id;
+            projMap[pn] = (projMap[pn] || 0) + 1;
+            if(!projStatusMap[pn]) projStatusMap[pn] = {new:0,contacted:0,qualified:0,won:0,lost:0};
+            const st = String(i.status||'new').toLowerCase();
+            if(projStatusMap[pn][st] !== undefined) projStatusMap[pn][st]++;
+        });
+        summary.push(['Project', 'Total Leads', '% Share', 'Won', 'Lost', 'Conversion']);
+        const projEntries = Object.entries(projMap).sort((a, b) => b[1] - a[1]);
+        const projStartRow = summary.length + 1;
+        projEntries.forEach(([proj, cnt], idx) => {
+            const ps = projStatusMap[proj] || {};
+            const r = projStartRow + idx;
+            summary.push([
+                proj, cnt,
+                { t: 'n', f: 'B'+r+'/B'+totalRow, z: '0.0%' },
+                ps.won || 0, ps.lost || 0,
+                { t: 'n', f: 'IF(B'+r+'=0,0,D'+r+'/B'+r+')', z: '0.0%' },
+            ]);
+        });
+        summary.push([]);
+
+        // Time analysis
+        summary.push(['TREND ANALYSIS']);
+        const now = Date.now();
+        const last7 = rows.filter(i => { try { return (now - new Date(i.created_at).getTime()) < 7*86400000; } catch(e) { return false; } }).length;
+        const prev7 = rows.filter(i => { try { const d = now - new Date(i.created_at).getTime(); return d >= 7*86400000 && d < 14*86400000; } catch(e) { return false; } }).length;
+        summary.push(['Period', 'Leads']);
+        summary.push(['Last 7 Days', last7]);
+        summary.push(['Previous 7 Days', prev7]);
+        summary.push(['Week-over-Week Change', { t: 'n', f: 'IF(B'+(summary.length)+'=0,"N/A",(B'+(summary.length-1)+'-B'+summary.length+')/B'+summary.length+')', z: '+0.0%;-0.0%' }]);
+
+        const ws1 = XLSX.utils.aoa_to_sheet(summary);
+        ws1['!cols'] = [{ wch: 40 }, { wch: 14 }, { wch: 14 }, { wch: 14 }, { wch: 10 }, { wch: 12 }];
+        ws1['!rows'] = [{ hpt: 26 }, { hpt: 8 }]; // taller title row, spacer
+
+        // Apply styles — title, section headers, table headers, total rows
+        styleCell(ws1, 'A1', boldLg);
+        styleCell(ws1, 'A3', bold); styleCell(ws1, 'A4', bold);
+        styleCell(ws1, 'A6', boldMd); // PIPELINE OVERVIEW
+        ['A','B','C','D'].forEach(col => styleCell(ws1, col+'7', headerStyle)); // Stage/Count/% headers
+        styleCell(ws1, 'A12', totalStyle); styleCell(ws1, 'B12', totalStyle); // TOTAL row
+        styleCell(ws1, 'A14', boldMd); // KEY METRICS
+        for(let r=15; r<=19; r++) styleCell(ws1, 'A'+r, bold); // metric labels
+        // Find section header rows dynamically and bold them
+        summary.forEach((row, idx) => {
+            const v = String(row && row[0] || '');
+            if(v === 'CATEGORY BREAKDOWN' || v === 'PROJECT BREAKDOWN' || v === 'TREND ANALYSIS') {
+                styleCell(ws1, 'A'+(idx+1), boldMd);
+            }
+            // Bold sub-table headers (rows right after section headers)
+            if(v === 'Category' || v === 'Project' || v === 'Period') {
+                const cols = ['A','B','C','D','E','F'];
+                for(let ci = 0; ci < row.length && ci < cols.length; ci++) {
+                    styleCell(ws1, cols[ci]+(idx+1), headerStyle);
+                }
+            }
+            if(v === 'Total Categories') styleCell(ws1, 'A'+(idx+1), bold);
+        });
+
+        XLSX.utils.book_append_sheet(wb, ws1, 'Executive Summary');
+
+        // ── Sheet 2: All Leads (Raw Data) ──
+        const header = ['#','Created At','Days Since','Status','Category','Project','Customer Name','Customer Email','Customer Phone','Plot Count','Plot Names','Plot Status','Notes'];
+        const dataRows = rows.map((i, idx) => {
+            const pj = projectById.get(String(i.panorama_id));
+            const pn = (pj && pj.name) ? pj.name : '';
+            const plots = Array.isArray(i.plots) ? i.plots : [];
+            const plotNames = plots.map(p => (p && p.name) ? p.name : '').filter(Boolean);
+            const plotStatuses = plots.map(p => (p && p.status) ? p.status : 'available').join('; ');
+            let daysSince = '';
+            try { daysSince = Math.floor((Date.now() - new Date(i.created_at).getTime()) / 86400000); } catch(e) {}
+            return [idx+1, toExportDateTime(i.created_at || ''), daysSince, toStatusLabel(i.status || ''), i.category || '', pn, i.customer_name || '', i.customer_email || '', i.customer_phone || '', plotNames.length, plotNames.join('; '), plotStatuses, i.notes || ''];
+        });
+        const ws2 = XLSX.utils.aoa_to_sheet([header, ...dataRows]);
+        ws2['!cols'] = [{ wch: 5 },{ wch: 18 },{ wch: 10 },{ wch: 12 },{ wch: 14 },{ wch: 22 },{ wch: 22 },{ wch: 26 },{ wch: 16 },{ wch: 10 },{ wch: 30 },{ wch: 20 },{ wch: 30 }];
+        ws2['!autofilter'] = { ref: XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: dataRows.length, c: header.length - 1 } }) };
+        ws2['!rows'] = [{ hpt: 22 }]; // taller header row
+        // Bold all header cells
+        const hCols2 = 'ABCDEFGHIJKLM';
+        for(let ci = 0; ci < header.length; ci++) styleCell(ws2, hCols2[ci]+'1', headerStyle);
+        XLSX.utils.book_append_sheet(wb, ws2, 'All Leads');
+
+        // ── Sheet 3: Stage-wise Leads ──
+        const stageSheet = [['STAGE-WISE LEAD BREAKDOWN'],[]];
+        const stageSheetHeaderRows = [0]; // track rows to bold
+        const stageSheetSubHeaders = [];
+        stageKeys.forEach((sk, si) => {
+            const stageRows = rows.filter(i => String(i.status||'new').toLowerCase() === sk);
+            const titleIdx = stageSheet.length;
+            stageSheet.push([stageNames[si].toUpperCase() + ' — ' + stageRows.length + ' lead' + (stageRows.length!==1?'s':'')]);
+            stageSheetHeaderRows.push(titleIdx);
+            if(stageRows.length) {
+                stageSheetSubHeaders.push(stageSheet.length);
+                stageSheet.push(['Name','Email','Phone','Category','Project','Created','Days in Stage']);
+                stageRows.forEach(i => {
+                    const pj = projectById.get(String(i.panorama_id));
+                    const pn = (pj && pj.name) ? pj.name : '';
+                    let days = '';
+                    try { days = Math.floor((Date.now() - new Date(i.created_at).getTime()) / 86400000); } catch(e) {}
+                    stageSheet.push([i.customer_name||'', i.customer_email||'', i.customer_phone||'', i.category||'', pn, toExportDateTime(i.created_at||''), days]);
+                });
+            } else {
+                stageSheet.push(['No leads in this stage']);
+            }
+            stageSheet.push([]);
+        });
+        const ws3 = XLSX.utils.aoa_to_sheet(stageSheet);
+        ws3['!cols'] = [{ wch: 22 },{ wch: 26 },{ wch: 16 },{ wch: 14 },{ wch: 22 },{ wch: 18 },{ wch: 12 }];
+        ws3['!rows'] = [{ hpt: 24 }];
+        styleCell(ws3, 'A1', boldLg);
+        stageSheetHeaderRows.forEach(ri => { if(ri > 0) styleCell(ws3, 'A'+(ri+1), boldMd); });
+        stageSheetSubHeaders.forEach(ri => {
+            'ABCDEFG'.split('').forEach(col => styleCell(ws3, col+(ri+1), headerStyle));
+        });
+        XLSX.utils.book_append_sheet(wb, ws3, 'Stage Breakdown');
+
+        // ── Sheet 4: Chart Data ──
+        const chartData = [
+            ['CHART DATA'],
+            ['Use this data to create charts in Excel'],
+            [],
+            ['PIPELINE DISTRIBUTION'],
+            ['Stage', 'Count', 'Color Hex'],
+            ...stageKeys.map((k, idx) => [stageNames[idx], c[k], '#'+stageColors[idx]]),
+            [],
+            ['CATEGORY DISTRIBUTION'],
+            ['Category', 'Count'],
+            ...catEntries,
+            [],
+            ['PROJECT DISTRIBUTION'],
+            ['Project', 'Total', 'Won', 'Lost'],
+            ...projEntries.map(([proj]) => {
+                const ps = projStatusMap[proj] || {};
+                return [proj, projMap[proj], ps.won||0, ps.lost||0];
+            }),
+            [],
+            ['WEEKLY TREND'],
+            ['Period', 'Count'],
+            ['Last 7 Days', last7],
+            ['Previous 7 Days', prev7],
+        ];
+        const ws4 = XLSX.utils.aoa_to_sheet(chartData);
+        ws4['!cols'] = [{ wch: 24 }, { wch: 12 }, { wch: 12 }, { wch: 10 }];
+        ws4['!rows'] = [{ hpt: 24 }];
+        styleCell(ws4, 'A1', boldLg);
+        // Bold section headers & table headers in chart data
+        chartData.forEach((row, idx) => {
+            const v = String(row && row[0] || '');
+            if(['PIPELINE DISTRIBUTION','CATEGORY DISTRIBUTION','PROJECT DISTRIBUTION','WEEKLY TREND'].includes(v)) {
+                styleCell(ws4, 'A'+(idx+1), boldMd);
+            }
+            if(['Stage','Category','Project','Period'].includes(v) && row.length > 1) {
+                const cols = 'ABCDEFG'.split('');
+                for(let ci = 0; ci < row.length && ci < cols.length; ci++) styleCell(ws4, cols[ci]+(idx+1), headerStyle);
+            }
+        });
+        XLSX.utils.book_append_sheet(wb, ws4, 'Chart Data');
+
+        const stamp = new Date().toISOString().slice(0, 10);
+        XLSX.writeFile(wb, 'CRM_Report_' + stamp + '.xlsx');
+        showToast('Excel report downloaded');
+    });
     if(reportTypeEl) reportTypeEl.addEventListener('change', buildReportContent);
     $('btn-print').addEventListener('click', () => { buildReportContent(); window.print(); });
     $('btn-pdf').addEventListener('click', () => { buildReportContent(); window.print(); });
@@ -1154,12 +1432,6 @@
         renderPlotOptions();
         refreshInterestsUI();
     }
-
-    $('btn-refresh').addEventListener('click', async function() {
-        this.disabled=true;
-        try { await loadProjects(); await loadWorkspaces(); await loadInterests(); } catch(e){ console.warn(e); }
-        finally { this.disabled=false; }
-    });
 
     let workspaces = [];
     let workspacesLoaded = false;
@@ -1531,12 +1803,12 @@
     }
 
     // ══════════════════════════════════════════
-    //  INIT
+    //  INIT — preload everything in parallel for instant tab switching
     // ══════════════════════════════════════════
     (async function init() {
         try {
             await ensureAuthenticated();
-            // Fire all initial loads in parallel — don't block interests on projects/userInfo
+            // Fire ALL loads in parallel — interests, projects, user, workspaces, plots, lock data
             const interestsP = loadInterests().then(() => {
                 if(interests.length === 0) $('kanban-empty').style.display = '';
             }).catch(e => {
@@ -1544,11 +1816,19 @@
                 $('kanban-empty').innerHTML = '<svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" opacity="0.35"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg><strong>CRM unavailable</strong><div>'+esc(e.message||'Failed to load CRM')+'</div>';
             });
             const projectsP = loadProjects().then(() => {
-                // Re-render interests with real project names now that projects are loaded
                 if(interests.length) refreshInterestsUI();
             }).catch(e => console.warn('Projects load failed:', e));
             const userP = loadUserInfo().catch(e => console.warn('User info load failed:', e));
-            await Promise.all([interestsP, projectsP, userP]);
+
+            // Background-preload sub-tab data so switching is instant
+            const workspacesP = loadWorkspaces().catch(e => console.warn('Workspaces preload:', e));
+            const plotsP = loadAllPlots().catch(e => console.warn('Plots preload:', e));
+            const lockPlotsP = loadLockPlots().catch(e => console.warn('LockPlots preload:', e));
+            const manageLockP = userP.then(() => {
+                if(userRole === 'admin' || userRole === 'superadmin') return loadManageLock().catch(e => console.warn('ManageLock preload:', e));
+            });
+
+            await Promise.all([interestsP, projectsP, userP, workspacesP, plotsP, lockPlotsP, manageLockP]);
         } catch(e) {
             $('kanban-empty').style.display = '';
             $('kanban-empty').innerHTML = '<svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" opacity="0.35"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg><strong>CRM unavailable</strong><div>'+esc(e.message||'Failed to load CRM')+'</div>';

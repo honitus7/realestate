@@ -8,6 +8,8 @@
 (function () {
     'use strict';
 
+    var CACHE_KEY = 'sidebar_cache';
+
     var url = window.__SUPABASE_URL__;
     var key = window.__SUPABASE_ANON_KEY__;
     if (!url || !key || !window.supabase) return;
@@ -25,6 +27,16 @@
             link.classList.remove('active');
         }
     });
+    (function applyEarthViewActiveState() {
+        var params = new URLSearchParams(window.location.search || '');
+        var isEarthTab = currentPath === '/floorplans' && (params.get('tab') || '').toLowerCase() === 'earth-views';
+        var earthLink = document.getElementById('nav-earthviews');
+        var floorplansLink = document.getElementById('nav-floorplans');
+        if (isEarthTab && earthLink) {
+            earthLink.classList.add('active');
+            if (floorplansLink) floorplansLink.classList.remove('active');
+        }
+    })();
 
     // ---- Collapse / expand (collapsed by default) ----
     var toggle = document.getElementById('sidebar-toggle');
@@ -41,12 +53,45 @@
         });
     }
 
+    // ---- Helper: apply cached sidebar state instantly ----
+    function applySidebarState(state) {
+        // Avatar initials
+        var avatarEl = document.getElementById('sidebar-avatar');
+        if (avatarEl && state.avatarText) {
+            avatarEl.textContent = state.avatarText;
+        }
+        // Org name
+        var orgNameEl = document.getElementById('org-name');
+        if (orgNameEl) orgNameEl.textContent = state.orgName || 'PropMark';
+        // User name
+        var userNameEl = document.getElementById('sidebar-user-name');
+        if (userNameEl) userNameEl.textContent = state.userName || '';
+        // Role-based visibility
+        show('nav-explore', state.isAdmin);
+        show('nav-daynight', state.isAdmin);
+        show('nav-floorplans', state.isAdmin);
+        show('nav-earthviews', state.isAdmin);
+        show('nav-orgs', state.role === 'superadmin');
+        show('sidebar-upload-wrap', state.isAdmin);
+        show('dropdown-add-user', state.isAdmin);
+        show('dropdown-user-mgmt', state.isAdmin);
+        show('nav-crm', state.showCrm);
+    }
+
+    // ---- Restore cached sidebar immediately (no flash) ----
+    var cached = null;
+    try { cached = JSON.parse(sessionStorage.getItem(CACHE_KEY)); } catch (e) { /* ignore */ }
+    if (cached) {
+        applySidebarState(cached);
+    }
+
     // ---- Auth + role-based nav ----
     var _resolve;
     window.sidebarReady = new Promise(function (resolve) { _resolve = resolve; });
 
     sb.auth.getSession().then(function (r) {
         if (!r.data.session) {
+            sessionStorage.removeItem(CACHE_KEY);
             window.location.replace('/login');
             return;
         }
@@ -58,7 +103,7 @@
         })
             .then(function (res) {
                 if (res.status === 401 || res.status === 403) {
-                    // Token is invalid — sign out to clear stale storage, then redirect
+                    sessionStorage.removeItem(CACHE_KEY);
                     sb.auth.signOut().finally(function () { window.location.replace('/login'); });
                     return null;
                 }
@@ -70,47 +115,34 @@
                 var role = profile && profile.role ? String(profile.role).toLowerCase() : '';
                 var isAdmin = role === 'admin' || role === 'superadmin';
 
-                // Avatar initials
-                var avatarEl = document.getElementById('sidebar-avatar');
-                if (avatarEl && profile) {
+                // Build avatar text
+                var avatarText = '';
+                if (profile) {
                     var name = (profile.name || profile.email || '').trim();
                     if (name.length >= 2) {
-                        avatarEl.textContent = (
+                        avatarText = (
                             name[0] +
                             (name.indexOf(' ') >= 0
                                 ? name[name.indexOf(' ') + 1]
                                 : name[1] || '')
                         ).toUpperCase();
                     } else if (name.length === 1) {
-                        avatarEl.textContent = name[0].toUpperCase();
+                        avatarText = name[0].toUpperCase();
                     }
                 }
 
-                // Org name (if there is an element for it on the page)
-                var orgNameEl = document.getElementById('org-name');
                 var orgName = data && data.org && data.org.name ? String(data.org.name) : '';
-                if (orgNameEl) orgNameEl.textContent = orgName || 'PropMark';
-
-                // User name in footer
-                var userNameEl = document.getElementById('sidebar-user-name');
-                if (userNameEl && profile) {
-                    userNameEl.textContent = profile.name || profile.email || '';
-                }
-
-                // Role-based visibility
-                show('nav-explore', isAdmin);
-                show('nav-daynight', isAdmin);
-                show('nav-floorplans', isAdmin);
-                show('nav-orgs', role === 'superadmin');
-                show('sidebar-upload-wrap', isAdmin);
-                // Dropdown admin items
-                show('dropdown-add-user', isAdmin);
-                show('dropdown-user-mgmt', isAdmin);
+                var userName = profile ? (profile.name || profile.email || '') : '';
 
                 // CRM: visible for admin/superadmin immediately.
                 // For regular users, check if they have client access to any plot.
                 if (isAdmin) {
-                    show('nav-crm', true);
+                    var state = {
+                        role: role, isAdmin: isAdmin, showCrm: true,
+                        avatarText: avatarText, orgName: orgName, userName: userName
+                    };
+                    applySidebarState(state);
+                    try { sessionStorage.setItem(CACHE_KEY, JSON.stringify(state)); } catch (e) { /* ignore */ }
                     finishSidebar();
                 } else {
                     fetch('/api/crm/me', {
@@ -119,11 +151,21 @@
                     .then(function (r) { return r.ok ? r.json() : null; })
                     .then(function (crmData) {
                         var hasCrm = crmData && crmData.has_crm_access;
-                        show('nav-crm', hasCrm);
+                        var state = {
+                            role: role, isAdmin: isAdmin, showCrm: hasCrm,
+                            avatarText: avatarText, orgName: orgName, userName: userName
+                        };
+                        applySidebarState(state);
+                        try { sessionStorage.setItem(CACHE_KEY, JSON.stringify(state)); } catch (e) { /* ignore */ }
                         finishSidebar();
                     })
                     .catch(function () {
-                        show('nav-crm', false);
+                        var state = {
+                            role: role, isAdmin: isAdmin, showCrm: false,
+                            avatarText: avatarText, orgName: orgName, userName: userName
+                        };
+                        applySidebarState(state);
+                        try { sessionStorage.setItem(CACHE_KEY, JSON.stringify(state)); } catch (e) { /* ignore */ }
                         finishSidebar();
                     });
                 }
@@ -155,6 +197,7 @@
         if (logoutEl) {
             logoutEl.addEventListener('click', function (e) {
                 e.preventDefault();
+                sessionStorage.removeItem(CACHE_KEY);
                 sb.auth.signOut().then(function () {
                     window.location.href = '/login';
                 });

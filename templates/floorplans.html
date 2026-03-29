@@ -14,6 +14,7 @@
         <div class="fp-subtabs">
             <button class="fp-subtab active" data-tab="floorplans" id="subtab-floorplans">Floor Plans</button>
             <button class="fp-subtab" data-tab="building-maps" id="subtab-building-maps">Building Maps</button>
+            <button class="fp-subtab" data-tab="earth-views" id="subtab-earth-views">Earth Views</button>
             <button class="fp-subtab" data-tab="project-plans" id="subtab-project-plans">Project Plans</button>
             <button class="fp-subtab" data-tab="galleries" id="subtab-galleries">Gallery</button>
         </div>
@@ -91,6 +92,24 @@
                 <div style="margin-top:0.5rem; font-size:0.85rem;">Click "New Building Map" to upload a building photo.</div>
             </div>
         </div><!-- /tab-building-maps -->
+
+        <!-- ========= EARTH VIEWS TAB ========= -->
+        <div class="fp-tab-content" id="tab-earth-views" style="display:none;">
+            <div class="floorplans-header">
+                <h1 class="floorplans-title">Earth Views</h1>
+                <button class="btn btn-primary" id="new-ev-btn">New Earth View</button>
+            </div>
+
+            <div id="ev-loading" style="text-align:center; padding:3rem; color:var(--color-muted);">Loading...</div>
+
+            <div class="fp-grid" id="ev-grid" style="display:none;"></div>
+
+            <div class="fp-empty" id="ev-empty" style="display:none;">
+                <div class="fp-empty-icon">&#127758;</div>
+                <div>No earth views yet.</div>
+                <div style="margin-top:0.5rem; font-size:0.85rem;">Click "New Earth View" to start drawing on satellite imagery.</div>
+            </div>
+        </div><!-- /tab-earth-views -->
 
         <!-- ========= PROJECT PLANS TAB ========= -->
         <div class="fp-tab-content" id="tab-project-plans" style="display:none;">
@@ -314,6 +333,37 @@
             <div class="modal-actions">
                 <button class="btn btn-secondary" id="bm-delete-cancel">Cancel</button>
                 <button class="btn btn-danger" id="bm-delete-confirm">Delete</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Earth View create modal -->
+    <div class="modal-backdrop" id="ev-create-modal">
+        <div class="modal" style="max-width:480px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
+                <div class="modal-title">New Earth View</div>
+                <button type="button" class="modal-close" id="ev-modal-close" aria-label="Close">&times;</button>
+            </div>
+            <div class="form-group" style="margin-bottom:1rem;">
+                <label class="form-label">Name</label>
+                <input type="text" class="form-input" id="ev-name" maxlength="200" placeholder="e.g., Sector A" value="Earth View">
+            </div>
+            <div id="ev-create-error" class="msg error" style="display:none; margin-bottom:1rem;"></div>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" id="ev-modal-cancel">Cancel</button>
+                <button class="btn btn-primary" id="ev-modal-create">Create</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Earth View delete modal -->
+    <div class="modal-backdrop" id="ev-delete-modal">
+        <div class="modal">
+            <div class="modal-title">Delete Earth View?</div>
+            <div class="modal-text" id="ev-delete-text">This action cannot be undone.</div>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" id="ev-delete-cancel">Cancel</button>
+                <button class="btn btn-danger" id="ev-delete-confirm">Delete</button>
             </div>
         </div>
     </div>
@@ -917,10 +967,14 @@
             var target = tab.dataset.tab;
             document.getElementById('tab-floorplans').style.display = target === 'floorplans' ? '' : 'none';
             document.getElementById('tab-building-maps').style.display = target === 'building-maps' ? '' : 'none';
+            document.getElementById('tab-earth-views').style.display = target === 'earth-views' ? '' : 'none';
             document.getElementById('tab-project-plans').style.display = target === 'project-plans' ? '' : 'none';
             document.getElementById('tab-galleries').style.display = target === 'galleries' ? '' : 'none';
             if (target === 'building-maps' && !bmLoaded) {
                 loadBuildingMaps();
+            }
+            if (target === 'earth-views' && !evLoaded) {
+                loadEarthViews();
             }
             if (target === 'project-plans' && !ppLoaded) {
                 loadProjectPlans();
@@ -930,6 +984,23 @@
             }
         });
     });
+
+    (function applyInitialTabFromQuery() {
+        var qs = new URLSearchParams(window.location.search || '');
+        var tab = (qs.get('tab') || '').trim().toLowerCase();
+        if (!tab) return;
+        var tabMap = {
+            'floorplans': 'subtab-floorplans',
+            'building-maps': 'subtab-building-maps',
+            'earth-views': 'subtab-earth-views',
+            'project-plans': 'subtab-project-plans',
+            'galleries': 'subtab-galleries'
+        };
+        var btnId = tabMap[tab];
+        if (!btnId) return;
+        var btn = document.getElementById(btnId);
+        if (btn) btn.click();
+    })();
 
     // ------------------------------------------------------------------
     // Building Maps
@@ -1131,6 +1202,137 @@
                 btn.disabled = false;
                 hideModal('bm-delete-modal');
                 loadBuildingMaps();
+            })
+            .catch(function() { btn.disabled = false; });
+    });
+
+    // ------------------------------------------------------------------
+    // Earth Views
+    // ------------------------------------------------------------------
+
+    var evLoaded = false;
+    var earthViews = [];
+    var evDeleteTarget = null;
+
+    function loadEarthViews() {
+        fetch('/api/earth-views', { headers: authHeaders() })
+            .then(function(r) { return r.ok ? r.json() : []; })
+            .then(function(data) {
+                earthViews = data;
+                evLoaded = true;
+                renderEarthViews();
+            });
+    }
+
+    function renderEarthViews() {
+        var loading = document.getElementById('ev-loading');
+        var grid = document.getElementById('ev-grid');
+        var empty = document.getElementById('ev-empty');
+        if (loading) loading.style.display = 'none';
+        if (!earthViews.length) {
+            if (grid) grid.style.display = 'none';
+            if (empty) empty.style.display = '';
+            return;
+        }
+        if (empty) empty.style.display = 'none';
+        if (grid) grid.style.display = '';
+        grid.innerHTML = earthViews.map(function(v) {
+            var shareUrl = v.share_url || (location.origin + '/earth-view/view/' + (v.share_token || ''));
+            return '<div class="fp-card" data-id="' + v.id + '">' +
+                '<div class="fp-card-header">' +
+                    '<div class="fp-card-icon" style="background:linear-gradient(135deg,#2563eb,#1d4ed8);">' +
+                        '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>' +
+                    '</div>' +
+                    '<div class="fp-card-title-group">' +
+                        '<div class="fp-card-name">' + esc(v.name) + '</div>' +
+                        '<div class="fp-card-meta">Earth View</div>' +
+                    '</div>' +
+                '</div>' +
+                '<div class="fp-card-stats">' +
+                    '<div class="fp-card-stat"><div class="fp-card-stat-value">' + (v.plot_count || 0) + '</div><div class="fp-card-stat-label">Plots</div></div>' +
+                    '<div class="fp-card-stat"><div class="fp-card-stat-value">' + (v.marker_count || 0) + '</div><div class="fp-card-stat-label">Markers</div></div>' +
+                '</div>' +
+                '<hr class="fp-card-divider">' +
+                '<div class="fp-card-body">' +
+                    '<div class="fp-share-row">' +
+                        '<input type="text" value="' + esc(shareUrl) + '" readonly onclick="this.select()">' +
+                        '<button class="btn btn-sm ev-copy-btn" data-url="' + esc(shareUrl) + '">Copy</button>' +
+                    '</div>' +
+                    '<div class="fp-card-actions">' +
+                        '<button class="btn btn-secondary ev-manage-btn" data-id="' + v.id + '">Manage</button>' +
+                        '<button class="btn btn-danger ev-del-btn" data-id="' + v.id + '" data-name="' + esc(v.name) + '">Delete</button>' +
+                    '</div>' +
+                '</div>' +
+            '</div>';
+        }).join('');
+
+        grid.querySelectorAll('.ev-copy-btn').forEach(function(btn) {
+            btn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                navigator.clipboard.writeText(btn.dataset.url).then(function() {
+                    btn.textContent = 'Copied!';
+                    setTimeout(function() { btn.textContent = 'Copy'; }, 1500);
+                });
+            });
+        });
+        grid.querySelectorAll('.ev-manage-btn').forEach(function(btn) {
+            btn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                window.location.href = '/earth-view/admin/' + btn.dataset.id;
+            });
+        });
+        grid.querySelectorAll('.ev-del-btn').forEach(function(btn) {
+            btn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                evDeleteTarget = { id: btn.dataset.id, name: btn.dataset.name };
+                document.getElementById('ev-delete-text').textContent = 'Delete "' + btn.dataset.name + '" and all plots/markers? This cannot be undone.';
+                showModal('ev-delete-modal');
+            });
+        });
+    }
+
+    document.getElementById('new-ev-btn').addEventListener('click', function() {
+        document.getElementById('ev-name').value = 'Earth View';
+        document.getElementById('ev-create-error').style.display = 'none';
+        showModal('ev-create-modal');
+    });
+    document.getElementById('ev-modal-close').addEventListener('click', function() { hideModal('ev-create-modal'); });
+    document.getElementById('ev-modal-cancel').addEventListener('click', function() { hideModal('ev-create-modal'); });
+
+    document.getElementById('ev-modal-create').addEventListener('click', function() {
+        var name = document.getElementById('ev-name').value.trim() || 'Earth View';
+        var btn = this;
+        btn.disabled = true;
+        document.getElementById('ev-create-error').style.display = 'none';
+        fetch('/api/earth-views', {
+            method: 'POST',
+            headers: Object.assign({ 'Content-Type': 'application/json' }, authHeaders()),
+            body: JSON.stringify({ name: name, center_lng: 0, center_lat: 20, zoom: 3 })
+        })
+        .then(function(r) { return r.json().then(function(d) { return { ok: r.ok, data: d }; }); })
+        .then(function(res) {
+            btn.disabled = false;
+            if (!res.ok) {
+                document.getElementById('ev-create-error').textContent = res.data.error || 'Failed';
+                document.getElementById('ev-create-error').style.display = '';
+                return;
+            }
+            hideModal('ev-create-modal');
+            loadEarthViews();
+        })
+        .catch(function() { btn.disabled = false; });
+    });
+
+    document.getElementById('ev-delete-cancel').addEventListener('click', function() { hideModal('ev-delete-modal'); });
+    document.getElementById('ev-delete-confirm').addEventListener('click', function() {
+        if (!evDeleteTarget) return;
+        var btn = this;
+        btn.disabled = true;
+        fetch('/api/earth-views/' + evDeleteTarget.id, { method: 'DELETE', headers: authHeaders() })
+            .then(function() {
+                btn.disabled = false;
+                hideModal('ev-delete-modal');
+                loadEarthViews();
             })
             .catch(function() { btn.disabled = false; });
     });

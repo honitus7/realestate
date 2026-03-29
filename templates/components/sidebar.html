@@ -33,6 +33,10 @@
             <span class="sidebar-icon" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg></span>
             <span class="sidebar-text">Floor Plans</span>
         </a>
+        <a href="/floorplans?tab=earth-views" class="sidebar-link{% if active_page == 'earthviews' %} active{% endif %}" id="nav-earthviews" data-page="earthviews" style="display:none;" data-tooltip="Earth View">
+            <span class="sidebar-icon" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg></span>
+            <span class="sidebar-text">Earth View</span>
+        </a>
         <a href="/organizations" class="sidebar-link{% if active_page == 'organizations' %} active{% endif %}" id="nav-orgs" data-page="organizations" style="display:none;" data-tooltip="Organizations">
             <span class="sidebar-icon" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V9l-9-7-9 7z"/></svg></span>
             <span class="sidebar-text">Organizations</span>

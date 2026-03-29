@@ -184,6 +184,24 @@ from app.services.gallery_service import (
     reorder_items as gal_reorder_items,
     get_next_sort_order as gal_next_sort_order,
 )
+from app.services.earth_view_service import (
+    create_earth_view as ev_create,
+    get_earth_view as ev_get,
+    get_earth_view_by_token as ev_get_by_token,
+    list_earth_views as ev_list,
+    update_earth_view as ev_update,
+    delete_earth_view as ev_delete,
+    list_plots as ev_list_plots,
+    get_plot as ev_get_plot,
+    create_plot as ev_create_plot,
+    update_plot as ev_update_plot,
+    delete_plot as ev_delete_plot,
+    list_markers as ev_list_markers,
+    get_marker as ev_get_marker,
+    create_marker as ev_create_marker,
+    update_marker as ev_update_marker,
+    delete_marker as ev_delete_marker,
+)
 from app.config import (
     ALLOWED_EXTENSIONS,
     ALLOWED_AUDIO_EXTENSIONS,
@@ -296,59 +314,74 @@ def register_routes(app):
                         return _fetch_panorama_ids(sb, lambda q: q.eq('org_id', caller_org))
             except Exception:
                 pass
-        # Regular users: see panoramas they created, have client access to, or have lock access to
+        # Regular users: run all 4 access queries in parallel for speed
+        from concurrent.futures import ThreadPoolExecutor, as_completed
         ids = set()
-        # 1. Panoramas the user owns (created)
-        try:
-            owned = sb.table('panoramas').select('id').eq('user_id', user_id).execute()
-            for row in (owned.data or []):
-                try:
-                    ids.add(int(row.get('id')))
-                except Exception:
-                    pass
-        except Exception:
-            pass
-        # 2. Panoramas with client access via panorama_access
-        try:
-            access_rows = sb.table('panorama_access').select('panorama_id, access_type').eq('user_id', user_id).execute()
-            for row in (access_rows.data or []):
-                try:
+
+        def _fetch_owned():
+            result = set()
+            try:
+                owned = sb.table('panoramas').select('id').eq('user_id', user_id).execute()
+                for row in (owned.data or []):
+                    try: result.add(int(row.get('id')))
+                    except Exception: pass
+            except Exception: pass
+            return result
+
+        def _fetch_panorama_access():
+            result = set()
+            try:
+                access_rows = sb.table('panorama_access').select('panorama_id, access_type').eq('user_id', user_id).execute()
+                for row in (access_rows.data or []):
+                    try:
+                        at = str(row.get('access_type') or '').lower()
+                        if at in ('owner', 'client'):
+                            result.add(int(row.get('panorama_id')))
+                    except Exception: pass
+            except Exception: pass
+            return result
+
+        def _fetch_workspace_access():
+            result = set()
+            try:
+                ws_rows = sb.table('workspace_access').select('workspace_id, access_type').eq('user_id', user_id).execute()
+                ws_ids = []
+                for row in (ws_rows.data or []):
                     at = str(row.get('access_type') or '').lower()
                     if at in ('owner', 'client'):
-                        ids.add(int(row.get('panorama_id')))
-                except Exception:
-                    pass
-        except Exception:
-            pass
-        # 3. Panoramas with client access via workspace_access (folder sharing)
-        try:
-            ws_rows = sb.table('workspace_access').select('workspace_id, access_type').eq('user_id', user_id).execute()
-            ws_ids = []
-            for row in (ws_rows.data or []):
-                at = str(row.get('access_type') or '').lower()
-                if at in ('owner', 'client'):
-                    wsid = row.get('workspace_id')
-                    if wsid:
-                        ws_ids.append(wsid)
-            if ws_ids:
-                ws_panos = sb.table('panoramas').select('id').in_('workspace_id', ws_ids).execute()
-                for row in (ws_panos.data or []):
-                    try:
-                        ids.add(int(row.get('id')))
-                    except Exception:
-                        pass
-        except Exception:
-            pass
-        # 4. Panoramas with lock access
-        try:
-            lock_access = sb.table('plot_lock_access').select('panorama_id').eq('user_id', user_id).execute()
-            for row in (lock_access.data or []):
+                        wsid = row.get('workspace_id')
+                        if wsid:
+                            ws_ids.append(wsid)
+                if ws_ids:
+                    ws_panos = sb.table('panoramas').select('id').in_('workspace_id', ws_ids).execute()
+                    for row in (ws_panos.data or []):
+                        try: result.add(int(row.get('id')))
+                        except Exception: pass
+            except Exception: pass
+            return result
+
+        def _fetch_lock_access():
+            result = set()
+            try:
+                lock_access = sb.table('plot_lock_access').select('panorama_id').eq('user_id', user_id).execute()
+                for row in (lock_access.data or []):
+                    try: result.add(int(row.get('panorama_id')))
+                    except Exception: pass
+            except Exception: pass
+            return result
+
+        with ThreadPoolExecutor(max_workers=4) as executor:
+            futures = [
+                executor.submit(_fetch_owned),
+                executor.submit(_fetch_panorama_access),
+                executor.submit(_fetch_workspace_access),
+                executor.submit(_fetch_lock_access),
+            ]
+            for future in as_completed(futures):
                 try:
-                    ids.add(int(row.get('panorama_id')))
+                    ids.update(future.result())
                 except Exception:
                     pass
-        except Exception:
-            pass
         return sorted(ids)
 
     def _fetch_panorama_ids(sb, query_builder=None):
@@ -1204,13 +1237,14 @@ def register_routes(app):
         plot_ids = list(dict.fromkeys(plot_ids))
         if not plot_ids:
             return jsonify({'error': 'At least one plot is required'}), 400
+        # Validate plots exist — don't filter by panorama_id since workspace
+        # linked panoramas may contribute plots from different panorama_ids.
         plots_snapshot = []
         try:
             r = (
                 sb.table('plots')
                 .select('id, panorama_id, name, area, price, status')
                 .in_('id', plot_ids)
-                .eq('panorama_id', panorama_id)
                 .execute()
             )
             found = {int(row.get('id')): row for row in (r.data or []) if row and row.get('id') is not None}
@@ -1220,6 +1254,7 @@ def register_routes(app):
                     continue
                 plots_snapshot.append({
                     'plot_id': int(row.get('id')),
+                    'panorama_id': int(row.get('panorama_id')) if row.get('panorama_id') else panorama_id,
                     'name': row.get('name') or '',
                     'area': row.get('area') or '',
                     'price': row.get('price') or '',
@@ -1227,11 +1262,11 @@ def register_routes(app):
                 })
         except Exception as e:
             msg = str(e)
-            if 'buy_interests' in msg and ('does not exist' in msg.lower() or 'relation' in msg.lower()):
-                return jsonify({'error': 'buy_interests table not found. Run db/schema.sql in Supabase SQL Editor.'}), 503
+            if 'plots' in msg and ('does not exist' in msg.lower() or 'relation' in msg.lower()):
+                return jsonify({'error': 'plots table not found. Run db/schema.sql in Supabase SQL Editor.'}), 503
             return jsonify({'error': msg}), 500
         if not plots_snapshot:
-            return jsonify({'error': 'No valid plots found for this panorama'}), 400
+            return jsonify({'error': 'No valid plots found'}), 400
         now = datetime.utcnow().isoformat()
         insert_row = {
             'panorama_id': panorama_id,
@@ -3994,13 +4029,14 @@ def register_routes(app):
         plot_ids = list(dict.fromkeys(plot_ids))
         if not plot_ids:
             return jsonify({'error': 'At least one plot is required'}), 400
+        # Validate plots exist — don't filter by panorama_id since workspace
+        # linked panoramas may contribute plots from different panorama_ids.
         plots_snapshot = []
         try:
             r = (
                 sb.table('plots')
                 .select('id, panorama_id, name, area, price, status')
                 .in_('id', plot_ids)
-                .eq('panorama_id', panorama_id)
                 .execute()
             )
             found = {int(row.get('id')): row for row in (r.data or []) if row and row.get('id') is not None}
@@ -4010,6 +4046,7 @@ def register_routes(app):
                     continue
                 plots_snapshot.append({
                     'plot_id': int(row.get('id')),
+                    'panorama_id': int(row.get('panorama_id')) if row.get('panorama_id') else panorama_id,
                     'name': row.get('name') or '',
                     'area': row.get('area') or '',
                     'price': row.get('price') or '',
@@ -4017,11 +4054,11 @@ def register_routes(app):
                 })
         except Exception as e:
             msg = str(e)
-            if 'buy_interests' in msg and ('does not exist' in msg.lower() or 'relation' in msg.lower()):
-                return jsonify({'error': 'buy_interests table not found. Run db/schema.sql in Supabase SQL Editor.'}), 503
+            if 'plots' in msg and ('does not exist' in msg.lower() or 'relation' in msg.lower()):
+                return jsonify({'error': 'plots table not found. Run db/schema.sql in Supabase SQL Editor.'}), 503
             return jsonify({'error': msg}), 500
         if not plots_snapshot:
-            return jsonify({'error': 'No valid plots found for this panorama'}), 400
+            return jsonify({'error': 'No valid plots found'}), 400
         now = datetime.utcnow().isoformat()
         insert_row = {
             'panorama_id': panorama_id,
@@ -4099,25 +4136,6 @@ def register_routes(app):
         sb = get_supabase()
         if not sb:
             return jsonify({'error': 'Database not configured'}), 503
-        panorama_ids = _crm_panorama_ids(sb, user_id, role)
-        if not panorama_ids:
-            return jsonify({'error': 'Forbidden'}), 403
-        try:
-            r = sb.table('buy_interests').select('id, panorama_id').eq('id', interest_id).limit(1).execute()
-            if not r.data or len(r.data) == 0:
-                return jsonify({'error': 'Not found'}), 404
-            panorama_id = r.data[0].get('panorama_id')
-            try:
-                panorama_id = int(panorama_id)
-            except Exception:
-                panorama_id = None
-            if not panorama_id or panorama_id not in panorama_ids:
-                return jsonify({'error': 'Forbidden'}), 403
-        except Exception as e:
-            msg = str(e)
-            if 'buy_interests' in msg and ('does not exist' in msg.lower() or 'relation' in msg.lower()):
-                return jsonify({'error': 'buy_interests table not found. Run db/schema.sql in Supabase SQL Editor.'}), 503
-            return jsonify({'error': msg}), 500
         data = request.get_json(silent=True) or {}
         upd = {}
         if 'status' in data:
@@ -4130,8 +4148,14 @@ def register_routes(app):
         if not upd:
             return jsonify({'error': 'Nothing to update'}), 400
         upd['updated_at'] = datetime.utcnow().isoformat()
+        panorama_ids = _crm_panorama_ids(sb, user_id, role)
+        if not panorama_ids:
+            return jsonify({'error': 'Forbidden'}), 403
+        # Single query: update only if the interest belongs to an accessible panorama
         try:
-            sb.table('buy_interests').update(upd).eq('id', interest_id).execute()
+            r = sb.table('buy_interests').update(upd).eq('id', interest_id).in_('panorama_id', panorama_ids).execute()
+            if not r.data or len(r.data) == 0:
+                return jsonify({'error': 'Not found or access denied'}), 404
             return jsonify({'success': True})
         except Exception as e:
             msg = str(e)
@@ -5303,6 +5327,314 @@ def register_routes(app):
                     z['linked_floor_plan_name'] = fp_item.get('name', '')
         bm['zones'] = zones
         return jsonify(bm)
+
+    # ===================================================================
+    # EARTH VIEWS
+    # ===================================================================
+
+    @app.route('/api/earth-views', methods=['GET'])
+    @require_admin
+    def api_list_earth_views(user_id, role):
+        sb = get_supabase()
+        if not sb:
+            return jsonify({'error': 'Database not configured'}), 503
+        views = ev_list(sb, user_id)
+        base = (request.url_root or '').rstrip('/')
+        for view in views:
+            view['share_url'] = f"{base}/earth-view/view/{view.get('share_token', '')}"
+            view['plot_count'] = len(ev_list_plots(sb, view['id']))
+            view['marker_count'] = len(ev_list_markers(sb, view['id']))
+        return jsonify(views)
+
+    @app.route('/api/earth-views', methods=['POST'])
+    @require_admin
+    def api_create_earth_view(user_id, role):
+        sb = get_supabase()
+        if not sb:
+            return jsonify({'error': 'Database not configured'}), 503
+        data = request.get_json(silent=True) or {}
+        name = str(data.get('name') or 'Earth View').strip() or 'Earth View'
+        existing = ev_list(sb, user_id)
+        if any(v.get('name', '').strip().lower() == name.lower() for v in existing):
+            return jsonify({'error': f'An earth view named "{name}" already exists'}), 409
+        center_lng = data.get('center_lng', 0)
+        center_lat = data.get('center_lat', 20)
+        zoom = data.get('zoom', 3)
+        profile = get_profile(sb, user_id)
+        org_id = profile.get('org_id') if profile else None
+        view = ev_create(sb, user_id, org_id, name, center_lng, center_lat, zoom)
+        if not view:
+            return jsonify({'error': 'Failed to create earth view'}), 500
+        base = (request.url_root or '').rstrip('/')
+        view['share_url'] = f"{base}/earth-view/view/{view.get('share_token', '')}"
+        return jsonify(view), 201
+
+    @app.route('/api/earth-views/<view_id>', methods=['GET'])
+    @require_admin
+    def api_get_earth_view(user_id, role, view_id):
+        sb = get_supabase()
+        if not sb:
+            return jsonify({'error': 'Database not configured'}), 503
+        view = ev_get(sb, view_id)
+        if not view:
+            return jsonify({'error': 'Not found'}), 404
+        if str(view.get('user_id')) != str(user_id) and role != 'superadmin':
+            return jsonify({'error': 'Forbidden'}), 403
+        view['plots'] = ev_list_plots(sb, view_id)
+        view['markers'] = ev_list_markers(sb, view_id)
+        base = (request.url_root or '').rstrip('/')
+        view['share_url'] = f"{base}/earth-view/view/{view.get('share_token', '')}"
+        return jsonify(view)
+
+    @app.route('/api/earth-views/<view_id>', methods=['PATCH'])
+    @require_admin
+    def api_update_earth_view(user_id, role, view_id):
+        sb = get_supabase()
+        if not sb:
+            return jsonify({'error': 'Database not configured'}), 503
+        view = ev_get(sb, view_id)
+        if not view:
+            return jsonify({'error': 'Not found'}), 404
+        if str(view.get('user_id')) != str(user_id) and role != 'superadmin':
+            return jsonify({'error': 'Forbidden'}), 403
+        data = request.get_json(silent=True) or {}
+        updates = {}
+        for key in ('name', 'center_lng', 'center_lat', 'zoom'):
+            if key in data:
+                updates[key] = data[key]
+        if updates:
+            ev_update(sb, view_id, **updates)
+        updated = ev_get(sb, view_id)
+        return jsonify(updated)
+
+    @app.route('/api/earth-views/<view_id>', methods=['DELETE'])
+    @require_admin
+    def api_delete_earth_view(user_id, role, view_id):
+        sb = get_supabase()
+        if not sb:
+            return jsonify({'error': 'Database not configured'}), 503
+        view = ev_get(sb, view_id)
+        if not view:
+            return jsonify({'error': 'Not found'}), 404
+        if str(view.get('user_id')) != str(user_id) and role != 'superadmin':
+            return jsonify({'error': 'Forbidden'}), 403
+        ev_delete(sb, view_id)
+        return jsonify({'success': True})
+
+    @app.route('/api/earth-views/<view_id>/plots', methods=['GET'])
+    @require_admin
+    def api_list_earth_view_plots(user_id, role, view_id):
+        sb = get_supabase()
+        if not sb:
+            return jsonify({'error': 'Database not configured'}), 503
+        view = ev_get(sb, view_id)
+        if not view:
+            return jsonify({'error': 'Not found'}), 404
+        if str(view.get('user_id')) != str(user_id) and role != 'superadmin':
+            return jsonify({'error': 'Forbidden'}), 403
+        return jsonify(ev_list_plots(sb, view_id))
+
+    @app.route('/api/earth-views/<view_id>/plots', methods=['POST'])
+    @require_admin
+    def api_create_earth_view_plot(user_id, role, view_id):
+        sb = get_supabase()
+        if not sb:
+            return jsonify({'error': 'Database not configured'}), 503
+        view = ev_get(sb, view_id)
+        if not view:
+            return jsonify({'error': 'Not found'}), 404
+        if str(view.get('user_id')) != str(user_id) and role != 'superadmin':
+            return jsonify({'error': 'Forbidden'}), 403
+        data = request.get_json(silent=True) or {}
+        name = str(data.get('name') or '').strip()
+        if not name:
+            return jsonify({'error': 'Name is required'}), 400
+        points = data.get('points', [])
+        if not isinstance(points, list) or len(points) < 3:
+            return jsonify({'error': 'At least 3 points required'}), 400
+        plot = ev_create_plot(
+            sb,
+            view_id,
+            name,
+            points,
+            area=str(data.get('area') or '').strip(),
+            price=str(data.get('price') or '').strip(),
+            status=str(data.get('status') or 'available').strip(),
+            description=str(data.get('description') or '').strip(),
+            color=str(data.get('color') or 'green').strip(),
+            media_photo=str(data.get('media_photo') or '').strip(),
+            media_video=str(data.get('media_video') or '').strip(),
+            linked_panorama_id=data.get('linked_panorama_id') or None,
+            sort_order=int(data.get('sort_order') or 0),
+        )
+        if not plot:
+            return jsonify({'error': 'Failed to create plot'}), 500
+        return jsonify(plot), 201
+
+    @app.route('/api/earth-view-plots/<int:plot_id>', methods=['PUT'])
+    @require_admin
+    def api_update_earth_view_plot(user_id, role, plot_id):
+        sb = get_supabase()
+        if not sb:
+            return jsonify({'error': 'Database not configured'}), 503
+        plot = ev_get_plot(sb, plot_id)
+        if not plot:
+            return jsonify({'error': 'Not found'}), 404
+        view = ev_get(sb, plot.get('earth_view_id'))
+        if not view or (str(view.get('user_id')) != str(user_id) and role != 'superadmin'):
+            return jsonify({'error': 'Forbidden'}), 403
+        data = request.get_json(silent=True) or {}
+        updates = {}
+        for key in ('name', 'area', 'price', 'status', 'description', 'color', 'media_photo',
+                    'media_video', 'points', 'linked_panorama_id', 'sort_order'):
+            if key in data:
+                updates[key] = data[key]
+        if updates:
+            ev_update_plot(sb, plot_id, **updates)
+        updated = ev_get_plot(sb, plot_id)
+        return jsonify(updated)
+
+    @app.route('/api/earth-view-plots/<int:plot_id>', methods=['DELETE'])
+    @require_admin
+    def api_delete_earth_view_plot(user_id, role, plot_id):
+        sb = get_supabase()
+        if not sb:
+            return jsonify({'error': 'Database not configured'}), 503
+        plot = ev_get_plot(sb, plot_id)
+        if not plot:
+            return jsonify({'error': 'Not found'}), 404
+        view = ev_get(sb, plot.get('earth_view_id'))
+        if not view or (str(view.get('user_id')) != str(user_id) and role != 'superadmin'):
+            return jsonify({'error': 'Forbidden'}), 403
+        ev_delete_plot(sb, plot_id)
+        return jsonify({'success': True})
+
+    @app.route('/api/earth-views/<view_id>/markers', methods=['GET'])
+    @require_admin
+    def api_list_earth_view_markers(user_id, role, view_id):
+        sb = get_supabase()
+        if not sb:
+            return jsonify({'error': 'Database not configured'}), 503
+        view = ev_get(sb, view_id)
+        if not view:
+            return jsonify({'error': 'Not found'}), 404
+        if str(view.get('user_id')) != str(user_id) and role != 'superadmin':
+            return jsonify({'error': 'Forbidden'}), 403
+        return jsonify(ev_list_markers(sb, view_id))
+
+    @app.route('/api/earth-views/<view_id>/markers', methods=['POST'])
+    @require_admin
+    def api_create_earth_view_marker(user_id, role, view_id):
+        sb = get_supabase()
+        if not sb:
+            return jsonify({'error': 'Database not configured'}), 503
+        view = ev_get(sb, view_id)
+        if not view:
+            return jsonify({'error': 'Not found'}), 404
+        if str(view.get('user_id')) != str(user_id) and role != 'superadmin':
+            return jsonify({'error': 'Forbidden'}), 403
+        data = request.get_json(silent=True) or {}
+        name = str(data.get('name') or '').strip()
+        if not name:
+            return jsonify({'error': 'Name is required'}), 400
+        if data.get('longitude') is None or data.get('latitude') is None:
+            return jsonify({'error': 'longitude and latitude are required'}), 400
+        marker = ev_create_marker(
+            sb,
+            view_id,
+            name,
+            data.get('longitude'),
+            data.get('latitude'),
+            description=str(data.get('description') or '').strip(),
+            marker_color=str(data.get('marker_color') or '#4ade80').strip(),
+            linked_panorama_id=data.get('linked_panorama_id') or None,
+            media_photo=str(data.get('media_photo') or '').strip(),
+            media_video=str(data.get('media_video') or '').strip(),
+        )
+        if not marker:
+            return jsonify({'error': 'Failed to create marker'}), 500
+        return jsonify(marker), 201
+
+    @app.route('/api/earth-view-markers/<marker_id>', methods=['PUT'])
+    @require_admin
+    def api_update_earth_view_marker(user_id, role, marker_id):
+        sb = get_supabase()
+        if not sb:
+            return jsonify({'error': 'Database not configured'}), 503
+        marker = ev_get_marker(sb, marker_id)
+        if not marker:
+            return jsonify({'error': 'Not found'}), 404
+        view = ev_get(sb, marker.get('earth_view_id'))
+        if not view or (str(view.get('user_id')) != str(user_id) and role != 'superadmin'):
+            return jsonify({'error': 'Forbidden'}), 403
+        data = request.get_json(silent=True) or {}
+        updates = {}
+        for key in ('name', 'description', 'marker_color', 'linked_panorama_id', 'media_photo',
+                    'media_video', 'longitude', 'latitude'):
+            if key in data:
+                updates[key] = data[key]
+        if updates:
+            ev_update_marker(sb, marker_id, **updates)
+        updated = ev_get_marker(sb, marker_id)
+        return jsonify(updated)
+
+    @app.route('/api/earth-view-markers/<marker_id>', methods=['DELETE'])
+    @require_admin
+    def api_delete_earth_view_marker(user_id, role, marker_id):
+        sb = get_supabase()
+        if not sb:
+            return jsonify({'error': 'Database not configured'}), 503
+        marker = ev_get_marker(sb, marker_id)
+        if not marker:
+            return jsonify({'error': 'Not found'}), 404
+        view = ev_get(sb, marker.get('earth_view_id'))
+        if not view or (str(view.get('user_id')) != str(user_id) and role != 'superadmin'):
+            return jsonify({'error': 'Forbidden'}), 403
+        ev_delete_marker(sb, marker_id)
+        return jsonify({'success': True})
+
+    @app.route('/earth-view/admin/<view_id>')
+    def earth_view_admin_page(view_id):
+        return render_template('earth_view_admin.html', view_id=view_id, **auth_ctx())
+
+    @app.route('/earth-view/view/<share_token>')
+    def earth_view_public_view(share_token):
+        sb = get_supabase()
+        if not sb:
+            return "Database not configured", 503
+        view = ev_get_by_token(sb, share_token)
+        if not view:
+            return "Not found", 404
+        plots = ev_list_plots(sb, view['id'])
+        markers = ev_list_markers(sb, view['id'])
+        all_views = ev_list(sb, view['user_id'])
+        siblings = []
+        for ev in all_views:
+            siblings.append({
+                'id': ev['id'],
+                'name': ev.get('name', ''),
+                'share_token': ev.get('share_token', ''),
+                'active': ev['id'] == view['id'],
+            })
+        return render_template(
+            'earth_view_customer.html',
+            earth_view=view,
+            plots=plots,
+            markers=markers,
+            siblings=siblings,
+        )
+
+    @app.route('/api/public/earth-view/<share_token>')
+    def api_public_earth_view(share_token):
+        sb = get_supabase()
+        if not sb:
+            return jsonify({'error': 'Database not configured'}), 503
+        view = ev_get_by_token(sb, share_token)
+        if not view:
+            return jsonify({'error': 'Not found'}), 404
+        view['plots'] = ev_list_plots(sb, view['id'])
+        view['markers'] = ev_list_markers(sb, view['id'])
+        return jsonify(view)
 
     # ===================================================================
     # PROJECT PLANS

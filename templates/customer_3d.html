@@ -2117,6 +2117,7 @@
             if (pid === null || pid === undefined || String(pid).trim() === '') return null;
             return {
                 plot_id: Number(pid),
+                panorama_id: value.panorama_id ? Number(value.panorama_id) : null,
                 name: String(value.name || value.plot_name || '').trim(),
                 area: String(value.area || '').trim(),
                 price: String(value.price || '').trim(),
@@ -2273,6 +2274,7 @@
             if (isPlotInCart(plot.id)) return;
             const next = cart.concat([{
                 plot_id: Number(plot.id),
+                panorama_id: Number(plot.panorama_id || CURRENT_RENDER_PANORAMA_ID || PANORAMA_ID),
                 name: String(plot.name || '').trim(),
                 area: String(plot.area || '').trim(),
                 price: String(plot.price || '').trim(),
@@ -2335,7 +2337,7 @@
                     customer_email: v.payload.email,
                     customer_phone: v.payload.phone,
                     category: v.payload.category,
-                    items: cart.map((x) => x.plot_id),
+                    items: cart.map((x) => ({ plot_id: x.plot_id, panorama_id: x.panorama_id || PANORAMA_ID })),
                 };
                 const r = await fetch('/api/public/buy-interests', {
                     method: 'POST',
