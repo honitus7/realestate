@@ -220,6 +220,9 @@ def list_panoramas_for_user(sb, user_id):
             out = dict(row)
             out['access_type'] = access_by_id.get(pid, 'viewer')
             out['plot_count'] = int(plot_counts.get(pid, 0))
+            # For client access, only show panoramas that have plots marked
+            if out['access_type'] == 'client' and out['plot_count'] == 0:
+                continue
             result.append(out)
         result.sort(key=lambda x: x.get('updated_at') or '', reverse=True)
         return result
