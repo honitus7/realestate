@@ -1523,7 +1523,6 @@
         }
 
         function getInitialPanoramaMenuOpen() {
-            if (IN_WORKSPACE && Array.isArray(WORKSPACE_PANORAMAS) && WORKSPACE_PANORAMAS.length > 1) return true;
             let preferred = null;
             try {
                 if (window.localStorage) {
@@ -1533,7 +1532,7 @@
                 }
             } catch (e) { }
             if (preferred !== null) return preferred;
-            return !(window.matchMedia && window.matchMedia('(max-width: 768px)').matches);
+            return false;
         }
 
         function setPanoramaMenuOpen(nextOpen, persist = true) {
