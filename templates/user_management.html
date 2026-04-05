@@ -22,6 +22,7 @@
         <div class="tabs">
             <button class="tab-btn active" data-tab="users" type="button">Users</button>
             <button class="tab-btn" data-tab="invites" type="button">Invites</button>
+            <button class="tab-btn" data-tab="clients" type="button" id="tab-btn-clients">Clients</button>
         </div>
 
         <!-- Users Tab -->
@@ -47,6 +48,70 @@
                     </table>
                     <div class="empty" id="users-empty" style="display:none;">No users found in your organization.</div>
                     <div class="empty" id="users-loading">Loading users...</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Clients Tab -->
+        <div class="tab-panel" id="tab-clients">
+            <div class="clients-layout">
+                <!-- Left: client group list -->
+                <div class="client-list-panel" id="client-list-panel">
+                    <div class="toolbar" style="margin-bottom:0.75rem;">
+                        <input type="search" class="search-input" id="client-search" placeholder="Search clients..." autocomplete="off" style="flex:1;">
+                        <button class="btn btn-primary" id="btn-new-client" type="button">New Client</button>
+                    </div>
+                    <div id="clients-loading" style="color:var(--color-text-dim);font-size:0.85rem;">Loading clients...</div>
+                    <div id="clients-list"></div>
+                    <div class="empty" id="clients-empty" style="display:none;">No client groups yet.</div>
+                </div>
+                <!-- Right: client detail -->
+                <div class="client-detail-panel" id="client-detail-panel" style="display:none;">
+                    <div class="client-detail-header">
+                        <div>
+                            <div class="client-detail-name" id="client-detail-name"></div>
+                            <div class="client-detail-desc" id="client-detail-desc"></div>
+                        </div>
+                        <div class="client-detail-actions">
+                            <button class="btn btn-secondary btn-sm" id="btn-edit-client" type="button">Edit</button>
+                            <button class="btn btn-danger btn-sm" id="btn-delete-client" type="button">Delete</button>
+                        </div>
+                    </div>
+
+                    <!-- Members section -->
+                    <div class="client-section">
+                        <div class="client-section-header">
+                            <div class="client-section-title">Members</div>
+                            <div style="display:flex;gap:0.5rem;">
+                                <button class="btn btn-primary btn-sm" id="btn-add-member" type="button">Add Member</button>
+                                <button class="btn btn-secondary btn-sm" id="btn-invite-member" type="button">Invite External</button>
+                            </div>
+                        </div>
+                        <div id="members-loading" style="color:var(--color-text-dim);font-size:0.85rem;display:none;">Loading...</div>
+                        <table class="table" id="members-table" style="display:none;">
+                            <thead>
+                                <tr>
+                                    <th style="width:28%;">Name</th>
+                                    <th style="width:30%;">Email</th>
+                                    <th style="width:22%;">Role</th>
+                                    <th style="width:20%;">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="members-body"></tbody>
+                        </table>
+                        <div class="empty" id="members-empty" style="display:none;">No members yet.</div>
+                    </div>
+
+                    <!-- Access section (admin only) -->
+                    <div class="client-section" id="client-access-section">
+                        <div class="client-section-header">
+                            <div class="client-section-title">Project Access</div>
+                            <button class="btn btn-primary btn-sm" id="btn-grant-access" type="button">Grant Access</button>
+                        </div>
+                        <div id="access-loading" style="color:var(--color-text-dim);font-size:0.85rem;display:none;">Loading...</div>
+                        <div id="access-list"></div>
+                        <div class="empty" id="access-empty" style="display:none;">No project access granted yet.</div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -191,6 +256,157 @@
                         </div>
                     </div>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- New/Edit Client Modal -->
+    <div class="modal-backdrop" id="modal-client">
+        <div class="modal modal--sm" role="dialog" aria-modal="true" aria-label="Client group">
+            <div class="modal-head">
+                <div class="modal-title" id="modal-client-title">New Client Group</div>
+                <button class="btn btn-secondary" id="close-client-modal" type="button">Close</button>
+            </div>
+            <div class="modal-body-edit">
+                <div class="edit-section edit-section--invite">
+                    <input type="hidden" id="client-modal-id">
+                    <div class="form-field">
+                        <label class="label" for="client-modal-name">Name <span style="color:var(--color-danger);">*</span></label>
+                        <input class="input" id="client-modal-name" type="text" placeholder="e.g. Acme Developments" autocomplete="off">
+                    </div>
+                    <div class="form-field" style="margin-top:0.75rem;">
+                        <label class="label" for="client-modal-desc">Description</label>
+                        <input class="input" id="client-modal-desc" type="text" placeholder="Optional description" autocomplete="off">
+                    </div>
+                    <div class="msg error" id="client-modal-error" style="display:none;"></div>
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" id="cancel-client-modal" type="button">Cancel</button>
+                <button class="btn btn-primary" id="confirm-client-modal" type="button">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Delete Client Confirmation Modal -->
+    <div class="modal-backdrop" id="modal-delete-client">
+        <div class="modal modal--sm" role="dialog" aria-modal="true" aria-label="Delete client confirmation">
+            <div class="modal-head">
+                <div class="modal-title">Delete Client Group</div>
+                <button class="btn btn-secondary" id="close-delete-client-modal" type="button">Close</button>
+            </div>
+            <div class="modal-body">
+                <p class="delete-warning">Delete client group "<span id="delete-client-name"></span>"?</p>
+                <p class="delete-warning-sub">All members will lose group access. This cannot be undone.</p>
+                <input type="hidden" id="delete-client-id">
+                <div class="msg error" id="delete-client-error" style="display:none;"></div>
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" id="cancel-delete-client" type="button">Cancel</button>
+                <button class="btn btn-danger" id="confirm-delete-client" type="button">Delete</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Member Modal -->
+    <div class="modal-backdrop" id="modal-add-member">
+        <div class="modal modal--sm" role="dialog" aria-modal="true" aria-label="Add member">
+            <div class="modal-head">
+                <div class="modal-title">Add Member</div>
+                <button class="btn btn-secondary" id="close-add-member-modal" type="button">Close</button>
+            </div>
+            <div class="modal-body-edit">
+                <div class="edit-section edit-section--invite">
+                    <div class="form-field">
+                        <label class="label" for="add-member-user">User <span style="color:var(--color-danger);">*</span></label>
+                        <select class="input" id="add-member-user"></select>
+                    </div>
+                    <div class="form-field" style="margin-top:0.75rem;">
+                        <label class="label" for="add-member-role">Role</label>
+                        <select class="input" id="add-member-role">
+                            <option value="client_admin">Client Admin</option>
+                            <option value="client_user" selected>Client User</option>
+                            <option value="broker">Broker</option>
+                        </select>
+                    </div>
+                    <div class="msg error" id="add-member-error" style="display:none;"></div>
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" id="cancel-add-member" type="button">Cancel</button>
+                <button class="btn btn-primary" id="confirm-add-member" type="button">Add</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Invite External User Modal -->
+    <div class="modal-backdrop" id="modal-invite-member">
+        <div class="modal modal--sm" role="dialog" aria-modal="true" aria-label="Invite external user">
+            <div class="modal-head">
+                <div class="modal-title">Invite External User</div>
+                <button class="btn btn-secondary" id="close-invite-member-modal" type="button">Close</button>
+            </div>
+            <div class="modal-body-edit">
+                <div class="edit-section edit-section--invite">
+                    <div class="form-field">
+                        <label class="label" for="invite-member-name">Display Name <span style="color:var(--color-danger);">*</span></label>
+                        <input class="input" id="invite-member-name" type="text" placeholder="Full name" autocomplete="name">
+                    </div>
+                    <div class="form-field" style="margin-top:0.75rem;">
+                        <label class="label" for="invite-member-email">Email <span style="color:var(--color-danger);">*</span></label>
+                        <input class="input" id="invite-member-email" type="email" placeholder="user@example.com" autocomplete="email">
+                    </div>
+                    <div class="form-field" style="margin-top:0.75rem;">
+                        <label class="label" for="invite-member-role">Role</label>
+                        <select class="input" id="invite-member-role">
+                            <option value="client_user" selected>Client User</option>
+                            <option value="broker">Broker</option>
+                        </select>
+                    </div>
+                    <div class="msg error" id="invite-member-error" style="display:none;"></div>
+                    <div class="msg success" id="invite-member-success" style="display:none;"></div>
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" id="cancel-invite-member" type="button">Cancel</button>
+                <button class="btn btn-primary" id="confirm-invite-member" type="button">Send Invite</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Grant Access Modal -->
+    <div class="modal-backdrop" id="modal-grant-access">
+        <div class="modal modal--sm" role="dialog" aria-modal="true" aria-label="Grant project access">
+            <div class="modal-head">
+                <div class="modal-title">Grant Project Access</div>
+                <button class="btn btn-secondary" id="close-grant-access-modal" type="button">Close</button>
+            </div>
+            <div class="modal-body-edit">
+                <div class="edit-section edit-section--invite">
+                    <div class="form-field">
+                        <label class="label">Resource Type</label>
+                        <div style="display:flex;gap:0.75rem;margin-top:0.35rem;">
+                            <label style="display:flex;align-items:center;gap:0.4rem;cursor:pointer;"><input type="radio" name="grant-resource-type" value="workspace" checked> Workspace (Project)</label>
+                            <label style="display:flex;align-items:center;gap:0.4rem;cursor:pointer;"><input type="radio" name="grant-resource-type" value="panorama"> Panorama</label>
+                        </div>
+                    </div>
+                    <div class="form-field" style="margin-top:0.75rem;">
+                        <label class="label" for="grant-resource-id">Select <span style="color:var(--color-danger);">*</span></label>
+                        <select class="input" id="grant-resource-id"></select>
+                    </div>
+                    <div class="form-field" style="margin-top:0.75rem;">
+                        <label class="label" for="grant-access-type">Access Level</label>
+                        <select class="input" id="grant-access-type">
+                            <option value="client" selected>Client (full viewer + CRM)</option>
+                            <option value="viewer">Viewer (view only)</option>
+                        </select>
+                    </div>
+                    <div class="msg error" id="grant-access-error" style="display:none;"></div>
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" id="cancel-grant-access" type="button">Cancel</button>
+                <button class="btn btn-primary" id="confirm-grant-access" type="button">Grant Access</button>
             </div>
         </div>
     </div>
@@ -691,6 +907,538 @@
 
             try { if (window.applyOrgTheme) window.applyOrgTheme(); } catch (e) { }
             loadUsers();
+        });
+    })();
+
+    // ── Clients Tab ──
+    (function () {
+        'use strict';
+        var supabase = window._supabase;
+        if (!supabase) return;
+
+        var clientState = {
+            clients: [],
+            selectedClientId: null,
+            members: [],
+            orgUsers: [],
+            workspaces: [],
+            panoramas: [],
+            currentRole: '',
+            currentUserId: '',
+            isClientAdminOnly: false,
+        };
+
+        function getAuthHeaders() {
+            return supabase.auth.getSession().then(function (r) {
+                var h = { 'Content-Type': 'application/json' };
+                if (r.data.session && r.data.session.access_token)
+                    h['Authorization'] = 'Bearer ' + r.data.session.access_token;
+                return h;
+            });
+        }
+        function fetchJson(url, opts) {
+            return fetch(url, opts || {}).then(async function (r) {
+                var data = null;
+                try { data = await r.json(); } catch (e) { }
+                return { ok: r.ok, status: r.status, data: data };
+            });
+        }
+        function escapeHtml(str) {
+            return String(str || '').replace(/[&<>"']/g, function (c) {
+                return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c] || c;
+            });
+        }
+        function setError(el, msg) {
+            if (!el) return;
+            el.textContent = msg || '';
+            el.style.display = msg ? 'block' : 'none';
+        }
+        function openModal(el) { if (el) el.classList.add('visible'); }
+        function closeModal(el) { if (el) el.classList.remove('visible'); }
+
+        var roleLabels = { client_admin: 'Client Admin', client_user: 'Client User', broker: 'Broker' };
+        function rolePillClass(r) {
+            if (r === 'client_admin') return 'pill admin';
+            if (r === 'broker') return 'pill superadmin';
+            return 'pill user';
+        }
+
+        // ── Load Clients ──
+        function loadClients() {
+            var loadingEl = document.getElementById('clients-loading');
+            var emptyEl = document.getElementById('clients-empty');
+            var listEl = document.getElementById('clients-list');
+            if (loadingEl) loadingEl.style.display = 'block';
+            if (emptyEl) emptyEl.style.display = 'none';
+            if (listEl) listEl.innerHTML = '';
+            return getAuthHeaders().then(function (h) {
+                return fetchJson('/api/clients', { headers: h });
+            }).then(function (res) {
+                if (loadingEl) loadingEl.style.display = 'none';
+                if (!res.ok) return;
+                clientState.clients = Array.isArray(res.data) ? res.data : [];
+                renderClientList();
+            });
+        }
+
+        function renderClientList() {
+            var q = (document.getElementById('client-search') || {}).value || '';
+            q = q.trim().toLowerCase();
+            var listEl = document.getElementById('clients-list');
+            var emptyEl = document.getElementById('clients-empty');
+            if (!listEl) return;
+            var items = clientState.clients.filter(function (c) {
+                return !q || (c.name || '').toLowerCase().includes(q);
+            });
+            if (!items.length) {
+                listEl.innerHTML = '';
+                if (emptyEl) emptyEl.style.display = 'block';
+                return;
+            }
+            if (emptyEl) emptyEl.style.display = 'none';
+            listEl.innerHTML = items.map(function (c) {
+                var isSelected = c.id === clientState.selectedClientId;
+                return '<div class="client-row' + (isSelected ? ' selected' : '') + '" data-cid="' + escapeHtml(c.id) + '">' +
+                    '<div class="client-row-name">' + escapeHtml(c.name) + '</div>' +
+                    '<div class="client-row-meta">' + (c.member_count || 0) + ' member' + (c.member_count === 1 ? '' : 's') + '</div>' +
+                    '</div>';
+            }).join('');
+            listEl.querySelectorAll('.client-row').forEach(function (row) {
+                row.addEventListener('click', function () {
+                    clientState.selectedClientId = row.getAttribute('data-cid');
+                    renderClientList();
+                    loadClientDetail(clientState.selectedClientId);
+                });
+            });
+        }
+
+        // ── Client Detail ──
+        function loadClientDetail(clientId) {
+            var detail = document.getElementById('client-detail-panel');
+            if (!detail) return;
+            detail.style.display = 'flex';
+            var client = clientState.clients.find(function (c) { return c.id === clientId; }) || {};
+            document.getElementById('client-detail-name').textContent = client.name || '';
+            document.getElementById('client-detail-desc').textContent = client.description || '';
+            loadMembers(clientId);
+            loadClientAccess(clientId);
+        }
+
+        // ── Members ──
+        function loadMembers(clientId) {
+            var loadingEl = document.getElementById('members-loading');
+            var tableEl = document.getElementById('members-table');
+            var emptyEl = document.getElementById('members-empty');
+            if (loadingEl) loadingEl.style.display = 'block';
+            if (tableEl) tableEl.style.display = 'none';
+            if (emptyEl) emptyEl.style.display = 'none';
+            getAuthHeaders().then(function (h) {
+                return fetchJson('/api/clients/' + encodeURIComponent(clientId) + '/members', { headers: h });
+            }).then(function (res) {
+                if (loadingEl) loadingEl.style.display = 'none';
+                if (!res.ok) return;
+                clientState.members = Array.isArray(res.data) ? res.data : [];
+                renderMembers(clientId);
+            });
+        }
+
+        function renderMembers(clientId) {
+            var tbody = document.getElementById('members-body');
+            var tableEl = document.getElementById('members-table');
+            var emptyEl = document.getElementById('members-empty');
+            if (!tbody) return;
+            var items = clientState.members;
+            if (!items.length) {
+                if (tableEl) tableEl.style.display = 'none';
+                if (emptyEl) emptyEl.style.display = 'block';
+                return;
+            }
+            if (emptyEl) emptyEl.style.display = 'none';
+            if (tableEl) tableEl.style.display = '';
+            tbody.innerHTML = items.map(function (m) {
+                var uid = String(m.user_id || '');
+                var isSelf = uid === clientState.currentUserId;
+                var isPlatformAdmin = clientState.currentRole === 'admin' || clientState.currentRole === 'superadmin';
+                var isClientAdminOnly = clientState.isClientAdminOnly;
+                // client_admins can change client_user ↔ broker but not set client_admin
+                var roleSelect = '<select class="member-role-select" data-uid="' + escapeHtml(uid) + '">' +
+                    ['client_admin', 'client_user', 'broker'].map(function (r) {
+                        var disabled = (!isPlatformAdmin && r === 'client_admin') ? ' disabled' : '';
+                        return '<option value="' + r + '"' + (m.member_role === r ? ' selected' : '') + disabled + '>' + escapeHtml(roleLabels[r] || r) + '</option>';
+                    }).join('') + '</select>';
+                // client_admins: no remove button (role editing only); platform admins: remove all non-self
+                var removeBtn = (isSelf || isClientAdminOnly) ? '' : '<button class="btn-sm btn-sm--danger" data-action="remove-member" data-uid="' + escapeHtml(uid) + '">Remove</button>';
+                return '<tr>' +
+                    '<td>' + escapeHtml(m.display_name || '—') + '</td>' +
+                    '<td>' + escapeHtml(m.email || '—') + '</td>' +
+                    '<td>' + roleSelect + '</td>' +
+                    '<td>' + removeBtn + '</td>' +
+                    '</tr>';
+            }).join('');
+            tbody.querySelectorAll('.member-role-select').forEach(function (sel) {
+                sel.addEventListener('change', function () {
+                    var uid = sel.getAttribute('data-uid');
+                    var newRole = sel.value;
+                    getAuthHeaders().then(function (h) {
+                        return fetchJson('/api/clients/' + encodeURIComponent(clientId) + '/members/' + encodeURIComponent(uid), {
+                            method: 'PATCH', headers: h, body: JSON.stringify({ member_role: newRole })
+                        });
+                    }).then(function (res) {
+                        if (!res.ok) { alert((res.data && res.data.error) || 'Failed to update role'); loadMembers(clientId); }
+                        else loadMembers(clientId);
+                    });
+                });
+            });
+            tbody.querySelectorAll('[data-action="remove-member"]').forEach(function (btn) {
+                btn.addEventListener('click', function () {
+                    var uid = btn.getAttribute('data-uid');
+                    if (!confirm('Remove this member from the client group?')) return;
+                    getAuthHeaders().then(function (h) {
+                        return fetchJson('/api/clients/' + encodeURIComponent(clientId) + '/members/' + encodeURIComponent(uid), {
+                            method: 'DELETE', headers: h
+                        });
+                    }).then(function (res) {
+                        if (!res.ok) alert((res.data && res.data.error) || 'Failed to remove');
+                        loadMembers(clientId);
+                    });
+                });
+            });
+        }
+
+        // ── Access Section ──
+        function loadClientAccess(clientId) {
+            var section = document.getElementById('client-access-section');
+            if (!section) return;
+            var isAdmin = clientState.currentRole === 'admin' || clientState.currentRole === 'superadmin';
+            section.style.display = isAdmin ? '' : 'none';
+            if (!isAdmin) return;
+            var loadingEl = document.getElementById('access-loading');
+            var emptyEl = document.getElementById('access-empty');
+            var listEl = document.getElementById('access-list');
+            if (loadingEl) loadingEl.style.display = 'block';
+            if (emptyEl) emptyEl.style.display = 'none';
+            if (listEl) listEl.innerHTML = '';
+            getAuthHeaders().then(function (h) {
+                return fetchJson('/api/clients/' + encodeURIComponent(clientId) + '/access', { headers: h });
+            }).then(function (res) {
+                if (loadingEl) loadingEl.style.display = 'none';
+                if (!res.ok || !res.data) return;
+                var workspaces = res.data.workspaces || [];
+                var panoramas = res.data.panoramas || [];
+                if (!workspaces.length && !panoramas.length) {
+                    if (emptyEl) emptyEl.style.display = 'block';
+                    return;
+                }
+                if (emptyEl) emptyEl.style.display = 'none';
+                var html = '';
+                workspaces.forEach(function (w) {
+                    html += '<div class="access-row">' +
+                        '<span class="pill user" style="font-size:0.7rem;">workspace</span> ' +
+                        '<span>' + escapeHtml(w.name) + '</span>' +
+                        '<span class="' + rolePillClass(w.access_type) + '" style="font-size:0.7rem;margin-left:auto;">' + escapeHtml(w.access_type) + '</span>' +
+                        '<button class="btn-sm btn-sm--danger" data-rtype="workspace" data-rid="' + escapeHtml(String(w.workspace_id)) + '">Revoke</button>' +
+                        '</div>';
+                });
+                panoramas.forEach(function (p) {
+                    html += '<div class="access-row">' +
+                        '<span class="pill superadmin" style="font-size:0.7rem;">panorama</span> ' +
+                        '<span>' + escapeHtml(p.name) + '</span>' +
+                        '<span class="' + rolePillClass(p.access_type) + '" style="font-size:0.7rem;margin-left:auto;">' + escapeHtml(p.access_type) + '</span>' +
+                        '<button class="btn-sm btn-sm--danger" data-rtype="panorama" data-rid="' + escapeHtml(String(p.panorama_id)) + '">Revoke</button>' +
+                        '</div>';
+                });
+                if (listEl) listEl.innerHTML = html;
+                listEl.querySelectorAll('[data-rtype]').forEach(function (btn) {
+                    btn.addEventListener('click', function () {
+                        var rtype = btn.getAttribute('data-rtype');
+                        var rid = btn.getAttribute('data-rid');
+                        if (!confirm('Revoke access for this ' + rtype + '?')) return;
+                        getAuthHeaders().then(function (h) {
+                            return fetchJson('/api/clients/' + encodeURIComponent(clientId) + '/access', {
+                                method: 'DELETE', headers: h,
+                                body: JSON.stringify({ resource_type: rtype, resource_id: rid })
+                            });
+                        }).then(function () { loadClientAccess(clientId); });
+                    });
+                });
+            });
+        }
+
+        // ── New/Edit Client Modal ──
+        var modalClient = document.getElementById('modal-client');
+        function openNewClientModal() {
+            document.getElementById('client-modal-id').value = '';
+            document.getElementById('client-modal-name').value = '';
+            document.getElementById('client-modal-desc').value = '';
+            document.getElementById('modal-client-title').textContent = 'New Client Group';
+            setError(document.getElementById('client-modal-error'), '');
+            openModal(modalClient);
+            setTimeout(function () { document.getElementById('client-modal-name').focus(); }, 20);
+        }
+        function openEditClientModal(client) {
+            document.getElementById('client-modal-id').value = client.id;
+            document.getElementById('client-modal-name').value = client.name || '';
+            document.getElementById('client-modal-desc').value = client.description || '';
+            document.getElementById('modal-client-title').textContent = 'Edit Client Group';
+            setError(document.getElementById('client-modal-error'), '');
+            openModal(modalClient);
+            setTimeout(function () { document.getElementById('client-modal-name').focus(); }, 20);
+        }
+        function doSaveClient() {
+            var errEl = document.getElementById('client-modal-error');
+            var id = document.getElementById('client-modal-id').value;
+            var name = (document.getElementById('client-modal-name').value || '').trim();
+            var description = (document.getElementById('client-modal-desc').value || '').trim();
+            if (!name) { setError(errEl, 'Name is required.'); return; }
+            var btn = document.getElementById('confirm-client-modal');
+            if (btn) btn.disabled = true;
+            var isEdit = Boolean(id);
+            var url = isEdit ? '/api/clients/' + encodeURIComponent(id) : '/api/clients';
+            var method = isEdit ? 'PATCH' : 'POST';
+            getAuthHeaders().then(function (h) {
+                return fetchJson(url, { method: method, headers: h, body: JSON.stringify({ name: name, description: description }) });
+            }).then(function (res) {
+                if (!res.ok) { setError(errEl, (res.data && res.data.error) || 'Failed to save'); return; }
+                closeModal(modalClient);
+                return loadClients().then(function () {
+                    if (!isEdit && res.data && res.data.id) {
+                        clientState.selectedClientId = res.data.id;
+                        renderClientList();
+                        loadClientDetail(res.data.id);
+                    } else if (isEdit && clientState.selectedClientId) {
+                        loadClientDetail(clientState.selectedClientId);
+                    }
+                });
+            }).finally(function () { if (btn) btn.disabled = false; });
+        }
+
+        // ── Delete Client ──
+        var modalDeleteClient = document.getElementById('modal-delete-client');
+        function openDeleteClientModal() {
+            var client = clientState.clients.find(function (c) { return c.id === clientState.selectedClientId; });
+            if (!client) return;
+            document.getElementById('delete-client-id').value = client.id;
+            document.getElementById('delete-client-name').textContent = client.name || '';
+            setError(document.getElementById('delete-client-error'), '');
+            openModal(modalDeleteClient);
+        }
+        function doDeleteClient() {
+            var errEl = document.getElementById('delete-client-error');
+            var id = document.getElementById('delete-client-id').value;
+            var btn = document.getElementById('confirm-delete-client');
+            if (btn) btn.disabled = true;
+            getAuthHeaders().then(function (h) {
+                return fetchJson('/api/clients/' + encodeURIComponent(id), { method: 'DELETE', headers: h });
+            }).then(function (res) {
+                if (!res.ok) { setError(errEl, (res.data && res.data.error) || 'Failed to delete'); return; }
+                closeModal(modalDeleteClient);
+                clientState.selectedClientId = null;
+                var detail = document.getElementById('client-detail-panel');
+                if (detail) detail.style.display = 'none';
+                loadClients();
+            }).finally(function () { if (btn) btn.disabled = false; });
+        }
+
+        // ── Add Member Modal ──
+        var modalAddMember = document.getElementById('modal-add-member');
+        function openAddMemberModal() {
+            var sel = document.getElementById('add-member-user');
+            setError(document.getElementById('add-member-error'), '');
+            // Populate user dropdown from org users (excluding existing members)
+            var existingUids = new Set(clientState.members.map(function (m) { return String(m.user_id); }));
+            var options = clientState.orgUsers
+                .filter(function (u) { return !existingUids.has(String(u.user_id)) && u.user_id !== clientState.currentUserId; })
+                .map(function (u) { return '<option value="' + escapeHtml(u.user_id) + '">' + escapeHtml((u.display_name || u.email || u.user_id)) + '</option>'; });
+            if (!options.length) { alert('All org users are already members or no users available.'); return; }
+            sel.innerHTML = options.join('');
+            var isAdmin = clientState.currentRole === 'admin' || clientState.currentRole === 'superadmin';
+            var roleOpts = document.getElementById('add-member-role');
+            if (roleOpts) {
+                Array.from(roleOpts.options).forEach(function (opt) {
+                    opt.disabled = (!isAdmin && opt.value === 'client_admin');
+                });
+                if (!isAdmin) roleOpts.value = 'client_user';
+            }
+            openModal(modalAddMember);
+        }
+        function doAddMember() {
+            var errEl = document.getElementById('add-member-error');
+            var targetUid = document.getElementById('add-member-user').value;
+            var memberRole = document.getElementById('add-member-role').value;
+            if (!targetUid) { setError(errEl, 'Please select a user.'); return; }
+            var btn = document.getElementById('confirm-add-member');
+            if (btn) btn.disabled = true;
+            getAuthHeaders().then(function (h) {
+                return fetchJson('/api/clients/' + encodeURIComponent(clientState.selectedClientId) + '/members', {
+                    method: 'POST', headers: h, body: JSON.stringify({ user_id: targetUid, member_role: memberRole })
+                });
+            }).then(function (res) {
+                if (!res.ok) { setError(errEl, (res.data && res.data.error) || 'Failed to add member'); return; }
+                closeModal(modalAddMember);
+                loadMembers(clientState.selectedClientId);
+                loadClients();
+            }).finally(function () { if (btn) btn.disabled = false; });
+        }
+
+        // ── Invite External Modal ──
+        var modalInviteMember = document.getElementById('modal-invite-member');
+        function openInviteMemberModal() {
+            document.getElementById('invite-member-name').value = '';
+            document.getElementById('invite-member-email').value = '';
+            document.getElementById('invite-member-role').value = 'client_user';
+            setError(document.getElementById('invite-member-error'), '');
+            setError(document.getElementById('invite-member-success'), '');
+            openModal(modalInviteMember);
+            setTimeout(function () { document.getElementById('invite-member-name').focus(); }, 20);
+        }
+        function doInviteMember() {
+            var errEl = document.getElementById('invite-member-error');
+            var successEl = document.getElementById('invite-member-success');
+            var name = (document.getElementById('invite-member-name').value || '').trim();
+            var email = (document.getElementById('invite-member-email').value || '').trim();
+            var memberRole = document.getElementById('invite-member-role').value;
+            if (!name) { setError(errEl, 'Display name is required.'); return; }
+            if (!email || email.indexOf('@') === -1) { setError(errEl, 'Valid email is required.'); return; }
+            var btn = document.getElementById('confirm-invite-member');
+            if (btn) btn.disabled = true;
+            getAuthHeaders().then(function (h) {
+                return fetchJson('/api/clients/' + encodeURIComponent(clientState.selectedClientId) + '/invite', {
+                    method: 'POST', headers: h, body: JSON.stringify({ display_name: name, email: email, member_role: memberRole })
+                });
+            }).then(function (res) {
+                if (!res.ok) { setError(errEl, (res.data && res.data.error) || 'Failed to send invite'); return; }
+                setError(successEl, 'Invitation sent to ' + email + '!');
+                document.getElementById('invite-member-name').value = '';
+                document.getElementById('invite-member-email').value = '';
+                setTimeout(function () { closeModal(modalInviteMember); setError(successEl, ''); }, 1800);
+                loadMembers(clientState.selectedClientId);
+                loadClients();
+            }).finally(function () { if (btn) btn.disabled = false; });
+        }
+
+        // ── Grant Access Modal ──
+        var modalGrantAccess = document.getElementById('modal-grant-access');
+        function loadGrantResources(type) {
+            var sel = document.getElementById('grant-resource-id');
+            if (!sel) return;
+            sel.innerHTML = '<option value="">Loading...</option>';
+            if (type === 'workspace') {
+                var items = clientState.workspaces;
+                sel.innerHTML = items.length ? items.map(function (w) {
+                    return '<option value="' + escapeHtml(String(w.id)) + '">' + escapeHtml(w.name || String(w.id)) + '</option>';
+                }).join('') : '<option value="">No workspaces available</option>';
+            } else {
+                var pitems = clientState.panoramas;
+                sel.innerHTML = pitems.length ? pitems.map(function (p) {
+                    return '<option value="' + escapeHtml(String(p.id)) + '">' + escapeHtml(p.name || String(p.id)) + '</option>';
+                }).join('') : '<option value="">No panoramas available</option>';
+            }
+        }
+        function openGrantAccessModal() {
+            setError(document.getElementById('grant-access-error'), '');
+            var radios = document.querySelectorAll('input[name="grant-resource-type"]');
+            radios.forEach(function (r) { if (r.value === 'workspace') r.checked = true; });
+            loadGrantResources('workspace');
+            openModal(modalGrantAccess);
+        }
+        function doGrantAccess() {
+            var errEl = document.getElementById('grant-access-error');
+            var rtype = (document.querySelector('input[name="grant-resource-type"]:checked') || {}).value || 'workspace';
+            var rid = document.getElementById('grant-resource-id').value;
+            var atype = document.getElementById('grant-access-type').value;
+            if (!rid) { setError(errEl, 'Please select a resource.'); return; }
+            var btn = document.getElementById('confirm-grant-access');
+            if (btn) btn.disabled = true;
+            getAuthHeaders().then(function (h) {
+                return fetchJson('/api/clients/' + encodeURIComponent(clientState.selectedClientId) + '/access', {
+                    method: 'POST', headers: h,
+                    body: JSON.stringify({ resource_type: rtype, resource_id: rid, access_type: atype })
+                });
+            }).then(function (res) {
+                if (!res.ok) { setError(errEl, (res.data && res.data.error) || 'Failed to grant access'); return; }
+                closeModal(modalGrantAccess);
+                loadClientAccess(clientState.selectedClientId);
+            }).finally(function () { if (btn) btn.disabled = false; });
+        }
+
+        // ── Wire up events ──
+        document.getElementById('btn-new-client').addEventListener('click', openNewClientModal);
+        document.getElementById('btn-edit-client').addEventListener('click', function () {
+            var client = clientState.clients.find(function (c) { return c.id === clientState.selectedClientId; });
+            if (client) openEditClientModal(client);
+        });
+        document.getElementById('btn-delete-client').addEventListener('click', openDeleteClientModal);
+        document.getElementById('btn-add-member').addEventListener('click', openAddMemberModal);
+        document.getElementById('btn-invite-member').addEventListener('click', openInviteMemberModal);
+        document.getElementById('btn-grant-access').addEventListener('click', openGrantAccessModal);
+
+        document.getElementById('close-client-modal').addEventListener('click', function () { closeModal(modalClient); });
+        document.getElementById('cancel-client-modal').addEventListener('click', function () { closeModal(modalClient); });
+        document.getElementById('confirm-client-modal').addEventListener('click', doSaveClient);
+        if (modalClient) modalClient.addEventListener('click', function (e) { if (e.target === modalClient) closeModal(modalClient); });
+
+        document.getElementById('close-delete-client-modal').addEventListener('click', function () { closeModal(modalDeleteClient); });
+        document.getElementById('cancel-delete-client').addEventListener('click', function () { closeModal(modalDeleteClient); });
+        document.getElementById('confirm-delete-client').addEventListener('click', doDeleteClient);
+        if (modalDeleteClient) modalDeleteClient.addEventListener('click', function (e) { if (e.target === modalDeleteClient) closeModal(modalDeleteClient); });
+
+        document.getElementById('close-add-member-modal').addEventListener('click', function () { closeModal(modalAddMember); });
+        document.getElementById('cancel-add-member').addEventListener('click', function () { closeModal(modalAddMember); });
+        document.getElementById('confirm-add-member').addEventListener('click', doAddMember);
+        if (modalAddMember) modalAddMember.addEventListener('click', function (e) { if (e.target === modalAddMember) closeModal(modalAddMember); });
+
+        document.getElementById('close-invite-member-modal').addEventListener('click', function () { closeModal(modalInviteMember); });
+        document.getElementById('cancel-invite-member').addEventListener('click', function () { closeModal(modalInviteMember); });
+        document.getElementById('confirm-invite-member').addEventListener('click', doInviteMember);
+        if (modalInviteMember) modalInviteMember.addEventListener('click', function (e) { if (e.target === modalInviteMember) closeModal(modalInviteMember); });
+
+        document.getElementById('close-grant-access-modal').addEventListener('click', function () { closeModal(modalGrantAccess); });
+        document.getElementById('cancel-grant-access').addEventListener('click', function () { closeModal(modalGrantAccess); });
+        document.getElementById('confirm-grant-access').addEventListener('click', doGrantAccess);
+        if (modalGrantAccess) modalGrantAccess.addEventListener('click', function (e) { if (e.target === modalGrantAccess) closeModal(modalGrantAccess); });
+
+        // resource type toggle in grant access modal
+        document.querySelectorAll('input[name="grant-resource-type"]').forEach(function (radio) {
+            radio.addEventListener('change', function () { loadGrantResources(radio.value); });
+        });
+
+        // client search
+        var clientSearch = document.getElementById('client-search');
+        if (clientSearch) clientSearch.addEventListener('input', renderClientList);
+
+        // ── Boot ──
+        window.sidebarReady.then(function (ctx) {
+            clientState.currentRole = ctx.role;
+            clientState.currentUserId = ctx.profile ? ctx.profile.user_id : '';
+
+            var isAdmin = (ctx.role === 'admin' || ctx.role === 'superadmin');
+
+            if (!isAdmin) {
+                var tabBtn = document.getElementById('tab-btn-clients');
+                if (tabBtn) tabBtn.style.display = 'none';
+                return;
+            }
+
+            // Admin boot — load supporting data in background
+            getAuthHeaders().then(function (h) {
+                return Promise.all([
+                    fetchJson('/api/admin/org-users', { headers: h }),
+                    fetchJson('/api/workspaces', { headers: h }),
+                    fetchJson('/api/panoramas', { headers: h }),
+                ]);
+            }).then(function (results) {
+                clientState.orgUsers = Array.isArray(results[0].data) ? results[0].data : [];
+                clientState.workspaces = Array.isArray(results[1].data) ? results[1].data : [];
+                clientState.panoramas = Array.isArray(results[2].data) ? results[2].data : [];
+            }).catch(function () {});
+
+            // Hook clients tab click
+            var clientsTabBtn = document.querySelector('.tab-btn[data-tab="clients"]');
+            if (clientsTabBtn) {
+                clientsTabBtn.addEventListener('click', function () {
+                    if (!clientState.clients.length) loadClients();
+                }, { once: true });
+            }
         });
     })();
     </script>

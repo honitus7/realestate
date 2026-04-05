@@ -379,8 +379,10 @@
             currentUserRole = ctx.role;
             var orgSubEl = document.getElementById('org-subtitle');
             if (orgSubEl) orgSubEl.textContent = 'Plot Marker';
-            var createBtn = document.getElementById('create-workspace-btn');
-            if (createBtn) createBtn.style.display = ctx.isAdmin ? '' : 'none';
+            if (ctx.isAdmin) {
+                var createBtn = document.getElementById('create-workspace-btn');
+                if (createBtn) createBtn.style.display = '';
+            }
             try { if (window.applyOrgTheme) window.applyOrgTheme(); } catch (e) { }
             updateCrmNavVisibility();
             startDashboardOnce();

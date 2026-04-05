@@ -75,6 +75,7 @@
         show('sidebar-upload-wrap', state.isAdmin);
         show('dropdown-add-user', state.isAdmin);
         show('dropdown-user-mgmt', state.isAdmin);
+        show('dropdown-client-mgmt', !state.isAdmin && !!state.isClientAdmin);
         show('nav-crm', state.showCrm);
     }
 
@@ -151,8 +152,10 @@
                     .then(function (r) { return r.ok ? r.json() : null; })
                     .then(function (crmData) {
                         var hasCrm = crmData && crmData.has_crm_access;
+                        var isClientAdmin = !!(crmData && crmData.is_client_admin);
                         var state = {
                             role: role, isAdmin: isAdmin, showCrm: hasCrm,
+                            isClientAdmin: isClientAdmin,
                             avatarText: avatarText, orgName: orgName, userName: userName
                         };
                         applySidebarState(state);
@@ -162,6 +165,7 @@
                     .catch(function () {
                         var state = {
                             role: role, isAdmin: isAdmin, showCrm: false,
+                            isClientAdmin: false,
                             avatarText: avatarText, orgName: orgName, userName: userName
                         };
                         applySidebarState(state);

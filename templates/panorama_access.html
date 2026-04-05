@@ -96,12 +96,17 @@
             font-weight: 600;
             cursor: pointer;
             border: none;
-            background: var(--color-accent);
-            color: var(--color-bg);
+            background: var(--color-surface);
+            color: var(--color-text);
         }
 
         .btn:hover {
             opacity: 0.9;
+        }
+
+        .btn:disabled {
+            opacity: 0.45;
+            cursor: not-allowed;
         }
 
         .btn-danger {

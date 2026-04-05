@@ -1,0 +1,219 @@
+{% extends 'base.html' %}
+{% block title %}My Team – PropMark{% endblock %}
+{% block head_css %}
+<link rel="stylesheet" href="/static/css/dashboard.css">
+<link rel="stylesheet" href="/static/css/user_management.css">
+{% endblock %}
+{% block content %}
+<div class="user-mgmt-page" id="client-mgmt-page">
+    {% set active_page = 'client-management' %}
+    {% include 'components/sidebar.html' %}
+
+    <div class="main-content">
+        <div class="page-header">
+            <div class="page-title">My Team</div>
+            <div class="page-subtitle">Manage roles for users in your client groups.</div>
+        </div>
+
+        <div class="banner" id="banner" style="display:none;"></div>
+
+        <div id="groups-loading" style="color:var(--color-text-dim);font-size:0.9rem;">Loading your groups...</div>
+        <div id="groups-empty" class="empty" style="display:none;">You are not a client admin in any group.</div>
+        <div id="groups-container"></div>
+    </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+    window.__SUPABASE_URL__      = {{ (supabase_url or '') | tojson }};
+    window.__SUPABASE_ANON_KEY__ = {{ (supabase_anon_key or '') | tojson }};
+</script>
+<script src="/static/js/sidebar.js"></script>
+<script>
+(function () {
+    'use strict';
+
+    var supabase = window._supabase;
+    if (!supabase) return;
+
+    var roleLabels = { client_admin: 'Client Admin', client_user: 'Client User', broker: 'Broker' };
+
+    function getAuthHeaders() {
+        return supabase.auth.getSession().then(function (r) {
+            var h = { 'Content-Type': 'application/json' };
+            if (r.data.session && r.data.session.access_token)
+                h['Authorization'] = 'Bearer ' + r.data.session.access_token;
+            return h;
+        });
+    }
+
+    function fetchJson(url, opts) {
+        return fetch(url, opts || {}).then(function (r) {
+            return r.json().then(function (d) {
+                return { ok: r.ok, status: r.status, data: d };
+            }).catch(function () {
+                return { ok: r.ok, status: r.status, data: null };
+            });
+        });
+    }
+
+    function escapeHtml(str) {
+        return String(str || '').replace(/[&<>"']/g, function (c) {
+            return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c] || c;
+        });
+    }
+
+    function showBanner(msg) {
+        var el = document.getElementById('banner');
+        if (!el) return;
+        el.textContent = msg || '';
+        el.style.display = msg ? 'block' : 'none';
+    }
+
+    // ── Kick off data fetch immediately — don't wait for sidebarReady ──
+    var dataPromise = getAuthHeaders().then(function (h) {
+        return Promise.all([
+            fetchJson('/api/clients/mine', { headers: h }),
+            h  // pass headers through for members fetch
+        ]);
+    });
+
+    // ── Render members table ──
+    function renderMembers(groupId, members) {
+        var tbody = document.getElementById('members-body-' + groupId);
+        var tableEl = document.getElementById('members-table-' + groupId);
+        var emptyEl = document.getElementById('members-empty-' + groupId);
+        var loadingEl = document.getElementById('members-loading-' + groupId);
+        if (loadingEl) loadingEl.style.display = 'none';
+        if (!members.length) {
+            if (emptyEl) emptyEl.style.display = 'block';
+            return;
+        }
+        if (tableEl) tableEl.style.display = '';
+        if (!tbody) return;
+
+        tbody.innerHTML = members.map(function (m) {
+            var uid = String(m.user_id || '');
+            var roleSelect =
+                '<select class="member-role-select" data-group="' + escapeHtml(groupId) +
+                '" data-uid="' + escapeHtml(uid) + '" data-prev="' + escapeHtml(m.member_role || '') + '">' +
+                ['client_admin', 'client_user', 'broker'].map(function (r) {
+                    return '<option value="' + r + '"' +
+                        (m.member_role === r ? ' selected' : '') +
+                        (r === 'client_admin' ? ' disabled' : '') + '>' +
+                        escapeHtml(roleLabels[r] || r) + '</option>';
+                }).join('') + '</select>';
+            return '<tr>' +
+                '<td>' + escapeHtml(m.display_name || '—') + '</td>' +
+                '<td>' + escapeHtml(m.email || '—') + '</td>' +
+                '<td>' + roleSelect + '</td>' +
+                '</tr>';
+        }).join('');
+
+        tbody.querySelectorAll('.member-role-select').forEach(function (sel) {
+            sel.addEventListener('change', function () {
+                var gid = sel.getAttribute('data-group');
+                var uid = sel.getAttribute('data-uid');
+                var newRole = sel.value;
+                var prev = sel.getAttribute('data-prev') || newRole;
+                sel.setAttribute('data-prev', newRole);
+                sel.disabled = true;
+                getAuthHeaders().then(function (h) {
+                    return fetchJson(
+                        '/api/clients/' + encodeURIComponent(gid) + '/members/' + encodeURIComponent(uid),
+                        { method: 'PATCH', headers: h, body: JSON.stringify({ member_role: newRole }) }
+                    );
+                }).then(function (res) {
+                    if (!res.ok) {
+                        sel.value = prev;
+                        sel.setAttribute('data-prev', prev);
+                        alert((res.data && res.data.error) || 'Failed to update role');
+                    }
+                }).catch(function () {
+                    sel.value = prev;
+                    sel.setAttribute('data-prev', prev);
+                    alert('Failed to update role');
+                }).finally(function () { sel.disabled = false; });
+            });
+        });
+    }
+
+    // ── Render group cards then fetch all members in parallel ──
+    function renderGroups(groups, headers) {
+        var loadingEl = document.getElementById('groups-loading');
+        var emptyEl   = document.getElementById('groups-empty');
+        var container = document.getElementById('groups-container');
+        if (loadingEl) loadingEl.style.display = 'none';
+
+        if (!groups.length) {
+            if (emptyEl) emptyEl.style.display = 'block';
+            return;
+        }
+
+        // Build all group cards first (instant paint)
+        container.innerHTML = groups.map(function (group) {
+            var gid = escapeHtml(group.id);
+            return '<div class="client-section" style="margin-bottom:1.25rem;">' +
+                '<div class="client-section-header"><div>' +
+                    '<div class="client-section-title">' + escapeHtml(group.name) + '</div>' +
+                    (group.description
+                        ? '<div style="font-size:0.78rem;color:var(--color-text-dim);margin-top:0.15rem;">' + escapeHtml(group.description) + '</div>'
+                        : '') +
+                '</div></div>' +
+                '<div id="members-loading-' + gid + '" style="font-size:0.83rem;color:var(--color-text-dim);">Loading members...</div>' +
+                '<table class="table" id="members-table-' + gid + '" style="display:none;">' +
+                    '<thead><tr>' +
+                        '<th style="width:28%;">Name</th>' +
+                        '<th style="width:34%;">Email</th>' +
+                        '<th style="width:38%;">Role</th>' +
+                    '</tr></thead>' +
+                    '<tbody id="members-body-' + gid + '"></tbody>' +
+                '</table>' +
+                '<div class="empty" id="members-empty-' + gid + '" style="display:none;">No members in this group.</div>' +
+            '</div>';
+        }).join('');
+
+        // Fetch all groups' members in parallel
+        Promise.all(groups.map(function (group) {
+            return fetchJson('/api/clients/' + encodeURIComponent(group.id) + '/members', { headers: headers })
+                .then(function (res) {
+                    if (res.ok && Array.isArray(res.data)) renderMembers(group.id, res.data);
+                    else {
+                        var el = document.getElementById('members-loading-' + group.id);
+                        if (el) el.style.display = 'none';
+                    }
+                }).catch(function () {
+                    var el = document.getElementById('members-loading-' + group.id);
+                    if (el) el.style.display = 'none';
+                });
+        }));
+    }
+
+    // ── sidebarReady: auth gate only (data already in-flight) ──
+    window.sidebarReady.then(function (ctx) {
+        if (ctx.role === 'admin' || ctx.role === 'superadmin') {
+            window.location.replace('/user-management');
+            return;
+        }
+        try { if (window.applyOrgTheme) window.applyOrgTheme(); } catch (e) {}
+
+        // By now dataPromise is likely already resolved
+        dataPromise.then(function (results) {
+            var groupsRes = results[0];
+            var headers   = results[1];
+            if (!groupsRes.ok || !Array.isArray(groupsRes.data) || !groupsRes.data.length) {
+                showBanner('Access denied: you are not a client admin.');
+                var el = document.getElementById('groups-loading');
+                if (el) el.style.display = 'none';
+                return;
+            }
+            renderGroups(groupsRes.data, headers);
+        }).catch(function () {
+            showBanner('Failed to load groups.');
+            var el = document.getElementById('groups-loading');
+            if (el) el.style.display = 'none';
+        });
+    });
+})();
+</script>
+{% endblock %}
