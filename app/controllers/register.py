@@ -184,6 +184,18 @@ from app.services.gallery_service import (
     reorder_items as gal_reorder_items,
     get_next_sort_order as gal_next_sort_order,
 )
+from app.services.full_view_service import (
+    get_config_for_workspace as fv_get_config,
+    create_config as fv_create_config,
+    update_config as fv_update_config,
+    delete_config as fv_delete_config,
+    list_tabs as fv_list_tabs,
+    create_tab as fv_create_tab,
+    update_tab as fv_update_tab,
+    delete_tab as fv_delete_tab,
+    reorder_tabs as fv_reorder_tabs,
+    get_config_with_tabs as fv_get_config_with_tabs,
+)
 from app.services.earth_view_service import (
     create_earth_view as ev_create,
     get_earth_view as ev_get,
@@ -610,6 +622,9 @@ def register_routes(app):
 
     def render_customer_panorama_template(sb, panorama, org_name, canonical_slug, full_view=False, initial_panorama_id=None):
         workspace_id, workspace_panoramas, customer_view_config, mobile_panorama_map = build_customer_workspace_context(sb, panorama)
+        fv_config = None
+        if workspace_id:
+            fv_config = fv_get_config_with_tabs(sb, workspace_id)
         resp = make_response(render_template(
             'customer_3d.html',
             panorama=panorama,
@@ -621,6 +636,7 @@ def register_routes(app):
             workspace_id=workspace_id,
             customer_view_config=customer_view_config,
             mobile_panorama_map=mobile_panorama_map,
+            fv_config=fv_config,
             **auth_ctx()
         ))
         resp.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate'
@@ -6963,3 +6979,284 @@ def register_routes(app):
             return jsonify({'success': True})
         except Exception as e:
             return jsonify({'error': str(e)}), 500
+
+    # ==================================================================
+    # Full View Creator
+    # ==================================================================
+
+    @app.route('/full-view')
+    def full_view_page():
+        return render_template('full_view_admin.html', **auth_ctx())
+
+    @app.route('/api/full-view/config', methods=['GET'])
+    @require_admin
+    def api_fv_get_config(user_id, role):
+        sb = get_supabase()
+        if not sb:
+            return jsonify({'error': 'Database not configured'}), 503
+        workspace_id = request.args.get('workspace_id', '').strip()
+        if not workspace_id:
+            return jsonify({'error': 'workspace_id is required'}), 400
+        config = fv_get_config(sb, workspace_id)
+        if not config:
+            return jsonify({'config': None, 'tabs': []})
+        tabs = fv_list_tabs(sb, config['id'])
+        return jsonify({'config': config, 'tabs': tabs})
+
+    @app.route('/api/full-view/config', methods=['POST'])
+    @require_admin
+    def api_fv_create_config(user_id, role):
+        sb = get_supabase()
+        if not sb:
+            return jsonify({'error': 'Database not configured'}), 503
+        data = request.get_json(silent=True) or {}
+        workspace_id = (data.get('workspace_id') or '').strip()
+        if not workspace_id:
+            return jsonify({'error': 'workspace_id is required'}), 400
+        ws = get_workspace_by_id(sb, workspace_id)
+        if not ws:
+            return jsonify({'error': 'Workspace not found'}), 404
+        existing = fv_get_config(sb, workspace_id)
+        if existing:
+            return jsonify({'config': existing})
+        profile = get_profile(sb, user_id)
+        org_id = (profile or {}).get('org_id')
+        config = fv_create_config(sb, workspace_id, user_id, org_id)
+        if not config:
+            return jsonify({'error': 'Failed to create config'}), 500
+        return jsonify({'config': config}), 201
+
+    @app.route('/api/full-view/config/<config_id>', methods=['PUT'])
+    @require_admin
+    def api_fv_update_config(user_id, role, config_id):
+        sb = get_supabase()
+        if not sb:
+            return jsonify({'error': 'Database not configured'}), 503
+        data = request.get_json(silent=True) or {}
+        updated = fv_update_config(sb, config_id, **data)
+        return jsonify({'config': updated})
+
+    @app.route('/api/full-view/config/<config_id>', methods=['DELETE'])
+    @require_admin
+    def api_fv_delete_config(user_id, role, config_id):
+        sb = get_supabase()
+        if not sb:
+            return jsonify({'error': 'Database not configured'}), 503
+        fv_delete_config(sb, config_id)
+        return jsonify({'success': True})
+
+    @app.route('/api/full-view/tabs', methods=['POST'])
+    @require_admin
+    def api_fv_create_tab(user_id, role):
+        sb = get_supabase()
+        if not sb:
+            return jsonify({'error': 'Database not configured'}), 503
+        data = request.get_json(silent=True) or {}
+        config_id = (data.get('config_id') or '').strip()
+        icon = (data.get('icon') or 'ph:house').strip()
+        name = (data.get('name') or '').strip()
+        tab_type = (data.get('tab_type') or '360_pano').strip()
+        if not config_id or not name:
+            return jsonify({'error': 'config_id and name are required'}), 400
+        kwargs = {
+            'is_visible': data.get('is_visible', True),
+            'sort_order': data.get('sort_order', 0),
+            'content_data': data.get('content_data') or {},
+            'ref_panorama_id': data.get('ref_panorama_id'),
+            'ref_daynight_id': data.get('ref_daynight_id'),
+            'ref_floor_plan_id': data.get('ref_floor_plan_id'),
+            'ref_gallery_id': data.get('ref_gallery_id'),
+            'ref_project_plan_id': data.get('ref_project_plan_id'),
+        }
+        tab = fv_create_tab(sb, config_id, icon, name, tab_type, **kwargs)
+        if not tab:
+            return jsonify({'error': 'Failed to create tab'}), 500
+        return jsonify({'tab': tab}), 201
+
+    @app.route('/api/full-view/tabs/<tab_id>', methods=['PUT'])
+    @require_admin
+    def api_fv_update_tab(user_id, role, tab_id):
+        sb = get_supabase()
+        if not sb:
+            return jsonify({'error': 'Database not configured'}), 503
+        data = request.get_json(silent=True) or {}
+        updated = fv_update_tab(sb, tab_id, **data)
+        return jsonify({'tab': updated})
+
+    @app.route('/api/full-view/tabs/<tab_id>', methods=['DELETE'])
+    @require_admin
+    def api_fv_delete_tab(user_id, role, tab_id):
+        sb = get_supabase()
+        if not sb:
+            return jsonify({'error': 'Database not configured'}), 503
+        fv_delete_tab(sb, tab_id)
+        return jsonify({'success': True})
+
+    @app.route('/api/full-view/tabs/reorder', methods=['POST'])
+    @require_admin
+    def api_fv_reorder_tabs(user_id, role):
+        sb = get_supabase()
+        if not sb:
+            return jsonify({'error': 'Database not configured'}), 503
+        data = request.get_json(silent=True) or {}
+        config_id = (data.get('config_id') or '').strip()
+        tab_ids = data.get('tab_ids') or []
+        if not config_id or not tab_ids:
+            return jsonify({'error': 'config_id and tab_ids are required'}), 400
+        fv_reorder_tabs(sb, config_id, tab_ids)
+        return jsonify({'success': True})
+
+    @app.route('/api/customer/full-view/floor-plan/<catalogue_id>/items', methods=['GET'])
+    def api_customer_fv_fp_items(catalogue_id):
+        """Public endpoint – return floor plan items for the full view sidebar."""
+        sb = get_supabase()
+        if not sb:
+            return jsonify({'error': 'Database not configured'}), 503
+        cat = fp_get_catalogue(sb, catalogue_id)
+        if not cat:
+            return jsonify({'error': 'Not found'}), 404
+        items = fp_list_items(sb, catalogue_id)
+        for item in items:
+            fn = item.get('image_filename') or item.get('filename')
+            item['image_url'] = get_floorplan_s3_url(fn) if fn else None
+        return jsonify({'items': items})
+
+    @app.route('/api/customer/full-view/gallery/<gallery_id>/items', methods=['GET'])
+    def api_customer_fv_gallery_items(gallery_id):
+        """Public endpoint – return gallery items for the full view sidebar."""
+        sb = get_supabase()
+        if not sb:
+            return jsonify({'error': 'Database not configured'}), 503
+        gal = gal_get(sb, gallery_id)
+        if not gal:
+            return jsonify({'error': 'Not found'}), 404
+        items = gal_list_items(sb, gallery_id)
+        for item in items:
+            item['media_url'] = get_gallery_s3_url(item.get('filename'))
+        return jsonify({'items': items})
+
+    @app.route('/api/public/full-view', methods=['GET'])
+    def api_public_fv_config():
+        """Public endpoint – returns full view config + visible tabs for a workspace."""
+        sb = get_supabase()
+        if not sb:
+            return jsonify({'error': 'Database not configured'}), 503
+        workspace_id = request.args.get('workspace_id', '').strip()
+        if not workspace_id:
+            return jsonify({'error': 'workspace_id is required'}), 400
+        result = fv_get_config_with_tabs(sb, workspace_id)
+        if not result:
+            return jsonify({'config': None, 'tabs': []})
+        tabs = result.pop('tabs', [])
+        return jsonify({'config': result, 'tabs': tabs})
+
+    @app.route('/customer/full-view/<workspace_id>')
+    def fv_customer_shell(workspace_id):
+        """Full View shell — sidebar + content iframe for a workspace (public)."""
+        sb = get_supabase()
+        if not sb:
+            return "Database not configured", 503
+        ws = get_workspace_by_id(sb, workspace_id)
+        if not ws:
+            return "Workspace not found", 404
+        fv_config = fv_get_config_with_tabs(sb, workspace_id)
+        init_type = request.args.get('type', '').strip() or None
+        init_ref  = request.args.get('ref',  '').strip() or None
+        return render_template('customer_fullview.html',
+                               workspace_id=workspace_id,
+                               workspace_name=ws.get('name', ''),
+                               fv_config=fv_config,
+                               init_type=init_type,
+                               init_ref=init_ref)
+
+    @app.route('/customer/full-view/floor-plan/<catalogue_id>')
+    def fv_customer_floorplan_view(catalogue_id):
+        """Embedded floor plan view — rendered inside the Full View shell iframe."""
+        sb = get_supabase()
+        if not sb:
+            return "Database not configured", 503
+        cat = fp_get_catalogue(sb, catalogue_id)
+        if not cat:
+            return "Not found", 404
+        items = fp_list_items(sb, catalogue_id)
+        for item in items:
+            item['image_url'] = get_floorplan_s3_url(item.get('image_filename'))
+        items = [it for it in items if it.get('image_url')]
+        return render_template('floorplans_view.html',
+                               catalogue=cat,
+                               items=items,
+                               workspace_name=cat.get('name', 'Floor Plans'),
+                               fv_config=None)
+
+    @app.route('/customer/full-view/gallery/<gallery_id>')
+    def fv_customer_gallery_view(gallery_id):
+        """Embedded gallery view — rendered inside the Full View shell iframe."""
+        sb = get_supabase()
+        if not sb:
+            return "Database not configured", 503
+        gal = gal_get(sb, gallery_id)
+        if not gal:
+            return "Not found", 404
+        items = gal_list_items(sb, gallery_id)
+        for item in items:
+            item['media_url'] = get_gallery_s3_url(item.get('filename'))
+        items = [it for it in items if it.get('media_url')]
+        return render_template('gallery_view.html',
+                               gallery=gal,
+                               items=items,
+                               fv_config=None)
+
+    @app.route('/customer/full-view/daynight/<project_id>')
+    def fv_customer_daynight_view(project_id):
+        """Embedded day/night view — rendered inside the Full View shell iframe."""
+        sb = get_supabase()
+        if not sb:
+            return "Database not configured", 503
+        project = dn_get(sb, project_id)
+        if not project:
+            return "Not found", 404
+        media_url = None
+        if project.get('media_type') == 'image' and project.get('stitched_filename'):
+            media_url = get_daynight_s3_url(project['stitched_filename'])
+        elif project.get('media_type') == 'video' and project.get('video_filename'):
+            media_url = get_daynight_s3_url(project['video_filename'])
+        if not media_url:
+            return "Media not yet uploaded", 404
+        return render_template('daynight_view.html',
+                               project=project,
+                               media_url=media_url,
+                               media_type=project.get('media_type'),
+                               stitched_width=project.get('stitched_width', 0),
+                               stitched_height=project.get('stitched_height', 0),
+                               drag_speed=project.get('drag_speed') or 80,
+                               fv_config=None)
+
+    @app.route('/customer/full-view/project-plan/<plan_id>')
+    def fv_customer_project_plan_view(plan_id):
+        """Embedded project plan view — rendered inside the Full View shell iframe."""
+        sb = get_supabase()
+        if not sb:
+            return "Database not configured", 503
+        plan = pp_get(sb, plan_id)
+        if not plan:
+            return "Not found", 404
+        links = pp_list_maps(sb, plan['id'])
+        buildings = []
+        for link in links:
+            bm = bm_get(sb, link['building_map_id'])
+            if not bm:
+                continue
+            bm['image_url'] = get_building_map_s3_url(bm.get('image_filename'))
+            bm_zones = bm_list_zones(sb, bm['id'])
+            for z in bm_zones:
+                if z.get('linked_floor_plan_item_id'):
+                    fp_item = fp_get_item(sb, z['linked_floor_plan_item_id'])
+                    if fp_item:
+                        z['linked_floor_plan_image_url'] = get_floorplan_s3_url(fp_item.get('image_filename'))
+                        z['linked_floor_plan_name'] = fp_item.get('name', '')
+            bm['zones'] = bm_zones
+            buildings.append(bm)
+        return render_template('project_plan_view.html',
+                               plan=plan,
+                               buildings=buildings,
+                               fv_config=None)

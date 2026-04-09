@@ -71,6 +71,7 @@
         show('nav-daynight', state.isAdmin);
         show('nav-floorplans', state.isAdmin);
         show('nav-earthviews', state.isAdmin);
+        show('nav-fullview', state.isAdmin);
         show('nav-orgs', state.role === 'superadmin');
         show('sidebar-upload-wrap', state.isAdmin);
         show('dropdown-add-user', state.isAdmin);

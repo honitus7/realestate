@@ -1,0 +1,897 @@
+{% extends 'base.html' %}
+{% block title %}Full View Creator – PropMark{% endblock %}
+{% block head_css %}
+<link rel="stylesheet" href="/static/css/dashboard.css">
+<link rel="stylesheet" href="/static/css/full_view_admin.css">
+<script src="https://code.iconify.design/iconify-icon/1.0.8/iconify-icon.min.js"></script>
+{% endblock %}
+{% block content %}
+<div class="fv-page" id="fv-page">
+    {% set active_page = 'fullview' %}
+    {% include 'components/sidebar.html' %}
+
+    <div class="fv-main">
+
+        <!-- Header -->
+        <div class="fv-header">
+            <div class="fv-header-eyebrow">
+                <iconify-icon icon="ph:layout-duotone"></iconify-icon>
+                Full View Creator
+            </div>
+            <h1 class="fv-title">Build Your Customer Experience</h1>
+            <p class="fv-subtitle">Assemble a navigation sidebar your customers see on every page — panoramas, floor plans, galleries, maps and more — all in one place.</p>
+        </div>
+
+        <!-- Step 1: Workspace selector -->
+        <div class="fv-step">
+            <div class="fv-step-heading">
+                <span class="fv-step-num">1</span>
+                <span class="fv-step-label">Select a Workspace</span>
+            </div>
+            <div class="fv-ws-row">
+                <select class="fv-select" id="fv-workspace-select">
+                    <option value="">— choose a workspace —</option>
+                </select>
+                <button class="btn btn-primary" id="fv-init-btn" disabled style="white-space:nowrap;">
+                    <iconify-icon icon="ph:play-bold"></iconify-icon>
+                    Open Builder
+                </button>
+            </div>
+        </div>
+
+        <!-- Step 2: Builder (hidden until workspace selected) -->
+        <div class="fv-builder" id="fv-builder" style="display:none;">
+
+            <!-- Builder header -->
+            <div class="fv-builder-header">
+                <div class="fv-builder-title-wrap">
+                    <iconify-icon icon="ph:folder-open-duotone" style="color:var(--fv-accent);font-size:1.15rem;flex-shrink:0;"></iconify-icon>
+                    <span class="fv-builder-ws-name" id="fv-builder-ws-name"></span>
+                    <span class="fv-builder-badge">Full View</span>
+                </div>
+                <div class="fv-builder-actions">
+                    <label class="fv-toggle-wrap" title="Toggle Full View on / off for customers">
+                        <span class="fv-toggle-label">Live</span>
+                        <div class="fv-toggle" id="fv-active-toggle">
+                            <input type="checkbox" id="fv-active-check" checked>
+                            <span class="fv-toggle-slider"></span>
+                        </div>
+                    </label>
+                    <button class="btn btn-secondary btn-sm" id="fv-preview-btn">
+                        <iconify-icon icon="ph:eye"></iconify-icon>
+                        Preview
+                    </button>
+                    <button class="btn btn-secondary btn-sm" id="fv-share-btn">
+                        <iconify-icon icon="ph:link"></iconify-icon>
+                        Copy Link
+                    </button>
+                    <button class="btn btn-primary btn-sm" id="fv-add-tab-btn">
+                        <iconify-icon icon="ph:plus-bold"></iconify-icon>
+                        Add Tab
+                    </button>
+                </div>
+            </div>
+
+            <!-- Share URL bar -->
+            <div class="fv-share-bar" id="fv-share-bar" style="display:none;">
+                <iconify-icon icon="ph:link-simple" class="fv-share-bar-icon"></iconify-icon>
+                <input class="fv-share-bar-input" id="fv-share-bar-url" type="text" readonly>
+                <button class="fv-share-bar-copy" id="fv-share-bar-copy" title="Copy URL">
+                    <iconify-icon icon="ph:copy"></iconify-icon>
+                </button>
+                <a class="fv-share-bar-open" id="fv-share-bar-open" href="#" target="_blank" rel="noopener" title="Open in new tab">
+                    <iconify-icon icon="ph:arrow-square-out"></iconify-icon>
+                </a>
+            </div>
+
+            <!-- Info strip -->
+            <div class="fv-info-strip">
+                <iconify-icon icon="ph:hand-grabbing"></iconify-icon>
+                Drag rows to reorder &nbsp;·&nbsp;
+                <iconify-icon icon="ph:floppy-disk"></iconify-icon>
+                Changes save instantly &nbsp;·&nbsp;
+                <iconify-icon icon="ph:devices"></iconify-icon>
+                Sidebar appears right (desktop) or bottom (mobile)
+            </div>
+
+            <!-- Tab rows -->
+            <div class="fv-tabs-list" id="fv-tabs-list">
+                <div class="fv-tabs-empty" id="fv-tabs-empty" style="display:none;">
+                    <iconify-icon icon="ph:squares-four-duotone"></iconify-icon>
+                    <p>No tabs yet.<br>Click <strong>Add Tab</strong> to start building.</p>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<!-- ===================== ADD / EDIT TAB DIALOG ===================== -->
+<div class="modal-backdrop fv-dialog-backdrop" id="fv-tab-dialog-backdrop">
+    <div class="modal fv-tab-dialog">
+        <button class="modal-close" id="fv-dialog-close" type="button" aria-label="Close"><iconify-icon icon="ph:x-bold"></iconify-icon></button>
+        <div class="modal-title" id="fv-dialog-title">Add Tab</div>
+
+        <div class="fv-dialog-body">
+            <!-- Icon picker -->
+            <div class="fv-field">
+                <label class="fv-label">Icon</label>
+                <div class="fv-icon-preview-row">
+                    <div class="fv-icon-preview" id="fv-icon-preview">
+                        <iconify-icon id="fv-icon-preview-icon" icon="ph:house"></iconify-icon>
+                    </div>
+                    <button class="btn btn-secondary btn-sm" id="fv-pick-icon-btn" type="button">Choose Icon</button>
+                    <input type="hidden" id="fv-icon-value" value="ph:house">
+                </div>
+            </div>
+
+            <!-- Name -->
+            <div class="fv-field">
+                <label class="fv-label" for="fv-tab-name">Label</label>
+                <input class="fv-input" type="text" id="fv-tab-name" placeholder="e.g. 360° Tour, Floor Plan, Gallery…" maxlength="40">
+            </div>
+
+            <!-- Type -->
+            <div class="fv-field">
+                <label class="fv-label" for="fv-tab-type">Type</label>
+                <select class="fv-select" id="fv-tab-type">
+                    <option value="360_pano">360° Panorama</option>
+                    <option value="drone_view">Drone View</option>
+                    <option value="daynight">Day / Evening Toggle</option>
+                    <option value="floor_plan">Floor Plan</option>
+                    <option value="gallery">Gallery</option>
+                    <option value="highlights">Highlights</option>
+                    <option value="amenities">Amenities</option>
+                    <option value="project_plan">Project Plan (Building Map)</option>
+                    <option value="location">Location / Map</option>
+                    <option value="brochure">Brochure / PDF</option>
+                    <option value="custom">Custom URL / Embed</option>
+                </select>
+            </div>
+
+            <!-- Dynamic content ref -->
+            <div class="fv-field" id="fv-ref-panorama-wrap">
+                <label class="fv-label" for="fv-ref-panorama">Panorama</label>
+                <select class="fv-select" id="fv-ref-panorama">
+                    <option value="">— select panorama —</option>
+                </select>
+            </div>
+
+            <div class="fv-field" id="fv-ref-daynight-wrap" style="display:none;">
+                <label class="fv-label" for="fv-ref-daynight">Day/Night Project</label>
+                <select class="fv-select" id="fv-ref-daynight">
+                    <option value="">— select project —</option>
+                </select>
+            </div>
+
+            <div class="fv-field" id="fv-ref-floorplan-wrap" style="display:none;">
+                <label class="fv-label" for="fv-ref-floorplan">Floor Plan Catalogue</label>
+                <select class="fv-select" id="fv-ref-floorplan">
+                    <option value="">— select catalogue —</option>
+                </select>
+            </div>
+
+            <div class="fv-field" id="fv-ref-gallery-wrap" style="display:none;">
+                <label class="fv-label" for="fv-ref-gallery">Gallery</label>
+                <select class="fv-select" id="fv-ref-gallery">
+                    <option value="">— select gallery —</option>
+                </select>
+            </div>
+
+            <div class="fv-field" id="fv-ref-projectplan-wrap" style="display:none;">
+                <label class="fv-label" for="fv-ref-projectplan">Project Plan</label>
+                <select class="fv-select" id="fv-ref-projectplan">
+                    <option value="">— select project plan —</option>
+                </select>
+            </div>
+
+            <div class="fv-field" id="fv-ref-url-wrap" style="display:none;">
+                <label class="fv-label" for="fv-ref-url">URL</label>
+                <input class="fv-input" type="url" id="fv-ref-url" placeholder="https://…">
+                <span class="fv-hint" id="fv-ref-url-hint"></span>
+            </div>
+
+            <!-- Visibility -->
+            <div class="fv-field fv-field-inline">
+                <label class="fv-label" for="fv-tab-visible">Visible to customers</label>
+                <input type="checkbox" id="fv-tab-visible" checked>
+            </div>
+        </div>
+
+        <div class="modal-actions">
+            <button class="modal-btn primary" id="fv-dialog-save">Save</button>
+            <button class="modal-btn secondary" id="fv-dialog-cancel">Cancel</button>
+        </div>
+    </div>
+</div>
+
+<!-- ===================== ICON PICKER DIALOG ===================== -->
+<div class="modal-backdrop fv-icon-picker-backdrop" id="fv-icon-picker-backdrop">
+    <div class="modal fv-icon-picker-modal">
+        <button class="modal-close" id="fv-icon-picker-close" type="button" aria-label="Close"><iconify-icon icon="ph:x"></iconify-icon></button>
+        <div class="modal-title">Choose Icon</div>
+        <input class="fv-input" type="search" id="fv-icon-search" placeholder="Search icons…" style="margin-bottom:1rem;">
+        <div class="fv-icon-grid" id="fv-icon-grid"></div>
+    </div>
+</div>
+
+<script>
+(function () {
+'use strict';
+
+/* ------------------------------------------------------------------ */
+/*  Icon catalogue — real-estate & photography focused                 */
+/* ------------------------------------------------------------------ */
+const ICON_CATALOG = [
+  // Navigation / Views
+  { icon: 'ph:house', label: 'Home' },
+  { icon: 'ph:house-line', label: 'House' },
+  { icon: 'ph:buildings', label: 'Buildings' },
+  { icon: 'ph:building', label: 'Building' },
+  { icon: 'ph:building-apartment', label: 'Apartment' },
+  { icon: 'ph:building-office', label: 'Office' },
+  { icon: 'ph:door', label: 'Door' },
+  { icon: 'ph:garage', label: 'Garage' },
+  { icon: 'ph:warehouse', label: 'Warehouse' },
+  { icon: 'ph:castle-turret', label: 'Luxury / Villa' },
+  // 360 / Photography
+  { icon: 'ph:camera-rotate', label: '360° Tour' },
+  { icon: 'ph:camera', label: 'Camera' },
+  { icon: 'ph:images', label: 'Gallery' },
+  { icon: 'ph:image', label: 'Image' },
+  { icon: 'ph:film-strip', label: 'Film / Video' },
+  { icon: 'ph:video-camera', label: 'Video' },
+  { icon: 'ph:drone', label: 'Drone' },
+  { icon: 'ph:eye', label: 'View' },
+  { icon: 'ph:binoculars', label: 'Explore' },
+  { icon: 'ph:scan', label: 'Scan / 360' },
+  { icon: 'ph:frame-corners', label: 'Frame' },
+  { icon: 'ph:panorama', label: 'Panorama' },
+  // Day / Night
+  { icon: 'ph:sun', label: 'Day / Sun' },
+  { icon: 'ph:moon', label: 'Night / Moon' },
+  { icon: 'ph:sun-horizon', label: 'Dawn / Dusk' },
+  { icon: 'ph:cloud-sun', label: 'Partly Cloudy' },
+  { icon: 'ph:lightning', label: 'Lightning' },
+  { icon: 'ph:star', label: 'Highlights / Star' },
+  { icon: 'ph:sparkle', label: 'Sparkle' },
+  // Floor Plans / Maps
+  { icon: 'ph:squares-four', label: 'Floor Plan' },
+  { icon: 'ph:grid-four', label: 'Grid / Layout' },
+  { icon: 'ph:blueprint', label: 'Blueprint' },
+  { icon: 'ph:ruler', label: 'Measurements' },
+  { icon: 'ph:map-trifold', label: 'Map' },
+  { icon: 'ph:map-pin', label: 'Location Pin' },
+  { icon: 'ph:map-pin-simple', label: 'Pin' },
+  { icon: 'ph:navigation-arrow', label: 'Navigate' },
+  { icon: 'ph:compass', label: 'Compass' },
+  { icon: 'ph:globe', label: 'Globe' },
+  { icon: 'ph:globe-hemisphere-east', label: 'World' },
+  // Amenities
+  { icon: 'ph:tree', label: 'Garden / Nature' },
+  { icon: 'ph:leaf', label: 'Green' },
+  { icon: 'ph:flower', label: 'Landscape' },
+  { icon: 'ph:waves', label: 'Pool / Water' },
+  { icon: 'ph:barbell', label: 'Gym / Fitness' },
+  { icon: 'ph:tennis', label: 'Sports' },
+  { icon: 'ph:park', label: 'Park' },
+  { icon: 'ph:baby', label: 'Kids Play Area' },
+  { icon: 'ph:dog', label: 'Pet Friendly' },
+  { icon: 'ph:coffee', label: 'Cafe / Lounge' },
+  { icon: 'ph:fork-knife', label: 'Restaurant' },
+  { icon: 'ph:wine', label: 'Bar / Dining' },
+  { icon: 'ph:storefront', label: 'Retail' },
+  { icon: 'ph:shopping-cart', label: 'Shopping' },
+  // Infrastructure
+  { icon: 'ph:car', label: 'Parking' },
+  { icon: 'ph:bus', label: 'Transport' },
+  { icon: 'ph:elevator', label: 'Elevator' },
+  { icon: 'ph:stairs', label: 'Stairs' },
+  { icon: 'ph:wifi', label: 'Wi-Fi' },
+  { icon: 'ph:plug', label: 'Power / EV' },
+  { icon: 'ph:drop', label: 'Water' },
+  { icon: 'ph:fire', label: 'Heating' },
+  { icon: 'ph:wind', label: 'Ventilation / Air' },
+  { icon: 'ph:thermometer', label: 'Temperature' },
+  // Security / Services
+  { icon: 'ph:shield-check', label: 'Security' },
+  { icon: 'ph:lock', label: 'Lock / Private' },
+  { icon: 'ph:key', label: 'Key / Access' },
+  { icon: 'ph:bell', label: 'Alert / Notification' },
+  { icon: 'ph:first-aid', label: 'Medical / Health' },
+  { icon: 'ph:hospital', label: 'Hospital' },
+  { icon: 'ph:fire-extinguisher', label: 'Fire Safety' },
+  { icon: 'ph:wheelchair', label: 'Accessibility' },
+  // Documents / Info
+  { icon: 'ph:file-pdf', label: 'Brochure / PDF' },
+  { icon: 'ph:file-text', label: 'Document' },
+  { icon: 'ph:article', label: 'Article' },
+  { icon: 'ph:presentation-chart', label: 'Presentation' },
+  { icon: 'ph:chart-bar', label: 'Analytics' },
+  { icon: 'ph:chart-pie', label: 'Stats' },
+  { icon: 'ph:currency-dollar', label: 'Pricing' },
+  { icon: 'ph:tag', label: 'Tag / Offer' },
+  { icon: 'ph:percent', label: 'Discount' },
+  { icon: 'ph:info', label: 'Info' },
+  { icon: 'ph:question', label: 'FAQ' },
+  { icon: 'ph:phone', label: 'Contact' },
+  { icon: 'ph:envelope', label: 'Email' },
+  // Social / Sharing
+  { icon: 'ph:share-network', label: 'Share' },
+  { icon: 'ph:heart', label: 'Wishlist / Favourite' },
+  { icon: 'ph:bookmark', label: 'Save' },
+  { icon: 'ph:calendar', label: 'Schedule / Date' },
+  { icon: 'ph:clock', label: 'Timeline' },
+  { icon: 'ph:arrow-square-out', label: 'External Link' },
+  { icon: 'ph:play-circle', label: 'Play / Video Tour' },
+  { icon: 'ph:broadcast', label: 'Live Tour' },
+  { icon: 'ph:trophy', label: 'Award / Premium' },
+  { icon: 'ph:crown', label: 'Luxury' },
+  { icon: 'ph:medal', label: 'Certified' },
+];
+
+/* ------------------------------------------------------------------ */
+/*  State                                                              */
+/* ------------------------------------------------------------------ */
+let currentWorkspaceId = null;
+let currentConfigId = null;
+let currentTabs = [];
+let editingTabId = null;
+
+// Resources for dropdowns
+let workspacePanoramas = [];
+let daynightProjects = [];
+let floorPlanCatalogues = [];
+let galleries = [];
+let projectPlans = [];
+
+/* ------------------------------------------------------------------ */
+/*  Auth                                                               */
+/* ------------------------------------------------------------------ */
+function authHeaders() {
+    if (!window._supabase) return Promise.resolve({});
+    return window._supabase.auth.getSession().then(function (r) {
+        var h = { 'Content-Type': 'application/json' };
+        if (r.data.session && r.data.session.access_token)
+            h['Authorization'] = 'Bearer ' + r.data.session.access_token;
+        return h;
+    });
+}
+
+async function apiFetch(url, opts) {
+    const h = await authHeaders();
+    const res = await fetch(url, { headers: h, ...opts });
+    if (!res.ok) {
+        const t = await res.text();
+        throw new Error(t || res.statusText);
+    }
+    return res.json();
+}
+
+async function apiPost(url, body) {
+    return apiFetch(url, { method: 'POST', body: JSON.stringify(body) });
+}
+async function apiPut(url, body) {
+    return apiFetch(url, { method: 'PUT', body: JSON.stringify(body) });
+}
+async function apiDelete(url) {
+    return apiFetch(url, { method: 'DELETE' });
+}
+
+/* ------------------------------------------------------------------ */
+/*  Init                                                               */
+/* ------------------------------------------------------------------ */
+async function init() {
+    await loadWorkspaces();
+    bindEvents();
+    buildIconGrid(ICON_CATALOG);
+}
+
+/* ------------------------------------------------------------------ */
+/*  Workspaces                                                         */
+/* ------------------------------------------------------------------ */
+async function loadWorkspaces() {
+    try {
+        const d = await apiFetch('/api/workspaces');
+        const sel = document.getElementById('fv-workspace-select');
+        (d.workspaces || d || []).forEach(ws => {
+            const o = document.createElement('option');
+            o.value = ws.id;
+            o.textContent = ws.name;
+            sel.appendChild(o);
+        });
+    } catch (e) { console.error('loadWorkspaces', e); }
+}
+
+/* ------------------------------------------------------------------ */
+/*  Open workspace config                                              */
+/* ------------------------------------------------------------------ */
+async function openWorkspace(wsId) {
+    currentWorkspaceId = wsId;
+    document.getElementById('fv-builder').style.display = '';
+
+    // Workspace name
+    const sel = document.getElementById('fv-workspace-select');
+    const opt = sel.querySelector(`option[value="${wsId}"]`);
+    document.getElementById('fv-builder-ws-name').textContent = opt ? opt.textContent : wsId;
+
+    // Fetch or create config
+    const d = await apiFetch('/api/full-view/config?workspace_id=' + encodeURIComponent(wsId));
+    if (d.config) {
+        currentConfigId = d.config.id;
+        document.getElementById('fv-active-check').checked = !!d.config.is_active;
+        currentTabs = d.tabs || [];
+    } else {
+        // Create fresh config
+        const r = await apiPost('/api/full-view/config', { workspace_id: wsId });
+        currentConfigId = r.config.id;
+        document.getElementById('fv-active-check').checked = true;
+        currentTabs = [];
+    }
+
+    // Load resource dropdowns + share URL in parallel
+    await Promise.all([loadResources(wsId), loadShareUrl(wsId)]);
+    renderTabs();
+}
+
+/* ------------------------------------------------------------------ */
+/*  Share URL                                                          */
+/* ------------------------------------------------------------------ */
+let currentShareUrl = null;
+
+async function loadShareUrl(wsId) {
+    try {
+        const d = await apiFetch('/api/workspaces/' + encodeURIComponent(wsId) + '/share-endpoint');
+        const share = d.share || {};
+        currentShareUrl = share.custom_url || share.default_url || null;
+        const bar = document.getElementById('fv-share-bar');
+        const input = document.getElementById('fv-share-bar-url');
+        const openLink = document.getElementById('fv-share-bar-open');
+        if (currentShareUrl) {
+            input.value = currentShareUrl;
+            openLink.href = currentShareUrl;
+            bar.style.display = 'flex';
+        }
+    } catch (e) { console.error('loadShareUrl', e); }
+}
+
+/* ------------------------------------------------------------------ */
+/*  Resource dropdowns                                                 */
+/* ------------------------------------------------------------------ */
+async function loadResources(wsId) {
+    try {
+        const [panos, dns, fps, gals, pps] = await Promise.allSettled([
+            apiFetch('/api/panoramas?workspace_id=' + encodeURIComponent(wsId)),
+            apiFetch('/api/daynight'),
+            apiFetch('/api/floorplans/catalogues'),
+            apiFetch('/api/galleries'),
+            apiFetch('/api/project-plans'),
+        ]);
+        workspacePanoramas = (panos.value?.panoramas || panos.value || []);
+        daynightProjects   = (Array.isArray(dns.value) ? dns.value : (dns.value?.projects || []));
+
+        floorPlanCatalogues = (fps.value?.catalogues || fps.value || []);
+        galleries          = (gals.value?.galleries || gals.value || []);
+        projectPlans       = (pps.value?.plans      || pps.value  || []);
+    } catch (e) { console.error('loadResources', e); }
+}
+
+function populateSelect(selId, items, valueKey, labelKey) {
+    const sel = document.getElementById(selId);
+    // keep first placeholder option
+    while (sel.options.length > 1) sel.remove(1);
+    items.forEach(item => {
+        const o = document.createElement('option');
+        o.value = item[valueKey];
+        o.textContent = item[labelKey] || item[valueKey];
+        sel.appendChild(o);
+    });
+}
+
+/* ------------------------------------------------------------------ */
+/*  Render tabs list                                                   */
+/* ------------------------------------------------------------------ */
+function renderTabs() {
+    const list = document.getElementById('fv-tabs-list');
+    const empty = document.getElementById('fv-tabs-empty');
+
+    // Remove existing rows (not the empty state)
+    list.querySelectorAll('.fv-tab-row').forEach(el => el.remove());
+
+    if (!currentTabs.length) {
+        empty.style.display = 'flex';
+        return;
+    }
+    empty.style.display = 'none';
+
+    currentTabs.forEach((tab, idx) => {
+        const row = document.createElement('div');
+        row.className = 'fv-tab-row' + (tab.is_visible ? '' : ' fv-tab-row--hidden');
+        row.dataset.id = tab.id;
+        row.draggable = true;
+        row.innerHTML = `
+            <span class="fv-row-drag" title="Drag to reorder"><iconify-icon icon="ph:dots-six-vertical-bold"></iconify-icon></span>
+            <span class="fv-row-icon"><iconify-icon icon="${escHtml(tab.icon)}"></iconify-icon></span>
+            <span class="fv-row-name">${escHtml(tab.name)}</span>
+            <span class="fv-row-type">${typeLabel(tab.tab_type)}</span>
+            <div class="fv-row-actions">
+                <button class="fv-row-btn fv-row-btn--toggle" data-id="${tab.id}" title="${tab.is_visible ? 'Hide' : 'Show'}">
+                    <iconify-icon icon="${tab.is_visible ? 'ph:eye' : 'ph:eye-slash'}"></iconify-icon>
+                </button>
+                <button class="fv-row-btn fv-row-btn--edit" data-id="${tab.id}" title="Edit">
+                    <iconify-icon icon="ph:pencil-simple"></iconify-icon>
+                </button>
+                <button class="fv-row-btn fv-row-btn--delete" data-id="${tab.id}" title="Delete">
+                    <iconify-icon icon="ph:trash"></iconify-icon>
+                </button>
+            </div>
+        `;
+        list.appendChild(row);
+    });
+
+    bindDragAndDrop();
+    bindRowButtons();
+}
+
+function typeLabel(t) {
+    const map = {
+        '360_pano': '360° Panorama', 'drone_view': 'Drone View',
+        'daynight': 'Day / Evening', 'floor_plan': 'Floor Plan',
+        'gallery': 'Gallery', 'highlights': 'Highlights',
+        'amenities': 'Amenities', 'project_plan': 'Project Plan',
+        'location': 'Location', 'brochure': 'Brochure',
+        'custom': 'Custom',
+    };
+    return map[t] || t;
+}
+
+function escHtml(s) {
+    return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+/* ------------------------------------------------------------------ */
+/*  Drag & drop reorder                                                */
+/* ------------------------------------------------------------------ */
+let dragSrc = null;
+
+function bindDragAndDrop() {
+    const rows = document.querySelectorAll('.fv-tab-row');
+    rows.forEach(row => {
+        row.addEventListener('dragstart', e => {
+            dragSrc = row;
+            row.classList.add('dragging');
+            e.dataTransfer.effectAllowed = 'move';
+        });
+        row.addEventListener('dragend', () => {
+            row.classList.remove('dragging');
+            dragSrc = null;
+            saveOrder();
+        });
+        row.addEventListener('dragenter', () => { if (dragSrc && dragSrc !== row) row.classList.add('drag-over'); });
+        row.addEventListener('dragleave', () => row.classList.remove('drag-over'));
+        row.addEventListener('drop',      () => row.classList.remove('drag-over'));
+        row.addEventListener('dragover', e => {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+            if (dragSrc && dragSrc !== row) {
+                const list = row.parentNode;
+                const rows = [...list.querySelectorAll('.fv-tab-row')];
+                const srcIdx = rows.indexOf(dragSrc);
+                const tgtIdx = rows.indexOf(row);
+                if (srcIdx < tgtIdx) list.insertBefore(dragSrc, row.nextSibling);
+                else list.insertBefore(dragSrc, row);
+            }
+        });
+    });
+}
+
+async function saveOrder() {
+    const rows = [...document.querySelectorAll('.fv-tab-row')];
+    const ids = rows.map(r => r.dataset.id);
+    // update local state order
+    const byId = {};
+    currentTabs.forEach(t => byId[t.id] = t);
+    currentTabs = ids.map(id => byId[id]).filter(Boolean);
+    try {
+        await apiPost('/api/full-view/tabs/reorder', { config_id: currentConfigId, tab_ids: ids });
+    } catch (e) { console.error('saveOrder', e); }
+}
+
+/* ------------------------------------------------------------------ */
+/*  Row buttons                                                        */
+/* ------------------------------------------------------------------ */
+function bindRowButtons() {
+    document.querySelectorAll('.fv-row-btn--toggle').forEach(btn => {
+        btn.addEventListener('click', async () => {
+            const id = btn.dataset.id;
+            const tab = currentTabs.find(t => t.id === id);
+            if (!tab) return;
+            const newVisible = !tab.is_visible;
+            tab.is_visible = newVisible;
+            await apiPut('/api/full-view/tabs/' + id, { is_visible: newVisible });
+            renderTabs();
+        });
+    });
+    document.querySelectorAll('.fv-row-btn--edit').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const id = btn.dataset.id;
+            const tab = currentTabs.find(t => t.id === id);
+            if (tab) openTabDialog(tab);
+        });
+    });
+    document.querySelectorAll('.fv-row-btn--delete').forEach(btn => {
+        btn.addEventListener('click', async () => {
+            const id = btn.dataset.id;
+            if (!confirm('Delete this subtab?')) return;
+            await apiDelete('/api/full-view/tabs/' + id);
+            currentTabs = currentTabs.filter(t => t.id !== id);
+            renderTabs();
+        });
+    });
+}
+
+/* ------------------------------------------------------------------ */
+/*  Tab dialog                                                         */
+/* ------------------------------------------------------------------ */
+function openTabDialog(tab) {
+    editingTabId = tab ? tab.id : null;
+    document.getElementById('fv-dialog-title').textContent = tab ? 'Edit Subtab' : 'Add Subtab';
+
+    const icon = tab ? tab.icon : 'ph:house';
+    const name = tab ? tab.name : '';
+    const type = tab ? tab.tab_type : '360_pano';
+    const visible = tab ? tab.is_visible : true;
+
+    document.getElementById('fv-icon-value').value = icon;
+    document.getElementById('fv-icon-preview-icon').setAttribute('icon', icon);
+    document.getElementById('fv-tab-name').value = name;
+    document.getElementById('fv-tab-type').value = type;
+    document.getElementById('fv-tab-visible').checked = visible;
+
+    // Populate content selects
+    populateSelect('fv-ref-panorama', workspacePanoramas, 'id', 'name');
+    populateSelect('fv-ref-daynight', daynightProjects, 'id', 'name');
+    populateSelect('fv-ref-floorplan', floorPlanCatalogues, 'id', 'name');
+    populateSelect('fv-ref-gallery', galleries, 'id', 'name');
+    populateSelect('fv-ref-projectplan', projectPlans, 'id', 'name');
+
+    if (tab) {
+        if (tab.ref_panorama_id) document.getElementById('fv-ref-panorama').value = tab.ref_panorama_id;
+        if (tab.ref_daynight_id) document.getElementById('fv-ref-daynight').value = tab.ref_daynight_id;
+        if (tab.ref_floor_plan_id) document.getElementById('fv-ref-floorplan').value = tab.ref_floor_plan_id;
+        if (tab.ref_gallery_id) document.getElementById('fv-ref-gallery').value = tab.ref_gallery_id;
+        if (tab.ref_project_plan_id) document.getElementById('fv-ref-projectplan').value = tab.ref_project_plan_id;
+        const url = (tab.content_data || {}).url || '';
+        document.getElementById('fv-ref-url').value = url;
+    } else {
+        document.getElementById('fv-ref-url').value = '';
+    }
+
+    updateTypeFields(type);
+    document.getElementById('fv-tab-dialog-backdrop').classList.add('visible');
+}
+
+function closeTabDialog() {
+    document.getElementById('fv-tab-dialog-backdrop').classList.remove('visible');
+    editingTabId = null;
+}
+
+function updateTypeFields(type) {
+    const show = (id, vis) => { document.getElementById(id).style.display = vis ? '' : 'none'; };
+    show('fv-ref-panorama-wrap',    ['360_pano', 'drone_view', 'highlights'].includes(type));
+    show('fv-ref-daynight-wrap',    type === 'daynight');
+    show('fv-ref-floorplan-wrap',   type === 'floor_plan');
+    show('fv-ref-gallery-wrap',     ['gallery', 'amenities', 'highlights'].includes(type) && type !== '360_pano' && type !== 'drone_view');
+    show('fv-ref-projectplan-wrap', type === 'project_plan');
+    show('fv-ref-url-wrap',         ['location', 'brochure', 'custom'].includes(type));
+
+    const urlHint = document.getElementById('fv-ref-url-hint');
+    urlHint.textContent = type === 'brochure' ? 'PDF or webpage URL (opens in new tab).'
+        : type === 'location' ? 'Google Maps, Earth View, or any map URL.'
+        : 'URL to embed or open in new tab.';
+
+    // gallery vs panorama for highlights
+    if (type === 'highlights') {
+        show('fv-ref-panorama-wrap', true);
+        show('fv-ref-gallery-wrap', true);
+    }
+}
+
+async function saveTab() {
+    const icon     = document.getElementById('fv-icon-value').value || 'ph:house';
+    const name     = document.getElementById('fv-tab-name').value.trim();
+    const type     = document.getElementById('fv-tab-type').value;
+    const visible  = document.getElementById('fv-tab-visible').checked;
+
+    if (!name) { alert('Please enter a label.'); return; }
+
+    const body = {
+        icon, name, tab_type: type, is_visible: visible,
+        ref_panorama_id:    null,
+        ref_daynight_id:    null,
+        ref_floor_plan_id:  null,
+        ref_gallery_id:     null,
+        ref_project_plan_id: null,
+        content_data: {},
+    };
+
+    if (['360_pano', 'drone_view'].includes(type)) {
+        const v = document.getElementById('fv-ref-panorama').value;
+        if (v) body.ref_panorama_id = Number(v);
+    }
+    if (type === 'highlights') {
+        const pv = document.getElementById('fv-ref-panorama').value;
+        const gv = document.getElementById('fv-ref-gallery').value;
+        if (pv) body.ref_panorama_id = Number(pv);
+        if (gv) body.ref_gallery_id = gv;
+    }
+    if (type === 'daynight') {
+        const v = document.getElementById('fv-ref-daynight').value;
+        if (v) body.ref_daynight_id = Number(v);
+    }
+    if (type === 'floor_plan') {
+        const v = document.getElementById('fv-ref-floorplan').value;
+        if (v) body.ref_floor_plan_id = v;
+    }
+    if (['gallery', 'amenities'].includes(type)) {
+        const v = document.getElementById('fv-ref-gallery').value;
+        if (v) body.ref_gallery_id = v;
+    }
+    if (type === 'project_plan') {
+        const v = document.getElementById('fv-ref-projectplan').value;
+        if (v) body.ref_project_plan_id = Number(v);
+    }
+    if (['location', 'brochure', 'custom'].includes(type)) {
+        body.content_data = { url: document.getElementById('fv-ref-url').value.trim() };
+    }
+
+    try {
+        if (editingTabId) {
+            const r = await apiPut('/api/full-view/tabs/' + editingTabId, body);
+            const idx = currentTabs.findIndex(t => t.id === editingTabId);
+            if (idx >= 0) currentTabs[idx] = r.tab;
+        } else {
+            body.config_id = currentConfigId;
+            body.sort_order = currentTabs.length;
+            const r = await apiPost('/api/full-view/tabs', body);
+            currentTabs.push(r.tab);
+        }
+        closeTabDialog();
+        renderTabs();
+    } catch (e) {
+        alert('Error saving: ' + e.message);
+    }
+}
+
+/* ------------------------------------------------------------------ */
+/*  Icon picker                                                        */
+/* ------------------------------------------------------------------ */
+function buildIconGrid(icons) {
+    const grid = document.getElementById('fv-icon-grid');
+    grid.innerHTML = '';
+    icons.forEach(({ icon, label }) => {
+        const cell = document.createElement('button');
+        cell.type = 'button';
+        cell.className = 'fv-icon-cell';
+        cell.dataset.icon = icon;
+        cell.title = label;
+        cell.innerHTML = `<iconify-icon icon="${icon}"></iconify-icon><span>${label}</span>`;
+        cell.addEventListener('click', () => selectIcon(icon));
+        grid.appendChild(cell);
+    });
+}
+
+function selectIcon(icon) {
+    document.getElementById('fv-icon-value').value = icon;
+    document.getElementById('fv-icon-preview-icon').setAttribute('icon', icon);
+    document.getElementById('fv-icon-picker-backdrop').classList.remove('visible');
+}
+
+/* ------------------------------------------------------------------ */
+/*  Bind events                                                        */
+/* ------------------------------------------------------------------ */
+function bindEvents() {
+    // Workspace selector
+    document.getElementById('fv-workspace-select').addEventListener('change', function () {
+        document.getElementById('fv-init-btn').disabled = !this.value;
+    });
+    document.getElementById('fv-init-btn').addEventListener('click', function () {
+        const wsId = document.getElementById('fv-workspace-select').value;
+        if (wsId) openWorkspace(wsId);
+    });
+
+    // Active toggle
+    document.getElementById('fv-active-check').addEventListener('change', async function () {
+        if (!currentConfigId) return;
+        await apiPut('/api/full-view/config/' + currentConfigId, { is_active: this.checked });
+    });
+
+    // Preview button
+    document.getElementById('fv-preview-btn').addEventListener('click', function () {
+        if (!currentWorkspaceId) return;
+        const url = currentShareUrl || ('/customer/project/' + currentWorkspaceId);
+        window.open(url, '_blank', 'noopener');
+    });
+
+    // Copy Link button
+    document.getElementById('fv-share-btn').addEventListener('click', function () {
+        const url = currentShareUrl || (currentWorkspaceId ? '/customer/project/' + currentWorkspaceId : null);
+        if (!url) return;
+        const abs = url.startsWith('http') ? url : (window.location.origin + url);
+        navigator.clipboard.writeText(abs).then(() => {
+            const btn = this;
+            const orig = btn.innerHTML;
+            btn.innerHTML = '<iconify-icon icon="ph:check"></iconify-icon> Copied!';
+            setTimeout(() => { btn.innerHTML = orig; }, 2000);
+        }).catch(() => {
+            document.getElementById('fv-share-bar-url').select();
+        });
+    });
+
+    // Share bar copy
+    document.getElementById('fv-share-bar-copy').addEventListener('click', function () {
+        const input = document.getElementById('fv-share-bar-url');
+        const abs = input.value.startsWith('http') ? input.value : (window.location.origin + input.value);
+        navigator.clipboard.writeText(abs).then(() => {
+            this.innerHTML = '<iconify-icon icon="ph:check"></iconify-icon>';
+            setTimeout(() => { this.innerHTML = '<iconify-icon icon="ph:copy"></iconify-icon>'; }, 2000);
+        });
+    });
+
+    // Add tab
+    document.getElementById('fv-add-tab-btn').addEventListener('click', () => openTabDialog(null));
+
+    // Dialog
+    document.getElementById('fv-dialog-close').addEventListener('click', closeTabDialog);
+    document.getElementById('fv-dialog-cancel').addEventListener('click', closeTabDialog);
+    document.getElementById('fv-dialog-save').addEventListener('click', saveTab);
+
+    // Type change → show/hide refs
+    document.getElementById('fv-tab-type').addEventListener('change', function () {
+        updateTypeFields(this.value);
+    });
+
+    // Icon picker trigger
+    document.getElementById('fv-pick-icon-btn').addEventListener('click', () => {
+        document.getElementById('fv-icon-picker-backdrop').classList.add('visible');
+    });
+    document.getElementById('fv-icon-picker-close').addEventListener('click', () => {
+        document.getElementById('fv-icon-picker-backdrop').classList.remove('visible');
+    });
+
+    // Icon search
+    document.getElementById('fv-icon-search').addEventListener('input', function () {
+        const q = this.value.toLowerCase();
+        const filtered = q ? ICON_CATALOG.filter(i => i.label.toLowerCase().includes(q) || i.icon.includes(q)) : ICON_CATALOG;
+        buildIconGrid(filtered);
+    });
+
+    // Close dialogs on backdrop click
+    document.getElementById('fv-tab-dialog-backdrop').addEventListener('click', function (e) {
+        if (e.target === this) closeTabDialog();
+    });
+    document.getElementById('fv-icon-picker-backdrop').addEventListener('click', function (e) {
+        if (e.target === this) document.getElementById('fv-icon-picker-backdrop').classList.remove('visible');
+    });
+}
+
+/* ------------------------------------------------------------------ */
+/*  Boot — deferred until sidebar.js sets up window._supabase         */
+/* ------------------------------------------------------------------ */
+window.__fvInit = init;
+
+})();
+</script>
+{% endblock %}
+{% block scripts %}
+    <script>
+        window.__SUPABASE_URL__ = {{ (supabase_url or '')|tojson }};
+        window.__SUPABASE_ANON_KEY__ = {{ (supabase_anon_key or '')|tojson }};
+    </script>
+    <script src="/static/js/sidebar.js"></script>
+    <script>
+        window.sidebarReady.then(function () {
+            if (window.__fvInit) window.__fvInit();
+        });
+    </script>
+{% endblock %}

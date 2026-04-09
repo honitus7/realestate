@@ -333,7 +333,28 @@
         <img class="marker-photo-lightbox-image" id="marker-photo-lightbox-image" alt="Marker photo">
     </div>
 
+    <!-- ===================== FULL VIEW SIDEBAR (Desktop right / Mobile bottom) ===================== -->
+    {% if fv_config and fv_config.get('is_active') and fv_config.get('tabs') %}
+    <nav class="fv-sidebar" id="fv-sidebar" aria-label="Full View Navigation">
+        {% for tab in fv_config.get('tabs', []) %}
+        <button class="fv-sidebar-btn" type="button"
+                data-tab-type="{{ tab.tab_type }}"
+                data-ref-panorama="{{ tab.ref_panorama_id or '' }}"
+                data-ref-daynight="{{ tab.ref_daynight_id or '' }}"
+                data-ref-floorplan="{{ tab.ref_floor_plan_id or '' }}"
+                data-ref-gallery="{{ tab.ref_gallery_id or '' }}"
+                data-ref-projectplan="{{ tab.ref_project_plan_id or '' }}"
+                data-content='{{ (tab.content_data or {}) | tojson }}'
+                title="{{ tab.name }}">
+            <span class="fv-sidebar-icon"><iconify-icon icon="{{ tab.icon }}"></iconify-icon></span>
+            <span class="fv-sidebar-label">{{ tab.name }}</span>
+        </button>
+        {% endfor %}
+    </nav>
+    {% endif %}
+
     <script>
+
         const PANORAMA_ID = {{ panorama.id }};
         let CURRENT_PANORAMA_NAME = {{ (panorama.name or '')| tojson }};
         const IS_360 = {{ (panorama.get('is_360', false) if panorama else false) | tojson }};
@@ -4360,6 +4381,80 @@
 
         initLegendMobileFloaterUi();
     </script>
+
+    {% if fv_config and fv_config.get('is_active') and fv_config.get('tabs') %}
+    <script>
+    /* =====================================================================
+       Full View Sidebar — panorama page handler
+       Non-panorama tabs navigate to the Full View shell (/customer/full-view/<ws>)
+       keeping this page static.
+       ===================================================================== */
+    (function () {
+        'use strict';
+
+        var sidebar   = document.getElementById('fv-sidebar');
+        var activeBtn = null;
+        if (!sidebar) return;
+
+        function setActive(btn) {
+            if (activeBtn) activeBtn.classList.remove('fv-sidebar-btn--active');
+            activeBtn = btn;
+            if (btn) btn.classList.add('fv-sidebar-btn--active');
+        }
+
+        function shellUrl(type, ref) {
+            if (!WORKSPACE_ID) return null;
+            return '/customer/full-view/' + encodeURIComponent(WORKSPACE_ID)
+                 + '?type=' + encodeURIComponent(type)
+                 + '&ref='  + encodeURIComponent(ref);
+        }
+
+        sidebar.querySelectorAll('.fv-sidebar-btn').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                var type    = btn.dataset.tabType;
+                var pano    = btn.dataset.refPanorama;
+                var dn      = btn.dataset.refDaynight;
+                var fp      = btn.dataset.refFloorplan;
+                var gal     = btn.dataset.refGallery;
+                var pp      = btn.dataset.refProjectplan;
+                var cd      = {};
+                try { cd = JSON.parse(btn.dataset.content || '{}'); } catch (e) {}
+
+                /* ---- 360° / drone: switch panorama in-viewer (page stays) ---- */
+                if (type === '360_pano' || type === 'drone_view') {
+                    if (pano) {
+                        setActive(btn);
+                        if (typeof switchToPanorama === 'function') switchToPanorama(Number(pano));
+                        else if (typeof loadPanoramaById === 'function') loadPanoramaById(Number(pano));
+                    }
+                    return;
+                }
+
+                /* ---- highlights: panorama ref stays in-viewer ---- */
+                if (type === 'highlights' && !gal && pano) {
+                    setActive(btn);
+                    if (typeof switchToPanorama === 'function') switchToPanorama(Number(pano));
+                    return;
+                }
+
+                /* ---- external URLs: open new tab, page stays ---- */
+                if ((type === 'brochure' || type === 'custom' || type === 'location') && cd.url) {
+                    window.open(cd.url, '_blank', 'noopener');
+                    return;
+                }
+
+                /* ---- everything else: go to Full View shell (same tab) ---- */
+                var ref = fp || gal || dn || pp || '';
+                var url = ref ? shellUrl(type, ref) : null;
+                if (url) {
+                    setActive(btn);
+                    window.location.href = url;
+                }
+            });
+        });
+    })();
+    </script>
+    {% endif %}
 </body>
 
 </html>

@@ -3269,3 +3269,143 @@ body.overlays-hidden .psv-glass-marker .marker-photo-name {
         width: min(78vw, 180px);
     }
 }
+/* ============================================================
+   Full View Sidebar — Customer View
+   Right sidebar on desktop, scrollable bottom bar on mobile
+   ============================================================ */
+
+/* ---------- Sidebar (desktop: fixed right column) ---------- */
+.fv-sidebar {
+    position: fixed;
+    top: 50%;
+    right: 0;
+    transform: translateY(-50%);
+    z-index: 120;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 6px 4px;
+    background: rgba(12, 14, 20, 0.88);
+    backdrop-filter: blur(14px) saturate(1.6);
+    -webkit-backdrop-filter: blur(14px) saturate(1.6);
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    border-right: none;
+    border-radius: 14px 0 0 14px;
+    box-shadow: -4px 0 24px rgba(0,0,0,0.35);
+    max-height: calc(100vh - 100px);
+    overflow-y: auto;
+    scrollbar-width: none;
+}
+
+.fv-sidebar::-webkit-scrollbar { display: none; }
+
+/* ---------- Sidebar button ---------- */
+.fv-sidebar-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    width: 72px;
+    min-height: 68px;
+    padding: 10px 6px 8px;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 10px;
+    color: rgba(255, 255, 255, 0.75);
+    cursor: pointer;
+    transition: background 0.18s, color 0.18s, border-color 0.18s, transform 0.15s;
+    text-align: center;
+    position: relative;
+}
+
+.fv-sidebar-btn:hover {
+    background: rgba(255, 255, 255, 0.08);
+    color: #fff;
+    border-color: rgba(255, 255, 255, 0.12);
+}
+
+.fv-sidebar-btn--active {
+    background: rgba(var(--accent-rgb, 201, 169, 98), 0.18);
+    color: var(--color-accent, #c9a962);
+    border-color: rgba(var(--accent-rgb, 201, 169, 98), 0.35);
+}
+
+.fv-sidebar-btn--active .fv-sidebar-icon {
+    color: var(--color-accent, #c9a962);
+}
+
+.fv-sidebar-icon {
+    font-size: 1.35rem;
+    line-height: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.15s;
+}
+
+.fv-sidebar-btn:hover .fv-sidebar-icon {
+    transform: scale(1.1);
+}
+
+.fv-sidebar-label {
+    font-size: 0.625rem;
+    font-weight: 600;
+    letter-spacing: 0.03em;
+    line-height: 1.2;
+    text-transform: uppercase;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 62px;
+}
+
+/* ==========================================================
+   MOBILE: Bottom horizontal scrollable bar
+   ========================================================== */
+@media (max-width: 768px) {
+    .fv-sidebar {
+        /* Switch to bottom horizontal bar */
+        top: auto;
+        right: auto;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        transform: none;
+        flex-direction: row;
+        border-radius: 12px 12px 0 0;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-bottom: none;
+        border-left: none;
+        border-right: none;
+        padding: 6px 8px env(safe-area-inset-bottom, 0);
+        max-height: none;
+        overflow-x: auto;
+        overflow-y: hidden;
+        gap: 2px;
+        /* Full width pill at bottom */
+        width: 100%;
+        box-shadow: 0 -4px 24px rgba(0,0,0,0.4);
+    }
+
+    .fv-sidebar-btn {
+        width: 62px;
+        min-height: 58px;
+        flex-shrink: 0;
+        padding: 8px 4px 6px;
+    }
+
+    .fv-sidebar-label {
+        font-size: 0.58rem;
+        max-width: 56px;
+    }
+
+}
+
+/* Shift the legends stack up when mobile bottom bar is present */
+@media (max-width: 768px) {
+    .fv-sidebar ~ .customer-legends-stack,
+    .fv-sidebar ~ * .customer-legends-stack {
+        bottom: 90px;
+    }
+}
