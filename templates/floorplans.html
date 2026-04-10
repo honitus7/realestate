@@ -216,6 +216,12 @@
                 <button type="button" class="modal-close" id="fp-modal-close" aria-label="Close">&times;</button>
             </div>
             <div class="form-group" style="margin-bottom:1rem;">
+                <label class="form-label">Project</label>
+                <select class="form-input" id="fp-cat-workspace">
+                    <option value="">Loading projects...</option>
+                </select>
+            </div>
+            <div class="form-group" style="margin-bottom:1rem;">
                 <label class="form-label">Catalogue Name</label>
                 <input type="text" class="form-input" id="fp-cat-name" maxlength="200" placeholder="e.g., Floor Plans" value="Floor Plans">
             </div>
@@ -496,6 +502,7 @@
     window.sidebarReady.then(function(ctx) {
         accessToken = ctx.accessToken;
         loadCatalogues();
+        loadWorkspacesForModal();
     });
 
     function authHeaders() {
@@ -597,6 +604,27 @@
     // Create catalogue modal
     // ------------------------------------------------------------------
 
+    function loadWorkspacesForModal() {
+        fetch('/api/workspaces', { headers: authHeaders() })
+            .then(function(r) { return r.ok ? r.json() : []; })
+            .then(function(data) {
+                var sel = document.getElementById('fp-cat-workspace');
+                if (!sel) return;
+                var workspaces = Array.isArray(data) ? data : [];
+                if (!workspaces.length) {
+                    sel.innerHTML = '<option value="">No projects found</option>';
+                    return;
+                }
+                sel.innerHTML = workspaces.map(function(w) {
+                    return '<option value="' + w.id + '">' + (w.name || 'Project') + '</option>';
+                }).join('');
+            })
+            .catch(function() {
+                var sel = document.getElementById('fp-cat-workspace');
+                if (sel) sel.innerHTML = '<option value="">Failed to load projects</option>';
+            });
+    }
+
     document.getElementById('new-catalogue-btn').addEventListener('click', function() {
         showModal('fp-create-modal');
         document.getElementById('fp-create-error').style.display = 'none';
@@ -606,12 +634,19 @@
 
     document.getElementById('fp-modal-create').addEventListener('click', function() {
         var name = document.getElementById('fp-cat-name').value.trim() || 'Floor Plans';
+        var workspaceSel = document.getElementById('fp-cat-workspace');
+        var workspace_id = workspaceSel ? workspaceSel.value : '';
+        if (!workspace_id) {
+            document.getElementById('fp-create-error').textContent = 'Please select a project.';
+            document.getElementById('fp-create-error').style.display = '';
+            return;
+        }
         var btn = this;
         btn.disabled = true;
         fetch('/api/floorplans/catalogues', {
             method: 'POST',
             headers: Object.assign({'Content-Type': 'application/json'}, authHeaders()),
-            body: JSON.stringify({ name: name })
+            body: JSON.stringify({ name: name, workspace_id: workspace_id })
         })
         .then(function(r) { return r.json().then(function(d) { return { ok: r.ok, data: d }; }); })
         .then(function(res) {

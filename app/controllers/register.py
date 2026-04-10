@@ -133,6 +133,9 @@ from app.services.floorplan_service import (
     delete_item as fp_delete_item,
     reorder_items as fp_reorder_items,
     get_next_sort_order as fp_next_sort_order,
+    catalogue_name_exists as fp_name_exists,
+    get_item_counts as fp_get_item_counts,
+    get_item_previews as fp_get_item_previews,
 )
 from app.services.building_map_service import (
     create_building_map as bm_create,
@@ -4783,11 +4786,15 @@ def register_routes(app):
             return jsonify({'error': 'Database not configured'}), 503
         catalogues = fp_list_catalogues(sb, user_id)
         base = (request.url_root or '').rstrip('/')
-        for c in catalogues:
-            c['share_url'] = f"{base}/floorplans/view/{c.get('share_token', '')}"
-            items = fp_list_items(sb, c['id'])
-            c['item_count'] = len(items)
-            c['item_names'] = [it.get('name', '') for it in items[:5]]
+        if catalogues:
+            cat_ids = [c['id'] for c in catalogues]
+            counts = fp_get_item_counts(sb, cat_ids)
+            previews = fp_get_item_previews(sb, cat_ids)
+            for c in catalogues:
+                cid = c['id']
+                c['share_url'] = f"{base}/floorplans/view/{c.get('share_token', '')}"
+                c['item_count'] = counts.get(cid, 0)
+                c['item_names'] = previews.get(cid, [])
         return jsonify(catalogues)
 
     @app.route('/api/floorplans/catalogues', methods=['POST'])
@@ -4798,12 +4805,14 @@ def register_routes(app):
             return jsonify({'error': 'Database not configured'}), 503
         data = request.get_json(silent=True) or {}
         name = str(data.get('name') or 'Floor Plans').strip()
-        existing = fp_list_catalogues(sb, user_id)
-        if any(c.get('name', '').strip().lower() == name.lower() for c in existing):
+        workspace_id = data.get('workspace_id') or None
+        if not workspace_id:
+            return jsonify({'error': 'workspace_id is required'}), 400
+        if fp_name_exists(sb, user_id, workspace_id, name):
             return jsonify({'error': f'A catalogue named "{name}" already exists'}), 409
         profile = get_profile(sb, user_id)
         org_id = profile.get('org_id') if profile else None
-        cat = fp_create_catalogue(sb, user_id, org_id, name)
+        cat = fp_create_catalogue(sb, user_id, org_id, name, workspace_id=workspace_id)
         if not cat:
             return jsonify({'error': 'Failed to create catalogue'}), 500
         base = (request.url_root or '').rstrip('/')

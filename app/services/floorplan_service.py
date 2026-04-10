@@ -12,7 +12,7 @@ def _generate_share_token():
 # Catalogue CRUD
 # ---------------------------------------------------------------------------
 
-def create_catalogue(sb, user_id, org_id, name='Floor Plans'):
+def create_catalogue(sb, user_id, org_id, name='Floor Plans', workspace_id=None):
     token = _generate_share_token()
     row = {
         'user_id': str(user_id),
@@ -21,9 +21,56 @@ def create_catalogue(sb, user_id, org_id, name='Floor Plans'):
     }
     if org_id:
         row['org_id'] = str(org_id)
+    if workspace_id:
+        row['workspace_id'] = str(workspace_id)
     resp = sb.table('floor_plan_catalogues').insert(row).execute()
     data = resp.data
     return data[0] if data else None
+
+
+def catalogue_name_exists(sb, user_id, workspace_id, name):
+    """Check if a catalogue with the given name exists for this user/workspace."""
+    q = sb.table('floor_plan_catalogues').select('id').eq('user_id', str(user_id))
+    if workspace_id:
+        q = q.eq('workspace_id', str(workspace_id))
+    resp = q.ilike('name', name).limit(1).execute()
+    return bool(resp.data)
+
+
+def get_item_counts(sb, catalogue_ids):
+    """Return {catalogue_id: count} for a list of catalogue IDs in a single query."""
+    if not catalogue_ids:
+        return {}
+    resp = sb.table('floor_plan_items').select('catalogue_id').in_('catalogue_id', [str(c) for c in catalogue_ids]).execute()
+    counts = {}
+    for row in (resp.data or []):
+        cid = row.get('catalogue_id')
+        if cid:
+            counts[cid] = counts.get(cid, 0) + 1
+    return counts
+
+
+def get_item_previews(sb, catalogue_ids, max_per_catalogue=5):
+    """Return {catalogue_id: [name, ...]} for a list of catalogue IDs in a single query."""
+    if not catalogue_ids:
+        return {}
+    resp = (
+        sb.table('floor_plan_items')
+        .select('catalogue_id, name')
+        .in_('catalogue_id', [str(c) for c in catalogue_ids])
+        .order('catalogue_id')
+        .order('sort_order')
+        .execute()
+    )
+    previews = {}
+    for row in (resp.data or []):
+        cid = row.get('catalogue_id')
+        if not cid:
+            continue
+        bucket = previews.setdefault(cid, [])
+        if len(bucket) < max_per_catalogue:
+            bucket.append(row.get('name', ''))
+    return previews
 
 
 def get_catalogue(sb, catalogue_id):

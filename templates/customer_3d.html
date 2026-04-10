@@ -2613,13 +2613,13 @@
                 return 'available';
             }
 
-            buildPhotoMarkerHtml(marker, statusClass) {
+            buildPhotoMarkerHtml(marker, statusClass, rotStyle = '') {
                 const hasImage = Boolean(marker.image_filename);
                 const imageSrc = marker.image_object_url || '';
                 const imageContent = hasImage
                     ? `<img class="marker-photo-image"${imageSrc ? ` src="${this.escapeAttr(imageSrc)}"` : ''} data-marker-id="${this.escapeAttr(marker.id)}" alt="${this.escapeAttr(marker.name || 'Marker')}">`
                     : `<span class="marker-photo-placeholder">${this.escapeHtml((marker.name || 'POI').slice(0, 2).toUpperCase())}</span>`;
-                return `<button class="psv-glass-marker marker-photo ${statusClass}" type="button" data-marker-id="${this.escapeAttr(marker.id)}" aria-label="${this.escapeAttr(marker.name || 'Marker')}"><span class="marker-photo-name">${this.escapeHtml(marker.name || 'Marker')}</span><span class="marker-photo-disc">${imageContent}</span><span class="marker-photo-stem" aria-hidden="true"></span><span class="marker-photo-base" aria-hidden="true"></span></button>`;
+                return `<button class="psv-glass-marker marker-photo ${statusClass}" style="${rotStyle}" type="button" data-marker-id="${this.escapeAttr(marker.id)}" aria-label="${this.escapeAttr(marker.name || 'Marker')}"><span class="marker-photo-name">${this.escapeHtml(marker.name || 'Marker')}</span><span class="marker-photo-disc">${imageContent}</span><span class="marker-photo-stem" aria-hidden="true"></span><span class="marker-photo-base" aria-hidden="true"></span></button>`;
             }
 
             buildViewerMarker(marker) {
@@ -2631,18 +2631,16 @@
                 const rotX = Number(marker.rotation_x || 0);
                 const rotY = Number(marker.rotation_y || 0);
                 const rotZ = Number(marker.rotation_z || 0);
-                const rotateAttr = (Math.abs(rotX) > 0.0001 || Math.abs(rotY) > 0.0001 || Math.abs(rotZ) > 0.0001)
-                    ? ` data-rotate-x="${this.escapeAttr(rotX)}" data-rotate-y="${this.escapeAttr(rotY)}" data-rotate-z="${this.escapeAttr(rotZ)}"`
-                    : '';
+                const rotStyle = `--rot-x:${rotX}rad; --rot-y:${rotY}rad; --rot-z:${rotZ}rad;`;
                 let markerHtml = '';
                 if (markerStyle === 'super') {
-                    markerHtml = `<button class="psv-glass-marker marker-super ${statusClass}${animatedClass}" type="button" data-marker-id="${this.escapeAttr(marker.id)}"${rotateAttr} aria-label="${this.escapeAttr(marker.name || 'Marker')}"><span class="marker-callout" aria-hidden="true"><span class="marker-tag"><span class="marker-tag-icon" aria-hidden="true">📍</span><span class="marker-tag-text">${this.escapeHtml(marker.name || 'Marker')}</span></span><span class="marker-stem"></span></span><span class="marker-base" aria-hidden="true"><span class="marker-ring-outer"></span><span class="marker-ring-inner"></span></span></button>`;
+                    markerHtml = `<button class="psv-glass-marker marker-super ${statusClass}${animatedClass}" style="${rotStyle}" type="button" data-marker-id="${this.escapeAttr(marker.id)}" aria-label="${this.escapeAttr(marker.name || 'Marker')}"><span class="marker-callout" aria-hidden="true"><span class="marker-tag"><span class="marker-tag-icon" aria-hidden="true">📍</span><span class="marker-tag-text">${this.escapeHtml(marker.name || 'Marker')}</span></span><span class="marker-stem"></span></span><span class="marker-base" aria-hidden="true"><span class="marker-ring-outer"></span><span class="marker-ring-inner"></span></span></button>`;
                 } else if (markerStyle === 'navigator') {
-                    markerHtml = `<button class="psv-glass-marker marker-navigator ${statusClass}${animatedClass}" type="button" data-marker-id="${this.escapeAttr(marker.id)}"${rotateAttr} aria-label="${this.escapeAttr(marker.name || 'Marker')}"><span class="marker-nav-base" aria-hidden="true"><span class="marker-nav-ring"></span><span class="marker-nav-chevron"><iconify-icon icon="ph:caret-up"></iconify-icon></span></span></button>`;
+                    markerHtml = `<button class="psv-glass-marker marker-navigator ${statusClass}${animatedClass}" style="${rotStyle}" type="button" data-marker-id="${this.escapeAttr(marker.id)}" aria-label="${this.escapeAttr(marker.name || 'Marker')}"><span class="marker-nav-base" aria-hidden="true"><span class="marker-nav-ring"></span><span class="marker-nav-chevron"><iconify-icon icon="ph:caret-up"></iconify-icon></span></span></button>`;
                 } else if (this.isPhotoMarkerStyle(markerStyle)) {
-                    markerHtml = this.buildPhotoMarkerHtml(marker, statusClass);
+                    markerHtml = this.buildPhotoMarkerHtml(marker, statusClass, rotStyle);
                 } else {
-                    markerHtml = `<button class="psv-glass-marker marker-classic ${statusClass} marker-theme-${this.escapeAttr(markerStyle)}${animatedClass}" style="--mk-rgb:${this.escapeAttr(markerRgb)};" type="button" data-marker-id="${this.escapeAttr(marker.id)}"${rotateAttr} aria-label="${this.escapeAttr(marker.name || 'Marker')}"><span class="marker-callout" aria-hidden="true"><span class="marker-tag"><span class="marker-tag-icon" aria-hidden="true">📍</span><span class="marker-tag-text">${this.escapeHtml(marker.name || 'Marker')}</span></span></span><span class="marker-halo" aria-hidden="true"></span><span class="marker-core" aria-hidden="true"><span class="marker-dot"></span><span class="marker-icon" aria-hidden="true"><iconify-icon icon="${this.escapeAttr(markerIcon)}"></iconify-icon></span></span><span class="marker-pointer" aria-hidden="true"></span></button>`;
+                    markerHtml = `<button class="psv-glass-marker marker-classic ${statusClass} marker-theme-${this.escapeAttr(markerStyle)}${animatedClass}" style="--mk-rgb:${this.escapeAttr(markerRgb)}; ${rotStyle}" type="button" data-marker-id="${this.escapeAttr(marker.id)}" aria-label="${this.escapeAttr(marker.name || 'Marker')}"><span class="marker-callout" aria-hidden="true"><span class="marker-tag"><span class="marker-tag-icon" aria-hidden="true">📍</span><span class="marker-tag-text">${this.escapeHtml(marker.name || 'Marker')}</span></span></span><span class="marker-halo" aria-hidden="true"></span><span class="marker-core" aria-hidden="true"><span class="marker-dot"></span><span class="marker-icon" aria-hidden="true"><iconify-icon icon="${this.escapeAttr(markerIcon)}"></iconify-icon></span></span><span class="marker-pointer" aria-hidden="true"></span></button>`;
                 }
                 return {
                     id: this.toViewerMarkerId(marker.id),

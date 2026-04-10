@@ -83,7 +83,7 @@
                     <div class="upload-icon">📷</div>
                     <div class="upload-text">Drop files here</div>
                     <div class="upload-hint">or use the Upload button in the sidebar • JPG, PNG, WebP up to 50MB</div>
-                    <input type="file" class="upload-input" id="upload-input" accept="image/*">
+                    <input type="file" class="upload-input" id="upload-input" accept="image/*" multiple>
                     <div class="upload-form" id="upload-form">
                         <div class="upload-preview">
                             <img src="" alt="Preview" class="preview-image" id="preview-image">
@@ -121,6 +121,31 @@
                             <button class="btn btn-primary" id="start-upload">Create 360° Panorama</button>
                         </div>
                     </div>
+
+                    <!-- Multi-file upload form (shown when 2+ files selected) -->
+                    <div class="multi-upload-form" id="multi-upload-form">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label class="form-label">Add to Project (Folder)</label>
+                                <select class="form-input" id="multi-upload-workspace-select">
+                                    <option value="">Unlinked</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.75rem;">
+                            <span style="font-size: 0.75rem; font-weight: 600; color: var(--color-text);" id="multi-file-count">0 files selected</span>
+                            <label style="display: flex; align-items: center; gap: 0.4rem; cursor: pointer; font-size: 0.8rem; color: var(--color-muted);">
+                                <input type="checkbox" id="multi-all-360" style="width: auto; cursor: pointer;">
+                                Mark all as 360°
+                            </label>
+                        </div>
+                        <div class="multi-files-list" id="multi-files-list"></div>
+                        <div class="form-actions" style="margin-top: 1rem;">
+                            <button type="button" class="btn btn-secondary" id="multi-cancel-upload">Cancel</button>
+                            <button type="button" class="btn btn-primary" id="multi-start-upload">Upload Panoramas</button>
+                        </div>
+                    </div>
+
                     <div class="upload-progress" id="upload-progress">
                         <div class="progress-bar"><div class="progress-fill" id="progress-fill" style="width: 0%"></div></div>
                         <div class="progress-text" id="progress-text">Uploading...</div>
@@ -468,10 +493,16 @@
                 });
             }
             if (uploadModalClose && uploadModal) {
-                uploadModalClose.addEventListener('click', function () { uploadModal.classList.remove('visible'); });
+                uploadModalClose.addEventListener('click', function () {
+                    uploadModal.classList.remove('visible');
+                    if (typeof resetUploadForm === 'function') resetUploadForm();
+                });
             }
             uploadModal && uploadModal.addEventListener('click', function (e) {
-                if (e.target === uploadModal) uploadModal.classList.remove('visible');
+                if (e.target === uploadModal) {
+                    uploadModal.classList.remove('visible');
+                    if (typeof resetUploadForm === 'function') resetUploadForm();
+                }
             });
             if (cancelUploadEl && uploadModal) {
                 cancelUploadEl.addEventListener('click', function () {
@@ -643,6 +674,7 @@
         let selectedImageWidth = 0;
         let selectedImageHeight = 0;
         let previewObjectUrl = '';
+        let selectedFiles = []; // multi-file: [{file, name, width, height, is360, objectUrl}]
         let deleteTargetId = null;
         let renameTargetId = null;
         let renameWorkspaceTargetId = null;
@@ -668,6 +700,12 @@
         const uploadProgress = document.getElementById('upload-progress');
         const progressFill = document.getElementById('progress-fill');
         const progressText = document.getElementById('progress-text');
+        const multiUploadForm = document.getElementById('multi-upload-form');
+        const multiFilesList = document.getElementById('multi-files-list');
+        const multiFileCount = document.getElementById('multi-file-count');
+        const multiStartUpload = document.getElementById('multi-start-upload');
+        const multiCancelUpload = document.getElementById('multi-cancel-upload');
+        const multiAll360 = document.getElementById('multi-all-360');
         const projectsContainer = document.getElementById('projects-container');
         const workspaceList = document.getElementById('workspace-list');
         const createWorkspaceBtn = document.getElementById('create-workspace-btn');
@@ -1114,15 +1152,21 @@
         uploadZone.addEventListener('drop', (e) => {
             e.preventDefault();
             uploadZone.classList.remove('dragover');
-            const file = e.dataTransfer.files[0];
-            if (file && file.type.startsWith('image/')) {
-                handleFileSelect(file);
+            const files = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/'));
+            if (files.length > 1) {
+                handleMultiFileSelect(files);
+            } else if (files.length === 1) {
+                handleFileSelect(files[0]);
             }
         });
 
         uploadInput.addEventListener('change', (e) => {
-            const file = e.target.files[0];
-            if (file) handleFileSelect(file);
+            const files = Array.from(e.target.files || []);
+            if (files.length > 1) {
+                handleMultiFileSelect(files);
+            } else if (files.length === 1) {
+                handleFileSelect(files[0]);
+            }
         });
 
         function handleFileSelect(file) {
@@ -1364,6 +1408,311 @@
                 previewObjectUrl = '';
             }
             projectName.value = 'Untitled';
+            // Clean up multi-file state
+            cleanupMultiFiles();
+            if (multiUploadForm) multiUploadForm.classList.remove('visible');
+            if (multiFilesList) multiFilesList.innerHTML = '';
+            if (multiAll360) multiAll360.checked = false;
+        }
+
+        // --- Multi-file helpers ---
+
+        function cleanupMultiFiles() {
+            selectedFiles.forEach(item => {
+                if (item.objectUrl) try { URL.revokeObjectURL(item.objectUrl); } catch (e) {}
+            });
+            selectedFiles = [];
+        }
+
+        function handleMultiFileSelect(files) {
+            // Reset single-file form
+            selectedFile = null;
+            uploadForm.classList.remove('visible');
+            cleanupMultiFiles();
+
+            selectedFiles = files.map(f => ({
+                file: f,
+                name: f.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' '),
+                width: 0,
+                height: 0,
+                is360: false,
+                objectUrl: URL.createObjectURL(f)
+            }));
+
+            // Load image dimensions async
+            selectedFiles.forEach((item, i) => {
+                const img = new Image();
+                img.onload = () => {
+                    item.width = img.naturalWidth || 0;
+                    item.height = img.naturalHeight || 0;
+                    const metaEl = document.getElementById('multi-meta-' + i);
+                    if (metaEl) {
+                        metaEl.textContent = item.file.name + ' • ' + formatFileSize(item.file.size) +
+                            (item.width ? ' • ' + item.width + ' × ' + item.height : '');
+                    }
+                };
+                img.src = item.objectUrl;
+            });
+
+            // Populate multi workspace select from owned workspaces
+            const mws = document.getElementById('multi-upload-workspace-select');
+            if (mws && typeof workspaces !== 'undefined') {
+                mws.innerHTML = '<option value="">Unlinked</option>';
+                workspaces.forEach(function(ws) {
+                    if (ws.access_type === 'owner') {
+                        var opt = document.createElement('option');
+                        opt.value = ws.id;
+                        opt.textContent = ws.name || ('Folder #' + ws.id);
+                        mws.appendChild(opt);
+                    }
+                });
+                var activeWsId = getSelectedOwnedWorkspaceId();
+                mws.value = activeWsId || '';
+            }
+
+            renderMultiFileList();
+            multiUploadForm.classList.add('visible');
+        }
+
+        function renderMultiFileList() {
+            multiFileCount.textContent = selectedFiles.length + ' file' + (selectedFiles.length !== 1 ? 's' : '') + ' selected';
+            multiStartUpload.textContent = 'Upload ' + selectedFiles.length + ' Panorama' + (selectedFiles.length !== 1 ? 's' : '');
+
+            multiFilesList.innerHTML = '';
+            selectedFiles.forEach((item, i) => {
+                const row = document.createElement('div');
+                row.className = 'multi-file-row';
+                row.dataset.index = i;
+                row.innerHTML =
+                    '<img class="multi-thumb" src="' + escapeHtml(item.objectUrl) + '" alt="">' +
+                    '<div class="multi-file-info">' +
+                        '<input type="text" class="form-input multi-name-input" value="' + escapeHtml(item.name) + '" placeholder="Panorama name" data-index="' + i + '">' +
+                        '<div class="multi-file-meta" id="multi-meta-' + i + '">' + escapeHtml(item.file.name) + ' • ' + formatFileSize(item.file.size) +
+                            (item.width ? ' • ' + item.width + ' × ' + item.height : '') + '</div>' +
+                        '<label class="multi-file-360-label">' +
+                            '<input type="checkbox" class="multi-360-check" data-index="' + i + '" style="width:auto;cursor:pointer;"' + (item.is360 ? ' checked' : '') + '> 360° Equirectangular' +
+                        '</label>' +
+                    '</div>' +
+                    '<button type="button" class="multi-file-remove" data-index="' + i + '" title="Remove">&times;</button>';
+                multiFilesList.appendChild(row);
+            });
+
+            multiFilesList.querySelectorAll('.multi-name-input').forEach(input => {
+                input.addEventListener('input', (e) => {
+                    const idx = parseInt(e.target.dataset.index);
+                    if (selectedFiles[idx] !== undefined) selectedFiles[idx].name = e.target.value;
+                });
+            });
+            multiFilesList.querySelectorAll('.multi-360-check').forEach(cb => {
+                cb.addEventListener('change', (e) => {
+                    const idx = parseInt(e.target.dataset.index);
+                    if (selectedFiles[idx] !== undefined) selectedFiles[idx].is360 = e.target.checked;
+                    // Sync "mark all" checkbox state
+                    const allChecked = selectedFiles.every(f => f.is360);
+                    multiAll360.checked = allChecked;
+                });
+            });
+            multiFilesList.querySelectorAll('.multi-file-remove').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const idx = parseInt(e.target.dataset.index);
+                    removeMultiFile(idx);
+                });
+            });
+        }
+
+        function removeMultiFile(index) {
+            if (selectedFiles[index] && selectedFiles[index].objectUrl) {
+                try { URL.revokeObjectURL(selectedFiles[index].objectUrl); } catch (e) {}
+            }
+            selectedFiles.splice(index, 1);
+            if (selectedFiles.length === 0) {
+                multiUploadForm.classList.remove('visible');
+                multiFilesList.innerHTML = '';
+                return;
+            }
+            renderMultiFileList();
+        }
+
+        multiAll360 && multiAll360.addEventListener('change', () => {
+            const checked = multiAll360.checked;
+            selectedFiles.forEach(f => f.is360 = checked);
+            multiFilesList.querySelectorAll('.multi-360-check').forEach(cb => cb.checked = checked);
+        });
+
+        multiCancelUpload && multiCancelUpload.addEventListener('click', (e) => {
+            e.stopPropagation();
+            resetUploadForm();
+        });
+
+        multiStartUpload && multiStartUpload.addEventListener('click', async (e) => {
+            e.stopPropagation();
+            if (selectedFiles.length === 0) return;
+            await uploadAllFiles();
+        });
+
+        async function uploadSingleFile(item, workspaceId, onProgress) {
+            const { file, name, width, height, is360 } = item;
+            const headers = await getAuthHeaders();
+            if (!headers || !headers.Authorization) {
+                window.location.replace('/login');
+                throw new Error('Not authenticated');
+            }
+
+            let directInfo = null;
+            let allowDynoFallback = false;
+            try {
+                const urlResp = await fetch('/api/panoramas/upload-url', {
+                    method: 'POST',
+                    headers: Object.assign({ 'Content-Type': 'application/json' }, headers),
+                    body: JSON.stringify({
+                        original_filename: file.name,
+                        content_type: file.type,
+                        size_bytes: file.size,
+                        name: name
+                    })
+                });
+                if (urlResp.ok) {
+                    directInfo = await urlResp.json();
+                } else {
+                    const payload = await urlResp.json().catch(() => null);
+                    const errMsg = payload && payload.error ? String(payload.error) : '';
+                    if (urlResp.status === 413) throw new Error(errMsg || 'File too large');
+                    if (urlResp.status === 503) allowDynoFallback = true;
+                    else throw new Error(errMsg || 'Upload setup failed (' + urlResp.status + ')');
+                }
+            } catch (e) {
+                const msg = e && e.message ? e.message : '';
+                if (msg.includes('File too large') || msg.includes('Upload setup failed')) throw e;
+                allowDynoFallback = true;
+            }
+
+            if (directInfo && directInfo.upload_url && directInfo.filename && directInfo.upload_token) {
+                const maxBytes = Number(directInfo.max_bytes || 0);
+                if (maxBytes && file.size > maxBytes) {
+                    const maxMb = Math.max(1, Math.floor(maxBytes / (1024 * 1024)));
+                    throw new Error('File too large (max ' + maxMb + 'MB)');
+                }
+
+                await new Promise((resolve, reject) => {
+                    const putXhr = new XMLHttpRequest();
+                    putXhr.upload.addEventListener('progress', (ev) => {
+                        if (ev.lengthComputable) onProgress(Math.round((ev.loaded / ev.total) * 90));
+                    });
+                    putXhr.addEventListener('load', () => {
+                        if (putXhr.status >= 200 && putXhr.status < 300) return resolve();
+                        reject(new Error('Upload failed (' + putXhr.status + ')'));
+                    });
+                    putXhr.addEventListener('error', () => reject(new Error('Upload failed (network error).')));
+                    putXhr.addEventListener('timeout', () => reject(new Error('Upload timed out.')));
+                    putXhr.open('PUT', directInfo.upload_url);
+                    putXhr.timeout = 10 * 60 * 1000;
+                    if (directInfo.content_type) putXhr.setRequestHeader('Content-Type', directInfo.content_type);
+                    putXhr.send(file);
+                });
+
+                onProgress(95);
+                const finalize = new FormData();
+                finalize.append('filename', directInfo.filename);
+                finalize.append('upload_token', directInfo.upload_token);
+                finalize.append('original_filename', file.name);
+                finalize.append('name', name);
+                finalize.append('is_360', String(is360));
+                finalize.append('width', String(width || 0));
+                finalize.append('height', String(height || 0));
+                if (workspaceId) finalize.append('workspace_id', workspaceId);
+
+                const finResp = await fetch('/api/panoramas', { method: 'POST', headers: headers, body: finalize });
+                const finPayload = await finResp.json().catch(() => null);
+                if (!finResp.ok || !finPayload) {
+                    const msg = finPayload && finPayload.error ? String(finPayload.error) : 'Upload failed (' + finResp.status + ')';
+                    throw new Error(msg);
+                }
+                onProgress(100);
+                return finPayload;
+            }
+
+            if (!allowDynoFallback) {
+                throw new Error('Direct upload is required; server upload is disabled.');
+            }
+
+            return await new Promise((resolve, reject) => {
+                const formData = new FormData();
+                formData.append('file', file);
+                formData.append('name', name);
+                formData.append('is_360', String(is360));
+                formData.append('width', String(width || 0));
+                formData.append('height', String(height || 0));
+                if (workspaceId) formData.append('workspace_id', workspaceId);
+
+                const xhr = new XMLHttpRequest();
+                xhr.upload.addEventListener('progress', (ev) => {
+                    if (ev.lengthComputable) onProgress(Math.round((ev.loaded / ev.total) * 100));
+                });
+                xhr.addEventListener('load', () => {
+                    if (xhr.status === 201) {
+                        resolve(JSON.parse(xhr.responseText));
+                    } else {
+                        let msg = 'Upload failed (' + xhr.status + ')';
+                        try { const p = JSON.parse(xhr.responseText || '{}'); if (p && p.error) msg = String(p.error); } catch (e) {}
+                        reject(new Error(msg));
+                    }
+                });
+                xhr.addEventListener('error', () => reject(new Error('Upload failed (network error).')));
+                xhr.addEventListener('timeout', () => reject(new Error('Upload timed out.')));
+                xhr.open('POST', '/api/panoramas');
+                xhr.timeout = 4 * 60 * 1000;
+                if (headers.Authorization) xhr.setRequestHeader('Authorization', headers.Authorization);
+                xhr.send(formData);
+            });
+        }
+
+        async function uploadAllFiles() {
+            const wsSelect = document.getElementById('multi-upload-workspace-select');
+            const workspaceId = (wsSelect && wsSelect.value) ? wsSelect.value : getSelectedOwnedWorkspaceId();
+            const files = selectedFiles.slice();
+            const total = files.length;
+
+            multiUploadForm.classList.remove('visible');
+            uploadProgress.classList.add('visible');
+            uploadZone.classList.add('uploading');
+
+            let successCount = 0;
+            let failCount = 0;
+
+            for (let i = 0; i < total; i++) {
+                const item = files[i];
+                progressText.textContent = 'Uploading ' + (i + 1) + ' of ' + total + ': ' + item.file.name;
+                progressFill.style.width = Math.round((i / total) * 100) + '%';
+                try {
+                    await uploadSingleFile(item, workspaceId, (pct) => {
+                        const overall = Math.round(((i + pct / 100) / total) * 100);
+                        progressFill.style.width = overall + '%';
+                    });
+                    successCount++;
+                } catch (err) {
+                    failCount++;
+                    const msg = err && err.message ? String(err.message) : 'Unknown error';
+                    showToast('Failed to upload "' + item.name + '": ' + msg, 'error');
+                }
+            }
+
+            progressFill.style.width = '100%';
+            progressText.textContent = 'Done! ' + successCount + ' uploaded' + (failCount ? ', ' + failCount + ' failed' : '') + '.';
+
+            cleanupMultiFiles();
+            await Promise.all([loadProjects(), loadWorkspaces()]);
+            renderWorkspaces();
+            renderProjects();
+            renderRecents();
+
+            setTimeout(() => {
+                var um = document.getElementById('upload-modal');
+                if (um) um.classList.remove('visible');
+                resetUploadForm();
+                if (successCount > 0) {
+                    showToast(successCount + ' panorama' + (successCount !== 1 ? 's' : '') + ' uploaded successfully!', 'success');
+                }
+            }, 1200);
         }
 
         // Projects (user-scoped; send auth token). Does not render; initializeDashboard renders once after load.
