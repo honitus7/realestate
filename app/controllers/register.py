@@ -525,7 +525,9 @@ def register_routes(app):
             return err
         org_name, org_slug = get_org_name_and_slug_for_panorama(sb, panorama)
         mobile_panorama = get_mobile_panorama_by_parent_id(sb, panorama_id)
-        return render_template('editor.html', panorama=panorama, mobile_panorama=mobile_panorama, mode='admin', org_name=org_name, org_slug=org_slug, **auth_ctx())
+        workspace_id = (panorama or {}).get('workspace_id')
+        workspace_panoramas = load_customer_workspace_panoramas(sb, workspace_id) if workspace_id else []
+        return render_template('editor.html', panorama=panorama, mobile_panorama=mobile_panorama, mode='admin', org_name=org_name, org_slug=org_slug, workspace_id=workspace_id, workspace_panoramas=workspace_panoramas, **auth_ctx())
 
     def load_customer_workspace_panoramas(sb, workspace_id, main_id=None):
         workspace_panoramas = []
@@ -730,13 +732,14 @@ def register_routes(app):
         workspace_id = (panorama or {}).get('workspace_id')
         if workspace_id:
             try:
-                r = sb.table('panoramas').select('id, name, filename').eq('workspace_id', workspace_id).eq('is_360', True).order('id').execute()
+                r = sb.table('panoramas').select('id, name, filename, is_360').eq('workspace_id', workspace_id).eq('is_360', True).order('id').execute()
                 rows = list(r.data or [])
                 for p in rows:
                     workspace_panoramas.append({
                         'id': p.get('id'),
                         'name': (p.get('name') or '').strip() or ('Panorama #' + str(p.get('id') or '')),
                         'filename': p.get('filename') or '',
+                        'is_360': bool(p.get('is_360')),
                     })
                 customer_view_config = ws_get_customer_config(sb, workspace_id) or {}
             except Exception:

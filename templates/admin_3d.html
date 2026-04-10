@@ -4788,6 +4788,10 @@
 
         async function loadPanoramaIndex() {
             if (panoramaIndexCache) return panoramaIndexCache;
+            if (Array.isArray(WORKSPACE_PANORAMAS) && WORKSPACE_PANORAMAS.length > 0) {
+                panoramaIndexCache = WORKSPACE_PANORAMAS;
+                return panoramaIndexCache;
+            }
             if (panoramaIndexPromise) return panoramaIndexPromise;
             panoramaIndexPromise = (async () => {
                 try {

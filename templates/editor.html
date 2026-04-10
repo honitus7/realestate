@@ -1388,6 +1388,7 @@
         let ACTIVE_PANORAMA_ID = PANORAMA_ID;
         const IS_360 = 0;
         const ORG_SLUG = {{ (org_slug or '')|tojson }};
+        const WORKSPACE_PANORAMAS = {{ (workspace_panoramas or [])|tojson }};
         const DEFAULT_MARKER_COLOR = '#4ade80';
         const DEFAULT_MARKER_STYLE = 'glass';
         const DEFAULT_MARKER_ICON = 'mdi:map-marker-radius';
@@ -2100,6 +2101,10 @@
         let panoramaIndexCache = null;
         async function loadPanoramaIndex() {
             if (panoramaIndexCache) return panoramaIndexCache;
+            if (Array.isArray(WORKSPACE_PANORAMAS) && WORKSPACE_PANORAMAS.length > 0) {
+                panoramaIndexCache = WORKSPACE_PANORAMAS;
+                return panoramaIndexCache;
+            }
             try {
                 const headers = await (window.getAuthHeaders ? window.getAuthHeaders() : Promise.resolve({}));
                 const r = await fetch('/api/panoramas', { headers });
