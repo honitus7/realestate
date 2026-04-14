@@ -9,7 +9,7 @@ def _generate_share_token():
     return uuid.uuid4().hex[:12]
 
 
-def create_daynight_project(sb, user_id, org_id, name, media_type):
+def create_daynight_project(sb, user_id, org_id, name, media_type, workspace_id=None):
     token = _generate_share_token()
     row = {
         'user_id': str(user_id),
@@ -19,7 +19,18 @@ def create_daynight_project(sb, user_id, org_id, name, media_type):
     }
     if org_id:
         row['org_id'] = str(org_id)
-    resp = sb.table('daynight_projects').insert(row).execute()
+    if workspace_id:
+        row['workspace_id'] = str(workspace_id)
+    try:
+        resp = sb.table('daynight_projects').insert(row).execute()
+    except Exception as e:
+        # Backward compatibility when workspace_id column is not yet migrated.
+        msg = str(e).lower()
+        if 'workspace_id' in row and 'workspace_id' in msg and ('column' in msg or 'does not exist' in msg):
+            row.pop('workspace_id', None)
+            resp = sb.table('daynight_projects').insert(row).execute()
+        else:
+            raise
     data = resp.data
     if data and len(data) > 0:
         return data[0]
@@ -38,14 +49,29 @@ def get_daynight_project_by_token(sb, token):
     return data[0] if data else None
 
 
-def list_daynight_projects(sb, user_id):
-    resp = (
+def list_daynight_projects(sb, user_id, workspace_id=None):
+    q = (
         sb.table('daynight_projects')
         .select('*')
         .eq('user_id', str(user_id))
-        .order('created_at', desc=True)
-        .execute()
     )
+    if workspace_id is not None:
+        q = q.eq('workspace_id', str(workspace_id))
+    try:
+        resp = q.order('created_at', desc=True).execute()
+    except Exception as e:
+        # Backward compatibility when workspace_id column is not yet migrated.
+        msg = str(e).lower()
+        if workspace_id is not None and 'workspace_id' in msg and ('column' in msg or 'does not exist' in msg):
+            resp = (
+                sb.table('daynight_projects')
+                .select('*')
+                .eq('user_id', str(user_id))
+                .order('created_at', desc=True)
+                .execute()
+            )
+        else:
+            raise
     return resp.data or []
 
 
@@ -57,7 +83,7 @@ def update_daynight_project(sb, project_id, **fields):
         if k in (
             'name', 'stitched_filename', 'stitched_width', 'stitched_height',
             'video_filename', 'video_duration', 'join_positions', 'source_images',
-            'drag_speed',
+            'drag_speed', 'workspace_id',
         ):
             if k in ('join_positions', 'source_images') and not isinstance(v, str):
                 v = json.dumps(v)

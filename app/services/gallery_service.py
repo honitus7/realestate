@@ -11,7 +11,7 @@ def _generate_share_token():
 # Gallery CRUD
 # ---------------------------------------------------------------------------
 
-def create_gallery(sb, user_id, org_id, name='Gallery'):
+def create_gallery(sb, user_id, org_id, name='Gallery', workspace_id=None):
     token = _generate_share_token()
     row = {
         'user_id': str(user_id),
@@ -20,7 +20,18 @@ def create_gallery(sb, user_id, org_id, name='Gallery'):
     }
     if org_id:
         row['org_id'] = str(org_id)
-    resp = sb.table('galleries').insert(row).execute()
+    if workspace_id:
+        row['workspace_id'] = str(workspace_id)
+    try:
+        resp = sb.table('galleries').insert(row).execute()
+    except Exception as e:
+        # Backward compatibility when workspace_id column is not yet migrated.
+        msg = str(e).lower()
+        if 'workspace_id' in row and 'workspace_id' in msg and ('column' in msg or 'does not exist' in msg):
+            row.pop('workspace_id', None)
+            resp = sb.table('galleries').insert(row).execute()
+        else:
+            raise
     data = resp.data
     return data[0] if data else None
 
@@ -37,21 +48,36 @@ def get_gallery_by_token(sb, token):
     return data[0] if data else None
 
 
-def list_galleries(sb, user_id):
-    resp = (
+def list_galleries(sb, user_id, workspace_id=None):
+    q = (
         sb.table('galleries')
         .select('*')
         .eq('user_id', str(user_id))
-        .order('created_at', desc=True)
-        .execute()
     )
+    if workspace_id is not None:
+        q = q.eq('workspace_id', str(workspace_id))
+    try:
+        resp = q.order('created_at', desc=True).execute()
+    except Exception as e:
+        # Backward compatibility when workspace_id column is not yet migrated.
+        msg = str(e).lower()
+        if workspace_id is not None and 'workspace_id' in msg and ('column' in msg or 'does not exist' in msg):
+            resp = (
+                sb.table('galleries')
+                .select('*')
+                .eq('user_id', str(user_id))
+                .order('created_at', desc=True)
+                .execute()
+            )
+        else:
+            raise
     return resp.data or []
 
 
 def update_gallery(sb, gallery_id, **fields):
     clean = {}
     for k, v in fields.items():
-        if k in ('name',):
+        if k in ('name', 'workspace_id'):
             clean[k] = v
     if not clean:
         return None

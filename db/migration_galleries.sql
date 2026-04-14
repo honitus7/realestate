@@ -6,6 +6,7 @@ create table if not exists public.galleries (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users(id) on delete cascade,
   org_id uuid references public.organizations(id) on delete set null,
+  workspace_id uuid references public.workspaces(id) on delete set null,
   name text not null default 'Gallery',
   share_token text unique,
   created_at timestamptz default now(),
@@ -13,6 +14,7 @@ create table if not exists public.galleries (
 );
 
 create index if not exists idx_galleries_user on public.galleries(user_id);
+create index if not exists idx_galleries_workspace on public.galleries(workspace_id);
 create index if not exists idx_galleries_share_token on public.galleries(share_token);
 
 -- 19) Gallery Items (images or videos within a gallery)

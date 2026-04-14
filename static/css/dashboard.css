@@ -152,6 +152,37 @@
     font-weight: 600;
 }
 
+.sidebar-sub-link {
+    padding-left: 2.25rem;
+    font-size: 0.83rem;
+    color: var(--color-muted);
+}
+
+.sidebar-sub-link .sidebar-icon svg {
+    width: 17px;
+    height: 17px;
+}
+
+.sidebar-sub-link.active {
+    font-weight: 600;
+}
+
+.sidebar-link--coming-soon {
+    color: var(--color-muted);
+    opacity: 0.72;
+}
+
+.sidebar-link--coming-soon:hover {
+    color: var(--color-muted);
+    background: transparent;
+}
+
+.sidebar-link--coming-soon.active {
+    border-left: none;
+    background: transparent;
+    font-weight: 500;
+}
+
 .sidebar-icon {
     flex-shrink: 0;
     display: flex;

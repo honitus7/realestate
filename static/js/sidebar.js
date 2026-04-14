@@ -20,23 +20,24 @@
     // ---- Active link highlight based on current URL ----
     var currentPath = window.location.pathname.replace(/\/+$/, '') || '/';
     document.querySelectorAll('.sidebar-link[data-page]').forEach(function (link) {
+        if (link.getAttribute('data-coming-soon') === '1') {
+            link.classList.remove('active');
+            return;
+        }
         var href = (link.getAttribute('href') || '').replace(/\/+$/, '') || '/';
-        if (currentPath === href || currentPath.indexOf(href + '/') === 0) {
+        var isSalesToolsAlias = (href === '/floorplans' && currentPath === '/daynight');
+        if (currentPath === href || currentPath.indexOf(href + '/') === 0 || isSalesToolsAlias) {
             link.classList.add('active');
         } else {
             link.classList.remove('active');
         }
     });
-    (function applyEarthViewActiveState() {
-        var params = new URLSearchParams(window.location.search || '');
-        var isEarthTab = currentPath === '/floorplans' && (params.get('tab') || '').toLowerCase() === 'earth-views';
-        var earthLink = document.getElementById('nav-earthviews');
-        var floorplansLink = document.getElementById('nav-floorplans');
-        if (isEarthTab && earthLink) {
-            earthLink.classList.add('active');
-            if (floorplansLink) floorplansLink.classList.remove('active');
-        }
-    })();
+
+    document.querySelectorAll('.sidebar-link[data-coming-soon="1"]').forEach(function (link) {
+        link.addEventListener('click', function (e) {
+            e.preventDefault();
+        });
+    });
 
     // ---- Collapse / expand (collapsed by default) ----
     var toggle = document.getElementById('sidebar-toggle');
@@ -68,9 +69,7 @@
         if (userNameEl) userNameEl.textContent = state.userName || '';
         // Role-based visibility
         show('nav-explore', state.isAdmin);
-        show('nav-daynight', state.isAdmin);
         show('nav-floorplans', state.isAdmin);
-        show('nav-earthviews', state.isAdmin);
         show('nav-fullview', state.isAdmin);
         show('nav-orgs', state.role === 'superadmin');
         show('sidebar-upload-wrap', state.isAdmin);

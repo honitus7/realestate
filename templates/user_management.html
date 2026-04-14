@@ -518,6 +518,17 @@
                 return { ok: r.ok, status: r.status, data: data };
             });
         }
+        function activateTab(tabName) {
+            var target = String(tabName || '').trim().toLowerCase();
+            if (!target) return;
+            document.querySelectorAll('.tab-btn').forEach(function (b) { b.classList.remove('active'); });
+            document.querySelectorAll('.tab-panel').forEach(function (p) { p.classList.remove('active'); });
+            var btn = document.querySelector('.tab-btn[data-tab="' + target + '"]');
+            var panel = document.getElementById('tab-' + target);
+            if (btn) btn.classList.add('active');
+            if (panel) panel.classList.add('active');
+            if (target === 'invites') loadInvites();
+        }
 
         // ── Tabs ──
         document.querySelectorAll('.tab-btn').forEach(function (btn) {
@@ -876,6 +887,15 @@
         if (userSearch) userSearch.addEventListener('input', renderUsers);
 
         document.getElementById('btn-invite-user').addEventListener('click', openInviteModal);
+        var dropdownAddUser = document.getElementById('dropdown-add-user');
+        if (dropdownAddUser) {
+            dropdownAddUser.addEventListener('click', function (e) {
+                e.preventDefault();
+                activateTab('users');
+                openInviteModal();
+                try { window.history.replaceState({}, document.title, '/user-management'); } catch (_e) { }
+            });
+        }
         document.getElementById('close-invite-modal').addEventListener('click', function () { closeModal(modalInvite); });
         document.getElementById('cancel-invite').addEventListener('click', function () { closeModal(modalInvite); });
         document.getElementById('confirm-invite').addEventListener('click', doInvite);
@@ -906,6 +926,15 @@
 
             try { if (window.applyOrgTheme) window.applyOrgTheme(); } catch (e) { }
             loadUsers();
+            try {
+                var params = new URLSearchParams(window.location.search || '');
+                var open = String(params.get('open') || '').toLowerCase();
+                if (open === 'invite' || open === 'add-user' || open === 'adduser') {
+                    activateTab('users');
+                    openInviteModal();
+                    window.history.replaceState({}, document.title, '/user-management');
+                }
+            } catch (_e) { }
         });
     })();
 

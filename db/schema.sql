@@ -357,6 +357,7 @@ create table if not exists public.daynight_projects (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users(id) on delete cascade,
   org_id uuid references public.organizations(id) on delete set null,
+  workspace_id uuid references public.workspaces(id) on delete set null,
   name text not null,
   media_type text not null check (media_type in ('image', 'video')),
   stitched_filename text,
@@ -374,6 +375,7 @@ create table if not exists public.daynight_projects (
 
 create index if not exists idx_daynight_projects_user_id on public.daynight_projects(user_id);
 create index if not exists idx_daynight_projects_org_id on public.daynight_projects(org_id);
+create index if not exists idx_daynight_projects_workspace_id on public.daynight_projects(workspace_id);
 create index if not exists idx_daynight_projects_share_token on public.daynight_projects(share_token);
 
 -- 11) Floor Plan Catalogues
@@ -499,6 +501,7 @@ create table if not exists public.galleries (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users(id) on delete cascade,
   org_id uuid references public.organizations(id) on delete set null,
+  workspace_id uuid references public.workspaces(id) on delete set null,
   name text not null default 'Gallery',
   share_token text unique,
   created_at timestamptz default now(),
@@ -506,6 +509,7 @@ create table if not exists public.galleries (
 );
 
 create index if not exists idx_galleries_user on public.galleries(user_id);
+create index if not exists idx_galleries_workspace on public.galleries(workspace_id);
 create index if not exists idx_galleries_share_token on public.galleries(share_token);
 
 -- 19) Gallery Items (images or videos within a gallery)

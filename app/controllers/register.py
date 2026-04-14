@@ -590,7 +590,7 @@ def register_routes(app):
 
     @app.route('/users')
     def users_page():
-        return render_template('add_user.html', **auth_ctx())
+        return redirect('/user-management?open=invite')
 
     @app.route('/user-management')
     def user_management_page():
@@ -5427,7 +5427,8 @@ h1 {{ margin:0 0 8px; font-size:22px; }}
         sb = get_supabase()
         if not sb:
             return jsonify({'error': 'Database not configured'}), 503
-        projects = dn_list(sb, user_id)
+        workspace_id = str(request.args.get('workspace_id') or '').strip() or None
+        projects = dn_list(sb, user_id, workspace_id=workspace_id)
         for p in projects:
             p['share_url'] = f"{(request.url_root or '').rstrip('/')}/daynight/view/{p.get('share_token', '')}"
             # Include media_url for thumbnails
@@ -5450,13 +5451,20 @@ h1 {{ margin:0 0 8px; font-size:22px; }}
         data = request.get_json(silent=True) or {}
         name = str(data.get('name') or '').strip()
         media_type = str(data.get('media_type') or '').strip()
+        workspace_id = str(data.get('workspace_id') or '').strip() or None
         if not name:
             return jsonify({'error': 'Name is required'}), 400
         if media_type not in ('image', 'video'):
             return jsonify({'error': 'media_type must be image or video'}), 400
+        if workspace_id:
+            workspace = get_workspace_by_id(sb, workspace_id)
+            if not workspace:
+                return jsonify({'error': 'Project not found'}), 404
+            if not can_manage_workspace(workspace, user_id, role):
+                return jsonify({'error': 'Forbidden'}), 403
         profile = get_profile(sb, user_id)
         org_id = profile.get('org_id') if profile else None
-        project = dn_create(sb, user_id, org_id, name, media_type)
+        project = dn_create(sb, user_id, org_id, name, media_type, workspace_id=workspace_id)
         if not project:
             return jsonify({'error': 'Failed to create project'}), 500
         project['share_url'] = f"{(request.url_root or '').rstrip('/')}/daynight/view/{project.get('share_token', '')}"
@@ -5678,6 +5686,9 @@ h1 {{ margin:0 0 8px; font-size:22px; }}
         if not sb:
             return jsonify({'error': 'Database not configured'}), 503
         catalogues = fp_list_catalogues(sb, user_id)
+        workspace_id = str(request.args.get('workspace_id') or '').strip() or None
+        if workspace_id:
+            catalogues = [c for c in catalogues if str(c.get('workspace_id') or '') == workspace_id]
         base = (request.url_root or '').rstrip('/')
         if catalogues:
             cat_ids = [c['id'] for c in catalogues]
@@ -6619,6 +6630,9 @@ h1 {{ margin:0 0 8px; font-size:22px; }}
     def api_list_project_plans(user_id, role):
         sb = get_supabase()
         plans = pp_list(sb, user_id)
+        workspace_id = str(request.args.get('workspace_id') or '').strip() or None
+        if workspace_id:
+            plans = [p for p in plans if str(p.get('workspace_id') or '') == workspace_id]
         base = (request.url_root or '').rstrip('/')
         for p in plans:
             maps = pp_list_maps(sb, p['id'])
@@ -6784,7 +6798,8 @@ h1 {{ margin:0 0 8px; font-size:22px; }}
         sb = get_supabase()
         if not sb:
             return jsonify({'error': 'Database not configured'}), 503
-        galleries = gal_list(sb, user_id)
+        workspace_id = str(request.args.get('workspace_id') or '').strip() or None
+        galleries = gal_list(sb, user_id, workspace_id=workspace_id)
         base = (request.url_root or '').rstrip('/')
         for g in galleries:
             g['share_url'] = f"{base}/gallery/view/{g.get('share_token', '')}"
@@ -6803,12 +6818,19 @@ h1 {{ margin:0 0 8px; font-size:22px; }}
             return jsonify({'error': 'Database not configured'}), 503
         data = request.get_json(silent=True) or {}
         name = str(data.get('name') or 'Gallery').strip()
-        existing = gal_list(sb, user_id)
+        workspace_id = str(data.get('workspace_id') or '').strip() or None
+        if workspace_id:
+            workspace = get_workspace_by_id(sb, workspace_id)
+            if not workspace:
+                return jsonify({'error': 'Project not found'}), 404
+            if not can_manage_workspace(workspace, user_id, role):
+                return jsonify({'error': 'Forbidden'}), 403
+        existing = gal_list(sb, user_id, workspace_id=workspace_id)
         if any(g.get('name', '').strip().lower() == name.lower() for g in existing):
             return jsonify({'error': f'A gallery named "{name}" already exists'}), 409
         profile = get_profile(sb, user_id)
         org_id = profile.get('org_id') if profile else None
-        gal = gal_create(sb, user_id, org_id, name)
+        gal = gal_create(sb, user_id, org_id, name, workspace_id=workspace_id)
         if not gal:
             return jsonify({'error': 'Failed to create gallery'}), 500
         base = (request.url_root or '').rstrip('/')

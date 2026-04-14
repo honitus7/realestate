@@ -44,6 +44,22 @@
     border-bottom-color: var(--color-text);
 }
 
+.fp-daynight-embed-shell {
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    background: var(--color-bg-elevated);
+    overflow: hidden;
+}
+
+.fp-daynight-embed-frame {
+    width: 100%;
+    height: calc(100vh - 210px);
+    min-height: 620px;
+    border: 0;
+    display: block;
+    background: var(--color-bg-elevated);
+}
+
 .floorplans-header {
     display: flex;
     align-items: center;

@@ -136,12 +136,9 @@
                 <label class="fv-label" for="fv-tab-type">Type</label>
                 <select class="fv-select" id="fv-tab-type">
                     <option value="360_pano">360° Panorama</option>
-                    <option value="drone_view">Drone View</option>
                     <option value="daynight">Day / Evening Toggle</option>
                     <option value="floor_plan">Floor Plan</option>
                     <option value="gallery">Gallery</option>
-                    <option value="highlights">Highlights</option>
-                    <option value="amenities">Amenities</option>
                     <option value="project_plan">Project Plan (Building Map)</option>
                     <option value="location">Location / Map</option>
                     <option value="brochure">Brochure / PDF</option>
@@ -460,16 +457,16 @@ async function loadShareUrl(wsId) {
 /* ------------------------------------------------------------------ */
 async function loadResources(wsId) {
     try {
+        const wsQ = '?workspace_id=' + encodeURIComponent(wsId);
         const [panos, dns, fps, gals, pps] = await Promise.allSettled([
-            apiFetch('/api/panoramas?workspace_id=' + encodeURIComponent(wsId)),
-            apiFetch('/api/daynight'),
-            apiFetch('/api/floorplans/catalogues'),
-            apiFetch('/api/galleries'),
-            apiFetch('/api/project-plans'),
+            apiFetch('/api/panoramas' + wsQ),
+            apiFetch('/api/daynight' + wsQ),
+            apiFetch('/api/floorplans/catalogues' + wsQ),
+            apiFetch('/api/galleries' + wsQ),
+            apiFetch('/api/project-plans' + wsQ),
         ]);
         workspacePanoramas = (panos.value?.panoramas || panos.value || []);
         daynightProjects   = (Array.isArray(dns.value) ? dns.value : (dns.value?.projects || []));
-
         floorPlanCatalogues = (fps.value?.catalogues || fps.value || []);
         galleries          = (gals.value?.galleries || gals.value || []);
         projectPlans       = (pps.value?.plans      || pps.value  || []);
@@ -535,14 +532,21 @@ function renderTabs() {
 
 function typeLabel(t) {
     const map = {
-        '360_pano': '360° Panorama', 'drone_view': 'Drone View',
+        '360_pano': '360° Panorama', 'drone_view': '360° Panorama',
         'daynight': 'Day / Evening', 'floor_plan': 'Floor Plan',
-        'gallery': 'Gallery', 'highlights': 'Highlights',
-        'amenities': 'Amenities', 'project_plan': 'Project Plan',
+        'gallery': 'Gallery', 'highlights': 'Gallery',
+        'amenities': 'Gallery', 'project_plan': 'Project Plan',
         'location': 'Location', 'brochure': 'Brochure',
         'custom': 'Custom',
     };
     return map[t] || t;
+}
+
+function normalizeTabType(t) {
+    var type = String(t || '').trim();
+    if (type === 'drone_view') return '360_pano';
+    if (type === 'highlights' || type === 'amenities') return 'gallery';
+    return type || '360_pano';
 }
 
 function escHtml(s) {
@@ -639,7 +643,7 @@ function openTabDialog(tab) {
 
     const icon = tab ? tab.icon : 'ph:house';
     const name = tab ? tab.name : '';
-    const type = tab ? tab.tab_type : '360_pano';
+    const type = normalizeTabType(tab ? tab.tab_type : '360_pano');
     const visible = tab ? tab.is_visible : true;
 
     document.getElementById('fv-icon-value').value = icon;
@@ -678,10 +682,10 @@ function closeTabDialog() {
 
 function updateTypeFields(type) {
     const show = (id, vis) => { document.getElementById(id).style.display = vis ? '' : 'none'; };
-    show('fv-ref-panorama-wrap',    ['360_pano', 'drone_view', 'highlights'].includes(type));
+    show('fv-ref-panorama-wrap',    ['360_pano'].includes(type));
     show('fv-ref-daynight-wrap',    type === 'daynight');
     show('fv-ref-floorplan-wrap',   type === 'floor_plan');
-    show('fv-ref-gallery-wrap',     ['gallery', 'amenities', 'highlights'].includes(type) && type !== '360_pano' && type !== 'drone_view');
+    show('fv-ref-gallery-wrap',     type === 'gallery');
     show('fv-ref-projectplan-wrap', type === 'project_plan');
     show('fv-ref-url-wrap',         ['location', 'brochure', 'custom'].includes(type));
 
@@ -690,17 +694,12 @@ function updateTypeFields(type) {
         : type === 'location' ? 'Google Maps, Earth View, or any map URL.'
         : 'URL to embed or open in new tab.';
 
-    // gallery vs panorama for highlights
-    if (type === 'highlights') {
-        show('fv-ref-panorama-wrap', true);
-        show('fv-ref-gallery-wrap', true);
-    }
 }
 
 async function saveTab() {
     const icon     = document.getElementById('fv-icon-value').value || 'ph:house';
     const name     = document.getElementById('fv-tab-name').value.trim();
-    const type     = document.getElementById('fv-tab-type').value;
+    const type     = normalizeTabType(document.getElementById('fv-tab-type').value);
     const visible  = document.getElementById('fv-tab-visible').checked;
 
     if (!name) { alert('Please enter a label.'); return; }
@@ -715,15 +714,9 @@ async function saveTab() {
         content_data: {},
     };
 
-    if (['360_pano', 'drone_view'].includes(type)) {
+    if (type === '360_pano') {
         const v = document.getElementById('fv-ref-panorama').value;
         if (v) body.ref_panorama_id = Number(v);
-    }
-    if (type === 'highlights') {
-        const pv = document.getElementById('fv-ref-panorama').value;
-        const gv = document.getElementById('fv-ref-gallery').value;
-        if (pv) body.ref_panorama_id = Number(pv);
-        if (gv) body.ref_gallery_id = gv;
     }
     if (type === 'daynight') {
         const v = document.getElementById('fv-ref-daynight').value;
@@ -733,7 +726,7 @@ async function saveTab() {
         const v = document.getElementById('fv-ref-floorplan').value;
         if (v) body.ref_floor_plan_id = v;
     }
-    if (['gallery', 'amenities'].includes(type)) {
+    if (type === 'gallery') {
         const v = document.getElementById('fv-ref-gallery').value;
         if (v) body.ref_gallery_id = v;
     }

@@ -25,17 +25,9 @@
             <span class="sidebar-icon" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>
             <span class="sidebar-text">CRM</span>
         </a>
-        <a href="/daynight" class="sidebar-link{% if active_page == 'daynight' %} active{% endif %}" id="nav-daynight" data-page="daynight" style="display:none;" data-tooltip="Day Night Mode">
-            <span class="sidebar-icon" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg></span>
-            <span class="sidebar-text">Day Night Mode</span>
-        </a>
-        <a href="/floorplans" class="sidebar-link{% if active_page == 'floorplans' %} active{% endif %}" id="nav-floorplans" data-page="floorplans" style="display:none;" data-tooltip="Floor Plans">
+        <a href="/floorplans" class="sidebar-link{% if active_page == 'floorplans' %} active{% endif %}" id="nav-floorplans" data-page="floorplans" style="display:none;" data-tooltip="Sales Tools">
             <span class="sidebar-icon" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg></span>
-            <span class="sidebar-text">Floor Plans</span>
-        </a>
-        <a href="/floorplans?tab=earth-views" class="sidebar-link{% if active_page == 'earthviews' %} active{% endif %}" id="nav-earthviews" data-page="earthviews" style="display:none;" data-tooltip="Earth View">
-            <span class="sidebar-icon" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg></span>
-            <span class="sidebar-text">Earth View</span>
+            <span class="sidebar-text">Sales Tools</span>
         </a>
         <a href="/full-view" class="sidebar-link{% if active_page == 'fullview' %} active{% endif %}" id="nav-fullview" data-page="fullview" style="display:none;" data-tooltip="Full View Creator">
             <span class="sidebar-icon" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h20v5H2z"/><path d="M2 10h20v5H2z"/><path d="M2 17h20v5H2z"/><circle cx="18" cy="5.5" r="1.5" fill="currentColor" stroke="none"/><circle cx="18" cy="12.5" r="1.5" fill="currentColor" stroke="none"/><circle cx="18" cy="19.5" r="1.5" fill="currentColor" stroke="none"/></svg></span>
@@ -57,7 +49,7 @@
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
                     Change Password
                 </a>
-                <a href="/users" class="sidebar-dropdown-item" id="dropdown-add-user" style="display:none;">
+                <a href="/user-management?open=invite" class="sidebar-dropdown-item" id="dropdown-add-user" style="display:none;">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
                     Add User
                 </a>

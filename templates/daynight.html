@@ -5,11 +5,14 @@
 <link rel="stylesheet" href="/static/css/daynight.css">
 {% endblock %}
 {% block content %}
-<div class="daynight-page" id="daynight-page">
+{% set embedded = request.args.get('embedded') in ['1', 'true', 'yes'] %}
+<div class="daynight-page{% if embedded %} daynight-page--embedded{% endif %}" id="daynight-page">
     {% set active_page = 'daynight' %}
-    {% include 'components/sidebar.html' %}
+    {% if not embedded %}
+        {% include 'components/sidebar.html' %}
+    {% endif %}
 
-    <div class="daynight-main">
+    <div class="daynight-main{% if embedded %} daynight-main--embedded{% endif %}">
         <div class="daynight-header">
             <h1 class="daynight-title">Day Night Projects</h1>
             <button class="btn btn-primary" id="new-dn-btn">New Day Night Project</button>
@@ -36,6 +39,12 @@
             <div class="form-group" style="margin-bottom:1rem;">
                 <label class="form-label">Project Name</label>
                 <input type="text" class="form-input" id="dn-name" maxlength="200" placeholder="e.g., Tower View Day to Night">
+            </div>
+            <div class="form-group" style="margin-bottom:1rem;">
+                <label class="form-label">Project</label>
+                <select class="form-input" id="dn-workspace">
+                    <option value="">Loading projects...</option>
+                </select>
             </div>
             <label class="form-label">Media Type</label>
             <div class="dn-type-toggle">
@@ -104,10 +113,12 @@
     // Wait for sidebar auth then start
     window.sidebarReady.then(function(ctx) {
         window._accessToken = ctx.accessToken;
+        loadWorkspaces();
         loadProjects();
     });
 
     var projects = [];
+    var workspaces = [];
     var selectedMediaType = 'image';
     var imageFiles = []; // ordered File objects
     var videoFile = null;
@@ -130,6 +141,27 @@
         var el = document.getElementById('dn-create-error');
         el.textContent = msg || '';
         el.style.display = msg ? 'block' : 'none';
+    }
+
+    function loadWorkspaces() {
+        fetch('/api/workspaces', { headers: authHeaders() })
+            .then(function(r) { return r.ok ? r.json() : []; })
+            .then(function(data) {
+                workspaces = Array.isArray(data) ? data : [];
+                var sel = document.getElementById('dn-workspace');
+                if (!sel) return;
+                if (!workspaces.length) {
+                    sel.innerHTML = '<option value="">No projects found</option>';
+                    return;
+                }
+                sel.innerHTML = workspaces.map(function(w) {
+                    return '<option value="' + escAttr(String(w.id || '')) + '">' + escHtml(w.name || 'Project') + '</option>';
+                }).join('');
+            })
+            .catch(function() {
+                var sel = document.getElementById('dn-workspace');
+                if (sel) sel.innerHTML = '<option value="">Failed to load projects</option>';
+            });
     }
 
     // Load & render projects
@@ -331,7 +363,9 @@
     // Submit
     document.getElementById('dn-submit').addEventListener('click', function() {
         var name = document.getElementById('dn-name').value.trim();
+        var workspaceId = (document.getElementById('dn-workspace').value || '').trim();
         if (!name) { showError('Enter a project name'); return; }
+        if (!workspaceId) { showError('Please select a project'); return; }
         if (selectedMediaType === 'image' && imageFiles.length < 2) { showError('Select at least 2 images'); return; }
         if (selectedMediaType === 'video' && !videoFile) { showError('Select a video file'); return; }
         showError('');
@@ -345,7 +379,7 @@
         fetch('/api/daynight', {
             method: 'POST',
             headers: Object.assign({'Content-Type': 'application/json'}, authHeaders()),
-            body: JSON.stringify({ name: name, media_type: selectedMediaType })
+            body: JSON.stringify({ name: name, media_type: selectedMediaType, workspace_id: workspaceId })
         })
         .then(function(r) { return r.json().then(function(d) { return { ok: r.ok, data: d }; }); })
         .then(function(res) {

@@ -12,6 +12,18 @@
     margin: 0 auto;
 }
 
+.daynight-page--embedded {
+    display: block;
+    min-height: auto;
+    background: transparent;
+}
+
+.daynight-main--embedded {
+    max-width: none;
+    margin: 0;
+    padding: 1.25rem;
+}
+
 .daynight-header {
     display: flex;
     align-items: center;

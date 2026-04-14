@@ -12,12 +12,25 @@
     <div class="floorplans-main">
         <!-- Subtabs -->
         <div class="fp-subtabs">
+            <button class="fp-subtab" data-tab="daynight" id="subtab-daynight">Day/Night</button>
             <button class="fp-subtab active" data-tab="floorplans" id="subtab-floorplans">Floor Plans</button>
             <button class="fp-subtab" data-tab="building-maps" id="subtab-building-maps">Building Maps</button>
             <button class="fp-subtab" data-tab="earth-views" id="subtab-earth-views">Earth Views</button>
             <button class="fp-subtab" data-tab="project-plans" id="subtab-project-plans">Project Plans</button>
             <button class="fp-subtab" data-tab="galleries" id="subtab-galleries">Gallery</button>
         </div>
+
+        <!-- ========= DAY/NIGHT TAB ========= -->
+        <div class="fp-tab-content" id="tab-daynight" style="display:none;">
+            <div class="fp-daynight-embed-shell">
+                <iframe id="fp-daynight-frame"
+                        class="fp-daynight-embed-frame"
+                        src=""
+                        title="Day/Night"
+                        loading="lazy"
+                        referrerpolicy="same-origin"></iframe>
+            </div>
+        </div><!-- /tab-daynight -->
 
         <!-- ========= FLOOR PLANS TAB ========= -->
         <div class="fp-tab-content" id="tab-floorplans">
@@ -442,6 +455,12 @@
                 <label class="form-label">Name</label>
                 <input type="text" class="form-input" id="gal-name" placeholder="e.g., Project Gallery" value="Gallery">
             </div>
+            <div class="form-group" style="margin-bottom:1rem;">
+                <label class="form-label">Project</label>
+                <select class="form-input" id="gal-workspace">
+                    <option value="">Loading projects...</option>
+                </select>
+            </div>
             <div class="msg msg-error" id="gal-create-error" style="display:none;"></div>
             <div class="modal-actions">
                 <button class="btn btn-secondary" id="gal-modal-cancel">Cancel</button>
@@ -626,7 +645,8 @@
                 var selectors = [
                     document.getElementById('fp-cat-workspace'),
                     document.getElementById('bm-workspace'),
-                    document.getElementById('pp-workspace')
+                    document.getElementById('pp-workspace'),
+                    document.getElementById('gal-workspace')
                 ].filter(Boolean);
                 if (!selectors.length) return;
                 if (!workspaces.length) {
@@ -643,7 +663,7 @@
                 });
             })
             .catch(function() {
-                ['fp-cat-workspace', 'bm-workspace', 'pp-workspace'].forEach(function(id) {
+                ['fp-cat-workspace', 'bm-workspace', 'pp-workspace', 'gal-workspace'].forEach(function(id) {
                     var sel = document.getElementById(id);
                     if (sel) sel.innerHTML = '<option value="">Failed to load projects</option>';
                 });
@@ -1022,14 +1042,18 @@
 
     document.querySelectorAll('.fp-subtab').forEach(function(tab) {
         tab.addEventListener('click', function() {
+            var target = tab.dataset.tab;
             document.querySelectorAll('.fp-subtab').forEach(function(t) { t.classList.remove('active'); });
             tab.classList.add('active');
-            var target = tab.dataset.tab;
+            document.getElementById('tab-daynight').style.display = target === 'daynight' ? '' : 'none';
             document.getElementById('tab-floorplans').style.display = target === 'floorplans' ? '' : 'none';
             document.getElementById('tab-building-maps').style.display = target === 'building-maps' ? '' : 'none';
             document.getElementById('tab-earth-views').style.display = target === 'earth-views' ? '' : 'none';
             document.getElementById('tab-project-plans').style.display = target === 'project-plans' ? '' : 'none';
             document.getElementById('tab-galleries').style.display = target === 'galleries' ? '' : 'none';
+            if (target === 'daynight') {
+                ensureDaynightEmbedLoaded();
+            }
             if (target === 'building-maps' && !bmLoaded) {
                 loadBuildingMaps();
             }
@@ -1050,6 +1074,7 @@
         var tab = (qs.get('tab') || '').trim().toLowerCase();
         if (!tab) return;
         var tabMap = {
+            'daynight': 'subtab-daynight',
             'floorplans': 'subtab-floorplans',
             'building-maps': 'subtab-building-maps',
             'earth-views': 'subtab-earth-views',
@@ -1061,6 +1086,15 @@
         var btn = document.getElementById(btnId);
         if (btn) btn.click();
     })();
+
+    var daynightEmbedLoaded = false;
+    function ensureDaynightEmbedLoaded() {
+        if (daynightEmbedLoaded) return;
+        var frame = document.getElementById('fp-daynight-frame');
+        if (!frame) return;
+        frame.src = '/daynight?embedded=1';
+        daynightEmbedLoaded = true;
+    }
 
     // ------------------------------------------------------------------
     // Building Maps
@@ -1785,13 +1819,18 @@
 
     document.getElementById('gal-modal-create').addEventListener('click', function() {
         var name = document.getElementById('gal-name').value.trim() || 'Gallery';
+        var workspaceId = (document.getElementById('gal-workspace').value || '').trim();
         var btn = this;
+        if (!workspaceId) {
+            showError('gal-create-error', 'Please select a project.');
+            return;
+        }
         btn.disabled = true;
         document.getElementById('gal-create-error').style.display = 'none';
         fetch('/api/galleries', {
             method: 'POST',
             headers: Object.assign({ 'Content-Type': 'application/json' }, authHeaders()),
-            body: JSON.stringify({ name: name })
+            body: JSON.stringify({ name: name, workspace_id: workspaceId })
         })
         .then(function(r) { return r.json().then(function(d) { return { ok: r.ok, data: d }; }); })
         .then(function(res) {

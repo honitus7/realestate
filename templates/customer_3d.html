@@ -4381,7 +4381,6 @@
         initLegendMobileFloaterUi();
     </script>
 
-    {% if fv_config and fv_config.get('is_active') and fv_config.get('tabs') %}
     <script>
     /* =====================================================================
        Full View Sidebar — panorama page handler
@@ -4391,9 +4390,47 @@
     (function () {
         'use strict';
 
+        var initialFvConfig = {{ (fv_config or none)|tojson }};
         var sidebar   = document.getElementById('fv-sidebar');
         var activeBtn = null;
-        if (!sidebar) return;
+
+        function escAttr(v) {
+            return String(v == null ? '' : v).replace(/"/g, '&quot;');
+        }
+
+        function escHtml(v) {
+            return String(v == null ? '' : v).replace(/[&<>"']/g, function (c) {
+                return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c] || c;
+            });
+        }
+
+        function ensureSidebarFromTabs(tabs) {
+            if (!Array.isArray(tabs) || !tabs.length) return null;
+            if (!sidebar) {
+                sidebar = document.createElement('nav');
+                sidebar.id = 'fv-sidebar';
+                sidebar.className = 'fv-sidebar';
+                sidebar.setAttribute('aria-label', 'Full View Navigation');
+                document.body.appendChild(sidebar);
+            }
+            sidebar.innerHTML = tabs.map(function (tab) {
+                var contentJson = '{}';
+                try { contentJson = JSON.stringify(tab.content_data || {}); } catch (e) { contentJson = '{}'; }
+                return '<button class="fv-sidebar-btn" type="button"' +
+                    ' data-tab-type="' + escAttr(tab.tab_type || '') + '"' +
+                    ' data-ref-panorama="' + escAttr(tab.ref_panorama_id || '') + '"' +
+                    ' data-ref-daynight="' + escAttr(tab.ref_daynight_id || '') + '"' +
+                    ' data-ref-floorplan="' + escAttr(tab.ref_floor_plan_id || '') + '"' +
+                    ' data-ref-gallery="' + escAttr(tab.ref_gallery_id || '') + '"' +
+                    ' data-ref-projectplan="' + escAttr(tab.ref_project_plan_id || '') + '"' +
+                    ' data-content="' + escAttr(contentJson) + '"' +
+                    ' title="' + escAttr(tab.name || '') + '">' +
+                    '<span class="fv-sidebar-icon"><iconify-icon icon="' + escAttr(tab.icon || 'ph:house') + '"></iconify-icon></span>' +
+                    '<span class="fv-sidebar-label">' + escHtml(tab.name || 'Tab') + '</span>' +
+                    '</button>';
+            }).join('');
+            return sidebar;
+        }
 
         function setActive(btn) {
             if (activeBtn) activeBtn.classList.remove('fv-sidebar-btn--active');
@@ -4408,52 +4445,73 @@
                  + '&ref='  + encodeURIComponent(ref);
         }
 
-        sidebar.querySelectorAll('.fv-sidebar-btn').forEach(function (btn) {
-            btn.addEventListener('click', function () {
-                var type    = btn.dataset.tabType;
-                var pano    = btn.dataset.refPanorama;
-                var dn      = btn.dataset.refDaynight;
-                var fp      = btn.dataset.refFloorplan;
-                var gal     = btn.dataset.refGallery;
-                var pp      = btn.dataset.refProjectplan;
-                var cd      = {};
-                try { cd = JSON.parse(btn.dataset.content || '{}'); } catch (e) {}
+        function bindSidebarHandlers() {
+            if (!sidebar) return;
+            sidebar.querySelectorAll('.fv-sidebar-btn').forEach(function (btn) {
+                btn.addEventListener('click', function () {
+                    var type    = btn.dataset.tabType;
+                    var pano    = btn.dataset.refPanorama;
+                    var dn      = btn.dataset.refDaynight;
+                    var fp      = btn.dataset.refFloorplan;
+                    var gal     = btn.dataset.refGallery;
+                    var pp      = btn.dataset.refProjectplan;
+                    var cd      = {};
+                    try { cd = JSON.parse(btn.dataset.content || '{}'); } catch (e) {}
 
-                /* ---- 360° / drone: switch panorama in-viewer (page stays) ---- */
-                if (type === '360_pano' || type === 'drone_view') {
-                    if (pano) {
+                    /* ---- 360° / drone: switch panorama in-viewer (page stays) ---- */
+                    if (type === '360_pano' || type === 'drone_view') {
+                        if (pano) {
+                            setActive(btn);
+                            if (typeof switchToPanorama === 'function') switchToPanorama(Number(pano));
+                            else if (typeof loadPanoramaById === 'function') loadPanoramaById(Number(pano));
+                        }
+                        return;
+                    }
+
+                    /* ---- highlights: panorama ref stays in-viewer ---- */
+                    if (type === 'highlights' && !gal && pano) {
                         setActive(btn);
                         if (typeof switchToPanorama === 'function') switchToPanorama(Number(pano));
-                        else if (typeof loadPanoramaById === 'function') loadPanoramaById(Number(pano));
+                        return;
                     }
-                    return;
-                }
 
-                /* ---- highlights: panorama ref stays in-viewer ---- */
-                if (type === 'highlights' && !gal && pano) {
-                    setActive(btn);
-                    if (typeof switchToPanorama === 'function') switchToPanorama(Number(pano));
-                    return;
-                }
+                    /* ---- external URLs: open new tab, page stays ---- */
+                    if ((type === 'brochure' || type === 'custom' || type === 'location') && cd.url) {
+                        window.open(cd.url, '_blank', 'noopener');
+                        return;
+                    }
 
-                /* ---- external URLs: open new tab, page stays ---- */
-                if ((type === 'brochure' || type === 'custom' || type === 'location') && cd.url) {
-                    window.open(cd.url, '_blank', 'noopener');
-                    return;
-                }
-
-                /* ---- everything else: go to Full View shell (same tab) ---- */
-                var ref = fp || gal || dn || pp || '';
-                var url = ref ? shellUrl(type, ref) : null;
-                if (url) {
-                    setActive(btn);
-                    window.location.href = url;
+                    /* ---- everything else: go to Full View shell (same tab) ---- */
+                    var ref = fp || gal || dn || pp || '';
+                    var url = ref ? shellUrl(type, ref) : null;
+                    if (url) {
+                        setActive(btn);
+                        window.location.href = url;
+                    }
                 }
             });
-        });
+        }
+
+        function initFromConfig(cfg) {
+            if (!cfg || cfg.is_active !== true) return false;
+            var tabs = Array.isArray(cfg.tabs) ? cfg.tabs : [];
+            if (!tabs.length) return false;
+            ensureSidebarFromTabs(tabs);
+            bindSidebarHandlers();
+            return true;
+        }
+
+        if (!initFromConfig(initialFvConfig) && WORKSPACE_ID) {
+            fetch('/api/public/full-view?workspace_id=' + encodeURIComponent(String(WORKSPACE_ID || '')))
+                .then(function (r) { return r.ok ? r.json() : null; })
+                .then(function (d) {
+                    if (!d || !Array.isArray(d.tabs) || !d.tabs.length) return;
+                    initFromConfig({ is_active: true, tabs: d.tabs });
+                })
+                .catch(function () { });
+        }
     })();
     </script>
-    {% endif %}
 </body>
 
 </html>

@@ -29,6 +29,8 @@
 
         <!-- Zoom controls -->
         <div class="gv-zoom-controls">
+            <button class="gv-mode-btn active" id="gv-mode-fit" title="Fit to page">Fit</button>
+            <button class="gv-mode-btn" id="gv-mode-fill" title="Fill page">Fill</button>
             <button class="gv-zoom-btn" id="gv-zoom-in" title="Zoom in">+</button>
             <button class="gv-zoom-btn" id="gv-zoom-out" title="Zoom out">&minus;</button>
             <button class="gv-zoom-btn" id="gv-zoom-reset" title="Reset" style="font-size:0.72rem;">&#8634;</button>
@@ -93,6 +95,10 @@
     var scale = 1, panX = 0, panY = 0;
     var isDragging = false, dragStartX, dragStartY, startPanX, startPanY;
     var singleItem = ITEMS.length <= 1;
+    var pageEl = document.getElementById('gv-page');
+    var modeFitBtn = document.getElementById('gv-mode-fit');
+    var modeFillBtn = document.getElementById('gv-mode-fill');
+    var viewMode = 'fit';
 
     // Preload images
     ITEMS.forEach(function(item) {
@@ -106,6 +112,12 @@
     if (ITEMS.length > 0) {
         showItem(0, false);
     }
+
+    (function initViewMode() {
+        var saved = '';
+        try { saved = localStorage.getItem('gallery_view_mode') || ''; } catch (e) {}
+        setViewMode(saved === 'fill' ? 'fill' : 'fit');
+    })();
 
     function showItem(idx, animate) {
         var item = ITEMS[idx];
@@ -196,6 +208,27 @@
             unmuteBtn.style.display = 'none';
         }
     });
+
+    function setViewMode(mode) {
+        viewMode = mode === 'fill' ? 'fill' : 'fit';
+        pageEl.classList.toggle('gv-mode-fill', viewMode === 'fill');
+        pageEl.classList.toggle('gv-mode-fit', viewMode !== 'fill');
+        if (modeFitBtn) modeFitBtn.classList.toggle('active', viewMode !== 'fill');
+        if (modeFillBtn) modeFillBtn.classList.toggle('active', viewMode === 'fill');
+        try { localStorage.setItem('gallery_view_mode', viewMode); } catch (e) {}
+    }
+    if (modeFitBtn) {
+        modeFitBtn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            setViewMode('fit');
+        });
+    }
+    if (modeFillBtn) {
+        modeFillBtn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            setViewMode('fill');
+        });
+    }
 
     // Panel click handlers
     if (!singleItem) {

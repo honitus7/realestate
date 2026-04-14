@@ -87,6 +87,33 @@
     color: #fff;
 }
 
+.gv-mode-btn {
+    height: 34px;
+    min-width: 44px;
+    padding: 0 0.62rem;
+    border-radius: 8px;
+    background: transparent;
+    border: 1px solid transparent;
+    color: rgba(255,255,255,0.72);
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.01em;
+    cursor: pointer;
+    transition: background 0.18s, color 0.18s, border-color 0.18s;
+    font-family: var(--font-body, 'Syne', sans-serif);
+}
+
+.gv-mode-btn:hover {
+    background: rgba(255,255,255,0.1);
+    color: #fff;
+}
+
+.gv-mode-btn.active {
+    background: rgba(255,255,255,0.16);
+    border-color: rgba(255,255,255,0.16);
+    color: #fff;
+}
+
 /* -- Selector panel (bottom-right) -- */
 .gv-panel {
     position: fixed; bottom: 1.5rem; right: 1.5rem; z-index: 20;
@@ -220,6 +247,38 @@
 .gv-unmute-btn:hover {
     background: rgba(255,255,255,0.2);
     color: #fff;
+}
+
+.gv-page.gv-mode-fill .gv-media-wrap {
+    padding: 0;
+}
+
+.gv-page.gv-mode-fill .gv-image {
+    width: 100%;
+    height: 100%;
+    max-width: none;
+    max-height: none;
+    object-fit: cover;
+    filter: none;
+}
+
+.gv-page.gv-mode-fill .gv-video-bg {
+    width: 100%;
+    height: 100%;
+    max-width: none;
+    max-height: none;
+    background: transparent;
+    border-radius: 0;
+    padding: 0;
+    box-shadow: none;
+}
+
+.gv-page.gv-mode-fill .gv-video {
+    width: 100%;
+    height: 100%;
+    max-height: none;
+    object-fit: cover;
+    border-radius: 0;
 }
 
 /* -- Responsive -- */
