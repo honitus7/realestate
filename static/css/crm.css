@@ -5,6 +5,14 @@
     min-height: 100vh;
     background: var(--color-bg);
     display: flex;
+    align-items: stretch;
+}
+
+/* CRM-specific sidebar behavior: keep sidebar in normal flow so it scrolls with page */
+.crm-page .dashboard-sidebar {
+    position: static;
+    height: auto;
+    min-height: 100vh;
 }
 
 /* CRM page content layout */
@@ -1538,5 +1546,252 @@
     .crm-modal {
         width: 96vw;
         max-height: 90vh;
+    }
+}
+
+/* CRM refactor compact surfaces */
+#view-board,
+#kanban-board,
+#kanban-empty {
+    display: none !important;
+}
+
+.kpi-chip:nth-child(4),
+.kpi-chip:nth-child(5),
+.kpi-chip:nth-child(6) {
+    display: none;
+}
+
+.crm-deals-toolbar {
+    display: flex;
+    gap: 0.6rem;
+    margin: 0 0 0.85rem;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.deal-board {
+    display: grid;
+    grid-template-columns: repeat(6, minmax(180px, 1fr));
+    gap: 0.7rem;
+    overflow-x: auto;
+    padding-bottom: 0.3rem;
+}
+
+.deal-col {
+    border: 1px solid var(--color-border);
+    background: var(--color-surface);
+    border-radius: 10px;
+    min-height: 320px;
+    display: flex;
+    flex-direction: column;
+}
+
+.deal-col-head {
+    padding: 0.55rem 0.7rem;
+    border-bottom: 1px solid var(--color-border);
+    font-size: 0.78rem;
+    font-weight: 700;
+    display: flex;
+    justify-content: space-between;
+}
+
+.deal-col-cards {
+    padding: 0.45rem;
+    display: grid;
+    gap: 0.4rem;
+    min-height: 220px;
+    transition: background 0.14s ease, box-shadow 0.14s ease;
+    align-content: start;
+    overflow-x: hidden;
+}
+
+.deal-card {
+    border: 1px solid var(--color-border);
+    background: var(--color-bg-card, var(--color-surface-strong));
+    border-radius: 8px;
+    padding: 0.42rem 0.48rem;
+    cursor: grab;
+    transition: transform 0.12s ease, box-shadow 0.12s ease, border-color 0.12s ease, opacity 0.12s ease;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+    overflow: hidden;
+}
+
+.deal-card:hover {
+    border-color: var(--border-strong, var(--color-border));
+    box-shadow: 0 3px 10px rgba(22, 35, 56, 0.08);
+    transform: translateY(-1px);
+}
+
+.deal-card.is-dragging {
+    opacity: 0.7;
+    transform: none;
+    cursor: grabbing;
+}
+
+body.deal-dragging .deal-col-cards {
+    background: rgba(22, 35, 56, 0.02);
+}
+
+.deal-col-cards.is-drop-target {
+    background: rgba(22, 35, 56, 0.05);
+    box-shadow: inset 0 0 0 1px rgba(22, 35, 56, 0.15);
+}
+
+.deal-card-topline {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.35rem;
+    min-width: 0;
+}
+
+.deal-card-title {
+    font-size: 0.73rem;
+    font-weight: 700;
+    color: var(--color-text);
+    line-height: 1.2;
+    max-width: 78%;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-width: 0;
+}
+
+.deal-card-tag {
+    font-size: 0.58rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: var(--color-muted);
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 999px;
+    padding: 0.08rem 0.34rem;
+}
+
+.deal-card-grid {
+    margin-top: 0.28rem;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.15rem 0.35rem;
+    min-width: 0;
+}
+
+.deal-card-meta {
+    font-size: 0.64rem;
+    color: var(--color-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-width: 0;
+}
+
+.deal-card-meta span {
+    color: var(--color-text);
+    font-weight: 700;
+}
+
+.deal-card-amt {
+    margin-top: 0.35rem;
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: var(--color-text);
+}
+
+.deal-card-actions {
+    margin-top: 0.3rem;
+    display: flex;
+    gap: 0.28rem;
+    flex-wrap: wrap;
+    min-width: 0;
+}
+
+.deal-card-actions .btn {
+    padding: 0.24rem 0.38rem;
+    font-size: 0.61rem;
+    line-height: 1.1;
+}
+
+/* Compact interest drawer */
+.crm-page .drawer {
+    width: min(420px, 92vw);
+}
+
+.crm-page .drawer-head {
+    padding: 0.85rem 1rem;
+}
+
+.crm-page .drawer-head h2 {
+    font-size: 1rem;
+}
+
+.crm-page .drawer-body {
+    padding: 0.8rem 1rem;
+}
+
+.crm-page .drawer-section {
+    padding: 0.65rem;
+    margin-bottom: 0.55rem;
+}
+
+.crm-page .drawer-section h3 {
+    font-size: 0.68rem;
+}
+
+.drawer-field-label {
+    font-size: 0.66rem;
+}
+
+.crm-page .kv {
+    gap: 0.35rem;
+}
+
+.crm-page .kv-row {
+    gap: 0.65rem;
+    padding-bottom: 0.35rem;
+}
+
+.crm-page .kv-row .k,
+.crm-page .kv-row .v {
+    font-size: 0.78rem;
+}
+
+.drawer-plot-name {
+    font-size: 0.78rem;
+}
+
+.drawer-plot-meta {
+    font-size: 0.72rem;
+}
+
+.crm-page .drawer-foot {
+    padding: 0.7rem 0.85rem;
+    gap: 0.45rem;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+}
+
+.crm-page .drawer-foot .btn {
+    padding: 0.34rem 0.55rem;
+    font-size: 0.7rem;
+}
+
+#d-notes {
+    min-height: 72px !important;
+    font-size: 0.78rem;
+}
+
+@media (max-width: 768px) {
+    .crm-page .drawer {
+        width: 100vw;
+        max-width: 100vw;
+    }
+    .crm-page .drawer-foot .btn {
+        flex: 1 1 calc(50% - 0.45rem);
+        justify-content: center;
     }
 }

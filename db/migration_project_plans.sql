@@ -8,6 +8,7 @@ create table if not exists public.project_plans (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users(id) on delete cascade,
   org_id uuid references public.organizations(id) on delete set null,
+  workspace_id uuid references public.workspaces(id) on delete set null,
   name text not null default 'Project Plan',
   share_token text unique,
   created_at timestamptz default now(),
@@ -15,6 +16,7 @@ create table if not exists public.project_plans (
 );
 
 create index if not exists idx_project_plans_user on public.project_plans(user_id);
+create index if not exists idx_project_plans_workspace on public.project_plans(workspace_id);
 create index if not exists idx_project_plans_share_token on public.project_plans(share_token);
 
 -- 2) Project Plan ↔ Building Maps (many-to-many link table)

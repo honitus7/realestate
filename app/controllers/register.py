@@ -4,9 +4,10 @@ Register all Flask routes. Uses app.core and app.services only.
 import json
 import os
 import re
+import secrets
 import time
 import uuid
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import requests as _requests
 
@@ -217,6 +218,7 @@ from app.services.earth_view_service import (
     update_marker as ev_update_marker,
     delete_marker as ev_delete_marker,
 )
+from app.services.email_service import send_email as send_smtp_email
 from app.config import (
     ALLOWED_EXTENSIONS,
     ALLOWED_AUDIO_EXTENSIONS,
@@ -456,6 +458,85 @@ def register_routes(app):
                 break
             start += page_size
         return sorted(ids)
+
+    def _normalize_email(value):
+        return str(value or '').strip().lower()
+
+    def _normalize_phone(value):
+        return re.sub(r'[^0-9]+', '', str(value or ''))
+
+    def _safe_json(value, fallback):
+        if isinstance(value, (dict, list)):
+            return value
+        return fallback
+
+    def _is_truthy(value):
+        if isinstance(value, bool):
+            return value
+        s = str(value or '').strip().lower()
+        return s in ('1', 'true', 'yes', 'y', 'on')
+
+    def _accessible_panorama_org_map(sb, panorama_ids):
+        out = {}
+        if not panorama_ids:
+            return out
+        try:
+            r = sb.table('panoramas').select('id, org_id, name').in_('id', panorama_ids).execute()
+            for row in (r.data or []):
+                pid = row.get('id')
+                if pid is None:
+                    continue
+                out[int(pid)] = {
+                    'org_id': row.get('org_id'),
+                    'panorama_name': row.get('name') or '',
+                }
+        except Exception:
+            pass
+        return out
+
+    def _find_contact_by_email_or_phone(sb, org_id, email_norm, phone_norm, panorama_ids):
+        if not email_norm and not phone_norm:
+            return None
+        q = sb.table('crm_contacts').select(
+            'id, org_id, panorama_id, full_name, email, phone, email_norm, phone_norm, notes, created_at, updated_at'
+        )
+        if org_id:
+            q = q.eq('org_id', org_id)
+        if panorama_ids:
+            q = q.in_('panorama_id', panorama_ids)
+        rows = (q.limit(500).execute().data or [])
+        for row in rows:
+            if email_norm and row.get('email_norm') == email_norm:
+                return row
+            if phone_norm and row.get('phone_norm') == phone_norm:
+                return row
+        return None
+
+    def _touch_deal_active_state_from_stage(stage):
+        st = str(stage or '').strip().lower()
+        return st not in ('won', 'lost')
+
+    # Small in-process cache for CRM list endpoints to reduce repeated latency.
+    _crm_cache = {}
+    _crm_cache_version = {'v': 1}
+
+    def _crm_cache_bump():
+        _crm_cache_version['v'] = int(_crm_cache_version.get('v', 1)) + 1
+        if len(_crm_cache) > 500:
+            _crm_cache.clear()
+
+    def _crm_cache_get(key, ttl_seconds=3):
+        row = _crm_cache.get(key)
+        if not row:
+            return None
+        ts = row.get('ts', 0)
+        if (time.time() - ts) > ttl_seconds:
+            _crm_cache.pop(key, None)
+            return None
+        return row.get('data')
+
+    def _crm_cache_set(key, data):
+        _crm_cache[key] = {'ts': time.time(), 'data': data}
 
     @app.errorhandler(RequestEntityTooLarge)
     def handle_request_too_large(_error):
@@ -1332,6 +1413,8 @@ def register_routes(app):
             'category': category,
             'plots': plots_snapshot,
             'status': 'new',
+            'is_contacted': False,
+            'contacted_at': None,
             'notes': '',
             'created_at': now,
             'updated_at': now,
@@ -1339,6 +1422,7 @@ def register_routes(app):
         try:
             r = sb.table('buy_interests').insert(insert_row).execute()
             row = (r.data or [None])[0] if hasattr(r, 'data') else None
+            _crm_cache_bump()
             return jsonify({'success': True, 'buy_interest': row or insert_row}), 201
         except Exception as e:
             msg = str(e)
@@ -4124,6 +4208,8 @@ def register_routes(app):
             'category': category,
             'plots': plots_snapshot,
             'status': 'new',
+            'is_contacted': False,
+            'contacted_at': None,
             'notes': '',
             'created_at': now,
             'updated_at': now,
@@ -4131,6 +4217,7 @@ def register_routes(app):
         try:
             r = sb.table('buy_interests').insert(insert_row).execute()
             row = (r.data or [None])[0] if hasattr(r, 'data') else None
+            _crm_cache_bump()
             return jsonify({'success': True, 'buy_interest': row or insert_row}), 201
         except Exception as e:
             msg = str(e)
@@ -4151,33 +4238,71 @@ def register_routes(app):
         status = (request.args.get('status') or '').strip().lower()
         q = (request.args.get('q') or '').strip()
         try:
+            limit = int(request.args.get('limit', 250))
+        except Exception:
+            limit = 250
+        limit = max(50, min(500, limit))
+        try:
             if panorama_id is not None and str(panorama_id).strip() != '':
                 panorama_id = int(panorama_id)
             else:
                 panorama_id = None
         except Exception:
             panorama_id = None
+        cache_key = (
+            'buy_interests',
+            _crm_cache_version.get('v', 1),
+            str(user_id),
+            str(role or ''),
+            tuple(panorama_ids),
+            panorama_id or 0,
+            status,
+            q.lower(),
+            limit,
+        )
+        cached = _crm_cache_get(cache_key, ttl_seconds=3)
+        if cached is not None:
+            return jsonify(cached)
         try:
-            query = sb.table('buy_interests').select('*').in_('panorama_id', panorama_ids)
+            query = (
+                sb.table('buy_interests')
+                .select('id, panorama_id, contact_id, customer_name, customer_email, customer_phone, category, plots, status, is_contacted, contacted_at, notes, created_at, updated_at, submitted_by')
+                .in_('panorama_id', panorama_ids)
+            )
             if panorama_id and panorama_id in panorama_ids:
                 query = query.eq('panorama_id', panorama_id)
-            if status in ('new', 'contacted', 'qualified', 'won', 'lost'):
-                query = query.eq('status', status)
+            if status in ('new', 'contacted'):
+                if status == 'contacted':
+                    query = query.eq('is_contacted', True)
+                else:
+                    query = query.eq('is_contacted', False)
             if q:
                 token = q.replace('%', '').replace('(', '').replace(')', '').replace(',', '')
-                query = query.or_(
-                    f"customer_name.ilike.%{token}%,customer_email.ilike.%{token}%,customer_phone.ilike.%{token}%"
-                )
-            r = query.order('created_at', desc=True).limit(500).execute()
+                if token:
+                    query = query.or_(
+                        f"customer_name.ilike.%{token}%,customer_email.ilike.%{token}%,customer_phone.ilike.%{token}%"
+                    )
+            r = query.order('created_at', desc=True).limit(limit).execute()
             out = []
             for row in (r.data or []):
                 o = dict(row)
                 for k in ('created_at', 'updated_at'):
                     if k in o and o[k]:
                         o[k] = str(o[k])
+                if 'contacted_at' in o and o['contacted_at']:
+                    o['contacted_at'] = str(o['contacted_at'])
+                # Backward-compatible normalization for legacy records.
+                legacy_status = str(o.get('status') or '').strip().lower()
+                legacy_contacted = legacy_status in ('contacted', 'qualified', 'won', 'lost')
+                o['is_contacted'] = bool(o.get('is_contacted') or legacy_contacted)
+                if o['is_contacted'] and not o.get('contacted_at'):
+                    o['contacted_at'] = o.get('updated_at') or o.get('created_at')
                 if 'submitted_by' in o and o['submitted_by']:
                     o['submitted_by'] = str(o['submitted_by'])
+                if 'contact_id' in o and o['contact_id']:
+                    o['contact_id'] = str(o['contact_id'])
                 out.append(o)
+            _crm_cache_set(cache_key, out)
             return jsonify(out)
         except Exception as e:
             msg = str(e)
@@ -4193,16 +4318,24 @@ def register_routes(app):
             return jsonify({'error': 'Database not configured'}), 503
         data = request.get_json(silent=True) or {}
         upd = {}
+        now = datetime.utcnow().isoformat()
+        if 'is_contacted' in data:
+            mark_contacted = _is_truthy(data.get('is_contacted'))
+            upd['is_contacted'] = mark_contacted
+            upd['status'] = 'contacted' if mark_contacted else 'new'
+            upd['contacted_at'] = now if mark_contacted else None
         if 'status' in data:
             status = str(data.get('status') or '').strip().lower()
-            if status not in ('new', 'contacted', 'qualified', 'won', 'lost'):
-                return jsonify({'error': 'Invalid status'}), 400
+            if status not in ('new', 'contacted'):
+                return jsonify({'error': 'Invalid status. Interests support only new/contacted'}), 400
+            upd['is_contacted'] = (status == 'contacted')
             upd['status'] = status
+            upd['contacted_at'] = now if status == 'contacted' else None
         if 'notes' in data:
             upd['notes'] = str(data.get('notes') or '').strip()
         if not upd:
             return jsonify({'error': 'Nothing to update'}), 400
-        upd['updated_at'] = datetime.utcnow().isoformat()
+        upd['updated_at'] = now
         panorama_ids = _crm_panorama_ids(sb, user_id, role)
         if not panorama_ids:
             return jsonify({'error': 'Forbidden'}), 403
@@ -4211,12 +4344,766 @@ def register_routes(app):
             r = sb.table('buy_interests').update(upd).eq('id', interest_id).in_('panorama_id', panorama_ids).execute()
             if not r.data or len(r.data) == 0:
                 return jsonify({'error': 'Not found or access denied'}), 404
+            _crm_cache_bump()
             return jsonify({'success': True})
         except Exception as e:
             msg = str(e)
             if 'buy_interests' in msg and ('does not exist' in msg.lower() or 'relation' in msg.lower()):
                 return jsonify({'error': 'buy_interests table not found. Run db/schema.sql in Supabase SQL Editor.'}), 503
             return jsonify({'error': msg}), 500
+
+    @app.route('/api/buy-interests/<interest_id>', methods=['DELETE'])
+    @require_auth
+    def delete_buy_interest(user_id, role, interest_id):
+        sb = get_supabase()
+        if not sb:
+            return jsonify({'error': 'Database not configured'}), 503
+        panorama_ids = _crm_panorama_ids(sb, user_id, role)
+        if not panorama_ids:
+            return jsonify({'error': 'Forbidden'}), 403
+        try:
+            existing = (
+                sb.table('buy_interests')
+                .select('id')
+                .eq('id', str(interest_id))
+                .in_('panorama_id', panorama_ids)
+                .limit(1)
+                .execute()
+            )
+            if not (existing.data or []):
+                return jsonify({'error': 'Not found or access denied'}), 404
+            sb.table('buy_interests').delete().eq('id', str(interest_id)).in_('panorama_id', panorama_ids).execute()
+            _crm_cache_bump()
+            return jsonify({'success': True})
+        except Exception as e:
+            msg = str(e)
+            if 'buy_interests' in msg and ('does not exist' in msg.lower() or 'relation' in msg.lower()):
+                return jsonify({'error': 'buy_interests table not found. Run db/schema.sql in Supabase SQL Editor.'}), 503
+            return jsonify({'error': msg}), 500
+
+    def _get_interest_for_user(sb, interest_id, panorama_ids):
+        if not panorama_ids:
+            return None
+        try:
+            r = (
+                sb.table('buy_interests')
+                .select('id, panorama_id, contact_id, customer_name, customer_email, customer_phone, category, plots, notes, created_at, is_contacted, contacted_at, status')
+                .eq('id', str(interest_id))
+                .in_('panorama_id', panorama_ids)
+                .limit(1)
+                .execute()
+            )
+            rows = r.data or []
+            return rows[0] if rows else None
+        except Exception:
+            return None
+
+    def _get_contact_for_user(sb, contact_id, panorama_ids):
+        if not panorama_ids:
+            return None
+        try:
+            r = (
+                sb.table('crm_contacts')
+                .select('id, org_id, panorama_id, full_name, email, phone, email_norm, phone_norm, notes, created_at, updated_at')
+                .eq('id', str(contact_id))
+                .in_('panorama_id', panorama_ids)
+                .limit(1)
+                .execute()
+            )
+            rows = r.data or []
+            return rows[0] if rows else None
+        except Exception:
+            return None
+
+    @app.route('/api/crm/contacts', methods=['GET'])
+    @require_auth
+    def list_crm_contacts(user_id, role):
+        sb = get_supabase()
+        if not sb:
+            return jsonify({'error': 'Database not configured'}), 503
+        panorama_ids = _crm_panorama_ids(sb, user_id, role)
+        if not panorama_ids:
+            return jsonify([])
+        q = str(request.args.get('q') or '').strip().lower()
+        include_counts = str(request.args.get('include_counts', '1')).strip() != '0'
+        try:
+            limit = int(request.args.get('limit', 200))
+        except Exception:
+            limit = 200
+        limit = max(50, min(500, limit))
+        cache_key = (
+            'crm_contacts',
+            _crm_cache_version.get('v', 1),
+            str(user_id),
+            str(role or ''),
+            tuple(panorama_ids),
+            q,
+            int(include_counts),
+            limit,
+        )
+        cached = _crm_cache_get(cache_key, ttl_seconds=3)
+        if cached is not None:
+            return jsonify(cached)
+        try:
+            query = (
+                sb.table('crm_contacts')
+                .select('id, org_id, panorama_id, full_name, email, phone, notes, created_at, updated_at')
+                .in_('panorama_id', panorama_ids)
+                .order('updated_at', desc=True)
+                .limit(limit)
+            )
+            if q:
+                token = q.replace('%', '').replace('(', '').replace(')', '').replace(',', '')
+                if token:
+                    query = query.or_(f"full_name.ilike.%{token}%,email.ilike.%{token}%,phone.ilike.%{token}%")
+            r = query.execute()
+            rows = r.data or []
+            # Relationship counts in one shot.
+            contact_ids = [row.get('id') for row in rows if row.get('id')]
+            deals_count = {}
+            interests_count = {}
+            if include_counts and contact_ids:
+                dr = (
+                    sb.table('crm_deals')
+                    .select('id, contact_id')
+                    .in_('contact_id', contact_ids)
+                    .execute()
+                )
+                for d in (dr.data or []):
+                    cid = d.get('contact_id')
+                    if not cid:
+                        continue
+                    deals_count[cid] = deals_count.get(cid, 0) + 1
+                ir = (
+                    sb.table('buy_interests')
+                    .select('id, contact_id')
+                    .in_('contact_id', contact_ids)
+                    .execute()
+                )
+                for irow in (ir.data or []):
+                    cid = irow.get('contact_id')
+                    if not cid:
+                        continue
+                    interests_count[cid] = interests_count.get(cid, 0) + 1
+            out = []
+            for row in rows:
+                cid = row.get('id')
+                o = dict(row)
+                o['deals_count'] = int(deals_count.get(cid, 0))
+                o['interests_count'] = int(interests_count.get(cid, 0))
+                out.append(o)
+            _crm_cache_set(cache_key, out)
+            return jsonify(out)
+        except Exception as e:
+            return jsonify({'error': str(e)}), 500
+
+    @app.route('/api/crm/contacts', methods=['POST'])
+    @require_auth
+    def create_crm_contact(user_id, role):
+        sb = get_supabase()
+        if not sb:
+            return jsonify({'error': 'Database not configured'}), 503
+        data = request.get_json(silent=True) or {}
+        panorama_ids = _crm_panorama_ids(sb, user_id, role)
+        if not panorama_ids:
+            return jsonify({'error': 'Forbidden'}), 403
+        panorama_id = data.get('panorama_id')
+        try:
+            panorama_id = int(panorama_id) if panorama_id is not None else int(panorama_ids[0])
+        except Exception:
+            panorama_id = None
+        if not panorama_id or panorama_id not in panorama_ids:
+            return jsonify({'error': 'Invalid panorama_id'}), 400
+        full_name = str(data.get('full_name') or data.get('name') or '').strip()
+        email = str(data.get('email') or '').strip()
+        phone = str(data.get('phone') or '').strip()
+        notes = str(data.get('notes') or '').strip()
+        if not full_name:
+            return jsonify({'error': 'Contact name is required'}), 400
+        if not email and not phone:
+            return jsonify({'error': 'Email or phone is required'}), 400
+        pmap = _accessible_panorama_org_map(sb, [panorama_id])
+        org_id = (pmap.get(panorama_id) or {}).get('org_id')
+        email_norm = _normalize_email(email)
+        phone_norm = _normalize_phone(phone)
+        existing = _find_contact_by_email_or_phone(sb, org_id, email_norm, phone_norm, [panorama_id])
+        now = datetime.utcnow().isoformat()
+        if existing:
+            upd = {
+                'full_name': full_name or existing.get('full_name') or '',
+                'email': email or existing.get('email') or '',
+                'phone': phone or existing.get('phone') or '',
+                'email_norm': email_norm or existing.get('email_norm') or '',
+                'phone_norm': phone_norm or existing.get('phone_norm') or '',
+                'notes': notes or existing.get('notes') or '',
+                'updated_at': now,
+            }
+            sb.table('crm_contacts').update(upd).eq('id', existing.get('id')).execute()
+            _crm_cache_bump()
+            return jsonify({'success': True, 'contact': dict(existing), 'merged': True})
+        row = {
+            'org_id': org_id,
+            'panorama_id': panorama_id,
+            'full_name': full_name,
+            'email': email,
+            'phone': phone,
+            'email_norm': email_norm,
+            'phone_norm': phone_norm,
+            'source_interest_id': None,
+            'created_by': user_id,
+            'notes': notes,
+            'created_at': now,
+            'updated_at': now,
+        }
+        r = sb.table('crm_contacts').insert(row).execute()
+        created = (r.data or [row])[0]
+        _crm_cache_bump()
+        return jsonify({'success': True, 'contact': created, 'merged': False}), 201
+
+    @app.route('/api/crm/contacts/<contact_id>', methods=['PATCH'])
+    @require_auth
+    def update_crm_contact(user_id, role, contact_id):
+        sb = get_supabase()
+        if not sb:
+            return jsonify({'error': 'Database not configured'}), 503
+        panorama_ids = _crm_panorama_ids(sb, user_id, role)
+        contact = _get_contact_for_user(sb, contact_id, panorama_ids)
+        if not contact:
+            return jsonify({'error': 'Not found or access denied'}), 404
+        data = request.get_json(silent=True) or {}
+        upd = {}
+        if 'full_name' in data:
+            upd['full_name'] = str(data.get('full_name') or '').strip()
+        if 'email' in data:
+            em = str(data.get('email') or '').strip()
+            upd['email'] = em
+            upd['email_norm'] = _normalize_email(em)
+        if 'phone' in data:
+            ph = str(data.get('phone') or '').strip()
+            upd['phone'] = ph
+            upd['phone_norm'] = _normalize_phone(ph)
+        if 'notes' in data:
+            upd['notes'] = str(data.get('notes') or '').strip()
+        if not upd:
+            return jsonify({'error': 'Nothing to update'}), 400
+        upd['updated_at'] = datetime.utcnow().isoformat()
+        sb.table('crm_contacts').update(upd).eq('id', str(contact_id)).execute()
+        _crm_cache_bump()
+        return jsonify({'success': True})
+
+    @app.route('/api/crm/interests/<interest_id>/create-contact', methods=['POST'])
+    @require_auth
+    def create_contact_from_interest(user_id, role, interest_id):
+        sb = get_supabase()
+        if not sb:
+            return jsonify({'error': 'Database not configured'}), 503
+        panorama_ids = _crm_panorama_ids(sb, user_id, role)
+        if not panorama_ids:
+            return jsonify({'error': 'Forbidden'}), 403
+        interest = _get_interest_for_user(sb, interest_id, panorama_ids)
+        if not interest:
+            return jsonify({'error': 'Interest not found'}), 404
+        panorama_id = int(interest.get('panorama_id'))
+        pmap = _accessible_panorama_org_map(sb, [panorama_id])
+        org_id = (pmap.get(panorama_id) or {}).get('org_id')
+        full_name = str(interest.get('customer_name') or '').strip()
+        email = str(interest.get('customer_email') or '').strip()
+        phone = str(interest.get('customer_phone') or '').strip()
+        email_norm = _normalize_email(email)
+        phone_norm = _normalize_phone(phone)
+        existing = _find_contact_by_email_or_phone(sb, org_id, email_norm, phone_norm, [panorama_id])
+        now = datetime.utcnow().isoformat()
+        if existing:
+            upd = {
+                'full_name': full_name or existing.get('full_name') or '',
+                'email': email or existing.get('email') or '',
+                'phone': phone or existing.get('phone') or '',
+                'email_norm': email_norm or existing.get('email_norm') or '',
+                'phone_norm': phone_norm or existing.get('phone_norm') or '',
+                'updated_at': now,
+            }
+            sb.table('crm_contacts').update(upd).eq('id', existing.get('id')).execute()
+            sb.table('buy_interests').update({
+                'contact_id': existing.get('id'),
+                'updated_at': now,
+            }).eq('id', str(interest_id)).execute()
+            _crm_cache_bump()
+            return jsonify({'success': True, 'contact': dict(existing), 'merged': True})
+        row = {
+            'org_id': org_id,
+            'panorama_id': panorama_id,
+            'full_name': full_name,
+            'email': email,
+            'phone': phone,
+            'email_norm': email_norm,
+            'phone_norm': phone_norm,
+            'source_interest_id': str(interest_id),
+            'created_by': user_id,
+            'notes': '',
+            'created_at': now,
+            'updated_at': now,
+        }
+        r = sb.table('crm_contacts').insert(row).execute()
+        created = (r.data or [row])[0]
+        sb.table('buy_interests').update({
+            'contact_id': created.get('id'),
+            'updated_at': now,
+        }).eq('id', str(interest_id)).execute()
+        _crm_cache_bump()
+        return jsonify({'success': True, 'contact': created, 'merged': False}), 201
+
+    @app.route('/api/crm/deals', methods=['GET'])
+    @require_auth
+    def list_crm_deals(user_id, role):
+        sb = get_supabase()
+        if not sb:
+            return jsonify({'error': 'Database not configured'}), 503
+        panorama_ids = _crm_panorama_ids(sb, user_id, role)
+        if not panorama_ids:
+            return jsonify([])
+        stage = str(request.args.get('stage') or '').strip().lower()
+        q = str(request.args.get('q') or '').strip().lower()
+        try:
+            limit = int(request.args.get('limit', 300))
+        except Exception:
+            limit = 300
+        limit = max(50, min(800, limit))
+        allowed = ('new', 'contacted', 'site_visit', 'negotiation', 'won', 'lost')
+        cache_key = (
+            'crm_deals',
+            _crm_cache_version.get('v', 1),
+            str(user_id),
+            str(role or ''),
+            tuple(panorama_ids),
+            stage,
+            q,
+            limit,
+        )
+        cached = _crm_cache_get(cache_key, ttl_seconds=3)
+        if cached is not None:
+            return jsonify(cached)
+        try:
+            query = (
+                sb.table('crm_deals')
+                .select('id, org_id, panorama_id, interest_id, contact_id, title, stage, is_active, amount, currency, plots, project_name, notes, created_at, updated_at')
+                .in_('panorama_id', panorama_ids)
+            )
+            if stage in allowed:
+                query = query.eq('stage', stage)
+            if q:
+                token = q.replace('%', '').replace('(', '').replace(')', '').replace(',', '')
+                if token:
+                    query = query.or_(f"title.ilike.%{token}%,project_name.ilike.%{token}%,amount.ilike.%{token}%")
+            rows = (query.order('updated_at', desc=True).limit(limit).execute().data or [])
+            _crm_cache_set(cache_key, rows)
+            return jsonify(rows)
+        except Exception as e:
+            return jsonify({'error': str(e)}), 500
+
+    @app.route('/api/crm/interests/<interest_id>/create-deal', methods=['POST'])
+    @require_auth
+    def create_deal_from_interest(user_id, role, interest_id):
+        sb = get_supabase()
+        if not sb:
+            return jsonify({'error': 'Database not configured'}), 503
+        panorama_ids = _crm_panorama_ids(sb, user_id, role)
+        if not panorama_ids:
+            return jsonify({'error': 'Forbidden'}), 403
+        interest = _get_interest_for_user(sb, interest_id, panorama_ids)
+        if not interest:
+            return jsonify({'error': 'Interest not found'}), 404
+        panorama_id = int(interest.get('panorama_id'))
+        if panorama_id not in panorama_ids:
+            return jsonify({'error': 'Forbidden'}), 403
+        data = request.get_json(silent=True) or {}
+        contact_id = data.get('contact_id') or interest.get('contact_id')
+        if not contact_id:
+            return jsonify({'error': 'Create or link a contact first'}), 400
+        contact = _get_contact_for_user(sb, contact_id, panorama_ids)
+        if not contact:
+            return jsonify({'error': 'Linked contact not found'}), 404
+        existing_active = (
+            sb.table('crm_deals')
+            .select('id, stage, is_active')
+            .eq('interest_id', str(interest_id))
+            .eq('is_active', True)
+            .limit(1)
+            .execute()
+        )
+        if existing_active.data:
+            return jsonify({'error': 'An active deal already exists for this interest'}), 409
+        pmap = _accessible_panorama_org_map(sb, [panorama_id])
+        pinfo = pmap.get(panorama_id) or {}
+        plots = _safe_json(interest.get('plots'), [])
+        amount = ''
+        if isinstance(plots, list):
+            prices = [str((p or {}).get('price') or '').strip() for p in plots]
+            prices = [x for x in prices if x]
+            if len(prices) == 1:
+                amount = prices[0]
+            elif len(prices) > 1:
+                amount = prices[0] + ' + more'
+        now = datetime.utcnow().isoformat()
+        row = {
+            'org_id': pinfo.get('org_id'),
+            'panorama_id': panorama_id,
+            'interest_id': str(interest_id),
+            'contact_id': str(contact_id),
+            'title': str(data.get('title') or (contact.get('full_name') or interest.get('customer_name') or 'Deal')).strip(),
+            'stage': str(data.get('stage') or 'new').strip().lower() or 'new',
+            'is_active': True,
+            'amount': str(data.get('amount') or amount or '').strip(),
+            'currency': 'INR',
+            'plots': plots if isinstance(plots, list) else [],
+            'project_name': pinfo.get('panorama_name') or '',
+            'notes': str(data.get('notes') or interest.get('notes') or '').strip(),
+            'created_by': user_id,
+            'created_at': now,
+            'updated_at': now,
+        }
+        if row['stage'] not in ('new', 'contacted', 'site_visit', 'negotiation', 'won', 'lost'):
+            row['stage'] = 'new'
+        row['is_active'] = _touch_deal_active_state_from_stage(row['stage'])
+        r = sb.table('crm_deals').insert(row).execute()
+        created = (r.data or [row])[0]
+        sb.table('buy_interests').update({'updated_at': now, 'contact_id': str(contact_id)}).eq('id', str(interest_id)).execute()
+        _crm_cache_bump()
+        return jsonify({'success': True, 'deal': created}), 201
+
+    @app.route('/api/crm/deals', methods=['POST'])
+    @require_auth
+    def create_crm_deal(user_id, role):
+        sb = get_supabase()
+        if not sb:
+            return jsonify({'error': 'Database not configured'}), 503
+        panorama_ids = _crm_panorama_ids(sb, user_id, role)
+        if not panorama_ids:
+            return jsonify({'error': 'Forbidden'}), 403
+        data = request.get_json(silent=True) or {}
+        panorama_id = data.get('panorama_id')
+        try:
+            panorama_id = int(panorama_id)
+        except Exception:
+            panorama_id = None
+        if not panorama_id or panorama_id not in panorama_ids:
+            return jsonify({'error': 'Invalid panorama_id'}), 400
+        contact_id = data.get('contact_id')
+        if not contact_id:
+            return jsonify({'error': 'contact_id is required'}), 400
+        contact = _get_contact_for_user(sb, contact_id, panorama_ids)
+        if not contact:
+            return jsonify({'error': 'Contact not found'}), 404
+        stage = str(data.get('stage') or 'new').strip().lower()
+        if stage not in ('new', 'contacted', 'site_visit', 'negotiation', 'won', 'lost'):
+            return jsonify({'error': 'Invalid stage'}), 400
+        interest_id = str(data.get('interest_id') or '').strip() or None
+        if interest_id:
+            existing_active = (
+                sb.table('crm_deals')
+                .select('id')
+                .eq('interest_id', interest_id)
+                .eq('is_active', True)
+                .limit(1)
+                .execute()
+            )
+            if existing_active.data:
+                return jsonify({'error': 'An active deal already exists for this interest'}), 409
+        pmap = _accessible_panorama_org_map(sb, [panorama_id])
+        now = datetime.utcnow().isoformat()
+        row = {
+            'org_id': (pmap.get(panorama_id) or {}).get('org_id'),
+            'panorama_id': panorama_id,
+            'interest_id': interest_id,
+            'contact_id': str(contact_id),
+            'title': str(data.get('title') or contact.get('full_name') or 'Deal').strip(),
+            'stage': stage,
+            'is_active': _touch_deal_active_state_from_stage(stage),
+            'amount': str(data.get('amount') or '').strip(),
+            'currency': str(data.get('currency') or 'INR').strip() or 'INR',
+            'plots': _safe_json(data.get('plots'), []),
+            'project_name': str(data.get('project_name') or (pmap.get(panorama_id) or {}).get('panorama_name') or '').strip(),
+            'notes': str(data.get('notes') or '').strip(),
+            'created_by': user_id,
+            'created_at': now,
+            'updated_at': now,
+        }
+        r = sb.table('crm_deals').insert(row).execute()
+        created = (r.data or [row])[0]
+        _crm_cache_bump()
+        return jsonify({'success': True, 'deal': created}), 201
+
+    @app.route('/api/crm/deals/<deal_id>', methods=['PATCH'])
+    @require_auth
+    def update_crm_deal(user_id, role, deal_id):
+        sb = get_supabase()
+        if not sb:
+            return jsonify({'error': 'Database not configured'}), 503
+        panorama_ids = _crm_panorama_ids(sb, user_id, role)
+        if not panorama_ids:
+            return jsonify({'error': 'Forbidden'}), 403
+        existing = (
+            sb.table('crm_deals')
+            .select('id, panorama_id, stage')
+            .eq('id', str(deal_id))
+            .in_('panorama_id', panorama_ids)
+            .limit(1)
+            .execute()
+        )
+        if not existing.data:
+            return jsonify({'error': 'Not found or access denied'}), 404
+        data = request.get_json(silent=True) or {}
+        upd = {}
+        for key in ('title', 'amount', 'currency', 'project_name', 'notes'):
+            if key in data:
+                upd[key] = str(data.get(key) or '').strip()
+        if 'plots' in data:
+            upd['plots'] = _safe_json(data.get('plots'), [])
+        if 'contact_id' in data:
+            cid = str(data.get('contact_id') or '').strip()
+            if not cid:
+                return jsonify({'error': 'contact_id cannot be empty'}), 400
+            contact = _get_contact_for_user(sb, cid, panorama_ids)
+            if not contact:
+                return jsonify({'error': 'Contact not found'}), 404
+            upd['contact_id'] = cid
+        if 'stage' in data:
+            stage = str(data.get('stage') or '').strip().lower()
+            if stage not in ('new', 'contacted', 'site_visit', 'negotiation', 'won', 'lost'):
+                return jsonify({'error': 'Invalid stage'}), 400
+            upd['stage'] = stage
+            upd['is_active'] = _touch_deal_active_state_from_stage(stage)
+        if not upd:
+            return jsonify({'error': 'Nothing to update'}), 400
+        upd['updated_at'] = datetime.utcnow().isoformat()
+        sb.table('crm_deals').update(upd).eq('id', str(deal_id)).execute()
+        _crm_cache_bump()
+        return jsonify({'success': True})
+
+    @app.route('/api/crm/deals/<deal_id>/move-stage', methods=['POST'])
+    @require_auth
+    def move_crm_deal_stage(user_id, role, deal_id):
+        sb = get_supabase()
+        if not sb:
+            return jsonify({'error': 'Database not configured'}), 503
+        data = request.get_json(silent=True) or {}
+        stage = str(data.get('stage') or '').strip().lower()
+        if stage not in ('new', 'contacted', 'site_visit', 'negotiation', 'won', 'lost'):
+            return jsonify({'error': 'Invalid stage'}), 400
+        panorama_ids = _crm_panorama_ids(sb, user_id, role)
+        if not panorama_ids:
+            return jsonify({'error': 'Forbidden'}), 403
+        upd = {
+            'stage': stage,
+            'is_active': _touch_deal_active_state_from_stage(stage),
+            'updated_at': datetime.utcnow().isoformat(),
+        }
+        r = (
+            sb.table('crm_deals')
+            .update(upd)
+            .eq('id', str(deal_id))
+            .in_('panorama_id', panorama_ids)
+            .execute()
+        )
+        if not r.data:
+            return jsonify({'error': 'Not found or access denied'}), 404
+        _crm_cache_bump()
+        return jsonify({'success': True})
+
+    @app.route('/api/crm/deals/<deal_id>/quotation/preview', methods=['POST'])
+    @require_auth
+    def preview_deal_quote(user_id, role, deal_id):
+        sb = get_supabase()
+        if not sb:
+            return jsonify({'error': 'Database not configured'}), 503
+        panorama_ids = _crm_panorama_ids(sb, user_id, role)
+        if not panorama_ids:
+            return jsonify({'error': 'Forbidden'}), 403
+        dr = (
+            sb.table('crm_deals')
+            .select('id, panorama_id, contact_id, title, stage, amount, currency, plots, project_name')
+            .eq('id', str(deal_id))
+            .in_('panorama_id', panorama_ids)
+            .limit(1)
+            .execute()
+        )
+        if not dr.data:
+            return jsonify({'error': 'Deal not found'}), 404
+        deal = dr.data[0]
+        contact = None
+        if deal.get('contact_id'):
+            contact = _get_contact_for_user(sb, deal.get('contact_id'), panorama_ids)
+        payload = request.get_json(silent=True) or {}
+        quote_payload = {
+            'deal': deal,
+            'contact': contact or {},
+            'inputs': _safe_json(payload, {}),
+            'generated_at': datetime.utcnow().isoformat(),
+        }
+        token = secrets.token_urlsafe(24)
+        now = datetime.utcnow().isoformat()
+        row = {
+            'deal_id': str(deal_id),
+            'contact_id': str(deal.get('contact_id') or '') or None,
+            'quote_payload': quote_payload,
+            'share_token': token,
+            'sent_to_email': '',
+            'sent_to_phone': '',
+            'shared_via': '',
+            'sent_at': None,
+            'created_by': user_id,
+            'created_at': now,
+            'updated_at': now,
+        }
+        r = sb.table('crm_deal_quotes').insert(row).execute()
+        quote = (r.data or [row])[0]
+        share_url = f"{request.url_root.rstrip('/')}/api/crm/deals/{deal_id}/quotation/{quote.get('id')}?token={token}"
+        _crm_cache_bump()
+        return jsonify({'success': True, 'quote': quote, 'share_url': share_url})
+
+    @app.route('/api/crm/deals/<deal_id>/quotation/share', methods=['POST'])
+    @require_auth
+    def share_deal_quote(user_id, role, deal_id):
+        sb = get_supabase()
+        if not sb:
+            return jsonify({'error': 'Database not configured'}), 503
+        panorama_ids = _crm_panorama_ids(sb, user_id, role)
+        if not panorama_ids:
+            return jsonify({'error': 'Forbidden'}), 403
+        data = request.get_json(silent=True) or {}
+        quote_id = str(data.get('quote_id') or '').strip()
+        if not quote_id:
+            return jsonify({'error': 'quote_id is required'}), 400
+        qr = (
+            sb.table('crm_deal_quotes')
+            .select('id, deal_id, contact_id, quote_payload, share_token')
+            .eq('id', quote_id)
+            .eq('deal_id', str(deal_id))
+            .limit(1)
+            .execute()
+        )
+        if not qr.data:
+            return jsonify({'error': 'Quote not found'}), 404
+        quote = qr.data[0]
+        dr = (
+            sb.table('crm_deals')
+            .select('id, panorama_id, title')
+            .eq('id', str(deal_id))
+            .in_('panorama_id', panorama_ids)
+            .limit(1)
+            .execute()
+        )
+        if not dr.data:
+            return jsonify({'error': 'Deal not found or access denied'}), 404
+        to_email = str(data.get('email') or '').strip()
+        to_phone = str(data.get('phone') or '').strip()
+        if not to_email and quote.get('contact_id'):
+            contact = _get_contact_for_user(sb, quote.get('contact_id'), panorama_ids)
+            if contact:
+                to_email = str(contact.get('email') or '').strip()
+                to_phone = str(contact.get('phone') or '').strip()
+        if not to_email:
+            return jsonify({'error': 'No recipient email found'}), 400
+        share_url = f"{request.url_root.rstrip('/')}/api/crm/deals/{deal_id}/quotation/{quote_id}?token={quote.get('share_token')}"
+        subject = f"Quotation for {dr.data[0].get('title') or 'your deal'}"
+        body = (
+            f"Hello,\n\nPlease review your quotation using the link below:\n{share_url}\n\n"
+            f"Shared via PropMark CRM on {datetime.utcnow().strftime('%Y-%m-%d %H:%M UTC')}.\n"
+        )
+        try:
+            send_smtp_email(
+                smtp_host=app_config.SMTP_HOST,
+                smtp_port=app_config.SMTP_PORT,
+                smtp_username=app_config.SMTP_USERNAME,
+                smtp_password=app_config.SMTP_PASSWORD,
+                smtp_use_tls=app_config.SMTP_USE_TLS,
+                from_email=app_config.SMTP_FROM_EMAIL,
+                from_name=app_config.SMTP_FROM_NAME,
+                to_email=to_email,
+                subject=subject,
+                text_body=body,
+            )
+        except Exception as e:
+            return jsonify({'error': f'Email send failed: {e}'}), 500
+        now = datetime.utcnow().isoformat()
+        sb.table('crm_deal_quotes').update({
+            'sent_to_email': to_email,
+            'sent_to_phone': to_phone,
+            'shared_via': 'email',
+            'sent_at': now,
+            'updated_at': now,
+        }).eq('id', quote_id).execute()
+        _crm_cache_bump()
+        return jsonify({'success': True, 'share_url': share_url})
+
+    @app.route('/api/crm/deals/<deal_id>/quotation/<quote_id>', methods=['GET'])
+    def open_deal_quote(deal_id, quote_id):
+        sb = get_supabase()
+        if not sb:
+            return Response('Database not configured', status=503)
+        token = str(request.args.get('token') or '').strip()
+        if not token:
+            return Response('Missing token', status=400)
+        try:
+            qr = (
+                sb.table('crm_deal_quotes')
+                .select('id, deal_id, quote_payload, share_token')
+                .eq('id', str(quote_id))
+                .eq('deal_id', str(deal_id))
+                .eq('share_token', token)
+                .limit(1)
+                .execute()
+            )
+            if not qr.data:
+                return Response('Invalid or expired quote link', status=404)
+            payload = _safe_json((qr.data[0] or {}).get('quote_payload'), {})
+            deal = _safe_json(payload.get('deal'), {})
+            contact = _safe_json(payload.get('contact'), {})
+            inputs = _safe_json(payload.get('inputs'), {})
+            plots = _safe_json(deal.get('plots'), [])
+            plot_rows = ''.join([
+                '<tr>'
+                f"<td>{idx+1}</td>"
+                f"<td>{(p or {}).get('name') or ''}</td>"
+                f"<td>{(p or {}).get('area') or ''}</td>"
+                f"<td>{(p or {}).get('price') or ''}</td>"
+                '</tr>'
+                for idx, p in enumerate(plots if isinstance(plots, list) else [])
+            ]) or '<tr><td colspan="4">No plots</td></tr>'
+            html = f"""<!doctype html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Quotation</title>
+<style>
+body {{ font-family: Arial, sans-serif; margin: 24px; color:#111827; }}
+.card {{ border:1px solid #e5e7eb; border-radius:10px; padding:16px; margin-bottom:16px; }}
+table {{ width:100%; border-collapse: collapse; }}
+th,td {{ border:1px solid #e5e7eb; padding:8px; text-align:left; }}
+h1 {{ margin:0 0 8px; font-size:22px; }}
+.muted {{ color:#6b7280; }}
+</style></head><body>
+<h1>Quotation</h1>
+<div class="card">
+<div><strong>Deal:</strong> {deal.get('title') or ''}</div>
+<div><strong>Project:</strong> {deal.get('project_name') or ''}</div>
+<div><strong>Stage:</strong> {deal.get('stage') or ''}</div>
+<div><strong>Amount:</strong> {deal.get('amount') or ''} {deal.get('currency') or ''}</div>
+</div>
+<div class="card">
+<div><strong>Contact:</strong> {contact.get('full_name') or ''}</div>
+<div><strong>Email:</strong> {contact.get('email') or ''}</div>
+<div><strong>Phone:</strong> {contact.get('phone') or ''}</div>
+</div>
+<div class="card">
+<div class="muted">Quote Inputs</div>
+<pre>{json.dumps(inputs, indent=2)}</pre>
+</div>
+<div class="card">
+<table><thead><tr><th>#</th><th>Plot</th><th>Area</th><th>Price</th></tr></thead>
+<tbody>{plot_rows}</tbody></table>
+</div>
+</body></html>"""
+            return Response(html, mimetype='text/html')
+        except Exception as e:
+            return Response(str(e), status=500)
 
     # ----- CRM extended endpoints -----
 
@@ -5051,6 +5938,13 @@ def register_routes(app):
         if any(m.get('name', '').strip().lower() == name.lower() for m in existing):
             return jsonify({'error': f'A building map named "{name}" already exists'}), 409
         catalogue_id = str(request.form.get('catalogue_id') or '').strip() or None
+        workspace_id = str(request.form.get('workspace_id') or '').strip() or None
+        if workspace_id:
+            workspace = get_workspace_by_id(sb, workspace_id)
+            if not workspace:
+                return jsonify({'error': 'Project not found'}), 404
+            if not can_manage_workspace(workspace, user_id, role):
+                return jsonify({'error': 'Forbidden'}), 403
         f = request.files.get('file')
         if not f:
             return jsonify({'error': 'No file uploaded'}), 400
@@ -5066,7 +5960,7 @@ def register_routes(app):
         upload_building_map_to_s3(filename, jpeg_bytes, 'image/jpeg')
         profile = get_profile(sb, user_id)
         org_id = profile.get('org_id') if profile else None
-        bm = bm_create(sb, user_id, org_id, name, filename, w, h, catalogue_id)
+        bm = bm_create(sb, user_id, org_id, name, filename, w, h, catalogue_id, workspace_id=workspace_id)
         if not bm:
             return jsonify({'error': 'Failed to create building map'}), 500
         bm['image_url'] = get_building_map_s3_url(filename)
@@ -5749,7 +6643,14 @@ def register_routes(app):
         if any(p.get('name', '').strip().lower() == name.lower() for p in existing):
             return jsonify({'error': f'A project plan named "{name}" already exists'}), 409
         org_id = data.get('org_id')
-        plan = pp_create(sb, user_id, org_id, name)
+        workspace_id = str(data.get('workspace_id') or '').strip() or None
+        if workspace_id:
+            workspace = get_workspace_by_id(sb, workspace_id)
+            if not workspace:
+                return jsonify({'error': 'Project not found'}), 404
+            if not can_manage_workspace(workspace, user_id, role):
+                return jsonify({'error': 'Forbidden'}), 403
+        plan = pp_create(sb, user_id, org_id, name, workspace_id=workspace_id)
         if not plan:
             return jsonify({'error': 'Failed to create project plan'}), 500
         plan['share_url'] = request.host_url.rstrip('/') + '/project-plan/view/' + plan.get('share_token', '')
@@ -6467,6 +7368,130 @@ def register_routes(app):
         except Exception:
             return False
 
+    def _build_client_team_invite_link(invite_token):
+        base = (request.url_root or '').rstrip('/')
+        return f"{base}/client-invite/{invite_token}"
+
+    def _send_client_team_invite_email(to_email, inviter_name, client_name, invite_link):
+        subject = f"{inviter_name} invited you to join {client_name}"
+        body = (
+            f"Hi,\n\n"
+            f"{inviter_name} has invited you to join his team {client_name}.\n\n"
+            f"Accept invitation:\n{invite_link}\n\n"
+            f"If you don't have an account yet, sign up with this same email and the invite will be applied automatically.\n"
+            f"If you already have an account, sign in and accept.\n\n"
+            f"Regards,\nPropMark"
+        )
+        send_smtp_email(
+            smtp_host=app_config.SMTP_HOST,
+            smtp_port=app_config.SMTP_PORT,
+            smtp_username=app_config.SMTP_USERNAME,
+            smtp_password=app_config.SMTP_PASSWORD,
+            smtp_use_tls=app_config.SMTP_USE_TLS,
+            from_email=app_config.SMTP_FROM_EMAIL,
+            from_name=app_config.SMTP_FROM_NAME,
+            to_email=to_email,
+            subject=subject,
+            text_body=body,
+            brevo_api_key=app_config.BREVO_API_KEY,
+        )
+
+    def _accept_client_team_invite_token(sb, token, user_id):
+        token = (token or '').strip()
+        if not token:
+            return False, 'Invite token is required', 400
+
+        ir = (
+            sb.table('client_team_invites')
+            .select('*')
+            .eq('invite_token', token)
+            .limit(1)
+            .execute()
+        )
+        invite = (ir.data or [None])[0]
+        if not invite:
+            return False, 'Invite not found', 404
+        status = str(invite.get('status') or '').lower()
+        if status not in ('pending', 'accepted'):
+            return False, 'Invite is not active', 400
+        expires_at = invite.get('expires_at')
+        if expires_at:
+            try:
+                expiry = datetime.fromisoformat(str(expires_at).replace('Z', '+00:00'))
+                now = datetime.utcnow().replace(tzinfo=expiry.tzinfo)
+                if now > expiry:
+                    try:
+                        sb.table('client_team_invites').update({'status': 'expired', 'updated_at': datetime.utcnow().isoformat()}).eq('id', invite.get('id')).execute()
+                    except Exception:
+                        pass
+                    return False, 'Invite has expired', 400
+            except Exception:
+                pass
+
+        # Validate email ownership to prevent token misuse
+        profile = get_profile(sb, user_id) or {}
+        session_email = str(profile.get('email') or '').strip().lower()
+        invite_email = str(invite.get('email') or '').strip().lower()
+        if session_email and invite_email and session_email != invite_email:
+            return False, 'This invite belongs to a different email address', 403
+
+        client_id = str(invite.get('client_id') or '')
+        if not client_id:
+            return False, 'Invalid invite', 400
+        member_role = str(invite.get('member_role') or 'client_user')
+        if member_role not in ('client_user', 'broker'):
+            member_role = 'client_user'
+
+        # Already a member -> just mark accepted
+        existing_member = (
+            sb.table('client_members')
+            .select('id')
+            .eq('client_id', client_id)
+            .eq('user_id', str(user_id))
+            .limit(1)
+            .execute()
+        )
+        member_id = None
+        if existing_member.data:
+            member_id = existing_member.data[0].get('id')
+        else:
+            ins = (
+                sb.table('client_members')
+                .insert({
+                    'client_id': client_id,
+                    'user_id': str(user_id),
+                    'member_role': member_role,
+                    'invited_by': invite.get('invited_by'),
+                })
+                .execute()
+            )
+            member = (ins.data or [None])[0]
+            member_id = member.get('id') if member else None
+            if member_id:
+                _cascade_access_for_new_member(sb, client_id, member_id, user_id, member_role, invite.get('invited_by') or user_id)
+                _propagate_new_member_access_to_group(sb, client_id, member_id, user_id, member_role, invite.get('invited_by') or user_id)
+
+        # Ensure profile org is linked
+        try:
+            org_id = invite.get('org_id')
+            if org_id:
+                sb.table('profiles').update({'org_id': str(org_id), 'updated_at': datetime.utcnow().isoformat()}).eq('user_id', str(user_id)).execute()
+        except Exception:
+            pass
+
+        sb.table('client_team_invites').update({
+            'status': 'accepted',
+            'accepted_at': datetime.utcnow().isoformat(),
+            'accepted_user_id': str(user_id),
+            'updated_at': datetime.utcnow().isoformat(),
+        }).eq('id', invite.get('id')).execute()
+
+        return True, {
+            'client_id': client_id,
+            'member_role': member_role,
+            'member_id': member_id,
+        }, 200
+
     def _propagate_new_member_access_to_group(sb, client_id, new_member_id, new_user_id, member_role, granter_id):
         """When a new member with existing project access joins a group, grant those projects to all existing group members."""
         if member_role not in ('client_admin', 'client_user'):
@@ -6743,12 +7768,10 @@ def register_routes(app):
         data = request.get_json(silent=True) or {}
         target_user_id = (data.get('user_id') or '').strip()
         member_role = (data.get('member_role') or 'client_user').strip()
-        if member_role not in ('client_admin', 'client_user', 'broker'):
+        if member_role not in ('client_admin', 'client_user'):
             return jsonify({'error': 'Invalid member_role'}), 400
         if not target_user_id:
             return jsonify({'error': 'user_id is required'}), 400
-        if is_client_admin and not is_admin and member_role == 'client_admin':
-            return jsonify({'error': 'Client admins can only add client_user or broker roles'}), 403
         try:
             tp = sb.table('profiles').select('user_id, org_id').eq('user_id', target_user_id).limit(1).execute()
             if not tp.data:
@@ -6791,10 +7814,8 @@ def register_routes(app):
                 return err
         data = request.get_json(silent=True) or {}
         new_role = (data.get('member_role') or '').strip()
-        if new_role not in ('client_admin', 'client_user', 'broker'):
+        if new_role not in ('client_admin', 'client_user'):
             return jsonify({'error': 'Invalid member_role'}), 400
-        if not is_admin and new_role == 'client_admin':
-            return jsonify({'error': 'Client admins cannot promote others to client_admin'}), 403
         try:
             sb.table('client_members').update({'member_role': new_role}).eq('client_id', client_id).eq('user_id', target_user_id).execute()
             return jsonify({'success': True})
@@ -6823,9 +7844,7 @@ def register_routes(app):
     @app.route('/api/clients/<client_id>/invite', methods=['POST'])
     @require_auth
     def client_invite_user(user_id, role, client_id):
-        """Client admin invites an external user directly into their group as client_user or broker."""
-        if not app_config.SUPABASE_URL or not app_config.SUPABASE_SERVICE_ROLE_KEY:
-            return jsonify({'error': 'Server not configured for inviting users'}), 503
+        """Create team invite (email + share-link). User joins group after accepting."""
         sb = get_supabase()
         if not sb:
             return jsonify({'error': 'Database not configured'}), 503
@@ -6854,33 +7873,186 @@ def register_routes(app):
         if not display_name:
             return jsonify({'error': 'Display name is required'}), 400
         try:
-            existing = sb.table('profiles').select('user_id').eq('email', email).limit(1).execute()
-            if existing.data and len(existing.data) > 0:
-                return jsonify({'error': 'A user with this email already exists. Use Add Member instead.'}), 409
-        except Exception:
-            pass
-        try:
-            from supabase import create_client as _create_supabase
-            admin_sb = _create_supabase(app_config.SUPABASE_URL, app_config.SUPABASE_SERVICE_ROLE_KEY)
-            resp = admin_sb.auth.admin.invite_user_by_email(email, options={'data': {'display_name': display_name}})
-            new_uid = resp.user.id
+            # Reuse active pending invite for same team/email if present, else create new token.
+            existing = (
+                sb.table('client_team_invites')
+                .select('id, invite_token, status, expires_at')
+                .eq('client_id', str(client_id))
+                .eq('email', email)
+                .order('created_at', desc=True)
+                .limit(1)
+                .execute()
+            )
+            token = None
+            invite_id = None
+            existing_row = (existing.data or [None])[0]
+            if existing_row and str(existing_row.get('status') or '').lower() == 'pending':
+                token = str(existing_row.get('invite_token') or '').strip()
+                invite_id = existing_row.get('id')
+            if not token:
+                token = secrets.token_urlsafe(24)
+            invite_link = _build_client_team_invite_link(token)
+            now_iso = datetime.utcnow().isoformat()
+            expires_iso = (datetime.utcnow() + timedelta(days=7)).isoformat()
+
+            if invite_id:
+                sb.table('client_team_invites').update({
+                    'display_name': display_name,
+                    'member_role': member_role,
+                    'invite_link': invite_link,
+                    'expires_at': expires_iso,
+                    'updated_at': now_iso,
+                }).eq('id', invite_id).execute()
+            else:
+                sb.table('client_team_invites').insert({
+                    'client_id': str(client_id),
+                    'org_id': str(org_id),
+                    'invited_by': str(user_id),
+                    'email': email,
+                    'display_name': display_name,
+                    'member_role': member_role,
+                    'invite_token': token,
+                    'invite_link': invite_link,
+                    'status': 'pending',
+                    'expires_at': expires_iso,
+                    'created_at': now_iso,
+                    'updated_at': now_iso,
+                }).execute()
+
+            # Keep legacy invite tracking visible in Invites tab
             try:
-                admin_sb.table('profiles').upsert({'user_id': str(new_uid), 'role': 'user', 'email': email, 'display_name': display_name, 'org_id': org_id}, on_conflict='user_id').execute()
+                sb.table('user_invites').insert({
+                    'org_id': str(org_id),
+                    'invited_by': str(user_id),
+                    'email': email,
+                    'display_name': display_name,
+                    'role': 'user',
+                    'status': 'pending',
+                }).execute()
             except Exception:
                 pass
-            r = sb.table('client_members').insert({'client_id': str(client_id), 'user_id': str(new_uid), 'member_role': member_role, 'invited_by': str(user_id)}).execute()
-            new_member = r.data[0] if r.data else {}
-            new_member_id = new_member.get('id')
-            if new_member_id:
-                _cascade_access_for_new_member(sb, client_id, new_member_id, new_uid, member_role, user_id)
-                _propagate_new_member_access_to_group(sb, client_id, new_member_id, new_uid, member_role, user_id)
+
+            email_sent = False
+            email_error = None
             try:
-                admin_sb.table('user_invites').insert({'org_id': org_id, 'invited_by': str(user_id), 'invited_user_id': str(new_uid), 'email': email, 'display_name': display_name, 'role': 'user', 'status': 'pending'}).execute()
-            except Exception:
-                pass
-            return jsonify({'success': True, 'user_id': str(new_uid)}), 201
+                inviter_profile = get_profile(sb, user_id) or {}
+                inviter_name = str(inviter_profile.get('display_name') or inviter_profile.get('email') or 'Client').strip()
+                client_name = str(client.get('name') or 'Team').strip()
+                _send_client_team_invite_email(email, inviter_name, client_name, invite_link)
+                email_sent = True
+            except Exception as e:
+                email_error = str(e)
+
+            return jsonify({
+                'success': True,
+                'invite_link': invite_link,
+                'email_sent': email_sent,
+                'email_error': email_error,
+                'expires_at': expires_iso,
+            }), 201
         except Exception as e:
             return jsonify({'error': str(e)}), 500
+
+    @app.route('/api/public/client-invite/<invite_token>', methods=['GET'])
+    def get_public_client_invite(invite_token):
+        sb = get_supabase()
+        if not sb:
+            return jsonify({'error': 'Database not configured'}), 503
+        try:
+            r = (
+                sb.table('client_team_invites')
+                .select('id, client_id, invited_by, email, display_name, member_role, status, expires_at')
+                .eq('invite_token', str(invite_token).strip())
+                .limit(1)
+                .execute()
+            )
+            row = (r.data or [None])[0]
+            if not row:
+                return jsonify({'error': 'Invite not found'}), 404
+            client_name = ''
+            try:
+                cr = sb.table('clients').select('name').eq('id', str(row.get('client_id') or '')).limit(1).execute()
+                if cr.data:
+                    client_name = cr.data[0].get('name') or ''
+            except Exception:
+                pass
+            inviter_name = ''
+            try:
+                inviter_id = str(row.get('invited_by') or '').strip()
+                if inviter_id:
+                    pr = sb.table('profiles').select('display_name,email').eq('user_id', inviter_id).limit(1).execute()
+                    if pr.data:
+                        inviter_name = pr.data[0].get('display_name') or pr.data[0].get('email') or ''
+            except Exception:
+                pass
+            return jsonify({
+                'client_name': client_name,
+                'inviter_name': inviter_name,
+                'display_name': row.get('display_name') or '',
+                'email': row.get('email') or '',
+                'member_role': row.get('member_role') or 'client_user',
+                'status': row.get('status') or 'pending',
+                'expires_at': row.get('expires_at'),
+            })
+        except Exception as e:
+            return jsonify({'error': str(e)}), 500
+
+    @app.route('/api/client-team-invites/accept', methods=['POST'])
+    @require_auth
+    def accept_client_team_invite(user_id, role):
+        sb = get_supabase()
+        if not sb:
+            return jsonify({'error': 'Database not configured'}), 503
+        data = request.get_json(silent=True) or {}
+        token = str(data.get('invite_token') or '').strip()
+        ok, payload, status = _accept_client_team_invite_token(sb, token, user_id)
+        if not ok:
+            return jsonify({'error': payload}), status
+        return jsonify({'success': True, 'result': payload})
+
+    @app.route('/api/clients/<client_id>/invites', methods=['GET'])
+    @require_auth
+    def list_client_team_invites(user_id, role, client_id):
+        sb = get_supabase()
+        if not sb:
+            return jsonify({'error': 'Database not configured'}), 503
+        is_admin = role in ('admin', 'superadmin')
+        if not is_admin and not _is_client_admin_of(sb, user_id, client_id):
+            return jsonify({'error': 'Forbidden'}), 403
+        if is_admin:
+            _client, err = _get_client_org(sb, client_id, user_id, role)
+            if err:
+                return err
+        try:
+            r = (
+                sb.table('client_team_invites')
+                .select('id, email, display_name, member_role, status, invite_link, expires_at, created_at')
+                .eq('client_id', str(client_id))
+                .order('created_at', desc=True)
+                .execute()
+            )
+            out = []
+            for row in (r.data or []):
+                o = dict(row)
+                if o.get('created_at'):
+                    o['created_at'] = str(o['created_at'])
+                if o.get('expires_at'):
+                    o['expires_at'] = str(o['expires_at'])
+                out.append(o)
+            return jsonify(out)
+        except Exception as e:
+            msg = str(e)
+            if 'client_team_invites' in msg and ('does not exist' in msg.lower() or 'relation' in msg.lower()):
+                return jsonify([])
+            return jsonify({'error': msg}), 500
+
+    @app.route('/client-invite/<invite_token>')
+    def client_team_invite_page(invite_token):
+        return render_template(
+            'client_team_invite.html',
+            invite_token=str(invite_token or '').strip(),
+            **auth_ctx(),
+        )
 
     @app.route('/api/clients/<client_id>/access', methods=['GET'])
     @require_auth

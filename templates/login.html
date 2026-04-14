@@ -141,6 +141,14 @@
 
     var supabase = window.supabase.createClient(supabaseUrl, supabaseAnonKey);
     var PENDING_SIGNUP_PROFILE_KEY = 'pending_signup_profile_v1';
+    var PENDING_CLIENT_INVITE_KEY = 'pending_client_team_invite_token_v1';
+
+    function queryParam(name) {
+        try {
+            var u = new URL(window.location.href);
+            return (u.searchParams.get(name) || '').trim();
+        } catch (e) { return ''; }
+    }
 
     function loadPendingSignupProfile() {
         try {
@@ -166,6 +174,18 @@
         try { window.localStorage.removeItem(PENDING_SIGNUP_PROFILE_KEY); } catch (e) { }
     }
 
+    function loadPendingClientInviteToken() {
+        try { return String(window.localStorage.getItem(PENDING_CLIENT_INVITE_KEY) || '').trim(); } catch (e) { return ''; }
+    }
+
+    function savePendingClientInviteToken(token) {
+        try { window.localStorage.setItem(PENDING_CLIENT_INVITE_KEY, String(token || '').trim()); } catch (e) { }
+    }
+
+    function clearPendingClientInviteToken() {
+        try { window.localStorage.removeItem(PENDING_CLIENT_INVITE_KEY); } catch (e) { }
+    }
+
     function applyPendingSignupProfile(session) {
         if (!session || !session.access_token || !session.user) return Promise.resolve();
         var pending = loadPendingSignupProfile();
@@ -185,6 +205,24 @@
         }).then(function (r) { if (r.ok) clearPendingSignupProfile(); }).catch(function () {});
     }
 
+    function applyPendingClientInvite(session) {
+        if (!session || !session.access_token) return Promise.resolve();
+        var token = loadPendingClientInviteToken();
+        if (!token) return Promise.resolve();
+        return fetch('/api/client-team-invites/accept', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + session.access_token },
+            body: JSON.stringify({ invite_token: token })
+        }).then(function () {
+            clearPendingClientInviteToken();
+        }).catch(function () {});
+    }
+
+    (function bootstrapInviteTokenFromUrl() {
+        var token = queryParam('client_invite');
+        if (token) savePendingClientInviteToken(token);
+    })();
+
     supabase.auth.getSession().then(function (r) {
         var session = r.data.session;
         if (!session) { showAuthUI(); return; }
@@ -196,7 +234,9 @@
                 // Token is valid — redirect to dashboard
                 var uid = session.user && session.user.id ? session.user.id : '';
                 applyPendingSignupProfile(session).finally(function () {
-                    window.location.replace(uid ? '/dashboard/' + encodeURIComponent(uid) : '/dashboard');
+                    applyPendingClientInvite(session).finally(function () {
+                        window.location.replace(uid ? '/dashboard/' + encodeURIComponent(uid) : '/dashboard');
+                    });
                 });
             } else {
                 // Token rejected by server — clear stale session and show login
@@ -265,7 +305,9 @@
                 if (res.error) throw res.error;
                 var uid = res.data.user && res.data.user.id ? res.data.user.id : '';
                 return applyPendingSignupProfile(res.data.session).finally(function () {
-                    window.location.href = uid ? '/dashboard/' + encodeURIComponent(uid) : '/dashboard';
+                    applyPendingClientInvite(res.data.session).finally(function () {
+                        window.location.href = uid ? '/dashboard/' + encodeURIComponent(uid) : '/dashboard';
+                    });
                 });
             })
             .catch(function (err) { setError(errEl, err.message || 'Sign in failed'); })
@@ -295,7 +337,9 @@
                 }
                 var uid = res.data.user && res.data.user.id ? res.data.user.id : '';
                 return applyPendingSignupProfile(res.data.session).finally(function () {
-                    window.location.href = uid ? '/dashboard/' + encodeURIComponent(uid) : '/dashboard';
+                    applyPendingClientInvite(res.data.session).finally(function () {
+                        window.location.href = uid ? '/dashboard/' + encodeURIComponent(uid) : '/dashboard';
+                    });
                 });
             })
             .catch(function (err) { setError(errEl, err.message || 'Sign up failed'); })

@@ -12,6 +12,8 @@
     <!-- Tab Navigation -->
     <div class="crm-tabs" id="crm-tabs">
         <button class="crm-tab active" data-tab="interests" id="tab-interests">Interests</button>
+        <button class="crm-tab" data-tab="deals" id="tab-deals">Deals</button>
+        <button class="crm-tab" data-tab="contacts" id="tab-contacts">Contacts</button>
         <button class="crm-tab" data-tab="projects" id="tab-projects" style="display:none;">Projects</button>
         <button class="crm-tab" data-tab="panoramas" id="tab-panoramas" style="display:none;">Panoramas</button>
         <button class="crm-tab" data-tab="plots" id="tab-plots">Plots</button>
@@ -100,9 +102,6 @@
                                     <option value="">All Status</option>
                                     <option value="new">New</option>
                                     <option value="contacted">Contacted</option>
-                                    <option value="qualified">Qualified</option>
-                                    <option value="won">Won</option>
-                                    <option value="lost">Lost</option>
                                 </select>
                             </div>
                             <div class="filter-group">
@@ -189,7 +188,7 @@
                                     <th style="width:12%">Category</th>
                                     <th style="width:18%">Project</th>
                                     <th style="width:10%">Plots</th>
-                                    <th style="width:10%">Status</th>
+                                    <th style="width:10%">Contacted</th>
                                 </tr></thead>
                                 <tbody id="tbody"></tbody>
                             </table>
@@ -223,6 +222,58 @@
                             <button class="btn" id="btn-close-report" type="button">Close</button>
                         </div>
                         <div id="report-print-area" class="report-print-area"></div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="crm-section" id="sec-deals">
+                <div class="section-header">
+                    <div><h2>Deals</h2><p>Move deal cards across stages and share quotations</p></div>
+                </div>
+                <div class="crm-deals-toolbar">
+                    <input class="toolbar-search" id="deal-q" placeholder="Search deals..." autocomplete="off">
+                    <select class="toolbar-select" id="deal-filter-stage">
+                        <option value="">All Stages</option>
+                        <option value="new">New</option>
+                        <option value="contacted">Contacted</option>
+                        <option value="site_visit">Site Visit</option>
+                        <option value="negotiation">Negotiation</option>
+                        <option value="won">Won</option>
+                        <option value="lost">Lost</option>
+                    </select>
+                    <select class="toolbar-select" id="deal-filter-project">
+                        <option value="">All Projects</option>
+                    </select>
+                    <select class="toolbar-select" id="deal-filter-contact">
+                        <option value="">All Contacts</option>
+                    </select>
+                    <button class="btn" id="btn-clear-deal-filters" type="button">Clear</button>
+                    <button class="btn" id="btn-refresh-deals" type="button">Refresh</button>
+                </div>
+                <div class="deal-board" id="deal-board">
+                    <div class="deal-col" data-stage="new"><div class="deal-col-head">New <span id="deal-count-new">0</span></div><div class="deal-col-cards" id="deal-col-new"></div></div>
+                    <div class="deal-col" data-stage="contacted"><div class="deal-col-head">Contacted <span id="deal-count-contacted">0</span></div><div class="deal-col-cards" id="deal-col-contacted"></div></div>
+                    <div class="deal-col" data-stage="site_visit"><div class="deal-col-head">Site Visit <span id="deal-count-site_visit">0</span></div><div class="deal-col-cards" id="deal-col-site_visit"></div></div>
+                    <div class="deal-col" data-stage="negotiation"><div class="deal-col-head">Negotiation <span id="deal-count-negotiation">0</span></div><div class="deal-col-cards" id="deal-col-negotiation"></div></div>
+                    <div class="deal-col" data-stage="won"><div class="deal-col-head">Won <span id="deal-count-won">0</span></div><div class="deal-col-cards" id="deal-col-won"></div></div>
+                    <div class="deal-col" data-stage="lost"><div class="deal-col-head">Lost <span id="deal-count-lost">0</span></div><div class="deal-col-cards" id="deal-col-lost"></div></div>
+                </div>
+            </section>
+
+            <section class="crm-section" id="sec-contacts">
+                <div class="section-header">
+                    <div><h2>Contacts</h2><p>Deduped master contacts from interests and manual adds</p></div>
+                </div>
+                <div class="crm-deals-toolbar">
+                    <input class="toolbar-search" id="contact-q" placeholder="Search contacts..." autocomplete="off">
+                    <button class="btn primary" id="btn-add-contact" type="button">Add Contact</button>
+                </div>
+                <div class="card">
+                    <div class="table-wrap">
+                        <table>
+                            <thead><tr><th>Name</th><th>Email</th><th>Phone</th><th>Interests</th><th>Deals</th><th></th></tr></thead>
+                            <tbody id="contacts-tbody"></tbody>
+                        </table>
                     </div>
                 </div>
             </section>
@@ -485,9 +536,6 @@
                     <select class="toolbar-select" id="d-status" style="max-width:100%;">
                         <option value="new">New</option>
                         <option value="contacted">Contacted</option>
-                        <option value="qualified">Qualified</option>
-                        <option value="won">Won</option>
-                        <option value="lost">Lost</option>
                     </select>
                     <label class="drawer-field-label">Notes</label>
                     <textarea class="toolbar-search" id="d-notes" rows="5" style="height:auto;resize:vertical;min-height:100px;" placeholder="Call summary, next steps, objections..."></textarea>
@@ -500,10 +548,68 @@
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
                 Quotation
             </button>
+            <button class="btn danger" id="btn-delete-interest" type="button">Delete Interest</button>
             <button class="btn" id="btn-contacted" type="button">Mark Contacted</button>
+            <button class="btn" id="btn-create-contact" type="button">Create Contact</button>
+            <button class="btn" id="btn-create-deal" type="button">Create Deal</button>
             <button class="btn primary" id="btn-save" type="button">Save Changes</button>
         </div>
     </aside>
+</div>
+
+<div class="crm-modal-backdrop" id="contact-modal-backdrop">
+    <div class="crm-modal" style="width:min(520px,94vw);">
+        <div class="crm-modal-header">
+            <h2>Contact</h2>
+            <button class="crm-modal-close" id="contact-modal-close" type="button">&times;</button>
+        </div>
+        <div class="crm-modal-body" style="padding:1rem 1.25rem;display:grid;gap:0.65rem;">
+            <input class="toolbar-search" id="contact-name" placeholder="Full name">
+            <input class="toolbar-search" id="contact-email" placeholder="Email">
+            <input class="toolbar-search" id="contact-phone" placeholder="Phone">
+            <textarea class="toolbar-search" id="contact-notes" rows="3" style="height:auto;resize:vertical;" placeholder="Notes"></textarea>
+            <div class="msg" id="contact-msg" style="display:none;"></div>
+        </div>
+        <div style="display:flex;justify-content:flex-end;gap:0.6rem;padding:1rem 1.25rem;border-top:1px solid var(--color-border);">
+            <button class="btn" id="contact-cancel" type="button">Cancel</button>
+            <button class="btn primary" id="contact-save" type="button">Save</button>
+        </div>
+    </div>
+</div>
+
+<div class="crm-modal-backdrop" id="deal-modal-backdrop">
+    <div class="crm-modal" style="width:min(620px,94vw);">
+        <div class="crm-modal-header">
+            <h2>Edit Deal</h2>
+            <button class="crm-modal-close" id="deal-modal-close" type="button">&times;</button>
+        </div>
+        <div class="crm-modal-body" style="padding:1rem 1.25rem;display:grid;gap:0.6rem;">
+            <input class="toolbar-search" id="deal-edit-title" placeholder="Deal title">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.6rem;">
+                <select class="toolbar-select" id="deal-edit-stage" style="max-width:100%;">
+                    <option value="new">New</option>
+                    <option value="contacted">Contacted</option>
+                    <option value="site_visit">Site Visit</option>
+                    <option value="negotiation">Negotiation</option>
+                    <option value="won">Won</option>
+                    <option value="lost">Lost</option>
+                </select>
+                <select class="toolbar-select" id="deal-edit-contact" style="max-width:100%;">
+                    <option value="">Select Contact</option>
+                </select>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.6rem;">
+                <input class="toolbar-search" id="deal-edit-project" placeholder="Project name">
+                <input class="toolbar-search" id="deal-edit-amount" placeholder="Amount">
+            </div>
+            <textarea class="toolbar-search" id="deal-edit-notes" rows="4" style="height:auto;resize:vertical;" placeholder="Notes"></textarea>
+            <div class="msg" id="deal-edit-msg" style="display:none;"></div>
+        </div>
+        <div style="display:flex;justify-content:flex-end;gap:0.6rem;padding:1rem 1.25rem;border-top:1px solid var(--color-border);">
+            <button class="btn" id="deal-modal-cancel" type="button">Cancel</button>
+            <button class="btn primary" id="deal-modal-save" type="button">Save Deal</button>
+        </div>
+    </div>
 </div>
 
 <!-- ══════════ QUOTATION MODAL ══════════ -->
@@ -647,6 +753,453 @@
 (function() {
     'use strict';
 
+    const $ = id => document.getElementById(id);
+    const dealStages = ['new', 'contacted', 'site_visit', 'negotiation', 'won', 'lost'];
+    let deals = [];
+    let contacts = [];
+    let editingContactId = null;
+    let editingDealId = null;
+    const dealStageFilterEl = $('deal-filter-stage');
+    const dealProjectFilterEl = $('deal-filter-project');
+    const dealContactFilterEl = $('deal-filter-contact');
+    const dealModalBackdrop = $('deal-modal-backdrop');
+    const dealEditTitleEl = $('deal-edit-title');
+    const dealEditStageEl = $('deal-edit-stage');
+    const dealEditContactEl = $('deal-edit-contact');
+    const dealEditProjectEl = $('deal-edit-project');
+    const dealEditAmountEl = $('deal-edit-amount');
+    const dealEditNotesEl = $('deal-edit-notes');
+    const dealEditMsgEl = $('deal-edit-msg');
+
+    async function api(path, opts) {
+        const headers = await window.ensureAuthenticated();
+        const o = Object.assign({ headers: Object.assign({ 'Content-Type': 'application/json' }, headers || {}) }, opts || {});
+        return fetch(path, o);
+    }
+
+    function toast(msg, type) {
+        if (typeof window.showToast === 'function') {
+            window.showToast(msg, type);
+            return;
+        }
+        if (type === 'error') console.error(msg);
+        else console.log(msg);
+    }
+
+    function esc(s) {
+        return String(s == null ? '' : s)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    }
+
+    function getContactName(contactId) {
+        const c = contacts.find(x => String(x.id) === String(contactId));
+        return c ? (c.full_name || c.email || c.phone || 'Contact') : 'Contact';
+    }
+
+    async function loadContacts() {
+        try {
+            const r = await api('/api/crm/contacts');
+            const data = await r.json().catch(() => []);
+            if (!r.ok) throw new Error((data && data.error) ? data.error : ('Failed (' + r.status + ')'));
+            contacts = Array.isArray(data) ? data : [];
+            renderDealFilterOptions();
+            renderContacts();
+        } catch (e) {
+            toast(e.message || 'Failed to load contacts', 'error');
+        }
+    }
+
+    async function loadDeals() {
+        try {
+            if (!contacts.length) await loadContacts();
+            const r = await api('/api/crm/deals');
+            const data = await r.json().catch(() => []);
+            if (!r.ok) throw new Error((data && data.error) ? data.error : ('Failed (' + r.status + ')'));
+            deals = Array.isArray(data) ? data : [];
+            renderDealFilterOptions();
+            renderDeals();
+        } catch (e) {
+            toast(e.message || 'Failed to load deals', 'error');
+        }
+    }
+
+    function renderDealFilterOptions() {
+        if (dealProjectFilterEl) {
+            const cur = String(dealProjectFilterEl.value || '');
+            const projects = Array.from(new Set(deals.map(d => String(d.project_name || '').trim()).filter(Boolean))).sort((a, b) => a.localeCompare(b));
+            dealProjectFilterEl.innerHTML = '<option value="">All Projects</option>' + projects.map(p => '<option value="' + esc(p) + '">' + esc(p) + '</option>').join('');
+            if (projects.includes(cur)) dealProjectFilterEl.value = cur;
+        }
+        if (dealContactFilterEl) {
+            const cur = String(dealContactFilterEl.value || '');
+            const contactRows = contacts
+                .map(c => ({ id: String(c.id || ''), name: c.full_name || c.email || c.phone || 'Contact' }))
+                .filter(c => c.id);
+            dealContactFilterEl.innerHTML = '<option value="">All Contacts</option>' + contactRows.map(c => '<option value="' + esc(c.id) + '">' + esc(c.name) + '</option>').join('');
+            if (contactRows.some(c => c.id === cur)) dealContactFilterEl.value = cur;
+        }
+    }
+
+    function renderContacts() {
+        const tbody = $('contacts-tbody');
+        const q = String(($('contact-q') && $('contact-q').value) || '').trim().toLowerCase();
+        if (!tbody) return;
+        const rows = contacts.filter(c => {
+            if (!q) return true;
+            const hay = [c.full_name, c.email, c.phone].join(' ').toLowerCase();
+            return hay.includes(q);
+        });
+        tbody.innerHTML = rows.map(c =>
+            '<tr data-cid="' + esc(c.id) + '">' +
+            '<td style="font-weight:700">' + esc(c.full_name || '—') + '</td>' +
+            '<td>' + esc(c.email || '—') + '</td>' +
+            '<td>' + esc(c.phone || '—') + '</td>' +
+            '<td>' + esc(c.interests_count || 0) + '</td>' +
+            '<td>' + esc(c.deals_count || 0) + '</td>' +
+            '<td><button class="btn" data-edit-contact="' + esc(c.id) + '">Edit</button></td>' +
+            '</tr>'
+        ).join('');
+        tbody.querySelectorAll('[data-edit-contact]').forEach(btn => {
+            btn.addEventListener('click', () => openContactModal(btn.getAttribute('data-edit-contact')));
+        });
+    }
+
+    function renderDeals() {
+        const q = String(($('deal-q') && $('deal-q').value) || '').trim().toLowerCase();
+        const stageFilter = String((dealStageFilterEl && dealStageFilterEl.value) || '').trim().toLowerCase();
+        const projectFilter = String((dealProjectFilterEl && dealProjectFilterEl.value) || '').trim();
+        const contactFilter = String((dealContactFilterEl && dealContactFilterEl.value) || '').trim();
+        const map = { new: [], contacted: [], site_visit: [], negotiation: [], won: [], lost: [] };
+        deals.forEach(d => {
+            const st = String(d.stage || 'new').toLowerCase();
+            if (!map[st]) return;
+            if (stageFilter && st !== stageFilter) return;
+            if (projectFilter && String(d.project_name || '') !== projectFilter) return;
+            if (contactFilter && String(d.contact_id || '') !== contactFilter) return;
+            const hay = [d.title, d.project_name, d.amount, getContactName(d.contact_id)].join(' ').toLowerCase();
+            if (q && !hay.includes(q)) return;
+            map[st].push(d);
+        });
+        dealStages.forEach(st => {
+            const col = $('deal-col-' + st);
+            const cnt = $('deal-count-' + st);
+            if (!col || !cnt) return;
+            cnt.textContent = String(map[st].length);
+            col.innerHTML = map[st].map(d =>
+                '<div class="deal-card" draggable="true" data-did="' + esc(d.id) + '" data-stage="' + esc(st) + '">' +
+                '<div class="deal-card-topline">' +
+                '<div class="deal-card-title">' + esc(d.title || 'Deal') + '</div>' +
+                '<span class="deal-card-tag">' + esc((st || '').replace('_', ' ')) + '</span>' +
+                '</div>' +
+                '<div class="deal-card-grid">' +
+                '<div class="deal-card-meta"><span>C:</span> ' + esc(getContactName(d.contact_id)) + '</div>' +
+                '<div class="deal-card-meta"><span>P:</span> ' + esc(d.project_name || '—') + '</div>' +
+                '<div class="deal-card-meta"><span>Amt:</span> ' + esc(d.amount || '—') + '</div>' +
+                '<div class="deal-card-meta"><span>Plots:</span> ' + esc(Array.isArray(d.plots) ? d.plots.length : 0) + '</div>' +
+                '</div>' +
+                '<div class="deal-card-actions">' +
+                '<button class="btn" data-preview-quote="' + esc(d.id) + '" type="button">Preview</button>' +
+                '<button class="btn" data-share-quote="' + esc(d.id) + '" type="button">Share</button>' +
+                '<button class="btn" data-copy-quote="' + esc(d.id) + '" type="button">Copy Link</button>' +
+                '</div>' +
+                '</div>'
+            ).join('');
+            col.querySelectorAll('.deal-card').forEach(card => {
+                card.addEventListener('dragstart', e => {
+                    e.dataTransfer.setData('text/plain', card.getAttribute('data-did'));
+                    e.dataTransfer.effectAllowed = 'move';
+                    card.classList.add('is-dragging');
+                    document.body.classList.add('deal-dragging');
+                });
+                card.addEventListener('dragend', () => {
+                    card.classList.remove('is-dragging');
+                    document.body.classList.remove('deal-dragging');
+                    document.querySelectorAll('.deal-col-cards').forEach(z => z.classList.remove('is-drop-target'));
+                });
+                card.addEventListener('click', e => {
+                    if (e.target && e.target.closest('.deal-card-actions')) return;
+                    openDealModal(card.getAttribute('data-did'));
+                });
+            });
+        });
+        wireDealDragDrop();
+        wireDealQuoteActions();
+    }
+
+    function renderDealModalContactOptions(selectedId) {
+        if (!dealEditContactEl) return;
+        const cur = String(selectedId || '');
+        const contactRows = contacts
+            .map(c => ({ id: String(c.id || ''), name: c.full_name || c.email || c.phone || 'Contact' }))
+            .filter(c => c.id);
+        dealEditContactEl.innerHTML = '<option value="">Select Contact</option>' + contactRows.map(c => '<option value="' + esc(c.id) + '">' + esc(c.name) + '</option>').join('');
+        if (cur && contactRows.some(c => c.id === cur)) dealEditContactEl.value = cur;
+    }
+
+    function showDealEditMsg(text, isError) {
+        if (!dealEditMsgEl) return;
+        dealEditMsgEl.textContent = text || '';
+        dealEditMsgEl.className = 'msg' + (isError ? ' error' : '');
+        dealEditMsgEl.style.display = text ? '' : 'none';
+    }
+
+    function openDealModal(dealId) {
+        const deal = deals.find(d => String(d.id) === String(dealId));
+        if (!deal || !dealModalBackdrop) return;
+        editingDealId = String(deal.id);
+        renderDealModalContactOptions(deal.contact_id);
+        if (dealEditTitleEl) dealEditTitleEl.value = deal.title || '';
+        if (dealEditStageEl) dealEditStageEl.value = String(deal.stage || 'new');
+        if (dealEditProjectEl) dealEditProjectEl.value = deal.project_name || '';
+        if (dealEditAmountEl) dealEditAmountEl.value = deal.amount || '';
+        if (dealEditNotesEl) dealEditNotesEl.value = deal.notes || '';
+        showDealEditMsg('');
+        dealModalBackdrop.classList.add('visible');
+    }
+
+    function closeDealModal() {
+        if (dealModalBackdrop) dealModalBackdrop.classList.remove('visible');
+        editingDealId = null;
+        showDealEditMsg('');
+    }
+
+    async function saveDealModal() {
+        if (!editingDealId) return;
+        const payload = {
+            title: String((dealEditTitleEl && dealEditTitleEl.value) || '').trim(),
+            stage: String((dealEditStageEl && dealEditStageEl.value) || '').trim(),
+            contact_id: String((dealEditContactEl && dealEditContactEl.value) || '').trim(),
+            project_name: String((dealEditProjectEl && dealEditProjectEl.value) || '').trim(),
+            amount: String((dealEditAmountEl && dealEditAmountEl.value) || '').trim(),
+            notes: String((dealEditNotesEl && dealEditNotesEl.value) || '').trim()
+        };
+        if (!payload.title) {
+            showDealEditMsg('Deal title is required', true);
+            return;
+        }
+        if (!payload.contact_id) {
+            showDealEditMsg('Please select a contact', true);
+            return;
+        }
+        const saveBtn = $('deal-modal-save');
+        if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = 'Saving...'; }
+        showDealEditMsg('');
+        try {
+            const r = await api('/api/crm/deals/' + encodeURIComponent(String(editingDealId)), {
+                method: 'PATCH',
+                body: JSON.stringify(payload)
+            });
+            const data = await r.json().catch(() => ({}));
+            if (!r.ok) throw new Error(data.error || ('Failed (' + r.status + ')'));
+            const idx = deals.findIndex(d => String(d.id) === String(editingDealId));
+            if (idx >= 0) {
+                deals[idx] = Object.assign({}, deals[idx], payload);
+            }
+            renderDealFilterOptions();
+            renderDeals();
+            closeDealModal();
+            toast('Deal updated');
+        } catch (e) {
+            showDealEditMsg(e.message || 'Failed to save deal', true);
+        } finally {
+            if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = 'Save Deal'; }
+        }
+    }
+
+    function wireDealDragDrop() {
+        document.querySelectorAll('.deal-col-cards').forEach(zone => {
+            zone.addEventListener('dragenter', () => zone.classList.add('is-drop-target'));
+            zone.addEventListener('dragleave', e => {
+                if (!zone.contains(e.relatedTarget)) zone.classList.remove('is-drop-target');
+            });
+            zone.addEventListener('dragover', e => {
+                e.preventDefault();
+                e.dataTransfer.dropEffect = 'move';
+            });
+            zone.addEventListener('drop', async e => {
+                e.preventDefault();
+                zone.classList.remove('is-drop-target');
+                const did = e.dataTransfer.getData('text/plain');
+                const stage = (zone.closest('.deal-col') || {}).getAttribute('data-stage');
+                if (!did || !stage) return;
+                const deal = deals.find(d => String(d.id) === String(did));
+                if (!deal || String(deal.stage || '').toLowerCase() === stage) return;
+                const prev = deal.stage;
+                const draggedEl = Array.from(document.querySelectorAll('.deal-card')).find(el => String(el.getAttribute('data-did')) === String(did));
+                if (draggedEl && draggedEl.parentElement !== zone) {
+                    zone.prepend(draggedEl);
+                }
+                deal.stage = stage;
+                renderDeals();
+                try {
+                    const r = await api('/api/crm/deals/' + encodeURIComponent(String(did)) + '/move-stage', {
+                        method: 'POST',
+                        body: JSON.stringify({ stage: stage })
+                    });
+                    const data = await r.json().catch(() => ({}));
+                    if (!r.ok) throw new Error(data.error || ('Failed (' + r.status + ')'));
+                } catch (e2) {
+                    deal.stage = prev;
+                    renderDeals();
+                    toast(e2.message || 'Failed to move deal', 'error');
+                }
+            });
+        });
+    }
+
+    async function createDealQuote(dealId) {
+        const r = await api('/api/crm/deals/' + encodeURIComponent(String(dealId)) + '/quotation/preview', {
+            method: 'POST',
+            body: JSON.stringify({})
+        });
+        const data = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(data.error || ('Failed (' + r.status + ')'));
+        return data;
+    }
+
+    function wireDealQuoteActions() {
+        document.querySelectorAll('[data-preview-quote]').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                try {
+                    const data = await createDealQuote(btn.getAttribute('data-preview-quote'));
+                    if (data.share_url) window.open(data.share_url, '_blank');
+                } catch (e) {
+                    toast(e.message || 'Preview failed', 'error');
+                }
+            });
+        });
+        document.querySelectorAll('[data-copy-quote]').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                try {
+                    const data = await createDealQuote(btn.getAttribute('data-copy-quote'));
+                    if (!data.share_url) throw new Error('No link generated');
+                    await navigator.clipboard.writeText(data.share_url);
+                    toast('Quote link copied');
+                } catch (e) {
+                    toast(e.message || 'Copy failed', 'error');
+                }
+            });
+        });
+        document.querySelectorAll('[data-share-quote]').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                try {
+                    const dealId = btn.getAttribute('data-share-quote');
+                    const p = await createDealQuote(dealId);
+                    const quoteId = (((p || {}).quote || {}).id);
+                    if (!quoteId) throw new Error('Quote preview not generated');
+                    const email = window.prompt('Send to email (leave blank to use linked contact email):', '') || '';
+                    const r = await api('/api/crm/deals/' + encodeURIComponent(String(dealId)) + '/quotation/share', {
+                        method: 'POST',
+                        body: JSON.stringify({ quote_id: quoteId, email: email })
+                    });
+                    const data = await r.json().catch(() => ({}));
+                    if (!r.ok) throw new Error(data.error || ('Failed (' + r.status + ')'));
+                    toast('Quotation shared via email');
+                } catch (e) {
+                    toast(e.message || 'Share failed', 'error');
+                }
+            });
+        });
+    }
+
+    function openContactModal(contactId) {
+        editingContactId = contactId || null;
+        const modal = $('contact-modal-backdrop');
+        const msg = $('contact-msg');
+        if (msg) msg.style.display = 'none';
+        if (editingContactId) {
+            const c = contacts.find(x => String(x.id) === String(editingContactId)) || {};
+            $('contact-name').value = c.full_name || '';
+            $('contact-email').value = c.email || '';
+            $('contact-phone').value = c.phone || '';
+            $('contact-notes').value = c.notes || '';
+        } else {
+            $('contact-name').value = '';
+            $('contact-email').value = '';
+            $('contact-phone').value = '';
+            $('contact-notes').value = '';
+        }
+        if (modal) modal.classList.add('visible');
+    }
+
+    function closeContactModal() {
+        const modal = $('contact-modal-backdrop');
+        if (modal) modal.classList.remove('visible');
+        editingContactId = null;
+    }
+
+    async function saveContact() {
+        const name = String(($('contact-name') && $('contact-name').value) || '').trim();
+        const email = String(($('contact-email') && $('contact-email').value) || '').trim();
+        const phone = String(($('contact-phone') && $('contact-phone').value) || '').trim();
+        const notes = String(($('contact-notes') && $('contact-notes').value) || '').trim();
+        if (!name) {
+            const msg = $('contact-msg');
+            if (msg) { msg.textContent = 'Contact name is required'; msg.className = 'msg error'; msg.style.display = ''; }
+            return;
+        }
+        try {
+            const body = { full_name: name, email: email, phone: phone, notes: notes };
+            let r;
+            if (editingContactId) {
+                r = await api('/api/crm/contacts/' + encodeURIComponent(String(editingContactId)), {
+                    method: 'PATCH',
+                    body: JSON.stringify(body)
+                });
+            } else {
+                body.panorama_id = null;
+                r = await api('/api/crm/contacts', { method: 'POST', body: JSON.stringify(body) });
+            }
+            const data = await r.json().catch(() => ({}));
+            if (!r.ok) throw new Error(data.error || ('Failed (' + r.status + ')'));
+            closeContactModal();
+            await loadContacts();
+            toast('Contact saved');
+        } catch (e) {
+            const msg = $('contact-msg');
+            if (msg) { msg.textContent = e.message || 'Failed to save contact'; msg.className = 'msg error'; msg.style.display = ''; }
+        }
+    }
+
+    if ($('btn-refresh-deals')) $('btn-refresh-deals').addEventListener('click', loadDeals);
+    if ($('deal-q')) $('deal-q').addEventListener('input', renderDeals);
+    if (dealStageFilterEl) dealStageFilterEl.addEventListener('change', renderDeals);
+    if (dealProjectFilterEl) dealProjectFilterEl.addEventListener('change', renderDeals);
+    if (dealContactFilterEl) dealContactFilterEl.addEventListener('change', renderDeals);
+    if ($('btn-clear-deal-filters')) $('btn-clear-deal-filters').addEventListener('click', function() {
+        if (dealStageFilterEl) dealStageFilterEl.value = '';
+        if (dealProjectFilterEl) dealProjectFilterEl.value = '';
+        if (dealContactFilterEl) dealContactFilterEl.value = '';
+        if ($('deal-q')) $('deal-q').value = '';
+        renderDeals();
+    });
+    if ($('contact-q')) $('contact-q').addEventListener('input', renderContacts);
+    if ($('btn-add-contact')) $('btn-add-contact').addEventListener('click', () => openContactModal(null));
+    if ($('contact-modal-close')) $('contact-modal-close').addEventListener('click', closeContactModal);
+    if ($('contact-cancel')) $('contact-cancel').addEventListener('click', closeContactModal);
+    if ($('contact-save')) $('contact-save').addEventListener('click', saveContact);
+    if ($('contact-modal-backdrop')) $('contact-modal-backdrop').addEventListener('click', e => {
+        if (e.target === $('contact-modal-backdrop')) closeContactModal();
+    });
+    if ($('deal-modal-close')) $('deal-modal-close').addEventListener('click', closeDealModal);
+    if ($('deal-modal-cancel')) $('deal-modal-cancel').addEventListener('click', closeDealModal);
+    if ($('deal-modal-save')) $('deal-modal-save').addEventListener('click', saveDealModal);
+    if ($('deal-modal-backdrop')) $('deal-modal-backdrop').addEventListener('click', e => {
+        if (e.target === $('deal-modal-backdrop')) closeDealModal();
+    });
+
+    window.crmDealsLoad = loadDeals;
+    window.crmContactsLoad = loadContacts;
+})();
+</script>
+<script>
+(function() {
+    'use strict';
+
     // ── Helpers ──
     function esc(v) {
         return String(v || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
@@ -706,6 +1259,7 @@
         requestAnimationFrame(() => { t.style.opacity = '1'; t.style.transform = 'translateY(0)'; });
         setTimeout(() => { t.style.opacity = '0'; t.style.transform = 'translateY(-8px)'; setTimeout(() => t.remove(), 300); }, 3000);
     }
+    window.showToast = showToast;
 
     async function api(path, opts) {
         const headers = await ensureAuthenticated();
@@ -722,7 +1276,7 @@
     let selected = null;
     let allPlots = [];
     let orgUsers = [];
-    let currentView = 'board'; // 'board' or 'table'
+    let currentView = 'table'; // forced list-first intake queue
 
     // ── DOM refs ──
     const $ = id => document.getElementById(id);
@@ -740,6 +1294,8 @@
         tab.addEventListener('click', function() {
             const sec = this.getAttribute('data-tab');
             switchSection(sec);
+            if (sec === 'deals') window.crmDealsLoad && window.crmDealsLoad();
+            if (sec === 'contacts') window.crmContactsLoad && window.crmContactsLoad();
             if (sec === 'projects') loadWorkspaces();
             if (sec === 'panoramas') loadPanoramas();
             if (sec === 'plots') loadAllPlots();
@@ -887,7 +1443,9 @@
             });
         }
         filtered = interests.filter(i => {
-            if(status && String(i.status||'').toLowerCase()!==status) return false;
+            const contacted = !!(i.is_contacted || String(i.status||'').toLowerCase()==='contacted');
+            const intakeStatus = contacted ? 'contacted' : 'new';
+            if(status && intakeStatus!==status) return false;
             if(category && String(i.category||'').toLowerCase()!==category) return false;
             if(wsPanoIds && !wsPanoIds.has(String(i.panorama_id||''))) return false;
             if(project && String(i.panorama_id||'')!==project) return false;
@@ -1005,8 +1563,9 @@
             const pn = pj&&pj.name?pj.name:('Project #'+i.panorama_id);
             const plots = Array.isArray(i.plots)?i.plots:[];
             const pl = plots.length?(plots.length===1?(plots[0].name||'1 plot'):(plots.length+' plots')):'—';
-            const st = String(i.status||'new').toLowerCase();
-            return '<tr data-id="'+esc(i.id)+'"><td class="mono">'+esc(fmtDate(i.created_at))+'<div class="subtle">'+esc(fmtTime(i.created_at))+'</div></td><td><div style="font-weight:700">'+esc(i.customer_name||'—')+'</div></td><td><div>'+esc(i.customer_email||'—')+'</div><div class="subtle mono">'+esc(i.customer_phone||'')+'</div></td><td>'+esc(i.category||'—')+'</td><td><div style="font-weight:600">'+esc(pn)+'</div></td><td class="mono">'+esc(pl)+'</td><td><span class="pill '+esc(st)+'"><span class="dot"></span><span>'+esc(toStatusLabel(st))+'</span></span></td></tr>';
+            const contacted = !!(i.is_contacted || String(i.status||'').toLowerCase()==='contacted');
+            const st = contacted ? 'contacted' : 'new';
+            return '<tr data-id="'+esc(i.id)+'"><td class="mono">'+esc(fmtDate(i.created_at))+'<div class="subtle">'+esc(fmtTime(i.created_at))+'</div></td><td><div style="font-weight:700">'+esc(i.customer_name||'—')+'</div></td><td><div>'+esc(i.customer_email||'—')+'</div><div class="subtle mono">'+esc(i.customer_phone||'')+'</div></td><td>'+esc(i.category||'—')+'</td><td><div style="font-weight:600">'+esc(pn)+'</div></td><td class="mono">'+esc(pl)+'</td><td><span class="pill '+esc(st)+'"><span class="dot"></span><span>'+esc(contacted?'Yes':'No')+'</span></span></td></tr>';
         }).join('');
         elTbody.querySelectorAll('tr[data-id]').forEach(tr => {
             tr.addEventListener('click', () => {
@@ -1036,6 +1595,9 @@
     const dMsg = $('d-msg');
     const btnSave = $('btn-save');
     const btnContacted = $('btn-contacted');
+    const btnDeleteInterest = $('btn-delete-interest');
+    const btnCreateContact = $('btn-create-contact');
+    const btnCreateDeal = $('btn-create-deal');
 
     function showDrawerMsg(text,type) { if(!dMsg)return; dMsg.textContent=text||''; dMsg.className='msg'+(type==='error'?' error':''); dMsg.style.display=text?'':'none'; }
 
@@ -1043,7 +1605,7 @@
         selected = item;
         const pj = projectById.get(String(item.panorama_id));
         const pn = pj&&pj.name?pj.name:('Project #'+item.panorama_id);
-        const st = String(item.status||'new').toLowerCase();
+        const st = item.is_contacted ? 'contacted' : 'new';
         dTitle.textContent = item.customer_name||'Lead';
         dSubtitle.innerHTML = '<span class="pill '+esc(st)+'" style="margin-right:0.5rem"><span class="dot"></span><span>'+esc(toStatusLabel(st))+'</span></span> '+esc(pn)+' &middot; '+esc(fmtDate(item.created_at));
 
@@ -1087,8 +1649,8 @@
         if(!selected)return;
         btnSave.disabled=true; btnContacted.disabled=true; showDrawerMsg('');
         // Optimistic: apply changes locally first
-        const prev = { status: selected.status, notes: selected.notes };
-        if(partial.status) selected.status = partial.status;
+        const prev = { is_contacted: !!selected.is_contacted, status: selected.status, notes: selected.notes };
+        if(typeof partial.is_contacted === 'boolean') selected.is_contacted = partial.is_contacted;
         if('notes' in partial) selected.notes = partial.notes;
         refreshInterestsUI();
         openDrawer(selected);
@@ -1100,6 +1662,7 @@
             showToast('Changes saved');
         } catch(e) {
             // Revert on failure
+            selected.is_contacted = prev.is_contacted;
             selected.status = prev.status;
             if('notes' in partial) selected.notes = prev.notes;
             refreshInterestsUI();
@@ -1110,11 +1673,81 @@
         finally { btnSave.disabled=false; btnContacted.disabled=false; }
     }
 
+    async function deleteSelectedInterest() {
+        if(!selected || !selected.id) return;
+        const leadName = selected.customer_name || 'this lead';
+        if(!window.confirm('Delete interest for "' + leadName + '"? This cannot be undone.')) return;
+        btnDeleteInterest.disabled = true;
+        btnDeleteInterest.textContent = 'Deleting...';
+        btnSave.disabled = true;
+        btnContacted.disabled = true;
+        showDrawerMsg('');
+        try {
+            const r = await api('/api/buy-interests/' + encodeURIComponent(String(selected.id)), { method: 'DELETE' });
+            const data = await r.json().catch(() => ({}));
+            if(!r.ok) throw new Error((data && data.error) ? data.error : ('Delete failed (' + r.status + ')'));
+            interests = interests.filter(x => String(x.id) !== String(selected.id));
+            filtered = filtered.filter(x => String(x.id) !== String(selected.id));
+            closeDrawer();
+            refreshInterestsUI();
+            showToast('Interest deleted');
+        } catch(e) {
+            showDrawerMsg(e.message || 'Failed to delete', 'error');
+            showToast(e.message || 'Failed to delete', 'error');
+        } finally {
+            btnDeleteInterest.disabled = false;
+            btnDeleteInterest.textContent = 'Delete Interest';
+            btnSave.disabled = false;
+            btnContacted.disabled = false;
+        }
+    }
+
     $('drawer-close').addEventListener('click', closeDrawer);
     drawerBackdrop.addEventListener('click', closeDrawer);
     document.addEventListener('keydown', e => { if(e.key==='Escape') closeDrawer(); });
-    btnContacted.addEventListener('click', () => saveSelected({status:'contacted'}));
-    btnSave.addEventListener('click', () => saveSelected({status:dStatus.value,notes:dNotes.value}));
+    btnContacted.addEventListener('click', () => saveSelected({is_contacted:true}));
+    btnSave.addEventListener('click', () => saveSelected({is_contacted:dStatus.value==='contacted',notes:dNotes.value}));
+    if(btnCreateContact) btnCreateContact.addEventListener('click', async () => {
+        if(!selected || !selected.id) return;
+        btnCreateContact.disabled = true;
+        try {
+            const r = await api('/api/crm/interests/'+encodeURIComponent(String(selected.id))+'/create-contact', {method:'POST', body:'{}'});
+            const d = await r.json().catch(()=>({}));
+            if(!r.ok) throw new Error(d.error || ('Failed ('+r.status+')'));
+            selected.contact_id = (d.contact || {}).id || selected.contact_id;
+            showToast(d.merged ? 'Contact linked' : 'Contact created');
+        } catch(e) {
+            showToast(e.message || 'Failed to create contact', 'error');
+        } finally {
+            btnCreateContact.disabled = false;
+        }
+    });
+    if(btnCreateDeal) btnCreateDeal.addEventListener('click', async () => {
+        if(!selected || !selected.id) return;
+        btnCreateDeal.disabled = true;
+        try {
+            if(!selected.contact_id) {
+                const rc = await api('/api/crm/interests/'+encodeURIComponent(String(selected.id))+'/create-contact', {method:'POST', body:'{}'});
+                const dc = await rc.json().catch(()=>({}));
+                if(!rc.ok) throw new Error(dc.error || ('Failed ('+rc.status+')'));
+                selected.contact_id = (dc.contact || {}).id || selected.contact_id;
+            }
+            const r = await api('/api/crm/interests/'+encodeURIComponent(String(selected.id))+'/create-deal', {
+                method:'POST',
+                body: JSON.stringify({contact_id: selected.contact_id})
+            });
+            const d = await r.json().catch(()=>({}));
+            if(!r.ok) throw new Error(d.error || ('Failed ('+r.status+')'));
+            showToast('Deal created');
+            const tabDeals = document.getElementById('tab-deals');
+            if(tabDeals) tabDeals.click();
+        } catch(e) {
+            showToast(e.message || 'Failed to create deal', 'error');
+        } finally {
+            btnCreateDeal.disabled = false;
+        }
+    });
+    if(btnDeleteInterest) btnDeleteInterest.addEventListener('click', deleteSelectedInterest);
 
     // -- Filter modal --
     const filterBackdrop = $('filter-modal-backdrop');
@@ -1428,6 +2061,10 @@
         const data = await r.json().catch(()=>[]);
         if(!r.ok) throw new Error((data&&data.error)?data.error:('Failed ('+r.status+')'));
         interests = Array.isArray(data)?data:[];
+        interests = interests.map(i => {
+            const contacted = !!(i && (i.is_contacted || String(i.status||'').toLowerCase()==='contacted'));
+            return Object.assign({}, i, { is_contacted: contacted, status: contacted ? 'contacted' : 'new' });
+        });
         renderCategoryOptions();
         renderPlotOptions();
         refreshInterestsUI();
@@ -1803,35 +2440,27 @@
     }
 
     // ══════════════════════════════════════════
-    //  INIT — preload everything in parallel for instant tab switching
+    //  INIT — fast initial load (lazy-load heavy tabs on demand)
     // ══════════════════════════════════════════
     (async function init() {
         try {
             await ensureAuthenticated();
-            // Fire ALL loads in parallel — interests, projects, user, workspaces, plots, lock data
+            setView('table');
+            // Fast first paint: load only what Interests tab needs.
             const interestsP = loadInterests().then(() => {
-                if(interests.length === 0) $('kanban-empty').style.display = '';
+                if(interests.length === 0) $('table-empty').style.display = '';
             }).catch(e => {
-                $('kanban-empty').style.display = '';
-                $('kanban-empty').innerHTML = '<svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" opacity="0.35"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg><strong>CRM unavailable</strong><div>'+esc(e.message||'Failed to load CRM')+'</div>';
+                $('table-empty').style.display = '';
+                $('table-empty').innerHTML = '<strong>CRM unavailable</strong><div>'+esc(e.message||'Failed to load CRM')+'</div>';
             });
             const projectsP = loadProjects().then(() => {
                 if(interests.length) refreshInterestsUI();
             }).catch(e => console.warn('Projects load failed:', e));
             const userP = loadUserInfo().catch(e => console.warn('User info load failed:', e));
-
-            // Background-preload sub-tab data so switching is instant
-            const workspacesP = loadWorkspaces().catch(e => console.warn('Workspaces preload:', e));
-            const plotsP = loadAllPlots().catch(e => console.warn('Plots preload:', e));
-            const lockPlotsP = loadLockPlots().catch(e => console.warn('LockPlots preload:', e));
-            const manageLockP = userP.then(() => {
-                if(userRole === 'admin' || userRole === 'superadmin') return loadManageLock().catch(e => console.warn('ManageLock preload:', e));
-            });
-
-            await Promise.all([interestsP, projectsP, userP, workspacesP, plotsP, lockPlotsP, manageLockP]);
+            await Promise.all([interestsP, projectsP, userP]);
         } catch(e) {
-            $('kanban-empty').style.display = '';
-            $('kanban-empty').innerHTML = '<svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" opacity="0.35"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg><strong>CRM unavailable</strong><div>'+esc(e.message||'Failed to load CRM')+'</div>';
+            $('table-empty').style.display = '';
+            $('table-empty').innerHTML = '<strong>CRM unavailable</strong><div>'+esc(e.message||'Failed to load CRM')+'</div>';
         }
     })();
 })();

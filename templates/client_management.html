@@ -21,6 +21,40 @@
         <div id="groups-empty" class="empty" style="display:none;">You are not a client admin in any group.</div>
         <div id="groups-container"></div>
     </div>
+
+    <div class="modal-backdrop" id="modal-invite-member">
+        <div class="modal modal--sm" role="dialog" aria-modal="true" aria-label="Invite external user">
+            <div class="modal-head">
+                <div class="modal-title">Invite User to <span id="invite-group-name"></span></div>
+                <button class="btn btn-secondary" id="close-invite-member-modal" type="button">Close</button>
+            </div>
+            <div class="modal-body-edit">
+                <div class="edit-section edit-section--invite">
+                    <div class="form-field">
+                        <label class="label" for="invite-member-name">Display Name <span style="color:var(--color-danger);">*</span></label>
+                        <input class="input" id="invite-member-name" type="text" placeholder="Full name" autocomplete="name">
+                    </div>
+                    <div class="form-field" style="margin-top:0.75rem;">
+                        <label class="label" for="invite-member-email">Email <span style="color:var(--color-danger);">*</span></label>
+                        <input class="input" id="invite-member-email" type="email" placeholder="user@example.com" autocomplete="email">
+                    </div>
+                    <div class="form-field" style="margin-top:0.75rem;">
+                        <label class="label" for="invite-member-role">Role</label>
+                        <select class="input" id="invite-member-role">
+                            <option value="client_user" selected>Client User</option>
+                            <option value="broker">Broker</option>
+                        </select>
+                    </div>
+                    <div class="msg error" id="invite-member-error" style="display:none;"></div>
+                    <div class="msg success" id="invite-member-success" style="display:none;"></div>
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" id="cancel-invite-member" type="button">Cancel</button>
+                <button class="btn btn-primary" id="confirm-invite-member" type="button">Send Invite</button>
+            </div>
+        </div>
+    </div>
 </div>
 {% endblock %}
 {% block scripts %}
@@ -37,6 +71,8 @@
     if (!supabase) return;
 
     var roleLabels = { client_admin: 'Client Admin', client_user: 'Client User', broker: 'Broker' };
+    var inviteTargetGroupId = null;
+    var modalInviteMember = null;
 
     function getAuthHeaders() {
         return supabase.auth.getSession().then(function (r) {
@@ -70,6 +106,80 @@
         el.style.display = msg ? 'block' : 'none';
     }
 
+    function setError(el, msg) {
+        if (!el) return;
+        el.textContent = msg || '';
+        el.style.display = msg ? 'block' : 'none';
+    }
+
+    function openModal(el) { if (el) el.classList.add('visible'); }
+    function closeModal(el) { if (el) el.classList.remove('visible'); }
+    function formatDate(dateStr) {
+        if (!dateStr) return '-';
+        try {
+            var d = new Date(dateStr);
+            return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+        } catch (e) { return '-'; }
+    }
+
+    function openInviteMemberModal(groupId, groupName) {
+        inviteTargetGroupId = groupId;
+        document.getElementById('invite-group-name').textContent = groupName || '';
+        document.getElementById('invite-member-name').value = '';
+        document.getElementById('invite-member-email').value = '';
+        document.getElementById('invite-member-role').value = 'client_user';
+        setError(document.getElementById('invite-member-error'), '');
+        setError(document.getElementById('invite-member-success'), '');
+        openModal(modalInviteMember);
+        setTimeout(function () { document.getElementById('invite-member-name').focus(); }, 20);
+    }
+
+    function doInviteMember() {
+        var errEl = document.getElementById('invite-member-error');
+        var successEl = document.getElementById('invite-member-success');
+        var name = (document.getElementById('invite-member-name').value || '').trim();
+        var email = (document.getElementById('invite-member-email').value || '').trim();
+        var memberRole = document.getElementById('invite-member-role').value;
+        var confirmInviteBtn = document.getElementById('confirm-invite-member');
+        if (!inviteTargetGroupId) { setError(errEl, 'Please pick a client group first.'); return; }
+        if (!name) { setError(errEl, 'Display name is required.'); return; }
+        if (!email || email.indexOf('@') === -1) { setError(errEl, 'Valid email is required.'); return; }
+        setError(errEl, '');
+        setError(successEl, '');
+        if (confirmInviteBtn) confirmInviteBtn.disabled = true;
+        getAuthHeaders().then(function (h) {
+            return fetchJson('/api/clients/' + encodeURIComponent(inviteTargetGroupId) + '/invite', {
+                method: 'POST',
+                headers: h,
+                body: JSON.stringify({ display_name: name, email: email, member_role: memberRole })
+            });
+        }).then(function (res) {
+            if (!res.ok) {
+                setError(errEl, (res.data && res.data.error) || 'Failed to send invite');
+                return;
+            }
+            var inviteLink = (res.data && res.data.invite_link) ? String(res.data.invite_link) : '';
+            var sentMsg = (res.data && res.data.email_sent === false)
+                ? 'Invite created. Email could not be sent; share link manually.'
+                : ('Invitation sent to ' + email + '!');
+            setError(successEl, inviteLink ? (sentMsg + ' Invite Link: ' + inviteLink) : sentMsg);
+            if (inviteLink && navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(inviteLink).then(function () {
+                    setError(successEl, sentMsg + ' Invite link copied to clipboard.');
+                }).catch(function () {});
+            }
+            document.getElementById('invite-member-name').value = '';
+            document.getElementById('invite-member-email').value = '';
+            getAuthHeaders().then(function (h) {
+                return fetchJson('/api/clients/' + encodeURIComponent(inviteTargetGroupId) + '/invites', { headers: h });
+            }).then(function (invRes) {
+                if (invRes.ok && Array.isArray(invRes.data)) renderInvites(inviteTargetGroupId, invRes.data);
+            });
+        }).finally(function () {
+            if (confirmInviteBtn) confirmInviteBtn.disabled = false;
+        });
+    }
+
     // ── Kick off data fetch immediately — don't wait for sidebarReady ──
     var dataPromise = getAuthHeaders().then(function (h) {
         return Promise.all([
@@ -97,10 +207,10 @@
             var roleSelect =
                 '<select class="member-role-select" data-group="' + escapeHtml(groupId) +
                 '" data-uid="' + escapeHtml(uid) + '" data-prev="' + escapeHtml(m.member_role || '') + '">' +
-                ['client_admin', 'client_user', 'broker'].map(function (r) {
+                ['client_admin', 'client_user'].map(function (r) {
                     return '<option value="' + r + '"' +
                         (m.member_role === r ? ' selected' : '') +
-                        (r === 'client_admin' ? ' disabled' : '') + '>' +
+                        '>' +
                         escapeHtml(roleLabels[r] || r) + '</option>';
                 }).join('') + '</select>';
             return '<tr>' +
@@ -138,6 +248,55 @@
         });
     }
 
+    function renderInvites(groupId, invites) {
+        var loadingEl = document.getElementById('invites-loading-' + groupId);
+        var tableEl = document.getElementById('invites-table-' + groupId);
+        var tbody = document.getElementById('invites-body-' + groupId);
+        var emptyEl = document.getElementById('invites-empty-' + groupId);
+        if (loadingEl) loadingEl.style.display = 'none';
+        if (!tbody) return;
+        if (!invites || !invites.length) {
+            if (tableEl) tableEl.style.display = 'none';
+            if (emptyEl) emptyEl.style.display = 'block';
+            return;
+        }
+        if (emptyEl) emptyEl.style.display = 'none';
+        if (tableEl) tableEl.style.display = '';
+
+        tbody.innerHTML = invites.map(function (inv) {
+            var canCopy = Boolean(inv.invite_link) && String(inv.status || '').toLowerCase() === 'pending';
+            var copyBtn = canCopy
+                ? '<button class="btn btn-secondary btn-sm invite-copy-btn" data-link="' + escapeHtml(inv.invite_link) + '" type="button">Copy Link</button>'
+                : '<span style="color:var(--color-text-dim);font-size:0.78rem;">-</span>';
+            return '<tr>' +
+                '<td>' + escapeHtml(inv.display_name || '-') + '</td>' +
+                '<td>' + escapeHtml(inv.email || '-') + '</td>' +
+                '<td>' + escapeHtml(roleLabels[inv.member_role] || inv.member_role || '-') + '</td>' +
+                '<td>' + escapeHtml(inv.status || '-') + '</td>' +
+                '<td>' + formatDate(inv.created_at) + '</td>' +
+                '<td>' + copyBtn + '</td>' +
+            '</tr>';
+        }).join('');
+
+        tbody.querySelectorAll('.invite-copy-btn').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                var link = btn.getAttribute('data-link') || '';
+                if (!link) return;
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                    navigator.clipboard.writeText(link).then(function () {
+                        var old = btn.textContent;
+                        btn.textContent = 'Copied!';
+                        setTimeout(function () { btn.textContent = old; }, 1400);
+                    }).catch(function () {
+                        alert(link);
+                    });
+                } else {
+                    alert(link);
+                }
+            });
+        });
+    }
+
     // ── Render group cards then fetch all members in parallel ──
     function renderGroups(groups, headers) {
         var loadingEl = document.getElementById('groups-loading');
@@ -159,38 +318,102 @@
                     (group.description
                         ? '<div style="font-size:0.78rem;color:var(--color-text-dim);margin-top:0.15rem;">' + escapeHtml(group.description) + '</div>'
                         : '') +
+                '</div><div>' +
+                    '<button class="btn btn-secondary btn-sm invite-member-btn" data-group-id="' + gid + '" data-group-name="' + escapeHtml(group.name || '') + '" type="button">Invite User</button>' +
                 '</div></div>' +
-                '<div id="members-loading-' + gid + '" style="font-size:0.83rem;color:var(--color-text-dim);">Loading members...</div>' +
-                '<table class="table" id="members-table-' + gid + '" style="display:none;">' +
-                    '<thead><tr>' +
-                        '<th style="width:28%;">Name</th>' +
-                        '<th style="width:34%;">Email</th>' +
-                        '<th style="width:38%;">Role</th>' +
-                    '</tr></thead>' +
-                    '<tbody id="members-body-' + gid + '"></tbody>' +
-                '</table>' +
-                '<div class="empty" id="members-empty-' + gid + '" style="display:none;">No members in this group.</div>' +
+                '<div class="group-subtabs" data-group="' + gid + '">' +
+                    '<button class="group-subtab active" data-group="' + gid + '" data-target="members" type="button">Members</button>' +
+                    '<button class="group-subtab" data-group="' + gid + '" data-target="invites" type="button">Invited Users</button>' +
+                '</div>' +
+                '<div id="group-panel-members-' + gid + '" class="group-subpanel">' +
+                    '<div id="members-loading-' + gid + '" style="font-size:0.83rem;color:var(--color-text-dim);">Loading members...</div>' +
+                    '<table class="table" id="members-table-' + gid + '" style="display:none;">' +
+                        '<thead><tr>' +
+                            '<th style="width:28%;">Name</th>' +
+                            '<th style="width:34%;">Email</th>' +
+                            '<th style="width:38%;">Role</th>' +
+                        '</tr></thead>' +
+                        '<tbody id="members-body-' + gid + '"></tbody>' +
+                    '</table>' +
+                    '<div class="empty" id="members-empty-' + gid + '" style="display:none;">No members in this group.</div>' +
+                '</div>' +
+                '<div id="group-panel-invites-' + gid + '" class="group-subpanel" style="display:none;">' +
+                    '<div id="invites-loading-' + gid + '" style="font-size:0.83rem;color:var(--color-text-dim);">Loading invites...</div>' +
+                    '<table class="table" id="invites-table-' + gid + '" style="display:none;">' +
+                        '<thead><tr>' +
+                            '<th style="width:22%;">Name</th>' +
+                            '<th style="width:25%;">Email</th>' +
+                            '<th style="width:13%;">Role</th>' +
+                            '<th style="width:12%;">Status</th>' +
+                            '<th style="width:14%;">Invited</th>' +
+                            '<th style="width:14%;">Action</th>' +
+                        '</tr></thead>' +
+                        '<tbody id="invites-body-' + gid + '"></tbody>' +
+                    '</table>' +
+                    '<div class="empty" id="invites-empty-' + gid + '" style="display:none;">No invites yet.</div>' +
+                '</div>' +
             '</div>';
         }).join('');
 
+        container.querySelectorAll('.invite-member-btn').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                openInviteMemberModal(btn.getAttribute('data-group-id'), btn.getAttribute('data-group-name'));
+            });
+        });
+
+        container.querySelectorAll('.group-subtab').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                var gid = btn.getAttribute('data-group');
+                var target = btn.getAttribute('data-target');
+                container.querySelectorAll('.group-subtab[data-group="' + gid + '"]').forEach(function (b) {
+                    b.classList.toggle('active', b === btn);
+                });
+                var membersPanel = document.getElementById('group-panel-members-' + gid);
+                var invitesPanel = document.getElementById('group-panel-invites-' + gid);
+                if (membersPanel) membersPanel.style.display = target === 'members' ? '' : 'none';
+                if (invitesPanel) invitesPanel.style.display = target === 'invites' ? '' : 'none';
+            });
+        });
+
         // Fetch all groups' members in parallel
         Promise.all(groups.map(function (group) {
-            return fetchJson('/api/clients/' + encodeURIComponent(group.id) + '/members', { headers: headers })
-                .then(function (res) {
-                    if (res.ok && Array.isArray(res.data)) renderMembers(group.id, res.data);
-                    else {
-                        var el = document.getElementById('members-loading-' + group.id);
-                        if (el) el.style.display = 'none';
-                    }
-                }).catch(function () {
+            return Promise.all([
+                fetchJson('/api/clients/' + encodeURIComponent(group.id) + '/members', { headers: headers }),
+                fetchJson('/api/clients/' + encodeURIComponent(group.id) + '/invites', { headers: headers })
+            ]).then(function (results) {
+                var membersRes = results[0];
+                var invitesRes = results[1];
+                if (membersRes.ok && Array.isArray(membersRes.data)) renderMembers(group.id, membersRes.data);
+                else {
                     var el = document.getElementById('members-loading-' + group.id);
                     if (el) el.style.display = 'none';
-                });
+                }
+                if (invitesRes.ok && Array.isArray(invitesRes.data)) renderInvites(group.id, invitesRes.data);
+                else {
+                    var il = document.getElementById('invites-loading-' + group.id);
+                    if (il) il.style.display = 'none';
+                }
+            }).catch(function () {
+                var el = document.getElementById('members-loading-' + group.id);
+                if (el) el.style.display = 'none';
+                var il = document.getElementById('invites-loading-' + group.id);
+                if (il) il.style.display = 'none';
+            });
         }));
     }
 
     // ── sidebarReady: auth gate only (data already in-flight) ──
     window.sidebarReady.then(function (ctx) {
+        modalInviteMember = document.getElementById('modal-invite-member');
+        var closeInviteBtn = document.getElementById('close-invite-member-modal');
+        var cancelInviteBtn = document.getElementById('cancel-invite-member');
+        var confirmInviteBtn = document.getElementById('confirm-invite-member');
+
+        if (closeInviteBtn) closeInviteBtn.addEventListener('click', function () { closeModal(modalInviteMember); });
+        if (cancelInviteBtn) cancelInviteBtn.addEventListener('click', function () { closeModal(modalInviteMember); });
+        if (confirmInviteBtn) confirmInviteBtn.addEventListener('click', doInviteMember);
+        if (modalInviteMember) modalInviteMember.addEventListener('click', function (e) { if (e.target === modalInviteMember) closeModal(modalInviteMember); });
+
         if (ctx.role === 'admin' || ctx.role === 'superadmin') {
             window.location.replace('/user-management');
             return;

@@ -19,6 +19,7 @@
         (function () {
             var msg = document.getElementById('msg');
             var PENDING_SIGNUP_PROFILE_KEY = 'pending_signup_profile_v1';
+            var PENDING_CLIENT_INVITE_KEY = 'pending_client_team_invite_token_v1';
 
             function loadPendingSignupProfile() {
                 try {
@@ -34,6 +35,14 @@
 
             function clearPendingSignupProfile() {
                 try { window.localStorage.removeItem(PENDING_SIGNUP_PROFILE_KEY); } catch (e) { }
+            }
+
+            function loadPendingClientInviteToken() {
+                try { return String(window.localStorage.getItem(PENDING_CLIENT_INVITE_KEY) || '').trim(); } catch (e) { return ''; }
+            }
+
+            function clearPendingClientInviteToken() {
+                try { window.localStorage.removeItem(PENDING_CLIENT_INVITE_KEY); } catch (e) { }
             }
 
             function applyPendingSignupProfile(session) {
@@ -57,6 +66,22 @@
                     body: JSON.stringify(body)
                 }).then(function (r) {
                     if (r.ok) clearPendingSignupProfile();
+                }).catch(function () { });
+            }
+
+            function applyPendingClientInvite(session) {
+                if (!session || !session.access_token) return Promise.resolve();
+                var token = loadPendingClientInviteToken();
+                if (!token) return Promise.resolve();
+                return fetch('/api/client-team-invites/accept', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer ' + session.access_token
+                    },
+                    body: JSON.stringify({ invite_token: token })
+                }).then(function () {
+                    clearPendingClientInviteToken();
                 }).catch(function () { });
             }
 
@@ -121,7 +146,9 @@
         supabase.auth.getSession().then(function (r) {
             var session = r.data.session || null;
             return applyPendingSignupProfile(session).then(function () {
-                setOrgThemeCookieThenRedirect(session);
+                return applyPendingClientInvite(session).then(function () {
+                    setOrgThemeCookieThenRedirect(session);
+                });
             });
         }).catch(function () {
             msg.textContent = 'Done. Redirecting…';

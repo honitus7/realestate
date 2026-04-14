@@ -791,6 +791,10 @@ function selectIcon(icon) {
 /*  Bind events                                                        */
 /* ------------------------------------------------------------------ */
 function bindEvents() {
+    function fullViewShellUrl() {
+        return currentWorkspaceId ? ('/customer/full-view/' + encodeURIComponent(currentWorkspaceId)) : null;
+    }
+
     // Workspace selector
     document.getElementById('fv-workspace-select').addEventListener('change', function () {
         document.getElementById('fv-init-btn').disabled = !this.value;
@@ -808,14 +812,14 @@ function bindEvents() {
 
     // Preview button
     document.getElementById('fv-preview-btn').addEventListener('click', function () {
-        if (!currentWorkspaceId) return;
-        const url = currentShareUrl || ('/customer/project/' + currentWorkspaceId);
+        const url = fullViewShellUrl();
+        if (!url) return;
         window.open(url, '_blank', 'noopener');
     });
 
     // Copy Link button
     document.getElementById('fv-share-btn').addEventListener('click', function () {
-        const url = currentShareUrl || (currentWorkspaceId ? '/customer/project/' + currentWorkspaceId : null);
+        const url = currentShareUrl || fullViewShellUrl();
         if (!url) return;
         const abs = url.startsWith('http') ? url : (window.location.origin + url);
         navigator.clipboard.writeText(abs).then(() => {

@@ -13,7 +13,7 @@ def _generate_share_token():
 # Project Plan CRUD
 # ---------------------------------------------------------------------------
 
-def create_project_plan(sb, user_id, org_id, name):
+def create_project_plan(sb, user_id, org_id, name, workspace_id=None):
     token = _generate_share_token()
     row = {
         'user_id': str(user_id),
@@ -22,6 +22,8 @@ def create_project_plan(sb, user_id, org_id, name):
     }
     if org_id:
         row['org_id'] = str(org_id)
+    if workspace_id:
+        row['workspace_id'] = str(workspace_id)
     resp = sb.table('project_plans').insert(row).execute()
     data = resp.data
     return data[0] if data else None
@@ -53,7 +55,7 @@ def list_project_plans(sb, user_id):
 def update_project_plan(sb, plan_id, **fields):
     clean = {}
     for k, v in fields.items():
-        if k in ('name',):
+        if k in ('name', 'workspace_id'):
             clean[k] = v
     if not clean:
         return None

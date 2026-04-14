@@ -582,6 +582,33 @@
     margin-bottom: 0.85rem;
 }
 .client-section-title { font-weight: 600; font-size: 0.9rem; color: var(--color-text); }
+.group-subtabs {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    margin-bottom: 0.8rem;
+    flex-wrap: wrap;
+}
+.group-subtab {
+    padding: 0.38rem 0.72rem;
+    border-radius: 999px;
+    border: 1px solid var(--color-border);
+    background: var(--color-bg-elevated);
+    color: var(--color-text-dim);
+    font-size: 0.78rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: border-color 0.15s, color 0.15s, background 0.15s;
+}
+.group-subtab:hover {
+    border-color: var(--border-strong);
+    color: var(--color-text);
+}
+.group-subtab.active {
+    border-color: var(--border-strong);
+    color: var(--color-text);
+    background: var(--color-accent-hover, rgba(201,169,98,0.12));
+}
 .member-role-select {
     font-size: 0.78rem;
     padding: 0.2rem 0.5rem;
@@ -615,4 +642,3 @@
     .clients-layout { flex-direction: column; }
     .client-list-panel { width: 100%; }
 }
-

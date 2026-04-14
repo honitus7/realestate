@@ -292,6 +292,13 @@
                 <input type="text" class="form-input" id="bm-name" maxlength="200" placeholder="e.g., Tower A" value="Building Map">
             </div>
             <div class="form-group" style="margin-bottom:1rem;">
+                <label class="form-label">Project</label>
+                <select class="form-input" id="bm-workspace">
+                    <option value="">Loading projects...</option>
+                </select>
+                <div style="font-size:0.72rem; color:var(--color-muted); margin-top:0.25rem;">Optionally link this building map to a project workspace</div>
+            </div>
+            <div class="form-group" style="margin-bottom:1rem;">
                 <label class="form-label">Floor Plan Catalogue</label>
                 <select class="form-input" id="bm-catalogue">
                     <option value="">— None —</option>
@@ -384,6 +391,13 @@
             <div class="form-group" style="margin-bottom:1rem;">
                 <label class="form-label">Plan Name</label>
                 <input type="text" class="form-input" id="pp-name" maxlength="200" placeholder="e.g., Tower A + B" value="Project Plan">
+            </div>
+            <div class="form-group" style="margin-bottom:1rem;">
+                <label class="form-label">Project</label>
+                <select class="form-input" id="pp-workspace">
+                    <option value="">Loading projects...</option>
+                </select>
+                <div style="font-size:0.72rem; color:var(--color-muted); margin-top:0.25rem;">Optionally link this project plan to a project workspace</div>
             </div>
             <div id="pp-create-error" class="msg error" style="display:none; margin-bottom:1rem;"></div>
             <div class="modal-actions">
@@ -608,20 +622,31 @@
         fetch('/api/workspaces', { headers: authHeaders() })
             .then(function(r) { return r.ok ? r.json() : []; })
             .then(function(data) {
-                var sel = document.getElementById('fp-cat-workspace');
-                if (!sel) return;
                 var workspaces = Array.isArray(data) ? data : [];
+                var selectors = [
+                    document.getElementById('fp-cat-workspace'),
+                    document.getElementById('bm-workspace'),
+                    document.getElementById('pp-workspace')
+                ].filter(Boolean);
+                if (!selectors.length) return;
                 if (!workspaces.length) {
-                    sel.innerHTML = '<option value="">No projects found</option>';
+                    selectors.forEach(function(sel) {
+                        sel.innerHTML = '<option value="">No projects found</option>';
+                    });
                     return;
                 }
-                sel.innerHTML = workspaces.map(function(w) {
+                var optionsHtml = workspaces.map(function(w) {
                     return '<option value="' + w.id + '">' + (w.name || 'Project') + '</option>';
                 }).join('');
+                selectors.forEach(function(sel) {
+                    sel.innerHTML = optionsHtml;
+                });
             })
             .catch(function() {
-                var sel = document.getElementById('fp-cat-workspace');
-                if (sel) sel.innerHTML = '<option value="">Failed to load projects</option>';
+                ['fp-cat-workspace', 'bm-workspace', 'pp-workspace'].forEach(function(id) {
+                    var sel = document.getElementById(id);
+                    if (sel) sel.innerHTML = '<option value="">Failed to load projects</option>';
+                });
             });
     }
 
@@ -1199,6 +1224,8 @@
         var fd = new FormData();
         fd.append('name', name);
         fd.append('file', file);
+        var workspaceId = document.getElementById('bm-workspace').value;
+        if (workspaceId) fd.append('workspace_id', workspaceId);
         var catId = document.getElementById('bm-catalogue').value;
         if (catId) fd.append('catalogue_id', catId);
 
@@ -1482,13 +1509,14 @@
 
     document.getElementById('pp-modal-create').addEventListener('click', function() {
         var name = document.getElementById('pp-name').value.trim() || 'Project Plan';
+        var workspaceId = document.getElementById('pp-workspace').value;
         var btn = this;
         btn.disabled = true;
         document.getElementById('pp-create-error').style.display = 'none';
         fetch('/api/project-plans', {
             method: 'POST',
             headers: Object.assign({ 'Content-Type': 'application/json' }, authHeaders()),
-            body: JSON.stringify({ name: name })
+            body: JSON.stringify({ name: name, workspace_id: workspaceId || null })
         })
         .then(function(r) { return r.json().then(function(d) { return { ok: r.ok, data: d }; }); })
         .then(function(res) {

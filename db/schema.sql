@@ -224,12 +224,15 @@ create table if not exists public.buy_interests (
   id uuid primary key default gen_random_uuid(),
   panorama_id bigint not null references public.panoramas(id) on delete cascade,
   submitted_by uuid references auth.users(id) on delete set null,
+  contact_id uuid,
   customer_name text not null,
   customer_email text not null,
   customer_phone text not null,
   category text not null default '',
   plots jsonb not null default '[]',
   status text not null default 'new' check (status in ('new', 'contacted', 'qualified', 'won', 'lost')),
+  is_contacted boolean not null default false,
+  contacted_at timestamptz,
   notes text not null default '',
   created_at timestamptz default now(),
   updated_at timestamptz default now()
@@ -238,6 +241,97 @@ create table if not exists public.buy_interests (
 create index if not exists idx_buy_interests_panorama_id on public.buy_interests(panorama_id);
 create index if not exists idx_buy_interests_created_at on public.buy_interests(created_at desc);
 create index if not exists idx_buy_interests_status on public.buy_interests(status);
+create index if not exists idx_buy_interests_contact_id on public.buy_interests(contact_id);
+
+-- 8b) CRM contacts
+create table if not exists public.crm_contacts (
+  id uuid primary key default gen_random_uuid(),
+  org_id uuid references public.organizations(id) on delete set null,
+  panorama_id bigint not null references public.panoramas(id) on delete cascade,
+  full_name text not null default '',
+  email text not null default '',
+  phone text not null default '',
+  email_norm text not null default '',
+  phone_norm text not null default '',
+  source_interest_id uuid references public.buy_interests(id) on delete set null,
+  created_by uuid references auth.users(id) on delete set null,
+  notes text not null default '',
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+
+create index if not exists idx_crm_contacts_org on public.crm_contacts(org_id);
+create index if not exists idx_crm_contacts_panorama on public.crm_contacts(panorama_id);
+create index if not exists idx_crm_contacts_email_norm on public.crm_contacts(email_norm);
+create index if not exists idx_crm_contacts_phone_norm on public.crm_contacts(phone_norm);
+create index if not exists idx_crm_contacts_updated on public.crm_contacts(updated_at desc);
+
+-- 8c) CRM deals
+create table if not exists public.crm_deals (
+  id uuid primary key default gen_random_uuid(),
+  org_id uuid references public.organizations(id) on delete set null,
+  panorama_id bigint not null references public.panoramas(id) on delete cascade,
+  interest_id uuid references public.buy_interests(id) on delete set null,
+  contact_id uuid references public.crm_contacts(id) on delete set null,
+  title text not null default '',
+  stage text not null default 'new'
+    check (stage in ('new', 'contacted', 'site_visit', 'negotiation', 'won', 'lost')),
+  is_active boolean not null default true,
+  amount text not null default '',
+  currency text not null default 'INR',
+  plots jsonb not null default '[]',
+  project_name text not null default '',
+  notes text not null default '',
+  created_by uuid references auth.users(id) on delete set null,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+
+create index if not exists idx_crm_deals_org on public.crm_deals(org_id);
+create index if not exists idx_crm_deals_panorama on public.crm_deals(panorama_id);
+create index if not exists idx_crm_deals_contact on public.crm_deals(contact_id);
+create index if not exists idx_crm_deals_interest on public.crm_deals(interest_id);
+create index if not exists idx_crm_deals_stage on public.crm_deals(stage);
+create index if not exists idx_crm_deals_updated on public.crm_deals(updated_at desc);
+create unique index if not exists uq_crm_deals_interest_active
+  on public.crm_deals(interest_id)
+  where interest_id is not null and is_active = true;
+
+-- 8d) CRM deal quotes
+create table if not exists public.crm_deal_quotes (
+  id uuid primary key default gen_random_uuid(),
+  deal_id uuid not null references public.crm_deals(id) on delete cascade,
+  contact_id uuid references public.crm_contacts(id) on delete set null,
+  quote_payload jsonb not null default '{}',
+  share_token text not null unique,
+  sent_to_email text not null default '',
+  sent_to_phone text not null default '',
+  shared_via text not null default ''
+    check (shared_via in ('', 'email', 'link')),
+  sent_at timestamptz,
+  created_by uuid references auth.users(id) on delete set null,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+
+create index if not exists idx_crm_deal_quotes_deal on public.crm_deal_quotes(deal_id);
+create index if not exists idx_crm_deal_quotes_contact on public.crm_deal_quotes(contact_id);
+create index if not exists idx_crm_deal_quotes_created on public.crm_deal_quotes(created_at desc);
+
+do $$
+begin
+  if not exists (
+    select 1
+    from information_schema.table_constraints
+    where table_schema = 'public'
+      and table_name = 'buy_interests'
+      and constraint_name = 'buy_interests_contact_id_fkey'
+  ) then
+    alter table public.buy_interests
+      add constraint buy_interests_contact_id_fkey
+      foreign key (contact_id) references public.crm_contacts(id) on delete set null;
+  end if;
+end $$;
 
 -- 9) Trigger: create profile with role 'user' when a new auth user is created
 create or replace function public.handle_new_user()
@@ -318,6 +412,7 @@ create table if not exists public.building_maps (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users(id) on delete cascade,
   org_id uuid references public.organizations(id) on delete set null,
+  workspace_id uuid references public.workspaces(id) on delete set null,
   catalogue_id uuid references public.floor_plan_catalogues(id) on delete set null,
   name text not null default 'Building Map',
   image_filename text not null,
@@ -329,6 +424,7 @@ create table if not exists public.building_maps (
 );
 
 create index if not exists idx_building_maps_user on public.building_maps(user_id);
+create index if not exists idx_building_maps_workspace on public.building_maps(workspace_id);
 create index if not exists idx_building_maps_catalogue on public.building_maps(catalogue_id);
 create index if not exists idx_building_maps_share_token on public.building_maps(share_token);
 
@@ -374,6 +470,7 @@ create table if not exists public.project_plans (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users(id) on delete cascade,
   org_id uuid references public.organizations(id) on delete set null,
+  workspace_id uuid references public.workspaces(id) on delete set null,
   name text not null default 'Project Plan',
   share_token text unique,
   created_at timestamptz default now(),
@@ -381,6 +478,7 @@ create table if not exists public.project_plans (
 );
 
 create index if not exists idx_project_plans_user on public.project_plans(user_id);
+create index if not exists idx_project_plans_workspace on public.project_plans(workspace_id);
 create index if not exists idx_project_plans_share_token on public.project_plans(share_token);
 
 -- 17) Project Plan Maps (many-to-many link between project plans and building maps)
@@ -546,3 +644,30 @@ alter table public.workspace_access
 alter table public.panorama_access
   add column if not exists client_member_id bigint
     references public.client_members(id) on delete cascade;
+
+-- 27) Client Team Invites (email/share-link based join flow)
+create table if not exists public.client_team_invites (
+  id                uuid primary key default gen_random_uuid(),
+  client_id         uuid not null references public.clients(id) on delete cascade,
+  org_id            uuid not null references public.organizations(id) on delete cascade,
+  invited_by        uuid references auth.users(id) on delete set null,
+  email             text not null,
+  display_name      text not null default '',
+  member_role       text not null default 'client_user'
+                    check (member_role in ('client_user', 'broker')),
+  invite_token      text not null unique,
+  invite_link       text,
+  status            text not null default 'pending'
+                    check (status in ('pending', 'accepted', 'expired', 'cancelled')),
+  expires_at        timestamptz,
+  accepted_at       timestamptz,
+  accepted_user_id  uuid references auth.users(id) on delete set null,
+  created_at        timestamptz default now(),
+  updated_at        timestamptz default now()
+);
+
+create index if not exists idx_client_team_invites_client_id on public.client_team_invites(client_id);
+create index if not exists idx_client_team_invites_org_id on public.client_team_invites(org_id);
+create index if not exists idx_client_team_invites_email on public.client_team_invites(email);
+create index if not exists idx_client_team_invites_status on public.client_team_invites(status);
+create index if not exists idx_client_team_invites_token on public.client_team_invites(invite_token);

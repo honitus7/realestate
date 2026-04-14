@@ -13,7 +13,7 @@ def _generate_share_token():
 # Building Map CRUD
 # ---------------------------------------------------------------------------
 
-def create_building_map(sb, user_id, org_id, name, image_filename, image_width=0, image_height=0, catalogue_id=None):
+def create_building_map(sb, user_id, org_id, name, image_filename, image_width=0, image_height=0, catalogue_id=None, workspace_id=None):
     token = _generate_share_token()
     row = {
         'user_id': str(user_id),
@@ -27,6 +27,8 @@ def create_building_map(sb, user_id, org_id, name, image_filename, image_width=0
         row['org_id'] = str(org_id)
     if catalogue_id:
         row['catalogue_id'] = str(catalogue_id)
+    if workspace_id:
+        row['workspace_id'] = str(workspace_id)
     resp = sb.table('building_maps').insert(row).execute()
     data = resp.data
     return data[0] if data else None
@@ -58,7 +60,7 @@ def list_building_maps(sb, user_id):
 def update_building_map(sb, map_id, **fields):
     clean = {}
     for k, v in fields.items():
-        if k in ('name', 'image_filename', 'image_width', 'image_height', 'catalogue_id'):
+        if k in ('name', 'image_filename', 'image_width', 'image_height', 'catalogue_id', 'workspace_id'):
             clean[k] = v
     if not clean:
         return None

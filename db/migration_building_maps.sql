@@ -7,6 +7,7 @@ create table if not exists public.building_maps (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users(id) on delete cascade,
   org_id uuid references public.organizations(id) on delete set null,
+  workspace_id uuid references public.workspaces(id) on delete set null,
   catalogue_id uuid references public.floor_plan_catalogues(id) on delete set null,
   name text not null default 'Building Map',
   image_filename text not null,
@@ -18,6 +19,7 @@ create table if not exists public.building_maps (
 );
 
 create index if not exists idx_building_maps_user on public.building_maps(user_id);
+create index if not exists idx_building_maps_workspace on public.building_maps(workspace_id);
 create index if not exists idx_building_maps_catalogue on public.building_maps(catalogue_id);
 create index if not exists idx_building_maps_share_token on public.building_maps(share_token);
 

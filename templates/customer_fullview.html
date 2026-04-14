@@ -40,6 +40,42 @@
         .cfv-back:hover { color: #fff; border-color: rgba(255,255,255,0.25); }
         .cfv-back iconify-icon { font-size: 1rem; }
 
+        /* Common shell header */
+        .cfv-header {
+            position: fixed;
+            top: 14px;
+            left: 118px;
+            z-index: 200;
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            padding: 8px 14px;
+            background: rgba(12, 14, 20, 0.82);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 12px;
+            color: rgba(255,255,255,0.92);
+            max-width: min(68vw, 620px);
+        }
+        .cfv-header-title {
+            font-size: 0.9rem;
+            font-weight: 700;
+            line-height: 1.2;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .cfv-header-sub {
+            font-size: 0.74rem;
+            font-weight: 500;
+            color: rgba(255,255,255,0.68);
+            line-height: 1.2;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
         /* Content iframe — fills the whole viewport */
         #cfv-frame {
             position: fixed;
@@ -58,6 +94,10 @@
         360° View
     </a>
     {% endif %}
+    <div class="cfv-header" id="cfv-header">
+        <div class="cfv-header-title" id="cfv-header-title">{{ workspace_name or 'Project' }}</div>
+        <div class="cfv-header-sub" id="cfv-header-sub">Full View</div>
+    </div>
 
     <!-- Content iframe — renders floor plans / gallery / daynight / project plan -->
     <iframe id="cfv-frame" src="about:blank" allowfullscreen></iframe>
@@ -92,6 +132,9 @@
 
     var frame   = document.getElementById('cfv-frame');
     var sidebar = document.getElementById('fv-sidebar');
+    var backBtn = document.getElementById('cfv-back');
+    var headerTitleEl = document.getElementById('cfv-header-title');
+    var headerSubEl = document.getElementById('cfv-header-sub');
     var activeBtn = null;
 
     /* ---- build the embed URL for a given type + ref ---- */
@@ -124,6 +167,18 @@
         var pp      = btn.dataset.refProjectplan;
         var cd      = {};
         try { cd = JSON.parse(btn.dataset.content || '{}'); } catch (e) {}
+
+        if (backBtn) {
+            backBtn.style.display = (type === 'floor_plan') ? 'none' : '';
+        }
+        if (headerTitleEl && !headerTitleEl.textContent) {
+            headerTitleEl.textContent = 'Project';
+        }
+        if (headerSubEl) {
+            var labelEl = btn.querySelector('.fv-sidebar-label');
+            var label = (labelEl && labelEl.textContent) ? labelEl.textContent.trim() : (btn.title || 'Full View');
+            headerSubEl.textContent = label || 'Full View';
+        }
 
         /* ---- 360° / drone: go back to panorama ---- */
         if (type === '360_pano' || type === 'drone_view') {
@@ -171,21 +226,37 @@
 
     /* ---- auto-select initial tab based on URL params ---- */
     function autoSelect() {
-        if (!INIT_TYPE || !sidebar) return;
+        if (!sidebar) return;
         var btns = sidebar.querySelectorAll('.fv-sidebar-btn');
-        for (var i = 0; i < btns.length; i++) {
-            var b = btns[i];
-            if (b.dataset.tabType !== INIT_TYPE) continue;
-            var ref = b.dataset.refFloorplan || b.dataset.refGallery
-                    || b.dataset.refDaynight  || b.dataset.refProjectplan || '';
-            if (INIT_REF && ref && String(ref) !== String(INIT_REF)) continue;
-            loadTab(b);
-            return;
+
+        function isInternalEmbeddable(btn) {
+            var type = btn.dataset.tabType || '';
+            if (type === '360_pano' || type === 'drone_view') return false;
+            if (type === 'location' || type === 'brochure' || type === 'custom') return false;
+            var ref = btn.dataset.refFloorplan || btn.dataset.refGallery
+                    || btn.dataset.refDaynight || btn.dataset.refProjectplan || '';
+            return !!embedUrl(type, ref, {});
         }
-        /* no exact match — load first non-panorama tab */
+
+        // 1) Try URL-requested target when provided
+        if (INIT_TYPE) {
+            for (var i = 0; i < btns.length; i++) {
+                var b = btns[i];
+                if (b.dataset.tabType !== INIT_TYPE) continue;
+                var ref = b.dataset.refFloorplan || b.dataset.refGallery
+                        || b.dataset.refDaynight  || b.dataset.refProjectplan || '';
+                if (INIT_REF && ref && String(ref) !== String(INIT_REF)) continue;
+                loadTab(b);
+                return;
+            }
+        }
+
+        // 2) Default landing behavior: auto-load the first internal project tab
         for (var j = 0; j < btns.length; j++) {
-            var t = btns[j].dataset.tabType;
-            if (t !== '360_pano' && t !== 'drone_view') { loadTab(btns[j]); return; }
+            if (isInternalEmbeddable(btns[j])) {
+                loadTab(btns[j]);
+                return;
+            }
         }
     }
 

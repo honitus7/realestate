@@ -326,7 +326,6 @@
                         <select class="input" id="add-member-role">
                             <option value="client_admin">Client Admin</option>
                             <option value="client_user" selected>Client User</option>
-                            <option value="broker">Broker</option>
                         </select>
                     </div>
                     <div class="msg error" id="add-member-error" style="display:none;"></div>
@@ -900,7 +899,7 @@
             state.currentUserId = ctx.profile ? ctx.profile.user_id : '';
 
             if (ctx.role !== 'admin' && ctx.role !== 'superadmin') {
-                showBanner('Forbidden: Admin access required.');
+                // Non-platform-admins can still manage client users (via Clients tab flow below).
                 if (usersLoading) usersLoading.style.display = 'none';
                 return;
             }
@@ -972,7 +971,9 @@
             if (emptyEl) emptyEl.style.display = 'none';
             if (listEl) listEl.innerHTML = '';
             return getAuthHeaders().then(function (h) {
-                return fetchJson('/api/clients', { headers: h });
+                var isPlatformAdmin = clientState.currentRole === 'admin' || clientState.currentRole === 'superadmin';
+                var url = isPlatformAdmin ? '/api/clients' : '/api/clients/mine';
+                return fetchJson(url, { headers: h });
             }).then(function (res) {
                 if (loadingEl) loadingEl.style.display = 'none';
                 if (!res.ok) return;
@@ -1058,16 +1059,13 @@
             tbody.innerHTML = items.map(function (m) {
                 var uid = String(m.user_id || '');
                 var isSelf = uid === clientState.currentUserId;
-                var isPlatformAdmin = clientState.currentRole === 'admin' || clientState.currentRole === 'superadmin';
-                var isClientAdminOnly = clientState.isClientAdminOnly;
-                // client_admins can change client_user ↔ broker but not set client_admin
+                // client_admins can switch member role between client_admin and client_user
                 var roleSelect = '<select class="member-role-select" data-uid="' + escapeHtml(uid) + '">' +
-                    ['client_admin', 'client_user', 'broker'].map(function (r) {
-                        var disabled = (!isPlatformAdmin && r === 'client_admin') ? ' disabled' : '';
-                        return '<option value="' + r + '"' + (m.member_role === r ? ' selected' : '') + disabled + '>' + escapeHtml(roleLabels[r] || r) + '</option>';
+                    ['client_admin', 'client_user'].map(function (r) {
+                        return '<option value="' + r + '"' + (m.member_role === r ? ' selected' : '') + '>' + escapeHtml(roleLabels[r] || r) + '</option>';
                     }).join('') + '</select>';
-                // client_admins: no remove button (role editing only); platform admins: remove all non-self
-                var removeBtn = (isSelf || isClientAdminOnly) ? '' : '<button class="btn-sm btn-sm--danger" data-action="remove-member" data-uid="' + escapeHtml(uid) + '">Remove</button>';
+                // both platform admins and client_admins can remove non-self members
+                var removeBtn = isSelf ? '' : '<button class="btn-sm btn-sm--danger" data-action="remove-member" data-uid="' + escapeHtml(uid) + '">Remove</button>';
                 return '<tr>' +
                     '<td>' + escapeHtml(m.display_name || '—') + '</td>' +
                     '<td>' + escapeHtml(m.email || '—') + '</td>' +
@@ -1251,14 +1249,8 @@
                 .map(function (u) { return '<option value="' + escapeHtml(u.user_id) + '">' + escapeHtml((u.display_name || u.email || u.user_id)) + '</option>'; });
             if (!options.length) { alert('All org users are already members or no users available.'); return; }
             sel.innerHTML = options.join('');
-            var isAdmin = clientState.currentRole === 'admin' || clientState.currentRole === 'superadmin';
             var roleOpts = document.getElementById('add-member-role');
-            if (roleOpts) {
-                Array.from(roleOpts.options).forEach(function (opt) {
-                    opt.disabled = (!isAdmin && opt.value === 'client_admin');
-                });
-                if (!isAdmin) roleOpts.value = 'client_user';
-            }
+            if (roleOpts) roleOpts.value = 'client_user';
             openModal(modalAddMember);
         }
         function doAddMember() {
@@ -1307,7 +1299,16 @@
                 });
             }).then(function (res) {
                 if (!res.ok) { setError(errEl, (res.data && res.data.error) || 'Failed to send invite'); return; }
-                setError(successEl, 'Invitation sent to ' + email + '!');
+                var inviteLink = (res.data && res.data.invite_link) ? String(res.data.invite_link) : '';
+                var sentMsg = (res.data && res.data.email_sent === false)
+                    ? 'Invite created. Email could not be sent; share link manually.'
+                    : ('Invitation sent to ' + email + '!');
+                setError(successEl, inviteLink ? (sentMsg + ' Invite Link: ' + inviteLink) : sentMsg);
+                if (inviteLink && navigator.clipboard && navigator.clipboard.writeText) {
+                    navigator.clipboard.writeText(inviteLink).then(function () {
+                        setError(successEl, sentMsg + ' Invite link copied to clipboard.');
+                    }).catch(function () {});
+                }
                 document.getElementById('invite-member-name').value = '';
                 document.getElementById('invite-member-email').value = '';
                 setTimeout(function () { closeModal(modalInviteMember); setError(successEl, ''); }, 1800);
@@ -1412,32 +1413,60 @@
             clientState.currentUserId = ctx.profile ? ctx.profile.user_id : '';
 
             var isAdmin = (ctx.role === 'admin' || ctx.role === 'superadmin');
+            var clientsTabBtn = document.querySelector('.tab-btn[data-tab="clients"]');
+            var usersTabBtn = document.querySelector('.tab-btn[data-tab="users"]');
+            var invitesTabBtn = document.querySelector('.tab-btn[data-tab="invites"]');
 
-            if (!isAdmin) {
-                var tabBtn = document.getElementById('tab-btn-clients');
-                if (tabBtn) tabBtn.style.display = 'none';
-                return;
-            }
-
-            // Admin boot — load supporting data in background
+            // Try detecting client-admin groups for non-platform admins.
             getAuthHeaders().then(function (h) {
+                if (isAdmin) {
+                    return Promise.all([
+                        fetchJson('/api/admin/org-users', { headers: h }),
+                        fetchJson('/api/workspaces', { headers: h }),
+                        fetchJson('/api/panoramas', { headers: h }),
+                        fetchJson('/api/clients', { headers: h }),
+                    ]).then(function (results) {
+                        clientState.orgUsers = Array.isArray(results[0].data) ? results[0].data : [];
+                        clientState.workspaces = Array.isArray(results[1].data) ? results[1].data : [];
+                        clientState.panoramas = Array.isArray(results[2].data) ? results[2].data : [];
+                        clientState.clients = Array.isArray(results[3].data) ? results[3].data : [];
+                        if (clientsTabBtn) clientsTabBtn.style.display = '';
+                    });
+                }
                 return Promise.all([
-                    fetchJson('/api/admin/org-users', { headers: h }),
-                    fetchJson('/api/workspaces', { headers: h }),
-                    fetchJson('/api/panoramas', { headers: h }),
-                ]);
-            }).then(function (results) {
-                clientState.orgUsers = Array.isArray(results[0].data) ? results[0].data : [];
-                clientState.workspaces = Array.isArray(results[1].data) ? results[1].data : [];
-                clientState.panoramas = Array.isArray(results[2].data) ? results[2].data : [];
+                    fetchJson('/api/clients/mine', { headers: h }),
+                    fetchJson('/api/profiles', { headers: h }),
+                ]).then(function (results) {
+                    var mine = Array.isArray(results[0].data) ? results[0].data : [];
+                    if (!mine.length) {
+                        if (clientsTabBtn) clientsTabBtn.style.display = 'none';
+                        return;
+                    }
+                    clientState.isClientAdminOnly = true;
+                    clientState.clients = mine;
+                    clientState.orgUsers = Array.isArray(results[1].data) ? results[1].data : [];
+                    if (clientsTabBtn) clientsTabBtn.style.display = '';
+                    // Client-admin mode: focus on Clients tab
+                    if (usersTabBtn) usersTabBtn.style.display = 'none';
+                    if (invitesTabBtn) invitesTabBtn.style.display = 'none';
+                    if (clientsTabBtn) clientsTabBtn.click();
+                });
             }).catch(function () {});
 
+            // Keep client-group edit/delete as platform-admin only
+            if (!isAdmin) {
+                var editClientBtn = document.getElementById('btn-edit-client');
+                var deleteClientBtn = document.getElementById('btn-delete-client');
+                if (editClientBtn) editClientBtn.style.display = 'none';
+                if (deleteClientBtn) deleteClientBtn.style.display = 'none';
+            }
+
             // Hook clients tab click
-            var clientsTabBtn = document.querySelector('.tab-btn[data-tab="clients"]');
             if (clientsTabBtn) {
                 clientsTabBtn.addEventListener('click', function () {
                     if (!clientState.clients.length) loadClients();
-                }, { once: true });
+                    renderClientList();
+                });
             }
         });
     })();
