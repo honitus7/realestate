@@ -70,9 +70,9 @@
             }
 
             function applyPendingClientInvite(session) {
-                if (!session || !session.access_token) return Promise.resolve();
+                if (!session || !session.access_token) return Promise.resolve({ attempted: false, applied: false });
                 var token = loadPendingClientInviteToken();
-                if (!token) return Promise.resolve();
+                if (!token) return Promise.resolve({ attempted: false, applied: false });
                 return fetch('/api/client-team-invites/accept', {
                     method: 'POST',
                     headers: {
@@ -80,9 +80,22 @@
                         'Authorization': 'Bearer ' + session.access_token
                     },
                     body: JSON.stringify({ invite_token: token })
-                }).then(function () {
-                    clearPendingClientInviteToken();
-                }).catch(function () { });
+                }).then(function (r) {
+                    return r.json().catch(function () { return {}; }).then(function (data) {
+                        if (r.ok) {
+                            clearPendingClientInviteToken();
+                            return { attempted: true, applied: true, status: r.status, data: data || {} };
+                        }
+                        return {
+                            attempted: true,
+                            applied: false,
+                            status: r.status,
+                            error: (data && data.error) ? String(data.error) : 'Could not accept client invite'
+                        };
+                    });
+                }).catch(function () {
+                    return { attempted: true, applied: false, status: 0, error: 'Network issue while accepting invite. Please try again.' };
+                });
             }
 
             // Handle Supabase redirect errors (e.g. otp_expired, access_denied) in hash
@@ -146,7 +159,12 @@
         supabase.auth.getSession().then(function (r) {
             var session = r.data.session || null;
             return applyPendingSignupProfile(session).then(function () {
-                return applyPendingClientInvite(session).then(function () {
+                return applyPendingClientInvite(session).then(function (inv) {
+                    if (inv && inv.attempted && !inv.applied) {
+                        msg.textContent = (inv.error || 'Invite acceptance failed.') + ' Redirecting to sign in...';
+                        setTimeout(function () { window.location.replace('/login'); }, 2200);
+                        return;
+                    }
                     setOrgThemeCookieThenRedirect(session);
                 });
             });

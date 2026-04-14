@@ -7,7 +7,9 @@ import re
 import secrets
 import time
 import uuid
+from html import escape
 from datetime import datetime, timedelta
+from urllib.parse import urlencode
 
 import requests as _requests
 
@@ -555,6 +557,10 @@ def register_routes(app):
     @app.route('/login')
     def login_page():
         return render_template('login.html', **auth_ctx())
+
+    @app.route('/signup')
+    def signup_page():
+        return redirect('/login?mode=signup')
 
     @app.route('/auth/callback')
     def auth_callback():
@@ -7382,6 +7388,62 @@ h1 {{ margin:0 0 8px; font-size:22px; }}
             f"If you already have an account, sign in and accept.\n\n"
             f"Regards,\nPropMark"
         )
+        inviter_name_html = escape(str(inviter_name or "A teammate"))
+        client_name_html = escape(str(client_name or "Team"))
+        invite_link_html = escape(str(invite_link or ""))
+        html_body = f"""<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>Team Invite</title>
+  </head>
+  <body style="margin:0;padding:0;background:#f3f5f9;">
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:#f3f5f9;padding:24px 12px;">
+      <tr>
+        <td align="center">
+          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:620px;background:#ffffff;border:1px solid #e5eaf2;border-radius:16px;overflow:hidden;">
+            <tr>
+              <td style="padding:24px 28px;background:linear-gradient(135deg,#0f172a,#1e293b);color:#ffffff;">
+                <div style="font-size:13px;letter-spacing:0.08em;text-transform:uppercase;opacity:0.86;">PropMark</div>
+                <h1 style="margin:10px 0 0 0;font-size:24px;line-height:1.3;font-weight:700;">You are invited to join a client team</h1>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:26px 28px 18px 28px;color:#0f172a;font-family:Arial,Helvetica,sans-serif;">
+                <p style="margin:0 0 14px 0;font-size:15px;line-height:1.7;">
+                  <strong>{inviter_name_html}</strong> has invited you to join team
+                  <strong>{client_name_html}</strong>.
+                </p>
+                <p style="margin:0 0 18px 0;font-size:14px;line-height:1.7;color:#334155;">
+                  Use the button below to accept this invitation. If you already have an account, sign in. If not, sign up with this same email and you will be added automatically.
+                </p>
+                <table role="presentation" cellspacing="0" cellpadding="0" border="0" style="margin:0 0 18px 0;">
+                  <tr>
+                    <td align="center" bgcolor="#0f172a" style="border-radius:10px;">
+                      <a href="{invite_link_html}" style="display:inline-block;padding:12px 20px;font-size:14px;font-weight:700;line-height:1;color:#ffffff;text-decoration:none;border-radius:10px;">
+                        Accept Invitation
+                      </a>
+                    </td>
+                  </tr>
+                </table>
+                <div style="margin:0 0 4px 0;font-size:12px;color:#64748b;">Button not working? Copy and paste this link in your browser:</div>
+                <div style="font-size:12px;word-break:break-all;color:#1d4ed8;">
+                  <a href="{invite_link_html}" style="color:#1d4ed8;text-decoration:none;">{invite_link_html}</a>
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:16px 28px 24px 28px;border-top:1px solid #e5eaf2;color:#64748b;font-size:12px;font-family:Arial,Helvetica,sans-serif;">
+                This invitation was sent by PropMark.
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>"""
         send_smtp_email(
             smtp_host=app_config.SMTP_HOST,
             smtp_port=app_config.SMTP_PORT,
@@ -7393,6 +7455,7 @@ h1 {{ margin:0 0 8px; font-size:22px; }}
             to_email=to_email,
             subject=subject,
             text_body=body,
+            html_body=html_body,
             brevo_api_key=app_config.BREVO_API_KEY,
         )
 
@@ -7985,6 +8048,29 @@ h1 {{ margin:0 0 8px; font-size:22px; }}
                         inviter_name = pr.data[0].get('display_name') or pr.data[0].get('email') or ''
             except Exception:
                 pass
+            invited_user_exists = False
+            invite_email = str(row.get('email') or '').strip()
+            if invite_email:
+                try:
+                    ex = (
+                        sb.table('profiles')
+                        .select('user_id')
+                        .eq('email', invite_email)
+                        .limit(1)
+                        .execute()
+                    )
+                    invited_user_exists = bool(ex.data and len(ex.data) > 0)
+                    if not invited_user_exists and invite_email != invite_email.lower():
+                        ex2 = (
+                            sb.table('profiles')
+                            .select('user_id')
+                            .eq('email', invite_email.lower())
+                            .limit(1)
+                            .execute()
+                        )
+                        invited_user_exists = bool(ex2.data and len(ex2.data) > 0)
+                except Exception:
+                    invited_user_exists = False
             return jsonify({
                 'client_name': client_name,
                 'inviter_name': inviter_name,
@@ -7993,6 +8079,7 @@ h1 {{ margin:0 0 8px; font-size:22px; }}
                 'member_role': row.get('member_role') or 'client_user',
                 'status': row.get('status') or 'pending',
                 'expires_at': row.get('expires_at'),
+                'invited_user_exists': invited_user_exists,
             })
         except Exception as e:
             return jsonify({'error': str(e)}), 500
@@ -8048,11 +8135,48 @@ h1 {{ margin:0 0 8px; font-size:22px; }}
 
     @app.route('/client-invite/<invite_token>')
     def client_team_invite_page(invite_token):
-        return render_template(
-            'client_team_invite.html',
-            invite_token=str(invite_token or '').strip(),
-            **auth_ctx(),
-        )
+        token = str(invite_token or '').strip()
+        mode = 'signup'
+        invite_email = ''
+        sb = get_supabase()
+        if sb and token:
+            try:
+                r = (
+                    sb.table('client_team_invites')
+                    .select('email')
+                    .eq('invite_token', token)
+                    .limit(1)
+                    .execute()
+                )
+                row = (r.data or [None])[0]
+                if row:
+                    invite_email = str(row.get('email') or '').strip()
+                    exists = False
+                    if invite_email:
+                        ex = (
+                            sb.table('profiles')
+                            .select('user_id')
+                            .eq('email', invite_email)
+                            .limit(1)
+                            .execute()
+                        )
+                        exists = bool(ex.data and len(ex.data) > 0)
+                        if not exists and invite_email != invite_email.lower():
+                            ex2 = (
+                                sb.table('profiles')
+                                .select('user_id')
+                                .eq('email', invite_email.lower())
+                                .limit(1)
+                                .execute()
+                            )
+                            exists = bool(ex2.data and len(ex2.data) > 0)
+                    mode = 'signin' if exists else 'signup'
+            except Exception:
+                pass
+        params = {'client_invite': token, 'mode': mode}
+        if invite_email:
+            params['email'] = invite_email
+        return redirect('/login?' + urlencode(params))
 
     @app.route('/api/clients/<client_id>/access', methods=['GET'])
     @require_auth

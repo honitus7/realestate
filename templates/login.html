@@ -122,6 +122,7 @@
     function showAuthUI() {
         loadingEl.classList.add('hidden');
         authUi.classList.remove('hidden');
+        applyAuthModeFromQuery();
     }
 
     function showError(msg) {
@@ -148,6 +149,24 @@
             var u = new URL(window.location.href);
             return (u.searchParams.get(name) || '').trim();
         } catch (e) { return ''; }
+    }
+
+    function applyAuthModeFromQuery() {
+        var mode = String(queryParam('mode') || '').toLowerCase();
+        var email = queryParam('email');
+        if (email) {
+            var signinEmail = document.getElementById('signin-email');
+            var signupEmail = document.getElementById('signup-email');
+            var forgotEmail = document.getElementById('forgot-email');
+            if (signinEmail && !signinEmail.value) signinEmail.value = email;
+            if (signupEmail && !signupEmail.value) signupEmail.value = email;
+            if (forgotEmail && !forgotEmail.value) forgotEmail.value = email;
+        }
+        if (mode === 'signup') {
+            switchPanel('panel-signup');
+        } else if (mode === 'signin') {
+            switchPanel('panel-signin');
+        }
     }
 
     function loadPendingSignupProfile() {
@@ -206,16 +225,29 @@
     }
 
     function applyPendingClientInvite(session) {
-        if (!session || !session.access_token) return Promise.resolve();
+        if (!session || !session.access_token) return Promise.resolve({ attempted: false, applied: false });
         var token = loadPendingClientInviteToken();
-        if (!token) return Promise.resolve();
+        if (!token) return Promise.resolve({ attempted: false, applied: false });
         return fetch('/api/client-team-invites/accept', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + session.access_token },
             body: JSON.stringify({ invite_token: token })
-        }).then(function () {
-            clearPendingClientInviteToken();
-        }).catch(function () {});
+        }).then(function (r) {
+            return r.json().catch(function () { return {}; }).then(function (data) {
+                if (r.ok) {
+                    clearPendingClientInviteToken();
+                    return { attempted: true, applied: true, status: r.status, data: data || {} };
+                }
+                return {
+                    attempted: true,
+                    applied: false,
+                    status: r.status,
+                    error: (data && data.error) ? String(data.error) : 'Could not accept client invite'
+                };
+            });
+        }).catch(function () {
+            return { attempted: true, applied: false, status: 0, error: 'Network issue while accepting invite. Please try again.' };
+        });
     }
 
     (function bootstrapInviteTokenFromUrl() {
@@ -233,10 +265,19 @@
             if (res.ok) {
                 // Token is valid — redirect to dashboard
                 var uid = session.user && session.user.id ? session.user.id : '';
-                applyPendingSignupProfile(session).finally(function () {
-                    applyPendingClientInvite(session).finally(function () {
+                applyPendingSignupProfile(session).then(function () {
+                    return applyPendingClientInvite(session);
+                }).then(function (inv) {
+                        if (inv && inv.attempted && !inv.applied) {
+                            supabase.auth.signOut().finally(function () {
+                                showAuthUI();
+                                setError(document.getElementById('signin-error'), inv.error || 'Invite acceptance failed. Please sign in with invited email.');
+                            });
+                            return;
+                        }
                         window.location.replace(uid ? '/dashboard/' + encodeURIComponent(uid) : '/dashboard');
-                    });
+                }).catch(function () {
+                    showAuthUI();
                 });
             } else {
                 // Token rejected by server — clear stale session and show login
@@ -304,10 +345,13 @@
             .then(function (res) {
                 if (res.error) throw res.error;
                 var uid = res.data.user && res.data.user.id ? res.data.user.id : '';
-                return applyPendingSignupProfile(res.data.session).finally(function () {
-                    applyPendingClientInvite(res.data.session).finally(function () {
+                return applyPendingSignupProfile(res.data.session).then(function () {
+                    return applyPendingClientInvite(res.data.session);
+                }).then(function (inv) {
+                        if (inv && inv.attempted && !inv.applied) {
+                            throw new Error(inv.error || 'Invite acceptance failed. Please sign in with invited email.');
+                        }
                         window.location.href = uid ? '/dashboard/' + encodeURIComponent(uid) : '/dashboard';
-                    });
                 });
             })
             .catch(function (err) { setError(errEl, err.message || 'Sign in failed'); })
@@ -336,10 +380,13 @@
                     return;
                 }
                 var uid = res.data.user && res.data.user.id ? res.data.user.id : '';
-                return applyPendingSignupProfile(res.data.session).finally(function () {
-                    applyPendingClientInvite(res.data.session).finally(function () {
+                return applyPendingSignupProfile(res.data.session).then(function () {
+                    return applyPendingClientInvite(res.data.session);
+                }).then(function (inv) {
+                        if (inv && inv.attempted && !inv.applied) {
+                            throw new Error(inv.error || 'Invite acceptance failed. Please sign in with invited email.');
+                        }
                         window.location.href = uid ? '/dashboard/' + encodeURIComponent(uid) : '/dashboard';
-                    });
                 });
             })
             .catch(function (err) { setError(errEl, err.message || 'Sign up failed'); })

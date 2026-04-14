@@ -18,6 +18,7 @@ def send_email(
     to_email,
     subject,
     text_body,
+    html_body=None,
     brevo_api_key=None,
 ):
     if not from_email or not to_email:
@@ -31,6 +32,8 @@ def send_email(
             "subject": subject or "",
             "textContent": text_body or "",
         }
+        if html_body:
+            payload["htmlContent"] = html_body
         body_bytes = json.dumps(payload).encode("utf-8")
         req = urlrequest.Request(
             "https://api.brevo.com/v3/smtp/email",
@@ -66,6 +69,8 @@ def send_email(
     msg["From"] = f"{from_name} <{from_email}>" if from_name else from_email
     msg["To"] = to_email
     msg.set_content(text_body or "")
+    if html_body:
+        msg.add_alternative(html_body, subtype="html")
 
     with smtplib.SMTP(smtp_host, int(smtp_port), timeout=20) as server:
         if smtp_use_tls:
