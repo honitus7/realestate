@@ -152,16 +152,31 @@
                 if (!sel) return;
                 if (!workspaces.length) {
                     sel.innerHTML = '<option value="">No projects found</option>';
+                    if (projects.length) renderProjects();
                     return;
                 }
                 sel.innerHTML = workspaces.map(function(w) {
                     return '<option value="' + escAttr(String(w.id || '')) + '">' + escHtml(w.name || 'Project') + '</option>';
                 }).join('');
+                if (projects.length) renderProjects();
             })
             .catch(function() {
                 var sel = document.getElementById('dn-workspace');
                 if (sel) sel.innerHTML = '<option value="">Failed to load projects</option>';
+                if (projects.length) renderProjects();
             });
+    }
+    function workspaceName(workspaceId) {
+        if (!workspaceId) return '';
+        for (var i = 0; i < workspaces.length; i++) {
+            if (String(workspaces[i].id || '') === String(workspaceId)) return String(workspaces[i].name || '');
+        }
+        return '';
+    }
+    function projectChipHtml(workspaceId) {
+        var name = workspaceName(workspaceId);
+        if (!workspaceId || !name) return '<span class="dn-project-chip dn-project-chip--muted">Unlinked</span>';
+        return '<span class="dn-project-chip">' + escHtml(name) + '</span>';
     }
 
     // Load & render projects
@@ -204,6 +219,7 @@
                 previewHtml = '<div class="dn-placeholder">' + (hasMedia ? (isVideo ? '&#127909;' : '&#127749;') : '&#8987;') + '</div>';
             }
             var date = p.created_at ? new Date(p.created_at).toLocaleDateString() : '';
+            var projectChip = projectChipHtml(p.workspace_id);
             card.innerHTML =
                 '<div class="dn-card-preview">' + previewHtml + '</div>' +
                 '<div class="dn-card-body">' +
@@ -212,6 +228,7 @@
                         '<span class="dn-badge' + (isVideo ? ' dn-badge-video' : '') + '">' + (isVideo ? 'Video' : 'Images') + '</span>' +
                         '<span class="dn-card-date">' + date + '</span>' +
                     '</div>' +
+                    '<div class="dn-project-row"><span class="dn-project-label">Project</span>' + projectChip + '</div>' +
                     (hasMedia ? '<div class="dn-share-row"><input type="text" readonly value="' + escAttr(p.share_url || '') + '"><button class="btn btn-secondary dn-copy-btn" data-url="' + escAttr(p.share_url || '') + '">Copy</button></div>' : '<div style="font-size:0.8rem;color:var(--color-muted);margin-bottom:0.5rem;">Media not uploaded yet</div>') +
                     '<div class="dn-card-actions" style="margin-top:0.75rem;">' +
                         (hasMedia ? '<a class="btn btn-secondary" href="' + escAttr(p.preview_url || p.share_url || '') + '" target="_blank">Preview</a>' : '') +

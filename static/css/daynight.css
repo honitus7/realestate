@@ -133,6 +133,43 @@
     color: var(--color-muted, #888);
 }
 
+.dn-project-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin: 0 0 0.7rem;
+}
+
+.dn-project-label {
+    font-size: 0.72rem;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    color: var(--color-muted, #888);
+}
+
+.dn-project-chip {
+    display: inline-flex;
+    align-items: center;
+    max-width: 100%;
+    padding: 0.2rem 0.55rem;
+    border-radius: 999px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    line-height: 1.2;
+    color: #0f172a;
+    background: #e2e8f0;
+    border: 1px solid #cbd5e1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.dn-project-chip--muted {
+    color: #64748b;
+    background: #f1f5f9;
+    border-color: #e2e8f0;
+}
+
 .dn-card-actions {
     display: flex;
     gap: 0.5rem;

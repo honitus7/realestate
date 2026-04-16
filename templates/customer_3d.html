@@ -702,6 +702,16 @@
             return `${window.location.origin}${getPanoramaPathByMeta(getCurrentPanoramaId(), CURRENT_PANORAMA_IS_360)}`;
         }
 
+        function syncProjectPanoramaUrlState(panoramaId) {
+            if (!WORKSPACE_ID || !history || typeof history.replaceState !== 'function') return;
+            const pano = String(panoramaId || '').trim();
+            const base = '/customer/project/' + encodeURIComponent(String(WORKSPACE_ID));
+            const next = pano ? (base + '?pano=' + encodeURIComponent(pano)) : base;
+            try {
+                history.replaceState(null, '', next);
+            } catch (e) { }
+        }
+
         function syncProjectBadgeText() {
             const cfg = getCvConfig();
             const badgeCfg = cfg && cfg.projectBadge ? cfg.projectBadge : {};
@@ -4059,6 +4069,7 @@
             const prevFilename = CURRENT_PANORAMA_FILENAME;
             const prevMode = CURRENT_PANORAMA_IS_360;
             currentFullViewPanoramaId = id;
+            syncProjectPanoramaUrlState(currentFullViewPanoramaId);
             if (workspaceMeta && workspaceMeta.name) CURRENT_PANORAMA_NAME = String(workspaceMeta.name || '').trim() || CURRENT_PANORAMA_NAME;
             if (workspaceMeta && workspaceMeta.filename) CURRENT_PANORAMA_FILENAME = String(workspaceMeta.filename || '');
             if (workspaceMeta && Object.prototype.hasOwnProperty.call(workspaceMeta, 'is_360')) CURRENT_PANORAMA_IS_360 = Boolean(workspaceMeta.is_360);
@@ -4094,6 +4105,7 @@
                 stopLoadingStatusCycle();
                 if (loading) loading.classList.add('hidden');
                 currentFullViewPanoramaId = prevId;
+                syncProjectPanoramaUrlState(currentFullViewPanoramaId);
                 CURRENT_PANORAMA_NAME = prevName;
                 CURRENT_PANORAMA_FILENAME = prevFilename;
                 CURRENT_PANORAMA_IS_360 = prevMode;
@@ -4115,6 +4127,7 @@
             const resolved = resolveDisplayPanorama(PANORAMA_ID, baseMeta);
             const meta = resolved.meta;
             CURRENT_RENDER_PANORAMA_ID = String(resolved.dataPanoramaId || PANORAMA_ID);
+            syncProjectPanoramaUrlState(currentFullViewPanoramaId || PANORAMA_ID);
             CURRENT_PANORAMA_NAME = meta.name || CURRENT_PANORAMA_NAME;
             CURRENT_PANORAMA_FILENAME = meta.filename || CURRENT_PANORAMA_FILENAME;
             CURRENT_PANORAMA_IS_360 = Boolean(meta.is_360);
@@ -4445,6 +4458,91 @@
                  + '&ref='  + encodeURIComponent(ref);
         }
 
+        function getCurrentPanoramaIdForSidebar() {
+            try {
+                if (typeof currentFullViewPanoramaId !== 'undefined' && currentFullViewPanoramaId != null) {
+                    var current = String(currentFullViewPanoramaId || '').trim();
+                    if (current) return current;
+                }
+            } catch (e) { }
+            try {
+                if (typeof getCurrentPanoramaId === 'function') {
+                    var fnCurrent = String(getCurrentPanoramaId() || '').trim();
+                    if (fnCurrent) return fnCurrent;
+                }
+            } catch (e2) { }
+            try {
+                if (typeof PANORAMA_ID !== 'undefined' && PANORAMA_ID != null) {
+                    var base = String(PANORAMA_ID || '').trim();
+                    if (base) return base;
+                }
+            } catch (e3) { }
+            return '';
+        }
+
+        function switchPanoramaFromSidebar(panoId) {
+            var id = String(panoId || '').trim();
+            if (!id) return false;
+            var numericId = Number(id);
+
+            if (typeof switchToPanoramaInView === 'function') {
+                switchToPanoramaInView(numericId);
+                return true;
+            }
+            if (typeof switchToPanorama === 'function') {
+                switchToPanorama(numericId);
+                return true;
+            }
+            if (typeof loadPanoramaById === 'function') {
+                loadPanoramaById(numericId);
+                return true;
+            }
+            if (WORKSPACE_ID) {
+                window.location.href = '/customer/project/' + encodeURIComponent(String(WORKSPACE_ID))
+                    + '?pano=' + encodeURIComponent(id);
+                return true;
+            }
+            return false;
+        }
+
+        function syncActiveFromCurrentPanorama() {
+            if (!sidebar) return;
+            var currentPanoId = getCurrentPanoramaIdForSidebar();
+            if (!currentPanoId) return;
+
+            var matched = null;
+            sidebar.querySelectorAll('.fv-sidebar-btn').forEach(function (btn) {
+                if (matched) return;
+                var type = btn.dataset.tabType || '';
+                var pano = String(btn.dataset.refPanorama || '').trim();
+                var gal = String(btn.dataset.refGallery || '').trim();
+                var isPanoType = (type === '360_pano' || type === 'drone_view');
+                var isPanoHighlights = (type === 'highlights' && !gal);
+                if ((isPanoType || isPanoHighlights) && pano && String(pano) === String(currentPanoId)) {
+                    matched = btn;
+                }
+            });
+
+            if (matched) setActive(matched);
+            else setActive(null);
+        }
+
+        function installPanoramaSwitchActiveSync() {
+            if (typeof switchToPanoramaInView !== 'function') return;
+            if (switchToPanoramaInView.__fvSidebarActiveSync) return;
+
+            var originalSwitch = switchToPanoramaInView;
+            var wrappedSwitch = function () {
+                var result = originalSwitch.apply(this, arguments);
+                Promise.resolve(result).finally(function () {
+                    syncActiveFromCurrentPanorama();
+                });
+                return result;
+            };
+            wrappedSwitch.__fvSidebarActiveSync = true;
+            switchToPanoramaInView = wrappedSwitch;
+        }
+
         function bindSidebarHandlers() {
             if (!sidebar) return;
             sidebar.querySelectorAll('.fv-sidebar-btn').forEach(function (btn) {
@@ -4462,8 +4560,7 @@
                     if (type === '360_pano' || type === 'drone_view') {
                         if (pano) {
                             setActive(btn);
-                            if (typeof switchToPanorama === 'function') switchToPanorama(Number(pano));
-                            else if (typeof loadPanoramaById === 'function') loadPanoramaById(Number(pano));
+                            switchPanoramaFromSidebar(pano);
                         }
                         return;
                     }
@@ -4471,7 +4568,7 @@
                     /* ---- highlights: panorama ref stays in-viewer ---- */
                     if (type === 'highlights' && !gal && pano) {
                         setActive(btn);
-                        if (typeof switchToPanorama === 'function') switchToPanorama(Number(pano));
+                        switchPanoramaFromSidebar(pano);
                         return;
                     }
 
@@ -4488,7 +4585,7 @@
                         setActive(btn);
                         window.location.href = url;
                     }
-                }
+                });
             });
         }
 
@@ -4497,7 +4594,9 @@
             var tabs = Array.isArray(cfg.tabs) ? cfg.tabs : [];
             if (!tabs.length) return false;
             ensureSidebarFromTabs(tabs);
+            installPanoramaSwitchActiveSync();
             bindSidebarHandlers();
+            syncActiveFromCurrentPanorama();
             return true;
         }
 

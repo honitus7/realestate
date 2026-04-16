@@ -554,6 +554,10 @@ def register_routes(app):
     def index():
         return render_template('landing.html')
 
+    @app.route('/favicon.ico')
+    def favicon():
+        return redirect('/static/logo.png', code=302)
+
     @app.route('/login')
     def login_page():
         return render_template('login.html', **auth_ctx())
@@ -889,6 +893,20 @@ def register_routes(app):
         if not main_id:
             return "Project has no main panorama", 404
         panorama = get_panorama_by_id(sb, main_id)
+        requested_pano = (request.args.get('pano') or '').strip()
+        if requested_pano:
+            try:
+                requested_pano_id = int(requested_pano)
+            except Exception:
+                requested_pano_id = None
+            try:
+                main_numeric_id = int(main_id)
+            except Exception:
+                main_numeric_id = None
+            if requested_pano_id is not None and requested_pano_id != main_numeric_id:
+                requested_row = get_panorama_by_id(sb, requested_pano_id)
+                if requested_row and str(requested_row.get('workspace_id') or '') == str(workspace_id):
+                    panorama = requested_row
         if not panorama:
             return "Panorama not found", 404
         org_name, canonical_slug = get_org_name_and_slug_for_panorama(sb, panorama)
@@ -5460,7 +5478,7 @@ h1 {{ margin:0 0 8px; font-size:22px; }}
             workspace = get_workspace_by_id(sb, workspace_id)
             if not workspace:
                 return jsonify({'error': 'Project not found'}), 404
-            if not can_manage_workspace(workspace, user_id, role):
+            if not can_manage_workspace(sb, workspace, user_id, role):
                 return jsonify({'error': 'Forbidden'}), 403
         profile = get_profile(sb, user_id)
         org_id = profile.get('org_id') if profile else None
@@ -5960,7 +5978,7 @@ h1 {{ margin:0 0 8px; font-size:22px; }}
             workspace = get_workspace_by_id(sb, workspace_id)
             if not workspace:
                 return jsonify({'error': 'Project not found'}), 404
-            if not can_manage_workspace(workspace, user_id, role):
+            if not can_manage_workspace(sb, workspace, user_id, role):
                 return jsonify({'error': 'Forbidden'}), 403
         f = request.files.get('file')
         if not f:
@@ -6668,7 +6686,7 @@ h1 {{ margin:0 0 8px; font-size:22px; }}
             workspace = get_workspace_by_id(sb, workspace_id)
             if not workspace:
                 return jsonify({'error': 'Project not found'}), 404
-            if not can_manage_workspace(workspace, user_id, role):
+            if not can_manage_workspace(sb, workspace, user_id, role):
                 return jsonify({'error': 'Forbidden'}), 403
         plan = pp_create(sb, user_id, org_id, name, workspace_id=workspace_id)
         if not plan:
@@ -6823,7 +6841,7 @@ h1 {{ margin:0 0 8px; font-size:22px; }}
             workspace = get_workspace_by_id(sb, workspace_id)
             if not workspace:
                 return jsonify({'error': 'Project not found'}), 404
-            if not can_manage_workspace(workspace, user_id, role):
+            if not can_manage_workspace(sb, workspace, user_id, role):
                 return jsonify({'error': 'Forbidden'}), 403
         existing = gal_list(sb, user_id, workspace_id=workspace_id)
         if any(g.get('name', '').strip().lower() == name.lower() for g in existing):
