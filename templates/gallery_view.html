@@ -153,6 +153,7 @@
 
     function loadItem(item) {
         resetTransform();
+        pageEl.classList.toggle('gv-active-video', item.type === 'video');
         if (item.type === 'video') {
             imgEl.style.display = 'none';
             imgEl.classList.remove('loaded', 'fade-out');
