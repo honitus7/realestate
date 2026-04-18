@@ -84,6 +84,10 @@
             height: 100%;
             border: none;
         }
+
+        body.fv-home-active .cfv-header {
+            left: 14px;
+        }
     </style>
 </head>
 <body>
@@ -122,6 +126,8 @@
     </nav>
     {% endif %}
 
+    <button type="button" class="fv-nav-reveal-fab" id="fv-nav-reveal-fab" aria-label="Show navigation" hidden></button>
+
 <script>
 (function () {
     'use strict';
@@ -135,6 +141,7 @@
     var backBtn = document.getElementById('cfv-back');
     var headerTitleEl = document.getElementById('cfv-header-title');
     var headerSubEl = document.getElementById('cfv-header-sub');
+    var navFab = document.getElementById('fv-nav-reveal-fab');
     var activeBtn = null;
 
     /* ---- build the embed URL for a given type + ref ---- */
@@ -156,6 +163,49 @@
         if (activeBtn) activeBtn.classList.remove('fv-sidebar-btn--active');
         activeBtn = btn;
         if (btn) btn.classList.add('fv-sidebar-btn--active');
+    }
+
+    function tabDisplayName(btn) {
+        if (!btn) return '';
+        var labelEl = btn.querySelector('.fv-sidebar-label');
+        var label = (labelEl && labelEl.textContent) ? labelEl.textContent.trim() : '';
+        if (!label) label = String(btn.title || '').trim();
+        return label;
+    }
+
+    function isHomeTabName(name) {
+        return String(name || '').trim().toLowerCase() === 'home';
+    }
+
+    function updateShellHomeSidebarState(btn) {
+        if (!sidebar) {
+            document.body.classList.remove('fv-home-active');
+            if (navFab) {
+                navFab.hidden = true;
+                navFab.style.display = 'none';
+            }
+            return;
+        }
+        var hide = isHomeTabName(tabDisplayName(btn));
+        sidebar.classList.toggle('fv-sidebar--hidden', hide);
+        document.body.classList.toggle('fv-home-active', hide);
+        if (navFab) {
+            var showFab = !!hide;
+            navFab.hidden = !showFab;
+            navFab.style.display = showFab ? 'flex' : 'none';
+        }
+    }
+
+    if (navFab) {
+        navFab.innerHTML = '<iconify-icon icon="ph:list"></iconify-icon>';
+    }
+    if (navFab) {
+        navFab.addEventListener('click', function () {
+            if (sidebar) sidebar.classList.remove('fv-sidebar--hidden');
+            document.body.classList.remove('fv-home-active');
+            navFab.hidden = true;
+            navFab.style.display = 'none';
+        });
     }
 
     function loadTab(btn) {
@@ -197,17 +247,19 @@
         }
 
         var url = embedUrl(type, ref, cd);
-        if (!url) { setActive(null); return; }
+        if (!url) { setActive(null); updateShellHomeSidebarState(null); return; }
 
         /* ---- external URL (location/brochure/custom): open new tab ---- */
         if (url.startsWith('http') || url.startsWith('//')) {
             window.open(url, '_blank', 'noopener');
             setActive(null);
+            updateShellHomeSidebarState(null);
             return;
         }
 
         setActive(btn);
         frame.src = url;
+        updateShellHomeSidebarState(btn);
 
         /* update browser URL bar without navigation */
         if (history.replaceState && WS_ID) {

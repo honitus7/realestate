@@ -2,6 +2,33 @@
    Full View Sidebar — shared across customer pages
    ============================================================ */
 
+.fv-sidebar.fv-sidebar--hidden {
+    display: none !important;
+}
+
+.fv-nav-reveal-fab {
+    position: fixed;
+    right: 14px;
+    bottom: calc(14px + env(safe-area-inset-bottom, 0));
+    z-index: 270;
+    width: 44px;
+    height: 44px;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    border-radius: 12px;
+    border: 1px solid rgba(255,255,255,0.12);
+    background: rgba(12, 14, 20, 0.9);
+    color: rgba(255,255,255,0.85);
+    cursor: pointer;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.35);
+}
+.fv-nav-reveal-fab:hover {
+    color: #fff;
+    border-color: rgba(201, 169, 98, 0.45);
+}
+.fv-nav-reveal-fab iconify-icon { font-size: 1.35rem; }
+
 .fv-sidebar {
     position: fixed;
     top: 50%;

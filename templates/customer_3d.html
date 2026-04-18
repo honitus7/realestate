@@ -354,6 +354,8 @@
     </nav>
     {% endif %}
 
+    <button type="button" class="fv-nav-reveal-fab" id="fv-nav-reveal-fab" aria-label="Show navigation" hidden></button>
+
     <script>
 
         const PANORAMA_ID = {{ panorama.id }};
@@ -4405,6 +4407,7 @@
 
         var initialFvConfig = {{ (fv_config or none)|tojson }};
         var sidebar   = document.getElementById('fv-sidebar');
+        var navFabFv  = document.getElementById('fv-nav-reveal-fab');
         var activeBtn = null;
 
         function escAttr(v) {
@@ -4449,6 +4452,36 @@
             if (activeBtn) activeBtn.classList.remove('fv-sidebar-btn--active');
             activeBtn = btn;
             if (btn) btn.classList.add('fv-sidebar-btn--active');
+        }
+
+        function tabDisplayName(btn) {
+            if (!btn) return '';
+            var labelEl = btn.querySelector('.fv-sidebar-label');
+            var label = (labelEl && labelEl.textContent) ? labelEl.textContent.trim() : '';
+            if (!label) label = String(btn.getAttribute('title') || '').trim();
+            return label;
+        }
+
+        function isHomeTabName(name) {
+            return String(name || '').trim().toLowerCase() === 'home';
+        }
+
+        function updateFvSidebarVisibilityForActiveBtn() {
+            if (!sidebar) {
+                document.body.classList.remove('fv-home-active');
+                if (navFabFv) {
+                    navFabFv.hidden = true;
+                    navFabFv.style.display = 'none';
+                }
+                return;
+            }
+            var hide = isHomeTabName(tabDisplayName(activeBtn));
+            sidebar.classList.toggle('fv-sidebar--hidden', hide);
+            document.body.classList.toggle('fv-home-active', hide);
+            if (navFabFv) {
+                navFabFv.hidden = !hide;
+                navFabFv.style.display = hide ? 'flex' : 'none';
+            }
         }
 
         function shellUrl(type, ref) {
@@ -4525,6 +4558,7 @@
 
             if (matched) setActive(matched);
             else setActive(null);
+            updateFvSidebarVisibilityForActiveBtn();
         }
 
         function installPanoramaSwitchActiveSync() {
@@ -4560,6 +4594,7 @@
                     if (type === '360_pano' || type === 'drone_view') {
                         if (pano) {
                             setActive(btn);
+                            updateFvSidebarVisibilityForActiveBtn();
                             switchPanoramaFromSidebar(pano);
                         }
                         return;
@@ -4568,6 +4603,7 @@
                     /* ---- highlights: panorama ref stays in-viewer ---- */
                     if (type === 'highlights' && !gal && pano) {
                         setActive(btn);
+                        updateFvSidebarVisibilityForActiveBtn();
                         switchPanoramaFromSidebar(pano);
                         return;
                     }
@@ -4583,6 +4619,7 @@
                     var url = ref ? shellUrl(type, ref) : null;
                     if (url) {
                         setActive(btn);
+                        updateFvSidebarVisibilityForActiveBtn();
                         window.location.href = url;
                     }
                 });
@@ -4598,6 +4635,16 @@
             bindSidebarHandlers();
             syncActiveFromCurrentPanorama();
             return true;
+        }
+
+        if (navFabFv) {
+            navFabFv.innerHTML = '<iconify-icon icon="ph:list"></iconify-icon>';
+            navFabFv.addEventListener('click', function () {
+                if (sidebar) sidebar.classList.remove('fv-sidebar--hidden');
+                document.body.classList.remove('fv-home-active');
+                navFabFv.hidden = true;
+                navFabFv.style.display = 'none';
+            });
         }
 
         if (!initFromConfig(initialFvConfig) && WORKSPACE_ID) {
