@@ -3,8 +3,9 @@ Auth: JWT verification, profiles, decorators.
 """
 from functools import wraps
 from datetime import datetime
+import time
 
-from flask import request, jsonify
+from flask import request, jsonify, g
 
 from app.config import SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_JWT_SECRET
 from app.core.database import get_supabase, _get_httpx_client
@@ -14,17 +15,55 @@ try:
 except ImportError:
     jwt = None
 
+_PROFILE_CACHE = {}
+_PROFILE_CACHE_TTL_SECONDS = 8
+_PROFILE_CACHE_MAX = 2000
+
+
+def _profile_cache_get(user_id):
+    key = str(user_id or '').strip()
+    if not key:
+        return None, False
+    row = _PROFILE_CACHE.get(key)
+    if not row:
+        return None, False
+    if (time.time() - float(row.get('ts') or 0)) > _PROFILE_CACHE_TTL_SECONDS:
+        _PROFILE_CACHE.pop(key, None)
+        return None, False
+    return row.get('data'), True
+
+
+def _profile_cache_set(user_id, profile):
+    key = str(user_id or '').strip()
+    if not key:
+        return
+    if len(_PROFILE_CACHE) > _PROFILE_CACHE_MAX:
+        _PROFILE_CACHE.clear()
+    _PROFILE_CACHE[key] = {'ts': time.time(), 'data': profile}
+
+
+def _profile_cache_invalidate(user_id):
+    key = str(user_id or '').strip()
+    if key:
+        _PROFILE_CACHE.pop(key, None)
+
 
 def get_current_user():
     """
     From Authorization: Bearer <jwt>, verify and return (user_id, role) or (None, None).
     """
+    cached_ctx = getattr(g, '_auth_user_ctx', None)
+    if cached_ctx is not None:
+        return cached_ctx
+
     auth = request.headers.get('Authorization') or request.headers.get('authorization')
     if not auth or not auth.startswith('Bearer '):
-        return None, None
+        g._auth_user_ctx = (None, None)
+        return g._auth_user_ctx
     token = auth[7:].strip()
     if not token:
-        return None, None
+        g._auth_user_ctx = (None, None)
+        return g._auth_user_ctx
     user_id = None
     if SUPABASE_JWT_SECRET and jwt:
         try:
@@ -45,23 +84,34 @@ def get_current_user():
         except Exception:
             pass
     if not user_id:
-        return None, None
+        g._auth_user_ctx = (None, None)
+        return g._auth_user_ctx
     sb = get_supabase()
     if not sb:
-        return user_id, 'user'
+        g._auth_profile = None
+        g._auth_user_ctx = (user_id, 'user')
+        return g._auth_user_ctx
     profile = get_profile(sb, user_id)
+    g._auth_profile = profile
     role = (profile or {}).get('role', 'user')
-    return user_id, role
+    g._auth_user_ctx = (user_id, role)
+    return g._auth_user_ctx
 
 
 def get_profile(sb, user_id):
     """Fetch profile row for user_id."""
+    cached, hit = _profile_cache_get(user_id)
+    if hit:
+        return cached
     try:
         r = sb.table('profiles').select('*').eq('user_id', user_id).limit(1).execute()
         if r.data and len(r.data) > 0:
-            return r.data[0]
+            row = r.data[0]
+            _profile_cache_set(user_id, row)
+            return row
     except Exception:
         pass
+    _profile_cache_set(user_id, None)
     return None
 
 
@@ -87,9 +137,9 @@ def _sync_profile_display_name_from_auth(sb, user_id):
         pass
 
 
-def ensure_profile(sb, user_id, role='user'):
+def ensure_profile(sb, user_id, role='user', existing_profile=None):
     """Insert or update profile with role."""
-    existing = get_profile(sb, user_id)
+    existing = existing_profile if existing_profile is not None else get_profile(sb, user_id)
     if existing:
         if not (existing.get('display_name') or '').strip():
             _sync_profile_display_name_from_auth(sb, user_id)
@@ -105,6 +155,7 @@ def ensure_profile(sb, user_id, role='user'):
             sb.table('profiles').insert({'user_id': user_id, 'role': role}).execute()
         except Exception:
             pass
+    _profile_cache_invalidate(user_id)
     return get_profile(sb, user_id) or {'user_id': user_id, 'role': role}
 
 
@@ -117,7 +168,10 @@ def require_auth(f):
             return jsonify({'error': 'Unauthorized'}), 401
         sb = get_supabase()
         if sb:
-            ensure_profile(sb, user_id, role or 'user')
+            existing_profile = getattr(g, '_auth_profile', None)
+            if existing_profile is None:
+                existing_profile = get_profile(sb, user_id)
+            ensure_profile(sb, user_id, role or 'user', existing_profile=existing_profile)
         return f(user_id, role, *args, **kwargs)
     return wrapped
 

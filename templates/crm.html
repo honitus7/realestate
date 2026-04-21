@@ -60,10 +60,6 @@
                         <div class="kpi-chip-data"><div class="kpi-chip-val" id="stat-lost">0</div><div class="kpi-chip-label">Lost</div></div>
                         <div class="kpi-chip-bar"><div class="kpi-chip-fill kpi-fill--lost" id="bar-lost"></div></div>
                     </div>
-                    <div class="kpi-chip kpi-chip--accent">
-                        <div class="kpi-chip-dot kpi-chip-dot--conversion"></div>
-                        <div class="kpi-chip-data"><div class="kpi-chip-val" id="stat-conversion">0%</div><div class="kpi-chip-label">Conversion</div></div>
-                    </div>
                 </div>
 
                 <!-- Toolbar -->
@@ -183,11 +179,12 @@
                             <table>
                                 <thead><tr>
                                     <th style="width:14%">Created</th>
-                                    <th style="width:20%">Customer</th>
-                                    <th style="width:16%">Contact</th>
-                                    <th style="width:12%">Category</th>
-                                    <th style="width:18%">Project</th>
-                                    <th style="width:10%">Plots</th>
+                                    <th style="width:18%">Customer</th>
+                                    <th style="width:14%">Contact</th>
+                                    <th style="width:10%">Category</th>
+                                    <th style="width:16%">Project</th>
+                                    <th style="width:8%">Plots</th>
+                                    <th style="width:10%">Assignee</th>
                                     <th style="width:10%">Contacted</th>
                                 </tr></thead>
                                 <tbody id="tbody"></tbody>
@@ -532,6 +529,10 @@
             <div class="drawer-section">
                 <h3>Update</h3>
                 <div style="display:grid;gap:0.65rem;">
+                    <label class="drawer-field-label">Assigned to</label>
+                    <select class="toolbar-select" id="d-assignee" style="max-width:100%;">
+                        <option value="">— Unassigned —</option>
+                    </select>
                     <label class="drawer-field-label">Status</label>
                     <select class="toolbar-select" id="d-status" style="max-width:100%;">
                         <option value="new">New</option>
@@ -544,17 +545,27 @@
             </div>
         </div>
         <div class="drawer-foot">
-            <button class="btn" id="btn-quotation" type="button" title="Generate Quotation">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
-                Quotation
-            </button>
             <button class="btn danger" id="btn-delete-interest" type="button">Delete Interest</button>
             <button class="btn" id="btn-contacted" type="button">Mark Contacted</button>
             <button class="btn" id="btn-create-contact" type="button">Create Contact</button>
             <button class="btn" id="btn-create-deal" type="button">Create Deal</button>
+            <button class="btn" id="btn-convert-lead" type="button">Convert to deal</button>
             <button class="btn primary" id="btn-save" type="button">Save Changes</button>
         </div>
     </aside>
+</div>
+
+<div class="interest-plots-modal" id="interest-plots-modal" role="dialog" aria-modal="false" aria-hidden="true">
+    <div class="interest-plots-modal-head">
+        <h3 id="interest-plots-modal-title">Interested Plots</h3>
+        <button class="interest-plots-modal-close" id="interest-plots-modal-close" type="button" aria-label="Close">&times;</button>
+    </div>
+    <div class="interest-plots-modal-body">
+        <table>
+            <thead><tr><th>Plot</th><th>Area</th><th>Price</th><th>Status</th></tr></thead>
+            <tbody id="interest-plots-modal-tbody"></tbody>
+        </table>
+    </div>
 </div>
 
 <div class="crm-modal-backdrop" id="contact-modal-backdrop">
@@ -603,6 +614,14 @@
                 <input class="toolbar-search" id="deal-edit-amount" placeholder="Amount">
             </div>
             <textarea class="toolbar-search" id="deal-edit-notes" rows="4" style="height:auto;resize:vertical;" placeholder="Notes"></textarea>
+            <div class="deal-quotes-block" style="border-top:1px solid var(--color-border);padding-top:0.75rem;margin-top:0.35rem;">
+                <label class="drawer-field-label">Quotations on this deal</label>
+                <div id="deal-quotes-list" style="font-size:0.82rem;color:var(--color-text-soft);max-height:140px;overflow:auto;margin-bottom:0.55rem;"></div>
+                <div style="display:flex;flex-wrap:wrap;gap:0.5rem;">
+                    <button type="button" class="btn" id="deal-btn-quotation">Quotation</button>
+                    <button type="button" class="btn" id="deal-btn-send-quote">Send last quote email</button>
+                </div>
+            </div>
             <div class="msg" id="deal-edit-msg" style="display:none;"></div>
         </div>
         <div style="display:flex;justify-content:flex-end;gap:0.6rem;padding:1rem 1.25rem;border-top:1px solid var(--color-border);">
@@ -620,6 +639,12 @@
             <button class="crm-modal-close" id="quotation-modal-close" type="button">&times;</button>
         </div>
         <div class="crm-modal-body" style="padding:1.25rem 1.5rem;display:grid;gap:0.85rem;">
+            <div class="q-field">
+                <label class="drawer-field-label">Standard template</label>
+                <select class="toolbar-select" id="q-template-id" style="max-width:100%;width:100%;">
+                    <option value="">No template (defaults only)</option>
+                </select>
+            </div>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;">
                 <div class="q-field">
                     <label class="drawer-field-label">Client Name</label>
@@ -775,6 +800,41 @@
         const headers = await window.ensureAuthenticated();
         const o = Object.assign({ headers: Object.assign({ 'Content-Type': 'application/json' }, headers || {}) }, opts || {});
         return fetch(path, o);
+    }
+
+    function fmtDealQuoteDate(iso) {
+        try {
+            const d = new Date(iso);
+            return isNaN(d.getTime()) ? String(iso || '—') : d.toLocaleString(undefined, { year: 'numeric', month: 'short', day: '2-digit' });
+        } catch (e2) { return String(iso || '—'); }
+    }
+
+    async function loadDealQuotationsList(dealId) {
+        const el = $('deal-quotes-list');
+        if (!el || !dealId) return;
+        el.textContent = 'Loading…';
+        try {
+            const r = await api('/api/crm/deals/' + encodeURIComponent(String(dealId)) + '/quotations');
+            const data = await r.json().catch(() => []);
+            if (!r.ok) {
+                el.textContent = (data && data.error) ? data.error : 'Could not load quotations';
+                return;
+            }
+            const rows = Array.isArray(data) ? data : [];
+            if (!rows.length) {
+                el.textContent = 'No quotations yet. Open Quotation and use Preview to create one.';
+                window.__crmLastQuoteId = null;
+                return;
+            }
+            el.innerHTML = rows.map(function(q) {
+                const st = esc(q.status || '');
+                const ca = esc(fmtDealQuoteDate(q.created_at));
+                return '<div class="deal-quote-line">' + ca + ' · ' + st + (q.sent_at ? ' · sent' : '') + '</div>';
+            }).join('');
+            window.__crmLastQuoteId = rows[0].id;
+        } catch (e) {
+            el.textContent = e.message || 'Failed';
+        }
     }
 
     function toast(msg, type) {
@@ -945,6 +1005,22 @@
         const deal = deals.find(d => String(d.id) === String(dealId));
         if (!deal || !dealModalBackdrop) return;
         editingDealId = String(deal.id);
+        window.__crmQuoteDealId = editingDealId;
+        const contact = contacts.find(c => String(c.id) === String(deal.contact_id)) || {};
+        const plots = Array.isArray(deal.plots) ? deal.plots : [];
+        window.__crmQuoteContext = {
+            clientName: contact.full_name || deal.title || '',
+            email: contact.email || '',
+            phone: contact.phone || '',
+            projectName: deal.project_name || '',
+            plots: plots.map(function(p) {
+                return {
+                    name: (p && p.name) ? p.name : ('Plot ' + ((p && p.plot_id) ? p.plot_id : '')),
+                    area: (p && p.area) ? p.area : '',
+                    price: (p && p.price) ? p.price : ''
+                };
+            })
+        };
         renderDealModalContactOptions(deal.contact_id);
         if (dealEditTitleEl) dealEditTitleEl.value = deal.title || '';
         if (dealEditStageEl) dealEditStageEl.value = String(deal.stage || 'new');
@@ -953,11 +1029,14 @@
         if (dealEditNotesEl) dealEditNotesEl.value = deal.notes || '';
         showDealEditMsg('');
         dealModalBackdrop.classList.add('visible');
+        loadDealQuotationsList(editingDealId);
     }
 
     function closeDealModal() {
         if (dealModalBackdrop) dealModalBackdrop.classList.remove('visible');
         editingDealId = null;
+        window.__crmQuoteDealId = null;
+        window.__crmQuoteContext = null;
         showDealEditMsg('');
     }
 
@@ -1131,8 +1210,42 @@
         if (e.target === $('deal-modal-backdrop')) closeDealModal();
     });
 
+    const dealBtnQuotation = $('deal-btn-quotation');
+    const dealBtnSendQuote = $('deal-btn-send-quote');
+    if (dealBtnQuotation) dealBtnQuotation.addEventListener('click', function() {
+        if (!window.__crmQuoteDealId) {
+            if (typeof window.showToast === 'function') window.showToast('Open a deal first', 'error');
+            return;
+        }
+        if (typeof window.openDealQuotationModal === 'function') window.openDealQuotationModal();
+    });
+    if (dealBtnSendQuote) dealBtnSendQuote.addEventListener('click', async function() {
+        const did = window.__crmQuoteDealId;
+        const qid = window.__crmLastQuoteId;
+        if (!did || !qid) {
+            if (typeof window.showToast === 'function') window.showToast('Create a quote with Preview first', 'error');
+            return;
+        }
+        dealBtnSendQuote.disabled = true;
+        try {
+            const r = await api('/api/crm/deals/' + encodeURIComponent(String(did)) + '/quotation/share', {
+                method: 'POST',
+                body: JSON.stringify({ quote_id: qid })
+            });
+            const data = await r.json().catch(() => ({}));
+            if (!r.ok) throw new Error(data.error || ('Failed (' + r.status + ')'));
+            if (typeof window.showToast === 'function') window.showToast('Quote email sent');
+            await loadDealQuotationsList(did);
+        } catch (e) {
+            if (typeof window.showToast === 'function') window.showToast(e.message || 'Send failed', 'error');
+        } finally {
+            dealBtnSendQuote.disabled = false;
+        }
+    });
+
     window.crmDealsLoad = loadDeals;
     window.crmContactsLoad = loadContacts;
+    window.loadDealQuotationsList = loadDealQuotationsList;
 })();
 </script>
 <script>
@@ -1181,10 +1294,126 @@
         try { const d=new Date(iso); if(isNaN(d.getTime()))return String(iso||''); const p=n=>String(n).padStart(2,'0'); return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())+' '+p(d.getHours())+':'+p(d.getMinutes()); } catch(e){ return String(iso||''); }
     }
     function toStatusLabel(s) { const r=String(s||'').trim().toLowerCase(); return r?r.charAt(0).toUpperCase()+r.slice(1):''; }
+    async function loadCrmTeamUsers() {
+        try {
+            const r = await api('/api/crm/crm-team-users');
+            const data = await r.json().catch(() => []);
+            if (r.ok) crmTeamUsers = Array.isArray(data) ? data : [];
+            else crmTeamUsers = [];
+        } catch (e) { crmTeamUsers = []; }
+    }
+    function assigneeDisplayName(uid) {
+        if (!uid) return '—';
+        const u = crmTeamUsers.find(x => String(x.user_id) === String(uid));
+        return u ? (u.display_name || u.email || 'User') : String(uid).slice(0, 8) + '…';
+    }
     function initials(name) {
         if(!name) return '?';
         const parts = name.trim().split(/\s+/);
         return parts.length >= 2 ? (parts[0][0] + parts[parts.length-1][0]).toUpperCase() : (parts[0][0] || '?').toUpperCase();
+    }
+    function normalizeText(v) { return String(v || '').trim().toLowerCase(); }
+    function normalizePhone(v) { return String(v || '').replace(/\D+/g, ''); }
+    function normalizeEmail(v) { return String(v || '').trim().toLowerCase(); }
+    function toTimeMs(v) { const t = new Date(v || '').getTime(); return Number.isFinite(t) ? t : 0; }
+    function plotIdentityKey(p, idx) {
+        if (!p) return 'idx:' + String(idx || 0);
+        const pid = String((p.id != null ? p.id : p.plot_id) || '').trim();
+        if (pid) return 'id:' + pid;
+        const nm = normalizeText(p.name);
+        if (nm) return 'name:' + nm;
+        return 'idx:' + String(idx || 0);
+    }
+    function collectLeadPlotsForDrawer(item) {
+        const src = Array.isArray(interests) ? interests : [];
+        const targetPano = String((item && item.panorama_id) || '');
+        const targetEmail = normalizeEmail(item && item.customer_email);
+        const targetPhone = normalizePhone(item && item.customer_phone);
+        const targetName = normalizeText(item && item.customer_name);
+        const matched = src.filter(i => {
+            if (!i) return false;
+            if (String(i.panorama_id || '') !== targetPano) return false;
+            const e = normalizeEmail(i.customer_email);
+            const p = normalizePhone(i.customer_phone);
+            const n = normalizeText(i.customer_name);
+            if (targetEmail && e && targetEmail === e) return true;
+            if (targetPhone && p && targetPhone === p) return true;
+            if (!targetEmail && !targetPhone && targetName && n && targetName === n) return true;
+            return false;
+        });
+        const used = new Map();
+        matched.forEach(i => {
+            const plots = Array.isArray(i.plots) ? i.plots : [];
+            plots.forEach((p, idx) => {
+                if (!p) return;
+                const k = plotIdentityKey(p, idx);
+                if (!used.has(k)) used.set(k, p);
+            });
+        });
+        return Array.from(used.values());
+    }
+    function buildInterestGroups(items) {
+        const rows = Array.isArray(items) ? items : [];
+        const grouped = new Map();
+        rows.forEach((i, idx) => {
+            if (!i) return;
+            const stageKey = String(i.status || 'new').toLowerCase();
+            const panoKey = String(i.panorama_id || '');
+            const emailKey = normalizeText(i.customer_email);
+            const phoneKey = normalizePhone(i.customer_phone);
+            const identityKey = emailKey || phoneKey || ('id:' + String(i.id || idx));
+            const groupKey = panoKey + '|' + stageKey + '|' + identityKey;
+            if (!grouped.has(groupKey)) {
+                grouped.set(groupKey, Object.assign({}, i, {
+                    __group_id: groupKey,
+                    __grouped: false,
+                    __first_index: idx,
+                    interest_ids: [String(i.id || '')],
+                    plots: [],
+                    __plot_map: new Map()
+                }));
+            } else if (String(i.id || '').trim()) {
+                grouped.get(groupKey).interest_ids.push(String(i.id));
+            }
+            const g = grouped.get(groupKey);
+            const itemTs = toTimeMs(i.created_at || i.updated_at);
+            const groupTs = toTimeMs(g.created_at || g.updated_at);
+            if (itemTs > groupTs) {
+                g.customer_name = i.customer_name || g.customer_name;
+                g.customer_email = i.customer_email || g.customer_email;
+                g.customer_phone = i.customer_phone || g.customer_phone;
+                g.category = i.category || g.category;
+                g.notes = i.notes || g.notes;
+                g.created_at = i.created_at || g.created_at;
+                g.updated_at = i.updated_at || g.updated_at;
+                g.id = i.id || g.id;
+                g.assigned_to = i.assigned_to || g.assigned_to;
+                g.assigned_at = i.assigned_at || g.assigned_at;
+            }
+            const plots = Array.isArray(i.plots) ? i.plots : [];
+            plots.forEach((p, pidx) => {
+                if (!p) return;
+                const pid = String((p.id != null ? p.id : p.plot_id) || '').trim();
+                const pname = String(p.name || '').trim();
+                const pkey = pid ? ('id:' + pid) : ('name:' + normalizeText(pname) + ':' + pidx);
+                if (!g.__plot_map.has(pkey)) g.__plot_map.set(pkey, p);
+            });
+        });
+        const out = Array.from(grouped.values()).map(g => {
+            const item = Object.assign({}, g);
+            item.interest_ids = Array.from(new Set((g.interest_ids || []).filter(Boolean)));
+            item.interest_count = item.interest_ids.length || 1;
+            item.__grouped = item.interest_count > 1;
+            item.plots = Array.from(g.__plot_map.values());
+            delete item.__plot_map;
+            return item;
+        }).sort((a, b) => {
+            const td = toTimeMs(b.created_at || b.updated_at) - toTimeMs(a.created_at || a.updated_at);
+            if (td !== 0) return td;
+            return (a.__first_index || 0) - (b.__first_index || 0);
+        });
+        interestGroupMap = new Map(out.map(x => [String(x.__group_id), x]));
+        return out;
     }
 
     function showToast(message, type) {
@@ -1211,10 +1440,13 @@
     let projects = [];
     let projectById = new Map();
     let interests = [];
+    let filteredRaw = [];
     let filtered = [];
+    let interestGroupMap = new Map();
     let selected = null;
     let allPlots = [];
     let orgUsers = [];
+    let crmTeamUsers = [];
     let currentView = 'table'; // forced list-first intake queue
 
     // ── DOM refs ──
@@ -1280,7 +1512,7 @@
 
     // -- Stats --
     function renderStats() {
-        const src = filtered.length ? filtered : interests;
+        const src = filtered.length ? filtered : buildInterestGroups(interests);
         const c = countByStatus(src);
         const t = Math.max(1, c.total);
         $('stat-total').textContent = c.total;
@@ -1289,7 +1521,6 @@
         $('stat-qualified').textContent = c.qualified;
         $('stat-won').textContent = c.won;
         if($('stat-lost')) $('stat-lost').textContent = c.lost;
-        $('stat-conversion').textContent = ((c.won / t) * 100).toFixed(0) + '%';
         ['new','contacted','qualified','won','lost'].forEach(key => {
             const bar = $('bar-'+key);
             if(bar) bar.style.width = Math.max((t > 0 ? ((c[key]||0)/t)*100 : 0), 2) + '%';
@@ -1399,6 +1630,8 @@
             }
             return true;
         });
+        filteredRaw = filtered.slice();
+        filtered = buildInterestGroups(filteredRaw);
     }
 
     // -- Kanban Board --
@@ -1428,6 +1661,8 @@
                 const plots = Array.isArray(i.plots)?i.plots:[];
                 const plotCount = plots.length;
                 const plotLabel = plotCount === 0 ? '' : plotCount === 1 ? (plots[0].name||'1 plot') : plotCount + ' plots';
+                const groupLabel = i.__grouped ? ('<span class="kb-card-group">'+esc(i.interest_count)+' interests</span>') : '';
+                const asgn = i.assigned_to ? '<span class="kb-card-assign">'+esc(assigneeDisplayName(i.assigned_to))+'</span>' : '';
                 return '<div class="kb-card" draggable="true" data-id="'+esc(i.id)+'">' +
                     '<div class="kb-card-top">' +
                         '<div class="kb-avatar" style="background:'+stageColors[s]+'">'+esc(initials(i.customer_name))+'</div>' +
@@ -1436,12 +1671,15 @@
                             '<div class="kb-card-meta">'+(i.customer_phone?esc(i.customer_phone):esc(i.customer_email||''))+'</div>' +
                         '</div>' +
                     '</div>' +
-                    (pn || plotLabel ? '<div class="kb-card-footer">' +
+                    (pn || plotLabel || asgn ? '<div class="kb-card-footer">' +
                         (pn ? '<span class="kb-card-project">'+esc(pn)+'</span>' : '') +
-                        (plotLabel ? '<span class="kb-card-plots">'+esc(plotLabel)+'</span>' : '') +
+                        (plotLabel ? '<span class="kb-card-plots interest-plots-trigger" data-group-id="'+esc(i.__group_id)+'">'+esc(plotLabel)+'</span>' : '') +
+                        groupLabel +
+                        asgn +
                     '</div>' : '') +
                 '</div>';
             }).join('');
+            bindInterestPlotHover(container);
 
             // Drag and drop
             container.querySelectorAll('.kb-card').forEach(card => {
@@ -1501,11 +1739,16 @@
             const pj = projectById.get(String(i.panorama_id));
             const pn = pj&&pj.name?pj.name:('Project #'+i.panorama_id);
             const plots = Array.isArray(i.plots)?i.plots:[];
-            const pl = plots.length?(plots.length===1?(plots[0].name||'1 plot'):(plots.length+' plots')):'—';
+            const pl = plots.length?(plots.length===1?(plots[0].name||'1 plot'):(plots.length+' plots')):'-';
+            const plCell = plots.length
+                ? '<span class="interest-plots-trigger interest-plots-trigger--table" data-group-id="'+esc(i.__group_id)+'">'+esc(pl)+'</span>'
+                : esc(pl);
             const contacted = !!(i.is_contacted || String(i.status||'').toLowerCase()==='contacted');
             const st = contacted ? 'contacted' : 'new';
-            return '<tr data-id="'+esc(i.id)+'"><td class="mono">'+esc(fmtDate(i.created_at))+'<div class="subtle">'+esc(fmtTime(i.created_at))+'</div></td><td><div style="font-weight:700">'+esc(i.customer_name||'—')+'</div></td><td><div>'+esc(i.customer_email||'—')+'</div><div class="subtle mono">'+esc(i.customer_phone||'')+'</div></td><td>'+esc(i.category||'—')+'</td><td><div style="font-weight:600">'+esc(pn)+'</div></td><td class="mono">'+esc(pl)+'</td><td><span class="pill '+esc(st)+'"><span class="dot"></span><span>'+esc(contacted?'Yes':'No')+'</span></span></td></tr>';
+            const an = assigneeDisplayName(i.assigned_to);
+            return '<tr data-id="'+esc(i.id)+'"><td class="mono"><div class="interest-primary">'+esc(fmtDate(i.created_at))+'</div><div class="subtle">'+esc(fmtTime(i.created_at))+'</div></td><td><div class="interest-primary">'+esc(i.customer_name||'-')+'</div>'+(i.__grouped?'<div class="subtle">'+esc(i.interest_count)+' interests grouped</div>':'')+'</td><td><div class="interest-secondary">'+esc(i.customer_email||'-')+'</div><div class="subtle mono">'+esc(i.customer_phone||'')+'</div></td><td>'+esc(i.category||'-')+'</td><td><div class="interest-primary">'+esc(pn)+'</div></td><td class="mono">'+plCell+'</td><td>'+esc(an)+'</td><td><span class="pill '+esc(st)+'"><span class="dot"></span><span>'+esc(contacted?'Yes':'No')+'</span></span></td></tr>';
         }).join('');
+        bindInterestPlotHover(elTbody);
         elTbody.querySelectorAll('tr[data-id]').forEach(tr => {
             tr.addEventListener('click', () => {
                 const item = interests.find(x => String(x.id)===tr.getAttribute('data-id'));
@@ -1537,16 +1780,136 @@
     const btnDeleteInterest = $('btn-delete-interest');
     const btnCreateContact = $('btn-create-contact');
     const btnCreateDeal = $('btn-create-deal');
+    const btnConvertLead = $('btn-convert-lead');
+    let selectedDrawerPlots = [];
+    let selectedDrawerPlotKeys = new Set();
+    const interestPlotsModal = $('interest-plots-modal');
+    const interestPlotsModalTitle = $('interest-plots-modal-title');
+    const interestPlotsModalTbody = $('interest-plots-modal-tbody');
+    const interestPlotsModalClose = $('interest-plots-modal-close');
+    let interestPlotsCloseTimer = null;
+
+    function clearInterestPlotsCloseTimer() {
+        if (interestPlotsCloseTimer) {
+            clearTimeout(interestPlotsCloseTimer);
+            interestPlotsCloseTimer = null;
+        }
+    }
+    function closeInterestPlotsModal() {
+        clearInterestPlotsCloseTimer();
+        if (!interestPlotsModal) return;
+        interestPlotsModal.classList.remove('visible');
+        interestPlotsModal.setAttribute('aria-hidden', 'true');
+    }
+    function scheduleCloseInterestPlotsModal() {
+        clearInterestPlotsCloseTimer();
+        interestPlotsCloseTimer = setTimeout(closeInterestPlotsModal, 180);
+    }
+    function positionInterestPlotsModal(anchorEl) {
+        if (!interestPlotsModal || !anchorEl) return;
+        const rect = anchorEl.getBoundingClientRect();
+        const margin = 10;
+        const vw = window.innerWidth;
+        const vh = window.innerHeight;
+        const box = interestPlotsModal.getBoundingClientRect();
+        let left = rect.left + (rect.width / 2) - (box.width / 2);
+        if (left < margin) left = margin;
+        if (left + box.width > vw - margin) left = vw - box.width - margin;
+        let top = rect.bottom + 8;
+        if (top + box.height > vh - margin) top = Math.max(margin, rect.top - box.height - 8);
+        interestPlotsModal.style.left = Math.round(left) + 'px';
+        interestPlotsModal.style.top = Math.round(top) + 'px';
+    }
+    function openInterestPlotsModal(groupId, anchorEl) {
+        if (!interestPlotsModal || !interestPlotsModalTbody) return;
+        const item = interestGroupMap.get(String(groupId || ''));
+        if (!item) return;
+        const plots = Array.isArray(item.plots) ? item.plots : [];
+        if (interestPlotsModalTitle) {
+            const label = plots.length === 1 ? '1 Plot' : (plots.length + ' Plots');
+            interestPlotsModalTitle.textContent = 'Interested ' + label;
+        }
+        interestPlotsModalTbody.innerHTML = plots.length ? plots.map(p => {
+            const sk = getStatusKey(p && p.status);
+            const sc = sk === 'sold' ? 'status-pill--sold' : sk === 'hold' ? 'status-pill--hold' : 'status-pill--available';
+            return '<tr><td style="font-weight:600;">'+esc((p && p.name) || 'Plot')+'</td><td>'+esc((p && p.area) || '-')+'</td><td>'+esc((p && p.price) || '-')+'</td><td><span class="status-pill '+sc+'" style="font-size:0.65rem;padding:0.1rem 0.4rem">'+esc((p && p.status) || 'available')+'</span></td></tr>';
+        }).join('') : '<tr><td colspan="4" class="subtle">No plots attached</td></tr>';
+        interestPlotsModal.classList.add('visible');
+        interestPlotsModal.setAttribute('aria-hidden', 'false');
+        positionInterestPlotsModal(anchorEl);
+        clearInterestPlotsCloseTimer();
+    }
+    function bindInterestPlotHover(rootEl) {
+        if (!rootEl) return;
+        rootEl.querySelectorAll('.interest-plots-trigger').forEach(el => {
+            el.addEventListener('mouseenter', () => openInterestPlotsModal(el.getAttribute('data-group-id'), el));
+            el.addEventListener('mouseleave', scheduleCloseInterestPlotsModal);
+            el.addEventListener('focus', () => openInterestPlotsModal(el.getAttribute('data-group-id'), el));
+            el.addEventListener('blur', scheduleCloseInterestPlotsModal);
+            el.addEventListener('click', e => {
+                e.preventDefault();
+                e.stopPropagation();
+                openInterestPlotsModal(el.getAttribute('data-group-id'), el);
+            });
+        });
+    }
+    if (interestPlotsModal) {
+        interestPlotsModal.addEventListener('mouseenter', clearInterestPlotsCloseTimer);
+        interestPlotsModal.addEventListener('mouseleave', scheduleCloseInterestPlotsModal);
+    }
+    if (interestPlotsModalClose) {
+        interestPlotsModalClose.addEventListener('click', e => {
+            e.preventDefault();
+            closeInterestPlotsModal();
+        });
+    }
+    window.addEventListener('resize', closeInterestPlotsModal);
+    window.addEventListener('scroll', closeInterestPlotsModal, true);
 
     function showDrawerMsg(text,type) { if(!dMsg)return; dMsg.textContent=text||''; dMsg.className='msg'+(type==='error'?' error':''); dMsg.style.display=text?'':'none'; }
 
-    function openDrawer(item) {
+    async function openDrawer(item) {
         selected = item;
+        await loadCrmTeamUsers();
         const pj = projectById.get(String(item.panorama_id));
         const pn = pj&&pj.name?pj.name:('Project #'+item.panorama_id);
-        const st = item.is_contacted ? 'contacted' : 'new';
+        const adv = String(item.status||'').toLowerCase();
+        const st = (adv === 'qualified' || adv === 'won' || adv === 'lost') ? adv : (item.is_contacted ? 'contacted' : 'new');
         dTitle.textContent = item.customer_name||'Lead';
         dSubtitle.innerHTML = '<span class="pill '+esc(st)+'" style="margin-right:0.5rem"><span class="dot"></span><span>'+esc(toStatusLabel(st))+'</span></span> '+esc(pn)+' &middot; '+esc(fmtDate(item.created_at));
+        const das = $('d-assignee');
+        if (das) {
+            const cur = String(item.assigned_to || '');
+            das.innerHTML = '<option value="">— Unassigned —</option>' + crmTeamUsers.map(function(u) {
+                const uid = String(u.user_id || '').trim();
+                if (!uid) return '';
+                return '<option value="'+esc(uid)+'">'+esc(u.display_name || u.email || 'User')+'</option>';
+            }).join('');
+            das.value = '';
+            if (cur) {
+                let ok = false;
+                for (let oi = 0; oi < das.options.length; oi++) { if (das.options[oi].value === cur) { ok = true; break; } }
+                if (ok) das.value = cur;
+                else {
+                    const opt = document.createElement('option');
+                    opt.value = cur;
+                    opt.textContent = 'User ' + cur.slice(0, 8) + '…';
+                    das.appendChild(opt);
+                    das.value = cur;
+                }
+            }
+        }
+        if (dStatus) {
+            dStatus.innerHTML = '<option value="new">New</option><option value="contacted">Contacted</option>';
+            if (adv === 'qualified' || adv === 'won' || adv === 'lost') {
+                dStatus.innerHTML += '<option value="'+esc(adv)+'">'+esc(toStatusLabel(adv))+'</option>';
+                dStatus.value = adv;
+                dStatus.disabled = true;
+            } else {
+                dStatus.disabled = false;
+                dStatus.value = item.is_contacted ? 'contacted' : 'new';
+            }
+        }
 
         // Contact
         dContact.innerHTML = [kvRow('Email',item.customer_email||'—'),kvRow('Phone',item.customer_phone||'—')].join('');
@@ -1557,19 +1920,52 @@
         // Deal info
         dInterest.innerHTML = [kvRow('Category',item.category||'—'),kvRow('Project',pn),kvRow('Created',fmtDate(item.created_at)+' '+fmtTime(item.created_at))].join('');
 
-        // Plots
-        const plots = Array.isArray(item.plots)?item.plots:[];
+        // Plots (all plots for this lead across their interests in this panorama)
+        const plots = collectLeadPlotsForDrawer(item);
+        selectedDrawerPlots = plots.slice();
+        selectedDrawerPlotKeys = new Set(plots.map((p, idx) => plotIdentityKey(p, idx)));
         if(plots.length) {
-            dPlots.innerHTML = plots.map(p => {
-                const sk = getStatusKey(p.status);
-                const sc = sk==='sold'?'status-pill--sold':sk==='hold'?'status-pill--hold':'status-pill--available';
-                return '<div class="drawer-plot-chip"><span class="drawer-plot-name">'+esc(p.name||'Plot')+'</span>'+(p.area?'<span class="drawer-plot-meta">'+esc(p.area)+'</span>':'')+(p.price?'<span class="drawer-plot-meta">'+esc(p.price)+'</span>':'')+'<span class="status-pill '+sc+'" style="font-size:0.65rem;padding:0.1rem 0.4rem">'+esc(p.status||'available')+'</span></div>';
-            }).join('');
+            dPlots.innerHTML =
+                '<div class="drawer-plots-actions">' +
+                    '<button class="btn" id="d-plots-select-all" type="button">Select all</button>' +
+                    '<button class="btn" id="d-plots-clear" type="button">Clear</button>' +
+                '</div>' +
+                plots.map((p, idx) => {
+                    const sk = getStatusKey(p.status);
+                    const sc = sk==='sold'?'status-pill--sold':sk==='hold'?'status-pill--hold':'status-pill--available';
+                    const pkey = plotIdentityKey(p, idx);
+                    return '<label class="drawer-plot-chip drawer-plot-chip--selectable">' +
+                        '<input type="checkbox" class="drawer-plot-check" data-plot-key="'+esc(pkey)+'" checked>' +
+                        '<span class="drawer-plot-name">'+esc(p.name||'Plot')+'</span>' +
+                        (p.area?'<span class="drawer-plot-meta">'+esc(p.area)+'</span>':'') +
+                        (p.price?'<span class="drawer-plot-meta">'+esc(p.price)+'</span>':'') +
+                        '<span class="status-pill '+sc+'" style="font-size:0.65rem;padding:0.1rem 0.4rem">'+esc(p.status||'available')+'</span>' +
+                    '</label>';
+                }).join('');
+            dPlots.querySelectorAll('.drawer-plot-check').forEach(ch => {
+                ch.addEventListener('change', () => {
+                    const key = String(ch.getAttribute('data-plot-key') || '');
+                    if (!key) return;
+                    if (ch.checked) selectedDrawerPlotKeys.add(key);
+                    else selectedDrawerPlotKeys.delete(key);
+                });
+            });
+            const btnSelAll = $('d-plots-select-all');
+            if (btnSelAll) btnSelAll.addEventListener('click', () => {
+                selectedDrawerPlotKeys = new Set(plots.map((p, idx) => plotIdentityKey(p, idx)));
+                dPlots.querySelectorAll('.drawer-plot-check').forEach(ch => { ch.checked = true; });
+            });
+            const btnClr = $('d-plots-clear');
+            if (btnClr) btnClr.addEventListener('click', () => {
+                selectedDrawerPlotKeys.clear();
+                dPlots.querySelectorAll('.drawer-plot-check').forEach(ch => { ch.checked = false; });
+            });
         } else {
             dPlots.innerHTML = '<div class="subtle">No plots attached</div>';
+            selectedDrawerPlots = [];
+            selectedDrawerPlotKeys = new Set();
         }
 
-        dStatus.value = st;
         dNotes.value = String(item.notes||'');
         showDrawerMsg('');
         drawerBackdrop.classList.add('visible');
@@ -1587,12 +1983,15 @@
     async function saveSelected(partial) {
         if(!selected)return;
         btnSave.disabled=true; btnContacted.disabled=true; showDrawerMsg('');
-        // Optimistic: apply changes locally first
-        const prev = { is_contacted: !!selected.is_contacted, status: selected.status, notes: selected.notes };
-        if(typeof partial.is_contacted === 'boolean') selected.is_contacted = partial.is_contacted;
+        const prev = { is_contacted: !!selected.is_contacted, status: selected.status, notes: selected.notes, assigned_to: selected.assigned_to };
+        if(typeof partial.is_contacted === 'boolean') {
+            selected.is_contacted = partial.is_contacted;
+            selected.status = partial.is_contacted ? 'contacted' : 'new';
+        }
         if('notes' in partial) selected.notes = partial.notes;
+        if('assigned_to' in partial) selected.assigned_to = partial.assigned_to || null;
         refreshInterestsUI();
-        openDrawer(selected);
+        await openDrawer(selected);
         try {
             const r = await api('/api/buy-interests/'+encodeURIComponent(String(selected.id)),{method:'PATCH',body:JSON.stringify(partial||{})});
             const data = await r.json().catch(()=>({}));
@@ -1600,12 +1999,12 @@
             showDrawerMsg('Saved.');
             showToast('Changes saved');
         } catch(e) {
-            // Revert on failure
             selected.is_contacted = prev.is_contacted;
             selected.status = prev.status;
-            if('notes' in partial) selected.notes = prev.notes;
+            selected.notes = prev.notes;
+            selected.assigned_to = prev.assigned_to;
             refreshInterestsUI();
-            openDrawer(selected);
+            await openDrawer(selected);
             showDrawerMsg(e.message||'Failed to save','error');
             showToast(e.message||'Failed to save','error');
         }
@@ -1626,7 +2025,6 @@
             const data = await r.json().catch(() => ({}));
             if(!r.ok) throw new Error((data && data.error) ? data.error : ('Delete failed (' + r.status + ')'));
             interests = interests.filter(x => String(x.id) !== String(selected.id));
-            filtered = filtered.filter(x => String(x.id) !== String(selected.id));
             closeDrawer();
             refreshInterestsUI();
             showToast('Interest deleted');
@@ -1643,9 +2041,19 @@
 
     $('drawer-close').addEventListener('click', closeDrawer);
     drawerBackdrop.addEventListener('click', closeDrawer);
-    document.addEventListener('keydown', e => { if(e.key==='Escape') closeDrawer(); });
+    document.addEventListener('keydown', e => { if(e.key==='Escape') { closeDrawer(); closeInterestPlotsModal(); } });
     btnContacted.addEventListener('click', () => saveSelected({is_contacted:true}));
-    btnSave.addEventListener('click', () => saveSelected({is_contacted:dStatus.value==='contacted',notes:dNotes.value}));
+    btnSave.addEventListener('click', function() {
+        if (!selected) return;
+        const adv = String(selected.status || '').toLowerCase();
+        const das = $('d-assignee');
+        const assignRaw = das && das.value ? das.value : '';
+        const patch = { notes: dNotes.value, assigned_to: assignRaw || null };
+        if (adv !== 'qualified' && adv !== 'won' && adv !== 'lost') {
+            patch.is_contacted = dStatus.value === 'contacted';
+        }
+        saveSelected(patch);
+    });
     if(btnCreateContact) btnCreateContact.addEventListener('click', async () => {
         if(!selected || !selected.id) return;
         btnCreateContact.disabled = true;
@@ -1665,6 +2073,20 @@
         if(!selected || !selected.id) return;
         btnCreateDeal.disabled = true;
         try {
+            const chosenPlots = (Array.isArray(selectedDrawerPlots) ? selectedDrawerPlots : []).filter((p, idx) => {
+                const key = plotIdentityKey(p, idx);
+                return selectedDrawerPlotKeys.has(key);
+            }).map(p => ({
+                id: (p && p.id != null) ? p.id : ((p && p.plot_id != null) ? p.plot_id : null),
+                plot_id: (p && p.plot_id != null) ? p.plot_id : ((p && p.id != null) ? p.id : null),
+                name: (p && p.name) ? p.name : '',
+                area: (p && p.area) ? p.area : '',
+                price: (p && p.price) ? p.price : '',
+                status: (p && p.status) ? p.status : 'available'
+            }));
+            if(!chosenPlots.length) {
+                throw new Error('Select at least one plot');
+            }
             if(!selected.contact_id) {
                 const rc = await api('/api/crm/interests/'+encodeURIComponent(String(selected.id))+'/create-contact', {method:'POST', body:'{}'});
                 const dc = await rc.json().catch(()=>({}));
@@ -1673,7 +2095,7 @@
             }
             const r = await api('/api/crm/interests/'+encodeURIComponent(String(selected.id))+'/create-deal', {
                 method:'POST',
-                body: JSON.stringify({contact_id: selected.contact_id})
+                body: JSON.stringify({contact_id: selected.contact_id, plots: chosenPlots})
             });
             const d = await r.json().catch(()=>({}));
             if(!r.ok) throw new Error(d.error || ('Failed ('+r.status+')'));
@@ -1684,6 +2106,32 @@
             showToast(e.message || 'Failed to create deal', 'error');
         } finally {
             btnCreateDeal.disabled = false;
+        }
+    });
+    if(btnConvertLead) btnConvertLead.addEventListener('click', async () => {
+        if(!selected || !selected.id) return;
+        btnConvertLead.disabled = true;
+        try {
+            const r = await api('/api/crm/interests/'+encodeURIComponent(String(selected.id))+'/convert', { method: 'POST', body: '{}' });
+            const d = await r.json().catch(() => ({}));
+            if(!r.ok) throw new Error(d.error || ('Failed ('+r.status+')'));
+            if (d.deal && d.deal.id) {
+                const ix = interests.findIndex(x => String(x.id) === String(selected.id));
+                if (ix >= 0) {
+                    interests[ix].status = 'qualified';
+                    interests[ix].contact_id = (d.contact || {}).id || interests[ix].contact_id;
+                }
+            }
+            showToast('Converted to contact and deal');
+            const tabDeals = document.getElementById('tab-deals');
+            if(tabDeals) tabDeals.click();
+            if (window.crmDealsLoad) await window.crmDealsLoad();
+            closeDrawer();
+            refreshInterestsUI();
+        } catch(e) {
+            showToast(e.message || 'Failed to convert', 'error');
+        } finally {
+            btnConvertLead.disabled = false;
         }
     });
     if(btnDeleteInterest) btnDeleteInterest.addEventListener('click', deleteSelectedInterest);
@@ -2386,7 +2834,7 @@
             await ensureAuthenticated();
             setView('table');
             // Fast first paint: load only what Interests tab needs.
-            const interestsP = loadInterests().then(() => {
+            const interestsP = loadCrmTeamUsers().then(function() { return loadInterests(); }).then(() => {
                 if(interests.length === 0) $('table-empty').style.display = '';
             }).catch(e => {
                 $('table-empty').style.display = '';
@@ -2467,59 +2915,72 @@
         return String(v || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
     }
 
-    // Open quotation modal - called from drawer
-    document.getElementById('btn-quotation').addEventListener('click', function() {
-        const drawer = document.getElementById('drawer');
-        if (!drawer.classList.contains('visible')) return;
+    const qTemplateEl = document.getElementById('q-template-id');
 
-        const titleEl = document.getElementById('d-title');
-        const clientName = titleEl ? titleEl.textContent : '';
+    function collectQuotationFormPayload() {
+        var tpl = qTemplateEl && qTemplateEl.value ? String(qTemplateEl.value).trim() : '';
+        var body = {
+            clientName: document.getElementById('q-client-name').value.trim(),
+            clientPhone: document.getElementById('q-client-phone').value.trim(),
+            clientEmail: document.getElementById('q-client-email').value.trim(),
+            clientAddress: document.getElementById('q-client-address').value.trim(),
+            builderName: document.getElementById('q-builder-name').value.trim(),
+            brokerName: document.getElementById('q-broker-name').value.trim(),
+            projectName: document.getElementById('q-project-name').value.trim(),
+            basePrice: document.getElementById('q-base-price').value.trim(),
+            totalAmount: document.getElementById('q-total-amount').value.trim(),
+            paymentTerms: document.getElementById('q-payment-terms').value,
+            validity: document.getElementById('q-validity').value.trim() || '30',
+            notes: document.getElementById('q-notes').value.trim()
+        };
+        if (tpl) body.template_id = tpl;
+        return body;
+    }
 
-        const contactDiv = document.getElementById('d-contact');
-        let email = '', phone = '';
-        if (contactDiv) {
-            const vals = contactDiv.querySelectorAll('.v');
-            if (vals[0]) email = vals[0].textContent.trim();
-            if (vals[1]) phone = vals[1].textContent.trim();
-            if (email === '\u2014') email = '';
-            if (phone === '\u2014') phone = '';
-        }
-
-        const subtitleEl = document.getElementById('d-subtitle');
-        let projectName = '';
-        if (subtitleEl) {
-            const txt = subtitleEl.textContent.trim();
-            const parts = txt.split('\u00b7');
-            if (parts.length >= 2) projectName = parts[0].replace(/new|contacted|qualified|won|lost/gi,'').trim();
-        }
-
-        const plotsDiv = document.getElementById('d-plots');
-        const plotChips = plotsDiv ? plotsDiv.querySelectorAll('.drawer-plot-chip') : [];
-        const plots = [];
-        plotChips.forEach(chip => {
-            const name = chip.querySelector('.drawer-plot-name');
-            const metas = chip.querySelectorAll('.drawer-plot-meta');
-            plots.push({
-                name: name ? name.textContent.trim() : 'Plot',
-                area: metas[0] ? metas[0].textContent.trim() : '',
-                price: metas[1] ? metas[1].textContent.trim() : ''
+    function fillQuoteTemplateSelect() {
+        if (!qTemplateEl) return;
+        var cur = qTemplateEl.value;
+        qTemplateEl.innerHTML = '<option value="">No template (defaults only)</option>';
+        window.getAuthHeaders().then(function(headers) {
+            headers['Content-Type'] = 'application/json';
+            return fetch('/api/crm/quote-templates', { headers: headers });
+        }).then(function(r) { return r.json(); }).then(function(rows) {
+            if (!Array.isArray(rows)) return;
+            rows.forEach(function(t) {
+                if (!t || !t.id) return;
+                var opt = document.createElement('option');
+                opt.value = t.id;
+                opt.textContent = (t.name || 'Template') + (t.is_default ? ' (default)' : '');
+                qTemplateEl.appendChild(opt);
             });
-        });
+            if (cur) qTemplateEl.value = cur;
+        }).catch(function() {});
+    }
 
-        document.getElementById('q-client-name').value = clientName || '';
-        document.getElementById('q-client-phone').value = phone || '';
-        document.getElementById('q-client-email').value = email || '';
+    window.openDealQuotationModal = function() {
+        var ctx = window.__crmQuoteContext || {};
+        document.getElementById('q-client-name').value = ctx.clientName || '';
+        document.getElementById('q-client-phone').value = ctx.phone || '';
+        document.getElementById('q-client-email').value = ctx.email || '';
         document.getElementById('q-client-address').value = '';
         document.getElementById('q-builder-name').value = '';
         document.getElementById('q-broker-name').value = '';
-        document.getElementById('q-project-name').value = projectName || '';
+        document.getElementById('q-project-name').value = ctx.projectName || '';
         document.getElementById('q-base-price').value = '';
         document.getElementById('q-total-amount').value = '';
         document.getElementById('q-validity').value = '30';
         document.getElementById('q-notes').value = '';
+        if (qTemplateEl) qTemplateEl.value = '';
         showQMsg('');
-
-        const plotsList = document.getElementById('q-plots-list');
+        var plots = Array.isArray(ctx.plots) ? ctx.plots : [];
+        quotationData = {
+            clientName: ctx.clientName,
+            email: ctx.email,
+            phone: ctx.phone,
+            projectName: ctx.projectName,
+            plots: plots
+        };
+        var plotsList = document.getElementById('q-plots-list');
         if (plots.length) {
             plotsList.innerHTML = plots.map(function(p) {
                 return '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:0.5rem;padding:0.5rem 0.65rem;background:var(--color-surface-strong);border-radius:8px;">' +
@@ -2529,12 +2990,11 @@
                 '</div>';
             }).join('');
         } else {
-            plotsList.innerHTML = '<div style="color:var(--color-text-soft);font-size:0.82rem;">No plots attached to this lead</div>';
+            plotsList.innerHTML = '<div style="color:var(--color-text-soft);font-size:0.82rem;">No plots on this deal</div>';
         }
-
-        quotationData = { clientName, email, phone, projectName, plots };
+        fillQuoteTemplateSelect();
         qModal.classList.add('visible');
-    });
+    };
 
     // Close modal
     qClose.addEventListener('click', function() { qModal.classList.remove('visible'); });
@@ -2755,16 +3215,42 @@
 '</body></html>';
     }
 
-    // Preview: open quotation in a new tab
     qPreviewBtn.addEventListener('click', function() {
         showQMsg('');
+        var dealId = window.__crmQuoteDealId;
+        if (!dealId) {
+            showQMsg('Open a deal and use Quotation from the deal editor.', 'error');
+            return;
+        }
         var pageHTML = buildPreviewPage();
         if (!pageHTML) return;
-        var w = window.open('', '_blank');
-        if (!w) { showQMsg('Pop-up blocked — please allow pop-ups for this site.', 'error'); return; }
-        w.document.write(pageHTML);
-        w.document.close();
-        qModal.classList.remove('visible');
+        var body = collectQuotationFormPayload();
+        window.getAuthHeaders().then(function(headers) {
+            headers['Content-Type'] = 'application/json';
+            return fetch('/api/crm/deals/' + encodeURIComponent(dealId) + '/quotation/preview', {
+                method: 'POST',
+                headers: headers,
+                body: JSON.stringify(body)
+            });
+        }).then(function(r) {
+            return r.json().then(function(d) { return { ok: r.ok, d: d }; });
+        }).then(function(result) {
+            if (!result.ok) throw new Error((result.d && result.d.error) ? result.d.error : 'Save failed');
+            if (result.d && result.d.quote && result.d.quote.id) {
+                window.__crmLastQuoteId = result.d.quote.id;
+            }
+            if (typeof window.loadDealQuotationsList === 'function') {
+                window.loadDealQuotationsList(dealId);
+            }
+            var w = window.open('', '_blank');
+            if (!w) { showQMsg('Pop-up blocked — please allow pop-ups for this site.', 'error'); return; }
+            w.document.write(pageHTML);
+            w.document.close();
+            qModal.classList.remove('visible');
+            if (typeof window.showToast === 'function') window.showToast('Quotation saved on deal');
+        }).catch(function(err) {
+            showQMsg(err.message || 'Failed to save quotation', 'error');
+        });
     });
 })();
 

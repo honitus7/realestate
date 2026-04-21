@@ -710,10 +710,30 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
+    flex-wrap: wrap;
     gap: 0.3rem;
     margin-top: 0.35rem;
     padding-top: 0.3rem;
     border-top: 1px solid var(--color-border);
+}
+
+.kb-card-assign {
+    font-size: 0.58rem;
+    font-weight: 600;
+    color: var(--color-text-soft);
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.deal-quote-line {
+    padding: 0.2rem 0;
+    border-bottom: 1px solid var(--color-border);
+}
+
+.deal-quote-line:last-child {
+    border-bottom: none;
 }
 
 .kb-card-project {
@@ -734,6 +754,90 @@
     border-radius: 3px;
     white-space: nowrap;
     flex-shrink: 0;
+}
+
+.kb-card-group {
+    font-size: 0.58rem;
+    font-weight: 700;
+    color: var(--color-text-soft);
+    background: var(--color-accent-hover);
+    padding: 0.08rem 0.35rem;
+    border-radius: 3px;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.interest-plots-trigger {
+    cursor: pointer;
+    transition: color 0.15s ease, background 0.15s ease;
+}
+
+.interest-plots-trigger:hover,
+.interest-plots-trigger:focus {
+    color: var(--color-text);
+}
+
+.interest-plots-trigger--table {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 0.08rem 0.35rem;
+    border-radius: 4px;
+    background: var(--color-accent-hover);
+    font-weight: 700;
+}
+
+.interest-plots-modal {
+    position: fixed;
+    z-index: 70;
+    width: min(560px, 94vw);
+    max-height: min(70vh, 520px);
+    background: var(--color-surface-strong);
+    border: 1px solid var(--color-border);
+    border-radius: 12px;
+    box-shadow: 0 14px 46px rgba(22, 35, 56, 0.22);
+    overflow: hidden;
+    display: none;
+}
+
+.interest-plots-modal.visible {
+    display: block;
+}
+
+.interest-plots-modal-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.7rem 0.85rem;
+    border-bottom: 1px solid var(--color-border);
+    gap: 0.8rem;
+}
+
+.interest-plots-modal-head h3 {
+    margin: 0;
+    font-size: 0.9rem;
+    font-family: var(--font-display);
+}
+
+.interest-plots-modal-close {
+    width: 28px;
+    height: 28px;
+    border: 1px solid var(--color-border);
+    border-radius: 6px;
+    background: var(--color-surface);
+    color: var(--color-text);
+    cursor: pointer;
+    font-size: 1rem;
+    line-height: 1;
+}
+
+.interest-plots-modal-close:hover {
+    background: var(--color-accent-hover);
+}
+
+.interest-plots-modal-body {
+    overflow: auto;
+    max-height: calc(min(70vh, 520px) - 52px);
 }
 
 .kanban-empty {
@@ -796,6 +900,15 @@
     border-top: 1px solid var(--color-border);
 }
 
+.crm-page .interest-table-wrap,
+.crm-page .interest-table-wrap table,
+.crm-page .interest-table-wrap th,
+.crm-page .interest-table-wrap td,
+.crm-page .interest-table-wrap .pill,
+.crm-page .interest-table-wrap .subtle {
+    font-family: var(--font-body);
+}
+
 .crm-page table {
     width: 100%;
     border-collapse: collapse;
@@ -806,21 +919,22 @@
     top: 0;
     z-index: 10;
     text-align: left;
-    font-size: 0.72rem;
+    font-size: 0.66rem;
     font-weight: 700;
     letter-spacing: 0.05em;
     text-transform: uppercase;
     color: var(--color-muted);
     background: var(--color-bg-elevated);
-    padding: 0.85rem 1rem;
+    padding: 0.7rem 0.8rem;
     border-bottom: 1px solid var(--color-border);
 }
 
 .crm-page tbody td {
-    padding: 0.9rem 1rem;
+    padding: 0.62rem 0.8rem;
     border-bottom: 1px solid var(--color-border);
-    vertical-align: top;
-    font-size: 0.9rem;
+    vertical-align: middle;
+    font-size: 0.8rem;
+    line-height: 1.35;
     color: var(--color-text);
 }
 
@@ -840,8 +954,19 @@
 
 .crm-page .subtle {
     color: var(--color-muted);
-    font-size: 0.82rem;
-    margin-top: 0.22rem;
+    font-size: 0.7rem;
+    margin-top: 0.15rem;
+}
+
+.crm-page .interest-primary {
+    font-weight: 600;
+    font-size: 0.8rem;
+    line-height: 1.35;
+}
+
+.crm-page .interest-secondary {
+    font-weight: 500;
+    font-size: 0.76rem;
 }
 
 /* ── Pills ── */
@@ -853,7 +978,7 @@
     border-radius: 4px;
     border: 1px solid var(--color-border);
     background: var(--color-surface);
-    font-size: 0.72rem;
+    font-size: 0.66rem;
     font-weight: 600;
     letter-spacing: 0.03em;
     text-transform: uppercase;
@@ -1330,6 +1455,16 @@
     gap: 0.4rem;
 }
 
+.drawer-plots-actions {
+    display: flex;
+    gap: 0.45rem;
+}
+
+.drawer-plots-actions .btn {
+    padding: 0.32rem 0.6rem;
+    font-size: 0.72rem;
+}
+
 .drawer-plot-chip {
     display: flex;
     align-items: center;
@@ -1339,6 +1474,16 @@
     border: 1px solid var(--color-border);
     border-radius: 6px;
     flex-wrap: wrap;
+}
+
+.drawer-plot-chip--selectable {
+    cursor: pointer;
+}
+
+.drawer-plot-check {
+    width: 14px;
+    height: 14px;
+    accent-color: #162338;
 }
 
 .drawer-plot-name {

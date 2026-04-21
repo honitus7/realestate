@@ -10,6 +10,9 @@ alter table if exists public.buy_interests
 alter table if exists public.buy_interests
   add column if not exists contact_id uuid;
 
+alter table if exists public.buy_interests
+  add column if not exists client_id uuid references public.clients(id) on delete set null;
+
 -- 2) CRM Contacts
 create table if not exists public.crm_contacts (
   id uuid primary key default gen_random_uuid(),
@@ -28,6 +31,9 @@ create table if not exists public.crm_contacts (
 );
 
 create index if not exists idx_crm_contacts_org on public.crm_contacts(org_id);
+alter table if exists public.crm_contacts
+  add column if not exists client_id uuid references public.clients(id) on delete set null;
+create index if not exists idx_crm_contacts_client on public.crm_contacts(client_id);
 create index if not exists idx_crm_contacts_panorama on public.crm_contacts(panorama_id);
 create index if not exists idx_crm_contacts_email_norm on public.crm_contacts(email_norm);
 create index if not exists idx_crm_contacts_phone_norm on public.crm_contacts(phone_norm);
@@ -55,6 +61,9 @@ create table if not exists public.crm_deals (
 );
 
 create index if not exists idx_crm_deals_org on public.crm_deals(org_id);
+alter table if exists public.crm_deals
+  add column if not exists client_id uuid references public.clients(id) on delete set null;
+create index if not exists idx_crm_deals_client on public.crm_deals(client_id);
 create index if not exists idx_crm_deals_panorama on public.crm_deals(panorama_id);
 create index if not exists idx_crm_deals_contact on public.crm_deals(contact_id);
 create index if not exists idx_crm_deals_interest on public.crm_deals(interest_id);
@@ -87,6 +96,7 @@ create index if not exists idx_crm_deal_quotes_deal on public.crm_deal_quotes(de
 create index if not exists idx_crm_deal_quotes_contact on public.crm_deal_quotes(contact_id);
 create index if not exists idx_crm_deal_quotes_created on public.crm_deal_quotes(created_at desc);
 create index if not exists idx_buy_interests_contact_id on public.buy_interests(contact_id);
+create index if not exists idx_buy_interests_client_id on public.buy_interests(client_id);
 
 do $$
 begin
