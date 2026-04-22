@@ -139,6 +139,7 @@
                     <option value="daynight">Day / Evening Toggle</option>
                     <option value="floor_plan">Floor Plan</option>
                     <option value="gallery">Gallery</option>
+                    <option value="video">Video (YouTube)</option>
                     <option value="project_plan">Project Plan (Building Map)</option>
                     <option value="location">Location / Map</option>
                     <option value="brochure">Brochure / PDF</option>
@@ -534,7 +535,8 @@ function typeLabel(t) {
     const map = {
         '360_pano': '360° Panorama', 'drone_view': '360° Panorama',
         'daynight': 'Day / Evening', 'floor_plan': 'Floor Plan',
-        'gallery': 'Gallery', 'highlights': 'Gallery',
+        'gallery': 'Gallery', 'video': 'Video',
+        'highlights': 'Gallery',
         'amenities': 'Gallery', 'project_plan': 'Project Plan',
         'location': 'Location', 'brochure': 'Brochure',
         'custom': 'Custom',
@@ -687,10 +689,11 @@ function updateTypeFields(type) {
     show('fv-ref-floorplan-wrap',   type === 'floor_plan');
     show('fv-ref-gallery-wrap',     type === 'gallery');
     show('fv-ref-projectplan-wrap', type === 'project_plan');
-    show('fv-ref-url-wrap',         ['location', 'brochure', 'custom'].includes(type));
+    show('fv-ref-url-wrap',         ['location', 'brochure', 'custom', 'video'].includes(type));
 
     const urlHint = document.getElementById('fv-ref-url-hint');
-    urlHint.textContent = type === 'brochure' ? 'PDF or webpage URL (opens in new tab).'
+    urlHint.textContent = type === 'video' ? 'Paste a YouTube watch/share URL. It will autoplay in Full View.'
+        : type === 'brochure' ? 'PDF or webpage URL (opens in new tab).'
         : type === 'location' ? 'Google Maps, Earth View, or any map URL.'
         : 'URL to embed or open in new tab.';
 
@@ -734,7 +737,7 @@ async function saveTab() {
         const v = document.getElementById('fv-ref-projectplan').value;
         if (v) body.ref_project_plan_id = Number(v);
     }
-    if (['location', 'brochure', 'custom'].includes(type)) {
+    if (['location', 'brochure', 'custom', 'video'].includes(type)) {
         body.content_data = { url: document.getElementById('fv-ref-url').value.trim() };
     }
 
@@ -892,3 +895,4 @@ window.__fvInit = init;
         });
     </script>
 {% endblock %}
+

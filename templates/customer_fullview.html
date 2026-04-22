@@ -13,38 +13,11 @@
     <style>
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
         html, body { width: 100%; height: 100%; overflow: hidden; background: #0c0e14; }
-
-        /* Back button — top-left, floats above the iframe */
-        .cfv-back {
-            position: fixed;
-            top: 14px;
-            left: 14px;
-            z-index: 200;
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            padding: 7px 14px 7px 10px;
-            background: rgba(12, 14, 20, 0.85);
-            backdrop-filter: blur(12px);
-            -webkit-backdrop-filter: blur(12px);
-            border: 1px solid rgba(255,255,255,0.1);
-            border-radius: 99px;
-            color: rgba(255,255,255,0.75);
-            font-size: 0.8rem;
-            font-family: inherit;
-            font-weight: 600;
-            cursor: pointer;
-            text-decoration: none;
-            transition: color 0.15s, border-color 0.15s;
-        }
-        .cfv-back:hover { color: #fff; border-color: rgba(255,255,255,0.25); }
-        .cfv-back iconify-icon { font-size: 1rem; }
-
         /* Common shell header */
         .cfv-header {
             position: fixed;
             top: 14px;
-            left: 118px;
+            left: 14px;
             z-index: 200;
             display: flex;
             flex-direction: column;
@@ -85,26 +58,16 @@
             border: none;
         }
 
-        body.fv-home-active .cfv-header {
-            left: 14px;
-        }
     </style>
 </head>
 <body>
-    <!-- Back to panorama button -->
-    {% if workspace_id %}
-    <a class="cfv-back" href="/customer/project/{{ workspace_id }}" id="cfv-back">
-        <iconify-icon icon="ph:arrow-left"></iconify-icon>
-        360° View
-    </a>
-    {% endif %}
-    <div class="cfv-header" id="cfv-header">
+<div class="cfv-header" id="cfv-header">
         <div class="cfv-header-title" id="cfv-header-title">{{ workspace_name or 'Project' }}</div>
         <div class="cfv-header-sub" id="cfv-header-sub">Full View</div>
     </div>
 
     <!-- Content iframe — renders floor plans / gallery / daynight / project plan -->
-    <iframe id="cfv-frame" src="about:blank" allowfullscreen></iframe>
+    <iframe id="cfv-frame" src="about:blank" allow="autoplay; encrypted-media; picture-in-picture; fullscreen"></iframe>
 
     <!-- Full View Sidebar -->
     {% if fv_config and fv_config.get('is_active') and fv_config.get('tabs') %}
@@ -138,14 +101,142 @@
 
     var frame   = document.getElementById('cfv-frame');
     var sidebar = document.getElementById('fv-sidebar');
-    var backBtn = document.getElementById('cfv-back');
     var headerTitleEl = document.getElementById('cfv-header-title');
     var headerSubEl = document.getElementById('cfv-header-sub');
     var navFab = document.getElementById('fv-nav-reveal-fab');
     var activeBtn = null;
+    var DEBUG = true;
+
+    function fvLog(level, message, data) {
+        if (!DEBUG) return;
+        var stamp = new Date().toISOString();
+        var prefix = '[FV][' + stamp + '] ' + message;
+        if (level === 'error') {
+            console.error(prefix, data || '');
+            return;
+        }
+        if (level === 'warn') {
+            console.warn(prefix, data || '');
+            return;
+        }
+        console.log(prefix, data || '');
+    }
+
+    function normalizeTabType(type) {
+        return String(type || '').trim().toLowerCase();
+    }
+
+    function normalizeContentData(raw) {
+        if (!raw) return {};
+        if (typeof raw === 'string') return { url: raw.trim() };
+        if (typeof raw !== 'object') return {};
+        var url = raw.url || raw.video_url || raw.youtube_url || raw.embed_url || raw.link || raw.src || '';
+        if (url) return { ...raw, url: String(url).trim() };
+        return raw;
+    }
+
+    function parseContentData(btn) {
+        try {
+            var parsed = JSON.parse(btn.dataset.content || '{}');
+            return normalizeContentData(parsed);
+        } catch (e) {
+            fvLog('error', 'Failed to parse tab content JSON', {
+                title: btn && btn.title,
+                raw: btn ? btn.dataset.content : null,
+                error: String(e && e.message || e)
+            });
+            return {};
+        }
+    }
+
+    function sanitizeUrl(rawUrl) {
+        var url = String(rawUrl || '').trim();
+        if (!url) return '';
+        if (/^(www\.|youtu\.be\/|youtube\.com\/|m\.youtube\.com\/)/i.test(url)) return 'https://' + url;
+        if (/^\/\//.test(url)) return 'https:' + url;
+        return url;
+    }
+
+    function extractYouTubeIdLoose(rawText) {
+        var text = String(rawText || '');
+        if (!text) return null;
+        var patterns = [
+            /[?&]v=([A-Za-z0-9_-]{11})/i,
+            /youtu\.be\/([A-Za-z0-9_-]{11})/i,
+            /\/embed\/([A-Za-z0-9_-]{11})/i,
+            /\/shorts\/([A-Za-z0-9_-]{11})/i,
+            /\/live\/([A-Za-z0-9_-]{11})/i
+        ];
+        for (var i = 0; i < patterns.length; i++) {
+            var m = text.match(patterns[i]);
+            if (m && m[1]) return m[1];
+        }
+        return null;
+    }
+
+    function extractYouTubeId(rawUrl) {
+        var normalized = sanitizeUrl(rawUrl);
+        if (!normalized) return null;
+        try {
+            var url = new URL(normalized);
+            var host = (url.hostname || '').toLowerCase();
+            var path = url.pathname || '';
+            var id = null;
+
+            if (host === 'youtu.be') {
+                var parts = path.split('/').filter(Boolean);
+                id = parts[0] || null;
+            } else if (host.endsWith('youtube.com') || host.endsWith('youtube-nocookie.com')) {
+                if (path === '/watch') id = url.searchParams.get('v');
+                else if (path.startsWith('/embed/')) id = path.split('/')[2] || null;
+                else if (path.startsWith('/shorts/')) id = path.split('/')[2] || null;
+                else if (path.startsWith('/live/')) id = path.split('/')[2] || null;
+            } else if (host === 'm.youtube.com') {
+                if (path === '/watch') id = url.searchParams.get('v');
+            }
+
+            if (!id) return null;
+            id = id.trim();
+            if (!/^[A-Za-z0-9_-]{11}$/.test(id)) {
+                var compact = id.match(/[A-Za-z0-9_-]{11}/);
+                if (compact && compact[0]) id = compact[0];
+            }
+            if (/^[A-Za-z0-9_-]{11}$/.test(id)) return id;
+        } catch (e) {
+            // ignore and try loose parsing fallback below
+        }
+        return extractYouTubeIdLoose(rawUrl) || extractYouTubeIdLoose(normalized);
+    }
+
+    function normalizeYouTubeEmbedUrl(rawUrl) {
+        var normalized = sanitizeUrl(rawUrl);
+        if (!normalized) return null;
+        var id = extractYouTubeId(normalized);
+        if (!id) return null;
+        var params = [
+            'autoplay=1',
+            'mute=1',
+            'playsinline=1',
+            'rel=0',
+            'modestbranding=1',
+            'controls=1'
+        ];
+        return 'https://www.youtube-nocookie.com/embed/' + id + '?' + params.join('&');
+    }
+
+    function isYouTubeEmbedUrl(url) {
+        return /^https:\/\/www\.youtube-nocookie\.com\/embed\//i.test(String(url || ''));
+    }
 
     /* ---- build the embed URL for a given type + ref ---- */
     function embedUrl(type, ref, contentData) {
+        contentData = normalizeContentData(contentData);
+        var contentUrl = (contentData && contentData.url) ? String(contentData.url).trim() : '';
+        var ytEmbed = null;
+        if (contentUrl) {
+            ytEmbed = normalizeYouTubeEmbedUrl(contentUrl);
+            if (ytEmbed) return ytEmbed;
+        }
         var wsQ = '?workspace_id=' + encodeURIComponent(WS_ID) + '&embed=1';
         if (type === 'floor_plan'  && ref) return '/customer/full-view/floor-plan/'   + ref + wsQ;
         if (type === 'gallery'     && ref) return '/customer/full-view/gallery/'       + ref + wsQ;
@@ -153,9 +244,10 @@
         if (type === 'highlights'  && ref) return '/customer/full-view/gallery/'       + ref + wsQ;
         if (type === 'daynight'    && ref) return '/customer/full-view/daynight/'      + ref + wsQ;
         if (type === 'project_plan'&& ref) return '/customer/full-view/project-plan/' + ref + wsQ;
-        if (type === 'location' && contentData && contentData.url) return contentData.url;
-        if (type === 'brochure' && contentData && contentData.url) return contentData.url;
-        if (type === 'custom'   && contentData && contentData.url) return contentData.url;
+        if (type === 'video') return ytEmbed;
+        if (type === 'location' && contentUrl) return contentUrl;
+        if (type === 'brochure' && contentUrl) return contentUrl;
+        if (type === 'custom'   && contentUrl) return contentUrl;
         return null;
     }
 
@@ -209,18 +301,21 @@
     }
 
     function loadTab(btn) {
-        var type    = btn.dataset.tabType;
+        var rawType = btn.dataset.tabType;
+        var type    = normalizeTabType(rawType);
         var pano    = btn.dataset.refPanorama;
         var dn      = btn.dataset.refDaynight;
         var fp      = btn.dataset.refFloorplan;
         var gal     = btn.dataset.refGallery;
         var pp      = btn.dataset.refProjectplan;
-        var cd      = {};
-        try { cd = JSON.parse(btn.dataset.content || '{}'); } catch (e) {}
-
-        if (backBtn) {
-            backBtn.style.display = (type === 'floor_plan') ? 'none' : '';
-        }
+        var cd      = parseContentData(btn);
+        fvLog('log', 'loadTab called', {
+            label: tabDisplayName(btn),
+            type: type,
+            rawType: rawType,
+            refs: { pano: pano, dn: dn, fp: fp, gal: gal, pp: pp },
+            contentData: cd
+        });
         if (headerTitleEl && !headerTitleEl.textContent) {
             headerTitleEl.textContent = 'Project';
         }
@@ -233,6 +328,7 @@
         /* ---- 360° / drone: go back to panorama ---- */
         if (type === '360_pano' || type === 'drone_view') {
             var dest = WS_ID ? '/customer/project/' + WS_ID : null;
+            fvLog('log', 'Navigating back to panorama route', { dest: dest, pano: pano });
             if (dest) window.location.href = pano ? dest + '?pano=' + pano : dest;
             return;
         }
@@ -242,15 +338,23 @@
 
         /* ---- highlights: prefer gallery, fallback panorama ---- */
         if (type === 'highlights' && !gal && pano) {
+            fvLog('log', 'Highlights fallback to panorama route', { workspace_id: WS_ID, pano: pano });
             if (WS_ID) window.location.href = '/customer/project/' + WS_ID + '?pano=' + pano;
             return;
         }
 
         var url = embedUrl(type, ref, cd);
-        if (!url) { setActive(null); updateShellHomeSidebarState(null); return; }
+        fvLog('log', 'Resolved URL for tab', { type: type, ref: ref, url: url });
+        if (!url) {
+            fvLog('warn', 'No URL resolved for clicked tab', { type: type, ref: ref, contentData: cd });
+            setActive(null);
+            updateShellHomeSidebarState(null);
+            return;
+        }
 
         /* ---- external URL (location/brochure/custom): open new tab ---- */
-        if (url.startsWith('http') || url.startsWith('//')) {
+        if (!isYouTubeEmbedUrl(url) && type !== 'video' && (url.startsWith('http') || url.startsWith('//'))) {
+            fvLog('log', 'Opening external URL in new tab', { type: type, url: url });
             window.open(url, '_blank', 'noopener');
             setActive(null);
             updateShellHomeSidebarState(null);
@@ -258,6 +362,7 @@
         }
 
         setActive(btn);
+        fvLog('log', 'Loading tab inside iframe', { type: type, url: url });
         frame.src = url;
         updateShellHomeSidebarState(btn);
 
@@ -271,8 +376,26 @@
 
     /* ---- bind sidebar buttons ---- */
     if (sidebar) {
-        sidebar.querySelectorAll('.fv-sidebar-btn').forEach(function (btn) {
-            btn.addEventListener('click', function () { loadTab(btn); });
+        sidebar.addEventListener('click', function (evt) {
+            var btn = evt.target && evt.target.closest ? evt.target.closest('.fv-sidebar-btn') : null;
+            if (!btn || !sidebar.contains(btn)) return;
+            evt.preventDefault();
+            fvLog('log', 'Sidebar click captured', {
+                label: tabDisplayName(btn),
+                type: btn.dataset.tabType || '',
+                rawContent: btn.dataset.content || '{}'
+            });
+            loadTab(btn);
+        });
+        fvLog('log', 'Sidebar click delegation bound', { buttonCount: sidebar.querySelectorAll('.fv-sidebar-btn').length });
+    }
+
+    if (frame) {
+        frame.addEventListener('load', function () {
+            fvLog('log', 'Iframe load event', { src: frame.src });
+        });
+        frame.addEventListener('error', function () {
+            fvLog('error', 'Iframe error event', { src: frame.src });
         });
     }
 
@@ -280,24 +403,34 @@
     function autoSelect() {
         if (!sidebar) return;
         var btns = sidebar.querySelectorAll('.fv-sidebar-btn');
+        var initTypeNorm = normalizeTabType(INIT_TYPE);
+        fvLog('log', 'Auto-select started', {
+            initType: INIT_TYPE,
+            initTypeNorm: initTypeNorm,
+            initRef: INIT_REF,
+            totalButtons: btns.length
+        });
 
         function isInternalEmbeddable(btn) {
-            var type = btn.dataset.tabType || '';
+            var type = normalizeTabType(btn.dataset.tabType || '');
             if (type === '360_pano' || type === 'drone_view') return false;
+            var cd = parseContentData(btn);
+            if (cd && cd.url && normalizeYouTubeEmbedUrl(cd.url)) return true;
             if (type === 'location' || type === 'brochure' || type === 'custom') return false;
             var ref = btn.dataset.refFloorplan || btn.dataset.refGallery
                     || btn.dataset.refDaynight || btn.dataset.refProjectplan || '';
-            return !!embedUrl(type, ref, {});
+            return !!embedUrl(type, ref, cd);
         }
 
         // 1) Try URL-requested target when provided
-        if (INIT_TYPE) {
+        if (initTypeNorm) {
             for (var i = 0; i < btns.length; i++) {
                 var b = btns[i];
-                if (b.dataset.tabType !== INIT_TYPE) continue;
+                if (normalizeTabType(b.dataset.tabType) !== initTypeNorm) continue;
                 var ref = b.dataset.refFloorplan || b.dataset.refGallery
                         || b.dataset.refDaynight  || b.dataset.refProjectplan || '';
                 if (INIT_REF && ref && String(ref) !== String(INIT_REF)) continue;
+                fvLog('log', 'Auto-select matched init target', { label: tabDisplayName(b), type: b.dataset.tabType, ref: ref });
                 loadTab(b);
                 return;
             }
@@ -306,10 +439,15 @@
         // 2) Default landing behavior: auto-load the first internal project tab
         for (var j = 0; j < btns.length; j++) {
             if (isInternalEmbeddable(btns[j])) {
+                fvLog('log', 'Auto-select chose first internal tab', {
+                    label: tabDisplayName(btns[j]),
+                    type: btns[j].dataset.tabType
+                });
                 loadTab(btns[j]);
                 return;
             }
         }
+        fvLog('warn', 'Auto-select found no embeddable tab');
     }
 
     autoSelect();
@@ -317,3 +455,4 @@
 </script>
 </body>
 </html>
+

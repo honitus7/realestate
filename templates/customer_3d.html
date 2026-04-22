@@ -4486,9 +4486,13 @@
 
         function shellUrl(type, ref) {
             if (!WORKSPACE_ID) return null;
-            return '/customer/full-view/' + encodeURIComponent(WORKSPACE_ID)
-                 + '?type=' + encodeURIComponent(type)
-                 + '&ref='  + encodeURIComponent(ref);
+            var t = String(type || '').trim();
+            if (!t) return null;
+            var url = '/customer/full-view/' + encodeURIComponent(WORKSPACE_ID)
+                 + '?type=' + encodeURIComponent(t);
+            var r = String(ref || '').trim();
+            if (r) url += '&ref=' + encodeURIComponent(r);
+            return url;
         }
 
         function getCurrentPanoramaIdForSidebar() {
@@ -4581,7 +4585,7 @@
             if (!sidebar) return;
             sidebar.querySelectorAll('.fv-sidebar-btn').forEach(function (btn) {
                 btn.addEventListener('click', function () {
-                    var type    = btn.dataset.tabType;
+                    var type    = String(btn.dataset.tabType || '').trim();
                     var pano    = btn.dataset.refPanorama;
                     var dn      = btn.dataset.refDaynight;
                     var fp      = btn.dataset.refFloorplan;
@@ -4616,7 +4620,7 @@
 
                     /* ---- everything else: go to Full View shell (same tab) ---- */
                     var ref = fp || gal || dn || pp || '';
-                    var url = ref ? shellUrl(type, ref) : null;
+                    var url = shellUrl(type, ref);
                     if (url) {
                         setActive(btn);
                         updateFvSidebarVisibilityForActiveBtn();
