@@ -109,6 +109,11 @@ from app.services.storage_service import (
     get_gallery_s3_url,
     delete_gallery_from_s3,
     MAX_GALLERY_READ_BYTES,
+    compress_sales_map_image,
+    upload_sales_map_to_s3,
+    get_sales_map_s3_url,
+    delete_sales_map_from_s3,
+    MAX_SALES_MAP_READ_BYTES,
     ALLOWED_GALLERY_IMAGE_EXT,
     ALLOWED_GALLERY_VIDEO_EXT,
 )
@@ -189,6 +194,27 @@ from app.services.gallery_service import (
     delete_item as gal_delete_item,
     reorder_items as gal_reorder_items,
     get_next_sort_order as gal_next_sort_order,
+)
+from app.services.sales_route_map_service import (
+    create_sales_map as srm_create,
+    get_sales_map as srm_get,
+    get_sales_map_by_token as srm_get_by_token,
+    list_sales_maps as srm_list,
+    update_sales_map as srm_update,
+    delete_sales_map as srm_delete,
+    list_markers as srm_list_markers,
+    get_marker as srm_get_marker,
+    create_marker as srm_create_marker,
+    update_marker as srm_update_marker,
+    delete_marker as srm_delete_marker,
+    clear_main_marker as srm_clear_main_marker,
+    get_next_marker_sort_order as srm_next_marker_sort,
+    list_routes as srm_list_routes,
+    get_route as srm_get_route,
+    create_route as srm_create_route,
+    update_route as srm_update_route,
+    delete_route as srm_delete_route,
+    get_next_route_sort_order as srm_next_route_sort,
 )
 from app.services.full_view_service import (
     get_config_for_workspace as fv_get_config,
@@ -7319,6 +7345,522 @@ h1 {{ margin:0 0 8px; font-size:22px; }}
         bm['zones'] = zones
         return jsonify(bm)
 
+    # ==================================================================
+    # Sales Route Maps
+    # ==================================================================
+
+    def _parse_ratio(value):
+        try:
+            ratio = float(value)
+        except (TypeError, ValueError):
+            return None
+        if ratio < 0 or ratio > 1:
+            return None
+        return ratio
+
+    _srm_icon_key_re = re.compile(r'^[a-z0-9_-]{1,64}$')
+    _srm_allowed_icon_keys = {
+        'main-star',
+        'main-home',
+        'main-flag',
+        'main-crown',
+        'plot-pin',
+        'plot-dot',
+        'plot-square',
+        'plot-gate',
+        'plot-tree',
+        'plot-office',
+    }
+
+    def _default_srm_icon(marker_type):
+        return 'main-star' if str(marker_type or '').strip().lower() == 'main' else 'plot-pin'
+
+    def _sanitize_srm_icon_key(value, marker_type='normal'):
+        raw = str(value or '').strip().lower()
+        if not raw:
+            return _default_srm_icon(marker_type)
+        if not _srm_icon_key_re.match(raw):
+            return None
+        if raw not in _srm_allowed_icon_keys:
+            return None
+        return raw
+
+    def _sanitize_route_points(points):
+        if not isinstance(points, list):
+            return []
+        clean = []
+        for point in points:
+            if not isinstance(point, dict):
+                continue
+            x_ratio = _parse_ratio(point.get('x'))
+            y_ratio = _parse_ratio(point.get('y'))
+            if x_ratio is None or y_ratio is None:
+                continue
+            clean.append({'x': x_ratio, 'y': y_ratio})
+        return clean
+
+    def _ensure_route_endpoints(points, from_marker, to_marker):
+        start = {
+            'x': float(from_marker.get('x_ratio') or 0),
+            'y': float(from_marker.get('y_ratio') or 0),
+        }
+        end = {
+            'x': float(to_marker.get('x_ratio') or 0),
+            'y': float(to_marker.get('y_ratio') or 0),
+        }
+        clean = _sanitize_route_points(points)
+        if not clean:
+            return [start, end]
+        first = clean[0]
+        last = clean[-1]
+        if abs(first['x'] - start['x']) > 1e-9 or abs(first['y'] - start['y']) > 1e-9:
+            clean.insert(0, start)
+        if abs(last['x'] - end['x']) > 1e-9 or abs(last['y'] - end['y']) > 1e-9:
+            clean.append(end)
+        return clean
+
+    def _resolve_sales_map_for_admin(sb, map_id, user_id, role):
+        smap = srm_get(sb, map_id)
+        if not smap:
+            return None, (jsonify({'error': 'Not found'}), 404)
+        if str(smap.get('user_id')) != str(user_id) and role != 'superadmin':
+            return None, (jsonify({'error': 'Forbidden'}), 403)
+        return smap, None
+
+    @app.route('/sales-route-maps')
+    def sales_route_maps_page():
+        return redirect('/floorplans?tab=route-maps')
+
+    @app.route('/sales-route-maps/editor/<map_id>')
+    def sales_route_map_editor_page(map_id):
+        return render_template('sales_route_map_editor.html', map_id=map_id, **auth_ctx())
+
+    @app.route('/api/sales-maps', methods=['GET'])
+    @require_admin
+    def api_list_sales_maps(user_id, role):
+        sb = get_supabase()
+        if not sb:
+            return jsonify({'error': 'Database not configured'}), 503
+        workspace_id = str(request.args.get('workspace_id') or '').strip() or None
+        maps = srm_list(sb, user_id, workspace_id=workspace_id)
+        base = (request.url_root or '').rstrip('/')
+        for smap in maps:
+            markers = srm_list_markers(sb, smap['id'])
+            routes = srm_list_routes(sb, smap['id'])
+            smap['image_url'] = get_sales_map_s3_url(smap.get('image_filename'))
+            smap['share_url'] = f"{base}/sales-route-map/view/{smap.get('share_token', '')}"
+            smap['marker_count'] = len(markers)
+            smap['route_count'] = len(routes)
+            smap['has_main_marker'] = any((m.get('marker_type') or '') == 'main' for m in markers)
+        return jsonify(maps)
+
+    @app.route('/api/sales-maps', methods=['POST'])
+    @require_admin
+    def api_create_sales_map(user_id, role):
+        sb = get_supabase()
+        if not sb:
+            return jsonify({'error': 'Database not configured'}), 503
+        name = str(request.form.get('name') or 'Sales Route Map').strip() or 'Sales Route Map'
+        workspace_id = str(request.form.get('workspace_id') or '').strip() or None
+        if workspace_id:
+            workspace = get_workspace_by_id(sb, workspace_id)
+            if not workspace:
+                return jsonify({'error': 'Project not found'}), 404
+            if not can_manage_workspace(sb, workspace, user_id, role):
+                return jsonify({'error': 'Forbidden'}), 403
+        existing = srm_list(sb, user_id)
+        if any(m.get('name', '').strip().lower() == name.lower() for m in existing):
+            return jsonify({'error': f'A sales route map named "{name}" already exists'}), 409
+        file_obj = request.files.get('file')
+        if not file_obj:
+            return jsonify({'error': 'No file uploaded'}), 400
+        if not allowed_file(file_obj.filename):
+            return jsonify({'error': 'Invalid file type'}), 400
+        raw_bytes = file_obj.read()
+        if not raw_bytes or len(raw_bytes) > MAX_SALES_MAP_READ_BYTES:
+            return jsonify({'error': 'File too large'}), 400
+        jpeg_bytes, width, height = compress_sales_map_image(raw_bytes)
+        if not jpeg_bytes:
+            return jsonify({'error': 'Failed to process image'}), 400
+        filename = f"srm_{uuid.uuid4().hex[:16]}.jpg"
+        upload_sales_map_to_s3(filename, jpeg_bytes, 'image/jpeg')
+        profile = get_profile(sb, user_id)
+        org_id = profile.get('org_id') if profile else None
+        smap = srm_create(
+            sb,
+            user_id,
+            org_id,
+            name,
+            filename,
+            width,
+            height,
+            workspace_id=workspace_id,
+        )
+        if not smap:
+            return jsonify({'error': 'Failed to create sales route map'}), 500
+        base = (request.url_root or '').rstrip('/')
+        smap['image_url'] = get_sales_map_s3_url(smap.get('image_filename'))
+        smap['share_url'] = f"{base}/sales-route-map/view/{smap.get('share_token', '')}"
+        smap['marker_count'] = 0
+        smap['route_count'] = 0
+        smap['has_main_marker'] = False
+        return jsonify(smap), 201
+
+    @app.route('/api/sales-maps/<map_id>', methods=['GET'])
+    @require_admin
+    def api_get_sales_map(user_id, role, map_id):
+        sb = get_supabase()
+        if not sb:
+            return jsonify({'error': 'Database not configured'}), 503
+        smap, err = _resolve_sales_map_for_admin(sb, map_id, user_id, role)
+        if err:
+            return err
+        markers = srm_list_markers(sb, map_id)
+        routes = srm_list_routes(sb, map_id)
+        base = (request.url_root or '').rstrip('/')
+        smap['image_url'] = get_sales_map_s3_url(smap.get('image_filename'))
+        smap['share_url'] = f"{base}/sales-route-map/view/{smap.get('share_token', '')}"
+        smap['markers'] = markers
+        smap['routes'] = routes
+        return jsonify(smap)
+
+    @app.route('/api/sales-maps/<map_id>', methods=['PATCH'])
+    @require_admin
+    def api_update_sales_map(user_id, role, map_id):
+        sb = get_supabase()
+        if not sb:
+            return jsonify({'error': 'Database not configured'}), 503
+        smap, err = _resolve_sales_map_for_admin(sb, map_id, user_id, role)
+        if err:
+            return err
+        data = request.get_json(silent=True) or {}
+        updates = {}
+        if 'name' in data:
+            updates['name'] = str(data.get('name') or '').strip() or smap.get('name')
+        if 'workspace_id' in data:
+            workspace_id = str(data.get('workspace_id') or '').strip() or None
+            if workspace_id:
+                workspace = get_workspace_by_id(sb, workspace_id)
+                if not workspace:
+                    return jsonify({'error': 'Project not found'}), 404
+                if not can_manage_workspace(sb, workspace, user_id, role):
+                    return jsonify({'error': 'Forbidden'}), 403
+            updates['workspace_id'] = workspace_id
+        if updates:
+            updated = srm_update(sb, map_id, **updates)
+        else:
+            updated = srm_get(sb, map_id)
+        if not updated:
+            return jsonify({'error': 'Not found'}), 404
+        base = (request.url_root or '').rstrip('/')
+        updated['image_url'] = get_sales_map_s3_url(updated.get('image_filename'))
+        updated['share_url'] = f"{base}/sales-route-map/view/{updated.get('share_token', '')}"
+        return jsonify(updated)
+
+    @app.route('/api/sales-maps/<map_id>', methods=['DELETE'])
+    @require_admin
+    def api_delete_sales_map(user_id, role, map_id):
+        sb = get_supabase()
+        if not sb:
+            return jsonify({'error': 'Database not configured'}), 503
+        smap, err = _resolve_sales_map_for_admin(sb, map_id, user_id, role)
+        if err:
+            return err
+        delete_sales_map_from_s3(smap.get('image_filename'))
+        srm_delete(sb, map_id)
+        return jsonify({'success': True})
+
+    @app.route('/api/sales-maps/<map_id>/markers', methods=['GET'])
+    @require_admin
+    def api_list_sales_map_markers(user_id, role, map_id):
+        sb = get_supabase()
+        if not sb:
+            return jsonify({'error': 'Database not configured'}), 503
+        _smap, err = _resolve_sales_map_for_admin(sb, map_id, user_id, role)
+        if err:
+            return err
+        return jsonify(srm_list_markers(sb, map_id))
+
+    @app.route('/api/sales-maps/<map_id>/markers', methods=['POST'])
+    @require_admin
+    def api_create_sales_map_marker(user_id, role, map_id):
+        sb = get_supabase()
+        if not sb:
+            return jsonify({'error': 'Database not configured'}), 503
+        _smap, err = _resolve_sales_map_for_admin(sb, map_id, user_id, role)
+        if err:
+            return err
+        data = request.get_json(silent=True) or {}
+        marker_type = str(data.get('marker_type') or 'normal').strip().lower()
+        if marker_type not in ('main', 'normal'):
+            return jsonify({'error': 'marker_type must be main or normal'}), 400
+        x_ratio = _parse_ratio(data.get('x_ratio'))
+        y_ratio = _parse_ratio(data.get('y_ratio'))
+        if x_ratio is None or y_ratio is None:
+            return jsonify({'error': 'x_ratio and y_ratio must be between 0 and 1'}), 400
+        if marker_type == 'main':
+            srm_clear_main_marker(sb, map_id)
+        label = str(data.get('label') or '').strip()
+        icon_key = _sanitize_srm_icon_key(data.get('icon_key'), marker_type=marker_type)
+        if icon_key is None:
+            return jsonify({'error': 'icon_key is invalid'}), 400
+        sort_order = srm_next_marker_sort(sb, map_id)
+        marker = srm_create_marker(
+            sb,
+            map_id,
+            marker_type,
+            label,
+            x_ratio,
+            y_ratio,
+            icon_key=icon_key,
+            sort_order=sort_order,
+        )
+        if not marker:
+            return jsonify({'error': 'Failed to create marker'}), 500
+        return jsonify(marker), 201
+
+    @app.route('/api/sales-map-markers/<marker_id>', methods=['PATCH'])
+    @require_admin
+    def api_update_sales_map_marker(user_id, role, marker_id):
+        sb = get_supabase()
+        if not sb:
+            return jsonify({'error': 'Database not configured'}), 503
+        marker = srm_get_marker(sb, marker_id)
+        if not marker:
+            return jsonify({'error': 'Not found'}), 404
+        map_id = marker.get('map_id')
+        _smap, err = _resolve_sales_map_for_admin(sb, map_id, user_id, role)
+        if err:
+            return err
+        data = request.get_json(silent=True) or {}
+        updates = {}
+        if 'marker_type' in data:
+            marker_type = str(data.get('marker_type') or '').strip().lower()
+            if marker_type not in ('main', 'normal'):
+                return jsonify({'error': 'marker_type must be main or normal'}), 400
+            if marker_type == 'main':
+                srm_clear_main_marker(sb, map_id, exclude_marker_id=marker_id)
+            updates['marker_type'] = marker_type
+        effective_marker_type = updates.get('marker_type') or str(marker.get('marker_type') or 'normal').strip().lower()
+        if 'label' in data:
+            updates['label'] = str(data.get('label') or '').strip()
+        if 'icon_key' in data:
+            icon_key = _sanitize_srm_icon_key(data.get('icon_key'), marker_type=effective_marker_type)
+            if icon_key is None:
+                return jsonify({'error': 'icon_key is invalid'}), 400
+            updates['icon_key'] = icon_key
+        elif 'marker_type' in updates:
+            current_icon = str(marker.get('icon_key') or '').strip().lower()
+            if not current_icon:
+                updates['icon_key'] = _default_srm_icon(effective_marker_type)
+        if 'x_ratio' in data:
+            x_ratio = _parse_ratio(data.get('x_ratio'))
+            if x_ratio is None:
+                return jsonify({'error': 'x_ratio must be between 0 and 1'}), 400
+            updates['x_ratio'] = x_ratio
+        if 'y_ratio' in data:
+            y_ratio = _parse_ratio(data.get('y_ratio'))
+            if y_ratio is None:
+                return jsonify({'error': 'y_ratio must be between 0 and 1'}), 400
+            updates['y_ratio'] = y_ratio
+        if 'sort_order' in data:
+            try:
+                updates['sort_order'] = int(data.get('sort_order'))
+            except (TypeError, ValueError):
+                return jsonify({'error': 'sort_order must be an integer'}), 400
+        if updates:
+            updated = srm_update_marker(sb, marker_id, **updates)
+        else:
+            updated = srm_get_marker(sb, marker_id)
+        return jsonify(updated)
+
+    @app.route('/api/sales-map-markers/<marker_id>', methods=['DELETE'])
+    @require_admin
+    def api_delete_sales_map_marker(user_id, role, marker_id):
+        sb = get_supabase()
+        if not sb:
+            return jsonify({'error': 'Database not configured'}), 503
+        marker = srm_get_marker(sb, marker_id)
+        if not marker:
+            return jsonify({'error': 'Not found'}), 404
+        map_id = marker.get('map_id')
+        _smap, err = _resolve_sales_map_for_admin(sb, map_id, user_id, role)
+        if err:
+            return err
+        srm_delete_marker(sb, marker_id)
+        return jsonify({'success': True})
+
+    @app.route('/api/sales-maps/<map_id>/routes', methods=['GET'])
+    @require_admin
+    def api_list_sales_map_routes(user_id, role, map_id):
+        sb = get_supabase()
+        if not sb:
+            return jsonify({'error': 'Database not configured'}), 503
+        _smap, err = _resolve_sales_map_for_admin(sb, map_id, user_id, role)
+        if err:
+            return err
+        return jsonify(srm_list_routes(sb, map_id))
+
+    @app.route('/api/sales-maps/<map_id>/routes', methods=['POST'])
+    @require_admin
+    def api_create_sales_map_route(user_id, role, map_id):
+        sb = get_supabase()
+        if not sb:
+            return jsonify({'error': 'Database not configured'}), 503
+        _smap, err = _resolve_sales_map_for_admin(sb, map_id, user_id, role)
+        if err:
+            return err
+        data = request.get_json(silent=True) or {}
+        from_marker_id = str(data.get('from_marker_id') or '').strip()
+        to_marker_id = str(data.get('to_marker_id') or '').strip()
+        if not from_marker_id or not to_marker_id:
+            return jsonify({'error': 'from_marker_id and to_marker_id are required'}), 400
+        if from_marker_id == to_marker_id:
+            return jsonify({'error': 'Route endpoints must be different markers'}), 400
+        from_marker = srm_get_marker(sb, from_marker_id)
+        to_marker = srm_get_marker(sb, to_marker_id)
+        if not from_marker or not to_marker:
+            return jsonify({'error': 'Route marker not found'}), 404
+        if str(from_marker.get('map_id')) != str(map_id) or str(to_marker.get('map_id')) != str(map_id):
+            return jsonify({'error': 'Route markers must belong to this map'}), 400
+        line_width = data.get('line_width', 3)
+        try:
+            line_width = max(1, min(12, int(line_width)))
+        except (TypeError, ValueError):
+            return jsonify({'error': 'line_width must be an integer'}), 400
+        points = _ensure_route_endpoints(data.get('path_points') or [], from_marker, to_marker)
+        sort_order = srm_next_route_sort(sb, map_id)
+        try:
+            route = srm_create_route(
+                sb,
+                map_id,
+                from_marker_id,
+                to_marker_id,
+                points,
+                color=str(data.get('color') or '#162338').strip() or '#162338',
+                line_width=line_width,
+                sort_order=sort_order,
+            )
+        except Exception as exc:
+            msg = str(exc)
+            if 'duplicate key' in msg.lower() or 'unique' in msg.lower():
+                return jsonify({'error': 'A route between these pointers already exists'}), 409
+            return jsonify({'error': msg}), 500
+        if not route:
+            return jsonify({'error': 'Failed to create route'}), 500
+        return jsonify(route), 201
+
+    @app.route('/api/sales-map-routes/<route_id>', methods=['PATCH'])
+    @require_admin
+    def api_update_sales_map_route(user_id, role, route_id):
+        sb = get_supabase()
+        if not sb:
+            return jsonify({'error': 'Database not configured'}), 503
+        route = srm_get_route(sb, route_id)
+        if not route:
+            return jsonify({'error': 'Not found'}), 404
+        map_id = route.get('map_id')
+        _smap, err = _resolve_sales_map_for_admin(sb, map_id, user_id, role)
+        if err:
+            return err
+        data = request.get_json(silent=True) or {}
+
+        from_marker_id = str(data.get('from_marker_id') or route.get('from_marker_id') or '').strip()
+        to_marker_id = str(data.get('to_marker_id') or route.get('to_marker_id') or '').strip()
+        if not from_marker_id or not to_marker_id:
+            return jsonify({'error': 'from_marker_id and to_marker_id are required'}), 400
+        if from_marker_id == to_marker_id:
+            return jsonify({'error': 'Route endpoints must be different markers'}), 400
+        from_marker = srm_get_marker(sb, from_marker_id)
+        to_marker = srm_get_marker(sb, to_marker_id)
+        if not from_marker or not to_marker:
+            return jsonify({'error': 'Route marker not found'}), 404
+        if str(from_marker.get('map_id')) != str(map_id) or str(to_marker.get('map_id')) != str(map_id):
+            return jsonify({'error': 'Route markers must belong to this map'}), 400
+
+        updates = {
+            'from_marker_id': from_marker_id,
+            'to_marker_id': to_marker_id,
+        }
+        if 'path_points' in data:
+            updates['path_points'] = _ensure_route_endpoints(data.get('path_points') or [], from_marker, to_marker)
+        else:
+            updates['path_points'] = _ensure_route_endpoints(route.get('path_points') or [], from_marker, to_marker)
+        if 'color' in data:
+            updates['color'] = str(data.get('color') or '#162338').strip() or '#162338'
+        if 'line_width' in data:
+            try:
+                updates['line_width'] = max(1, min(12, int(data.get('line_width'))))
+            except (TypeError, ValueError):
+                return jsonify({'error': 'line_width must be an integer'}), 400
+        if 'sort_order' in data:
+            try:
+                updates['sort_order'] = int(data.get('sort_order'))
+            except (TypeError, ValueError):
+                return jsonify({'error': 'sort_order must be an integer'}), 400
+        try:
+            updated = srm_update_route(sb, route_id, **updates)
+        except Exception as exc:
+            msg = str(exc)
+            if 'duplicate key' in msg.lower() or 'unique' in msg.lower():
+                return jsonify({'error': 'A route between these pointers already exists'}), 409
+            return jsonify({'error': msg}), 500
+        return jsonify(updated)
+
+    @app.route('/api/sales-map-routes/<route_id>', methods=['DELETE'])
+    @require_admin
+    def api_delete_sales_map_route(user_id, role, route_id):
+        sb = get_supabase()
+        if not sb:
+            return jsonify({'error': 'Database not configured'}), 503
+        route = srm_get_route(sb, route_id)
+        if not route:
+            return jsonify({'error': 'Not found'}), 404
+        map_id = route.get('map_id')
+        _smap, err = _resolve_sales_map_for_admin(sb, map_id, user_id, role)
+        if err:
+            return err
+        srm_delete_route(sb, route_id)
+        return jsonify({'success': True})
+
+    @app.route('/sales-route-map/view/<share_token>')
+    def sales_route_map_public_view(share_token):
+        sb = get_supabase()
+        if not sb:
+            return "Database not configured", 503
+        smap = srm_get_by_token(sb, share_token)
+        if not smap:
+            return "Not found", 404
+        smap['image_url'] = get_sales_map_s3_url(smap.get('image_filename'))
+        markers = srm_list_markers(sb, smap['id'])
+        routes = srm_list_routes(sb, smap['id'])
+        return render_template(
+            'sales_route_map_view.html',
+            sales_map=smap,
+            markers=markers,
+            routes=routes,
+            embed=(request.args.get('embed', '') == '1'),
+        )
+
+    @app.route('/customer/full-view/sales-map/<map_id>')
+    def fv_customer_sales_map_view(map_id):
+        sb = get_supabase()
+        if not sb:
+            return "Database not configured", 503
+        smap = srm_get(sb, map_id)
+        if not smap:
+            return "Not found", 404
+        smap['image_url'] = get_sales_map_s3_url(smap.get('image_filename'))
+        markers = srm_list_markers(sb, smap['id'])
+        routes = srm_list_routes(sb, smap['id'])
+        return render_template(
+            'sales_route_map_view.html',
+            sales_map=smap,
+            markers=markers,
+            routes=routes,
+            embed=True,
+        )
+
     # ===================================================================
     # EARTH VIEWS
     # ===================================================================
@@ -9403,6 +9945,7 @@ h1 {{ margin:0 0 8px; font-size:22px; }}
             'ref_floor_plan_id': data.get('ref_floor_plan_id'),
             'ref_gallery_id': data.get('ref_gallery_id'),
             'ref_project_plan_id': data.get('ref_project_plan_id'),
+            'ref_sales_map_id': data.get('ref_sales_map_id'),
         }
         tab = fv_create_tab(sb, config_id, icon, name, tab_type, **kwargs)
         if not tab:

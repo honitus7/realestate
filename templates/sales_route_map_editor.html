@@ -1,0 +1,648 @@
+{% extends 'base.html' %}
+{% block title %}Route Map Editor - PropMark{% endblock %}
+{% block head_css %}
+<link rel="stylesheet" href="/static/css/dashboard.css">
+<link rel="stylesheet" href="/static/css/sales_route_map_editor.css">
+{% endblock %}
+{% block content %}
+<div class="sre-page">
+    {% set active_page = 'floorplans' %}
+    {% include 'components/sidebar.html' %}
+
+    <div class="sre-main">
+        <div class="sre-header">
+            <a href="/floorplans?tab=route-maps" class="sre-back-link">Back to Route Maps</a>
+            <div>
+                <h1 class="sre-title" id="sre-map-title">Route Map Editor</h1>
+                <p class="sre-subtitle">Flow: upload image -> add one main pointer -> add normal pointers -> draw routes.</p>
+            </div>
+            <a class="btn btn-secondary" id="sre-preview-link" href="#" target="_blank" rel="noopener">Preview</a>
+        </div>
+
+        <div class="sre-status" id="sre-status">Loading map...</div>
+
+        <div class="sre-layout">
+            <section class="sre-canvas-shell">
+                <div class="sre-map-stage" id="sre-map-stage">
+                    <img id="sre-map-image" class="sre-map-image" alt="Route map">
+                    <svg id="sre-routes-svg" class="sre-routes-svg" viewBox="0 0 1 1" preserveAspectRatio="none"></svg>
+                    <div id="sre-markers-layer" class="sre-markers-layer"></div>
+                </div>
+            </section>
+
+            <aside class="sre-panel">
+                <div class="sre-panel-section">
+                    <div class="sre-panel-title">Tools</div>
+                    <div class="sre-tool-grid">
+                        <button class="btn btn-secondary btn-sm" id="sre-mode-select">Select</button>
+                        <button class="btn btn-secondary btn-sm" id="sre-mode-main">Add Main</button>
+                        <button class="btn btn-secondary btn-sm" id="sre-mode-normal">Add Pointer</button>
+                        <button class="btn btn-secondary btn-sm" id="sre-mode-route">Draw Route</button>
+                    </div>
+                    <div class="sre-tool-grid">
+                        <button class="btn btn-secondary btn-sm" id="sre-route-undo">Undo Route Point</button>
+                        <button class="btn btn-secondary btn-sm" id="sre-route-cancel">Cancel Route</button>
+                    </div>
+                    <div class="sre-mode-label" id="sre-mode-label">Mode: Select</div>
+                </div>
+
+                <div class="sre-panel-section">
+                    <div class="sre-panel-title">Selected Pointer</div>
+                    <div id="sre-selected-empty" class="sre-note">Select a pointer to edit details.</div>
+                    <div id="sre-selected-form" style="display:none;">
+                        <div class="sre-field">
+                            <label for="sre-marker-label">Label</label>
+                            <input id="sre-marker-label" class="sre-input" type="text" maxlength="120">
+                        </div>
+                        <div class="sre-field">
+                            <label for="sre-marker-type">Type</label>
+                            <select id="sre-marker-type" class="sre-input">
+                                <option value="normal">Normal Pointer</option>
+                                <option value="main">Main Pointer</option>
+                            </select>
+                        </div>
+                        <div class="sre-field">
+                            <label>Icon Library</label>
+                            <input id="sre-marker-icon" type="hidden" value="">
+                            <div class="sre-icon-library">
+                                <div class="sre-icon-group-title">Main Pointer Icons</div>
+                                <div id="sre-main-icon-grid" class="sre-icon-grid"></div>
+                                <div class="sre-icon-group-title">Other Pointer Icons</div>
+                                <div id="sre-normal-icon-grid" class="sre-icon-grid"></div>
+                            </div>
+                        </div>
+                        <div class="sre-actions">
+                            <button class="btn btn-secondary btn-sm" id="sre-save-marker">Save</button>
+                            <button class="btn btn-secondary btn-sm" id="sre-move-marker">Move</button>
+                            <button class="btn btn-danger btn-sm" id="sre-delete-marker">Delete</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="sre-panel-section">
+                    <div class="sre-panel-title">Pointers</div>
+                    <div id="sre-markers-list" class="sre-list"></div>
+                </div>
+
+                <div class="sre-panel-section">
+                    <div class="sre-panel-title">Routes</div>
+                    <div id="sre-routes-list" class="sre-list"></div>
+                </div>
+            </aside>
+        </div>
+    </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script src="/static/js/sales_route_map_icons.js"></script>
+<script>
+(function () {
+    'use strict';
+
+    var MAP_ID = {{ map_id|tojson }};
+
+    var mapData = null;
+    var markers = [];
+    var routes = [];
+    var mode = 'select';
+    var selectedMarkerId = null;
+    var routeDraft = { startMarkerId: null, waypoints: [] };
+    var iconLibrary = window.salesRouteMapIcons || null;
+
+    var stageEl = null;
+    var imageEl = null;
+    var markersLayerEl = null;
+    var routesSvgEl = null;
+    var statusEl = null;
+    var modeLabelEl = null;
+
+    function clampRatio(value) {
+        var num = Number(value);
+        if (!Number.isFinite(num)) return 0;
+        if (num < 0) return 0;
+        if (num > 1) return 1;
+        return num;
+    }
+
+    function escapeHtml(text) {
+        return String(text || '').replace(/[&<>"']/g, function (char) {
+            return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char];
+        });
+    }
+
+    function authHeaders() {
+        if (!window._supabase) return Promise.resolve({});
+        return window._supabase.auth.getSession().then(function (result) {
+            var headers = { 'Content-Type': 'application/json' };
+            if (result.data.session && result.data.session.access_token) {
+                headers.Authorization = 'Bearer ' + result.data.session.access_token;
+            }
+            return headers;
+        });
+    }
+
+    async function apiFetch(url, opts) {
+        var headers = await authHeaders();
+        var merged = Object.assign({ headers: headers }, opts || {});
+        if (merged.body instanceof FormData) delete merged.headers['Content-Type'];
+        var response = await fetch(url, merged);
+        if (!response.ok) {
+            var payload = await response.text();
+            throw new Error(payload || response.statusText);
+        }
+        return response.json();
+    }
+
+    function markerById(markerId) {
+        return markers.find(function (marker) { return String(marker.id) === String(markerId); }) || null;
+    }
+
+    function markerName(marker) {
+        if (!marker) return '';
+        var label = (marker.label || '').trim();
+        if (label) return label;
+        return marker.marker_type === 'main' ? 'Main Pointer' : 'Pointer';
+    }
+
+    function markerIconKey(marker) {
+        if (!marker) return iconLibrary ? iconLibrary.defaultForType('normal') : 'plot-pin';
+        var markerType = marker.marker_type || 'normal';
+        var raw = marker.icon_key || '';
+        if (!iconLibrary) return String(raw || '').trim().toLowerCase() || (markerType === 'main' ? 'main-star' : 'plot-pin');
+        var normalized = iconLibrary.normalizeKey(raw);
+        if (iconLibrary.isAllowed(normalized)) return normalized;
+        return iconLibrary.defaultForType(markerType);
+    }
+
+    function markerIconSvg(marker) {
+        var markerType = marker && marker.marker_type ? marker.marker_type : 'normal';
+        var key = markerIconKey(marker);
+        if (iconLibrary && typeof iconLibrary.renderSvg === 'function') {
+            return iconLibrary.renderSvg(key, markerType);
+        }
+        return '';
+    }
+
+    function setSelectedIconKey(iconKey) {
+        var input = document.getElementById('sre-marker-icon');
+        if (!input) return;
+        var markerType = document.getElementById('sre-marker-type').value || 'normal';
+        if (!iconLibrary) {
+            input.value = String(iconKey || '').trim().toLowerCase() || (markerType === 'main' ? 'main-star' : 'plot-pin');
+            return;
+        }
+        var normalized = iconLibrary.normalizeKey(iconKey);
+        if (!iconLibrary.isAllowed(normalized)) {
+            normalized = iconLibrary.defaultForType(markerType);
+        }
+        input.value = normalized;
+        syncIconLibrarySelection();
+    }
+
+    function syncIconLibrarySelection() {
+        var input = document.getElementById('sre-marker-icon');
+        if (!input) return;
+        var selectedKey = String(input.value || '').trim().toLowerCase();
+        document.querySelectorAll('.sre-icon-btn[data-icon-key]').forEach(function (btn) {
+            if (String(btn.dataset.iconKey || '').toLowerCase() === selectedKey) {
+                btn.classList.add('active');
+            } else {
+                btn.classList.remove('active');
+            }
+        });
+    }
+
+    function iconButtonHtml(icon) {
+        return '<button type="button" class="sre-icon-btn" data-icon-key="' + escapeHtml(icon.key) + '" title="' + escapeHtml(icon.label) + '">' +
+            '<span class="sre-icon-svg">' + icon.svg + '</span>' +
+            '<span class="sre-icon-name">' + escapeHtml(icon.label) + '</span>' +
+            '</button>';
+    }
+
+    function renderIconLibrary() {
+        var mainGrid = document.getElementById('sre-main-icon-grid');
+        var normalGrid = document.getElementById('sre-normal-icon-grid');
+        if (!mainGrid || !normalGrid || !iconLibrary) return;
+
+        var mainIcons = iconLibrary.byGroup('main');
+        var normalIcons = iconLibrary.byGroup('normal');
+        mainGrid.innerHTML = mainIcons.map(iconButtonHtml).join('');
+        normalGrid.innerHTML = normalIcons.map(iconButtonHtml).join('');
+
+        document.querySelectorAll('.sre-icon-btn[data-icon-key]').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                setSelectedIconKey(btn.dataset.iconKey || '');
+            });
+        });
+        syncIconLibrarySelection();
+    }
+
+    function setStatus(message, tone) {
+        statusEl.textContent = message;
+        statusEl.classList.remove('ok', 'warn');
+        if (tone === 'ok') statusEl.classList.add('ok');
+        if (tone === 'warn') statusEl.classList.add('warn');
+    }
+
+    function setMode(nextMode) {
+        mode = nextMode;
+        if (mode !== 'draw_route') {
+            routeDraft.startMarkerId = null;
+            routeDraft.waypoints = [];
+        }
+        var labels = {
+            select: 'Mode: Select',
+            add_main: 'Mode: Add Main Pointer (click on map)',
+            add_normal: 'Mode: Add Normal Pointer (click on map)',
+            draw_route: 'Mode: Draw Route (start marker -> waypoints -> end marker)',
+            move_marker: 'Mode: Move Selected Pointer (click on new location)'
+        };
+        modeLabelEl.textContent = labels[mode] || 'Mode: Select';
+        renderMapOverlay();
+    }
+
+    function selectedMarker() {
+        return markerById(selectedMarkerId);
+    }
+
+    function stageRatiosFromEvent(event) {
+        var rect = imageEl.getBoundingClientRect();
+        if (rect.width <= 0 || rect.height <= 0) return null;
+        var xRatio = clampRatio((event.clientX - rect.left) / rect.width);
+        var yRatio = clampRatio((event.clientY - rect.top) / rect.height);
+        return { x: xRatio, y: yRatio };
+    }
+
+    function anchoredRoutePoints(route) {
+        var fromMarker = markerById(route.from_marker_id);
+        var toMarker = markerById(route.to_marker_id);
+        if (!fromMarker || !toMarker) return [];
+        var points = Array.isArray(route.path_points) ? route.path_points.filter(function (p) {
+            return p && Number.isFinite(Number(p.x)) && Number.isFinite(Number(p.y));
+        }).map(function (p) {
+            return { x: clampRatio(p.x), y: clampRatio(p.y) };
+        }) : [];
+        if (!points.length) {
+            return [
+                { x: clampRatio(fromMarker.x_ratio), y: clampRatio(fromMarker.y_ratio) },
+                { x: clampRatio(toMarker.x_ratio), y: clampRatio(toMarker.y_ratio) }
+            ];
+        }
+        points[0] = { x: clampRatio(fromMarker.x_ratio), y: clampRatio(fromMarker.y_ratio) };
+        points[points.length - 1] = { x: clampRatio(toMarker.x_ratio), y: clampRatio(toMarker.y_ratio) };
+        return points;
+    }
+
+    function pointsToSvg(points) {
+        return points.map(function (point) { return point.x + ',' + point.y; }).join(' ');
+    }
+
+    function renderMapOverlay() {
+        if (!mapData) return;
+
+        markersLayerEl.innerHTML = '';
+        markers.forEach(function (marker) {
+            var markerBtn = document.createElement('button');
+            markerBtn.type = 'button';
+            markerBtn.className = 'sre-marker ' + (marker.marker_type === 'main' ? 'main' : 'normal');
+            if (String(marker.id) === String(selectedMarkerId)) markerBtn.classList.add('selected');
+            markerBtn.style.left = (clampRatio(marker.x_ratio) * 100) + '%';
+            markerBtn.style.top = (clampRatio(marker.y_ratio) * 100) + '%';
+            markerBtn.title = markerName(marker);
+            markerBtn.innerHTML = '<span class="sre-marker-icon">' + markerIconSvg(marker) + '</span>';
+            markerBtn.addEventListener('click', function (event) {
+                event.stopPropagation();
+                onMarkerClick(marker);
+            });
+            markersLayerEl.appendChild(markerBtn);
+        });
+
+        routesSvgEl.innerHTML = '';
+        routes.forEach(function (route) {
+            var points = anchoredRoutePoints(route);
+            if (points.length < 2) return;
+            var polyline = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
+            polyline.setAttribute('points', pointsToSvg(points));
+            polyline.setAttribute('class', 'sre-route');
+            routesSvgEl.appendChild(polyline);
+        });
+
+        if (mode === 'draw_route' && routeDraft.startMarkerId) {
+            var startMarker = markerById(routeDraft.startMarkerId);
+            if (startMarker) {
+                var draftPoints = [{ x: clampRatio(startMarker.x_ratio), y: clampRatio(startMarker.y_ratio) }]
+                    .concat(routeDraft.waypoints.map(function (point) { return { x: point.x, y: point.y }; }));
+                if (draftPoints.length >= 2) {
+                    var draftPolyline = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
+                    draftPolyline.setAttribute('points', pointsToSvg(draftPoints));
+                    draftPolyline.setAttribute('class', 'sre-route sre-route-draft');
+                    routesSvgEl.appendChild(draftPolyline);
+                }
+            }
+        }
+    }
+
+    function renderMarkerPanel() {
+        var selected = selectedMarker();
+        var empty = document.getElementById('sre-selected-empty');
+        var form = document.getElementById('sre-selected-form');
+        if (!selected) {
+            empty.style.display = '';
+            form.style.display = 'none';
+            return;
+        }
+        empty.style.display = 'none';
+        form.style.display = '';
+        document.getElementById('sre-marker-label').value = selected.label || '';
+        document.getElementById('sre-marker-type').value = selected.marker_type || 'normal';
+        setSelectedIconKey(markerIconKey(selected));
+    }
+
+    function renderLists() {
+        var markersList = document.getElementById('sre-markers-list');
+        if (!markers.length) {
+            markersList.innerHTML = '<div class="sre-note">No pointers yet.</div>';
+        } else {
+            markersList.innerHTML = markers.map(function (marker) {
+                var markerType = marker.marker_type === 'main' ? 'Main' : 'Normal';
+                var cls = String(marker.id) === String(selectedMarkerId) ? ' active' : '';
+                return '<button type="button" class="sre-list-item' + cls + '" data-marker-id="' + marker.id + '">' +
+                    '<span class="sre-list-item-left"><span class="sre-mini-icon">' + markerIconSvg(marker) + '</span><span>' + escapeHtml(markerName(marker)) + '</span></span><span class="sre-chip">' + markerType + '</span>' +
+                    '</button>';
+            }).join('');
+            markersList.querySelectorAll('[data-marker-id]').forEach(function (btn) {
+                btn.addEventListener('click', function () {
+                    selectedMarkerId = btn.dataset.markerId;
+                    renderAll();
+                });
+            });
+        }
+
+        var routesList = document.getElementById('sre-routes-list');
+        if (!routes.length) {
+            routesList.innerHTML = '<div class="sre-note">No routes yet.</div>';
+        } else {
+            routesList.innerHTML = routes.map(function (route) {
+                var fromMarker = markerById(route.from_marker_id);
+                var toMarker = markerById(route.to_marker_id);
+                var label = markerName(fromMarker) + ' -> ' + markerName(toMarker);
+                return '<div class="sre-list-row">' +
+                    '<span class="sre-route-name">' + escapeHtml(label) + '</span>' +
+                    '<button type="button" class="btn btn-danger btn-sm" data-route-id="' + route.id + '">Delete</button>' +
+                    '</div>';
+            }).join('');
+            routesList.querySelectorAll('[data-route-id]').forEach(function (btn) {
+                btn.addEventListener('click', async function () {
+                    if (!confirm('Delete this route?')) return;
+                    btn.disabled = true;
+                    try {
+                        await apiFetch('/api/sales-map-routes/' + encodeURIComponent(btn.dataset.routeId), { method: 'DELETE' });
+                        await loadMap();
+                        setStatus('Route deleted.', 'ok');
+                    } catch (error) {
+                        setStatus((error && error.message) ? error.message : 'Failed to delete route', 'warn');
+                    } finally {
+                        btn.disabled = false;
+                    }
+                });
+            });
+        }
+    }
+
+    function renderAll() {
+        renderMapOverlay();
+        renderMarkerPanel();
+        renderLists();
+    }
+
+    async function loadMap() {
+        var data = await apiFetch('/api/sales-maps/' + encodeURIComponent(MAP_ID));
+        mapData = data;
+        markers = data.markers || [];
+        routes = data.routes || [];
+        imageEl.src = data.image_url || '';
+        document.getElementById('sre-map-title').textContent = data.name || 'Route Map Editor';
+        document.getElementById('sre-preview-link').href = data.share_url || '#';
+        if (!selectedMarker()) selectedMarkerId = null;
+        renderAll();
+    }
+
+    async function createMarker(markerType, xRatio, yRatio) {
+        var defaultLabel = markerType === 'main' ? 'Main Pointer' : ('Pointer ' + (markers.length + 1));
+        var defaultIcon = iconLibrary ? iconLibrary.defaultForType(markerType) : (markerType === 'main' ? 'main-star' : 'plot-pin');
+        await apiFetch('/api/sales-maps/' + encodeURIComponent(MAP_ID) + '/markers', {
+            method: 'POST',
+            body: JSON.stringify({
+                marker_type: markerType,
+                label: defaultLabel,
+                icon_key: defaultIcon,
+                x_ratio: xRatio,
+                y_ratio: yRatio
+            })
+        });
+        await loadMap();
+    }
+
+    async function moveSelectedMarker(xRatio, yRatio) {
+        var marker = selectedMarker();
+        if (!marker) return;
+        await apiFetch('/api/sales-map-markers/' + encodeURIComponent(marker.id), {
+            method: 'PATCH',
+            body: JSON.stringify({ x_ratio: xRatio, y_ratio: yRatio })
+        });
+        await loadMap();
+    }
+
+    async function saveSelectedMarker() {
+        var marker = selectedMarker();
+        if (!marker) return;
+        var iconInput = document.getElementById('sre-marker-icon');
+        var payload = {
+            label: document.getElementById('sre-marker-label').value.trim(),
+            marker_type: document.getElementById('sre-marker-type').value,
+            icon_key: iconInput ? iconInput.value : ''
+        };
+        await apiFetch('/api/sales-map-markers/' + encodeURIComponent(marker.id), {
+            method: 'PATCH',
+            body: JSON.stringify(payload)
+        });
+        await loadMap();
+        setStatus('Pointer updated.', 'ok');
+    }
+
+    async function deleteSelectedMarker() {
+        var marker = selectedMarker();
+        if (!marker) return;
+        if (!confirm('Delete selected pointer? Linked routes will also be removed.')) return;
+        await apiFetch('/api/sales-map-markers/' + encodeURIComponent(marker.id), { method: 'DELETE' });
+        selectedMarkerId = null;
+        await loadMap();
+        setStatus('Pointer deleted.', 'ok');
+    }
+
+    async function finalizeDrawRoute(endMarker) {
+        var startMarker = markerById(routeDraft.startMarkerId);
+        if (!startMarker || !endMarker) return;
+        if (String(startMarker.id) === String(endMarker.id)) return;
+        var points = [{ x: clampRatio(startMarker.x_ratio), y: clampRatio(startMarker.y_ratio) }]
+            .concat(routeDraft.waypoints.map(function (waypoint) { return { x: waypoint.x, y: waypoint.y }; }))
+            .concat([{ x: clampRatio(endMarker.x_ratio), y: clampRatio(endMarker.y_ratio) }]);
+        await apiFetch('/api/sales-maps/' + encodeURIComponent(MAP_ID) + '/routes', {
+            method: 'POST',
+            body: JSON.stringify({
+                from_marker_id: startMarker.id,
+                to_marker_id: endMarker.id,
+                path_points: points
+            })
+        });
+        routeDraft.startMarkerId = null;
+        routeDraft.waypoints = [];
+        await loadMap();
+        setStatus('Route added.', 'ok');
+    }
+
+    function onMarkerClick(marker) {
+        if (mode === 'draw_route') {
+            if (!routeDraft.startMarkerId) {
+                routeDraft.startMarkerId = marker.id;
+                routeDraft.waypoints = [];
+                setStatus('Start pointer selected. Add waypoints on map, then click destination pointer.', 'ok');
+            } else if (String(routeDraft.startMarkerId) !== String(marker.id)) {
+                finalizeDrawRoute(marker).catch(function (error) {
+                    setStatus((error && error.message) ? error.message : 'Failed to create route', 'warn');
+                });
+            }
+            renderMapOverlay();
+            return;
+        }
+        selectedMarkerId = marker.id;
+        renderAll();
+    }
+
+    async function onStageClick(event) {
+        if (!mapData) return;
+        var ratios = stageRatiosFromEvent(event);
+        if (!ratios) return;
+        try {
+            if (mode === 'add_main') {
+                await createMarker('main', ratios.x, ratios.y);
+                setMode('select');
+                setStatus('Main pointer added.', 'ok');
+                return;
+            }
+            if (mode === 'add_normal') {
+                await createMarker('normal', ratios.x, ratios.y);
+                setMode('select');
+                setStatus('Pointer added.', 'ok');
+                return;
+            }
+            if (mode === 'move_marker') {
+                if (!selectedMarker()) {
+                    setStatus('Select a pointer before moving.', 'warn');
+                    return;
+                }
+                await moveSelectedMarker(ratios.x, ratios.y);
+                setMode('select');
+                setStatus('Pointer moved.', 'ok');
+                return;
+            }
+            if (mode === 'draw_route') {
+                if (!routeDraft.startMarkerId) {
+                    setStatus('Click a start pointer first.', 'warn');
+                    return;
+                }
+                routeDraft.waypoints.push({ x: ratios.x, y: ratios.y });
+                setStatus('Waypoint added. Click destination pointer to finish route.', 'ok');
+                renderMapOverlay();
+                return;
+            }
+            selectedMarkerId = null;
+            renderAll();
+        } catch (error) {
+            setStatus((error && error.message) ? error.message : 'Action failed', 'warn');
+        }
+    }
+
+    function bindButtons() {
+        document.getElementById('sre-mode-select').addEventListener('click', function () { setMode('select'); });
+        document.getElementById('sre-mode-main').addEventListener('click', function () { setMode('add_main'); });
+        document.getElementById('sre-mode-normal').addEventListener('click', function () { setMode('add_normal'); });
+        document.getElementById('sre-mode-route').addEventListener('click', function () { setMode('draw_route'); });
+
+        document.getElementById('sre-route-undo').addEventListener('click', function () {
+            if (!routeDraft.waypoints.length) return;
+            routeDraft.waypoints.pop();
+            renderMapOverlay();
+        });
+        document.getElementById('sre-route-cancel').addEventListener('click', function () {
+            routeDraft.startMarkerId = null;
+            routeDraft.waypoints = [];
+            if (mode === 'draw_route') setStatus('Route drawing canceled.', 'warn');
+            renderMapOverlay();
+        });
+
+        document.getElementById('sre-save-marker').addEventListener('click', function () {
+            saveSelectedMarker().catch(function (error) {
+                setStatus((error && error.message) ? error.message : 'Failed to save pointer', 'warn');
+            });
+        });
+        document.getElementById('sre-delete-marker').addEventListener('click', function () {
+            deleteSelectedMarker().catch(function (error) {
+                setStatus((error && error.message) ? error.message : 'Failed to delete pointer', 'warn');
+            });
+        });
+        document.getElementById('sre-move-marker').addEventListener('click', function () {
+            if (!selectedMarker()) {
+                setStatus('Select a pointer first.', 'warn');
+                return;
+            }
+            setMode('move_marker');
+        });
+
+        var markerTypeSelect = document.getElementById('sre-marker-type');
+        if (markerTypeSelect) {
+            markerTypeSelect.addEventListener('change', function () {
+                var marker = selectedMarker();
+                if (!marker) return;
+                var nextType = markerTypeSelect.value || 'normal';
+                var iconInput = document.getElementById('sre-marker-icon');
+                var currentKey = iconInput ? String(iconInput.value || '').trim().toLowerCase() : '';
+                if (!iconLibrary || !iconLibrary.isAllowed(currentKey)) {
+                    setSelectedIconKey(iconLibrary ? iconLibrary.defaultForType(nextType) : '');
+                    return;
+                }
+                syncIconLibrarySelection();
+            });
+        }
+    }
+
+    async function init() {
+        stageEl = document.getElementById('sre-map-stage');
+        imageEl = document.getElementById('sre-map-image');
+        markersLayerEl = document.getElementById('sre-markers-layer');
+        routesSvgEl = document.getElementById('sre-routes-svg');
+        statusEl = document.getElementById('sre-status');
+        modeLabelEl = document.getElementById('sre-mode-label');
+
+        stageEl.addEventListener('click', onStageClick);
+        renderIconLibrary();
+        bindButtons();
+        setMode('select');
+        await loadMap();
+        setStatus('Ready. Add pointers and draw routes.', 'ok');
+    }
+
+    window.__sreInit = init;
+})();
+</script>
+<script>
+    window.__SUPABASE_URL__ = {{ (supabase_url or '')|tojson }};
+    window.__SUPABASE_ANON_KEY__ = {{ (supabase_anon_key or '')|tojson }};
+</script>
+<script src="/static/js/sidebar.js"></script>
+<script>
+    window.sidebarReady.then(function () {
+        if (window.__sreInit) window.__sreInit();
+    });
+</script>
+{% endblock %}

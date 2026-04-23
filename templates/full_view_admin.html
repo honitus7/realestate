@@ -141,6 +141,7 @@
                     <option value="gallery">Gallery</option>
                     <option value="video">Video (YouTube)</option>
                     <option value="project_plan">Project Plan (Building Map)</option>
+                    <option value="sales_map">Sales Route Map</option>
                     <option value="location">Location / Map</option>
                     <option value="brochure">Brochure / PDF</option>
                     <option value="custom">Custom URL / Embed</option>
@@ -183,6 +184,13 @@
                 </select>
             </div>
 
+            <div class="fv-field" id="fv-ref-salesmap-wrap" style="display:none;">
+                <label class="fv-label" for="fv-ref-salesmap">Sales Route Map</label>
+                <select class="fv-select" id="fv-ref-salesmap">
+                    <option value="">-- select sales route map --</option>
+                </select>
+                <span class="fv-hint">Create maps in <a href="/floorplans?tab=route-maps" target="_blank" rel="noopener">Sales Tool &rarr; Route Maps</a>.</span>
+            </div>
             <div class="fv-field" id="fv-ref-url-wrap" style="display:none;">
                 <label class="fv-label" for="fv-ref-url">URL</label>
                 <input class="fv-input" type="url" id="fv-ref-url" placeholder="https://…">
@@ -342,6 +350,7 @@ let daynightProjects = [];
 let floorPlanCatalogues = [];
 let galleries = [];
 let projectPlans = [];
+let salesRouteMaps = [];
 
 /* ------------------------------------------------------------------ */
 /*  Auth                                                               */
@@ -459,18 +468,20 @@ async function loadShareUrl(wsId) {
 async function loadResources(wsId) {
     try {
         const wsQ = '?workspace_id=' + encodeURIComponent(wsId);
-        const [panos, dns, fps, gals, pps] = await Promise.allSettled([
+        const [panos, dns, fps, gals, pps, srms] = await Promise.allSettled([
             apiFetch('/api/panoramas' + wsQ),
             apiFetch('/api/daynight' + wsQ),
             apiFetch('/api/floorplans/catalogues' + wsQ),
             apiFetch('/api/galleries' + wsQ),
             apiFetch('/api/project-plans' + wsQ),
+            apiFetch('/api/sales-maps' + wsQ),
         ]);
         workspacePanoramas = (panos.value?.panoramas || panos.value || []);
         daynightProjects   = (Array.isArray(dns.value) ? dns.value : (dns.value?.projects || []));
         floorPlanCatalogues = (fps.value?.catalogues || fps.value || []);
         galleries          = (gals.value?.galleries || gals.value || []);
         projectPlans       = (pps.value?.plans      || pps.value  || []);
+        salesRouteMaps     = (srms.value?.maps || srms.value || []);
     } catch (e) { console.error('loadResources', e); }
 }
 
@@ -537,7 +548,7 @@ function typeLabel(t) {
         'daynight': 'Day / Evening', 'floor_plan': 'Floor Plan',
         'gallery': 'Gallery', 'video': 'Video',
         'highlights': 'Gallery',
-        'amenities': 'Gallery', 'project_plan': 'Project Plan',
+        'amenities': 'Gallery', 'project_plan': 'Project Plan', 'sales_map': 'Sales Route Map',
         'location': 'Location', 'brochure': 'Brochure',
         'custom': 'Custom',
     };
@@ -660,6 +671,7 @@ function openTabDialog(tab) {
     populateSelect('fv-ref-floorplan', floorPlanCatalogues, 'id', 'name');
     populateSelect('fv-ref-gallery', galleries, 'id', 'name');
     populateSelect('fv-ref-projectplan', projectPlans, 'id', 'name');
+    populateSelect('fv-ref-salesmap', salesRouteMaps, 'id', 'name');
 
     if (tab) {
         if (tab.ref_panorama_id) document.getElementById('fv-ref-panorama').value = tab.ref_panorama_id;
@@ -667,6 +679,7 @@ function openTabDialog(tab) {
         if (tab.ref_floor_plan_id) document.getElementById('fv-ref-floorplan').value = tab.ref_floor_plan_id;
         if (tab.ref_gallery_id) document.getElementById('fv-ref-gallery').value = tab.ref_gallery_id;
         if (tab.ref_project_plan_id) document.getElementById('fv-ref-projectplan').value = tab.ref_project_plan_id;
+        if (tab.ref_sales_map_id) document.getElementById('fv-ref-salesmap').value = tab.ref_sales_map_id;
         const url = (tab.content_data || {}).url || '';
         document.getElementById('fv-ref-url').value = url;
     } else {
@@ -689,6 +702,7 @@ function updateTypeFields(type) {
     show('fv-ref-floorplan-wrap',   type === 'floor_plan');
     show('fv-ref-gallery-wrap',     type === 'gallery');
     show('fv-ref-projectplan-wrap', type === 'project_plan');
+    show('fv-ref-salesmap-wrap',    type === 'sales_map');
     show('fv-ref-url-wrap',         ['location', 'brochure', 'custom', 'video'].includes(type));
 
     const urlHint = document.getElementById('fv-ref-url-hint');
@@ -714,6 +728,7 @@ async function saveTab() {
         ref_floor_plan_id:  null,
         ref_gallery_id:     null,
         ref_project_plan_id: null,
+        ref_sales_map_id:   null,
         content_data: {},
     };
 
@@ -736,6 +751,10 @@ async function saveTab() {
     if (type === 'project_plan') {
         const v = document.getElementById('fv-ref-projectplan').value;
         if (v) body.ref_project_plan_id = Number(v);
+    }
+    if (type === 'sales_map') {
+        const v = document.getElementById('fv-ref-salesmap').value;
+        if (v) body.ref_sales_map_id = v;
     }
     if (['location', 'brochure', 'custom', 'video'].includes(type)) {
         body.content_data = { url: document.getElementById('fv-ref-url').value.trim() };

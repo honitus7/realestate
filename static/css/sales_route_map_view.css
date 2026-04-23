@@ -1,0 +1,159 @@
+html,
+body {
+    margin: 0;
+    width: 100%;
+    height: 100%;
+    background: var(--color-bg);
+    color: var(--color-text);
+}
+
+.srv-page {
+    width: 100%;
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 1rem;
+}
+
+.srv-embed .srv-page {
+    max-width: none;
+    padding: 0;
+}
+
+.srv-header {
+    margin-bottom: 0.8rem;
+}
+
+.srv-title {
+    margin: 0;
+    font-size: 1.35rem;
+}
+
+.srv-subtitle {
+    margin: 0.25rem 0 0;
+    color: var(--color-muted);
+    font-size: 0.84rem;
+}
+
+.srv-stage {
+    position: relative;
+    border-radius: var(--radius);
+    overflow: hidden;
+    border: 1px solid var(--color-border);
+    background: var(--color-surface-strong);
+    box-shadow: var(--shadow);
+}
+
+.srv-embed .srv-stage {
+    border-radius: 0;
+    border: 0;
+    box-shadow: none;
+}
+
+.srv-image {
+    display: block;
+    width: 100%;
+    height: auto;
+    user-select: none;
+    -webkit-user-drag: none;
+}
+
+.srv-routes-svg,
+.srv-markers-layer {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+}
+
+.srv-routes-svg {
+    pointer-events: none;
+}
+
+.srv-markers-layer {
+    pointer-events: none;
+}
+
+.srv-marker {
+    pointer-events: auto;
+    position: absolute;
+    width: 24px;
+    height: 24px;
+    transform: translate(-50%, -50%);
+    border-radius: 50%;
+    border: 2px solid #fff;
+    box-shadow: 0 5px 14px rgba(0, 0, 0, 0.24);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    font-size: 0.58rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.2s;
+    padding: 0;
+}
+
+.srv-marker:hover {
+    transform: translate(-50%, -50%) scale(1.07);
+}
+
+.srv-marker.main {
+    width: 30px;
+    height: 30px;
+    background: var(--color-text);
+}
+
+.srv-marker.normal {
+    background: #ea580c;
+}
+
+.srv-marker-icon {
+    width: 68%;
+    height: 68%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+}
+
+.srv-marker-icon svg {
+    width: 100%;
+    height: 100%;
+    display: block;
+    fill: currentColor;
+}
+
+.srv-marker.active {
+    box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.3), 0 6px 16px rgba(0, 0, 0, 0.24);
+}
+
+.srv-path {
+    fill: none;
+    stroke: rgba(22, 35, 56, 0.9);
+    stroke-width: 0.007;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.srv-dot {
+    fill: rgba(22, 35, 56, 0.95);
+    filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.32));
+}
+
+.srv-status {
+    margin-top: 0.7rem;
+    padding: 0.55rem 0.65rem;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--color-border);
+    background: var(--color-bg-elevated);
+    color: var(--color-text-dim);
+    font-size: 0.79rem;
+}
+
+.srv-embed .srv-status {
+    margin: 0;
+    border-radius: 0;
+    border-left: 0;
+    border-right: 0;
+    border-bottom: 0;
+}

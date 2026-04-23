@@ -55,7 +55,7 @@ def delete_config(sb, config_id):
 _TAB_WRITABLE = {
     'icon', 'name', 'tab_type', 'is_visible', 'sort_order', 'content_data',
     'ref_panorama_id', 'ref_daynight_id', 'ref_floor_plan_id',
-    'ref_gallery_id', 'ref_project_plan_id',
+    'ref_gallery_id', 'ref_project_plan_id', 'ref_sales_map_id',
 }
 
 
@@ -83,7 +83,7 @@ def create_tab(sb, config_id, icon, name, tab_type, **kwargs):
         'content_data': kwargs.get('content_data') or {},
     }
     for field in ('ref_panorama_id', 'ref_daynight_id', 'ref_floor_plan_id',
-                  'ref_gallery_id', 'ref_project_plan_id'):
+                  'ref_gallery_id', 'ref_project_plan_id', 'ref_sales_map_id'):
         val = kwargs.get(field)
         if val is not None:
             row[field] = val
@@ -98,7 +98,7 @@ def update_tab(sb, tab_id, **fields):
     # Nullify all ref fields when switching types so stale refs don't persist
     if 'tab_type' in clean:
         for f in ('ref_panorama_id', 'ref_daynight_id', 'ref_floor_plan_id',
-                  'ref_gallery_id', 'ref_project_plan_id'):
+                  'ref_gallery_id', 'ref_project_plan_id', 'ref_sales_map_id'):
             if f not in clean:
                 clean[f] = None
     resp = (

@@ -728,6 +728,7 @@ def delete_floorplan_from_s3(filename):
 BUILDING_MAP_MAX_DIMENSION = 4096
 BUILDING_MAP_JPEG_QUALITY = 92
 MAX_BUILDING_MAP_READ_BYTES = int(os.environ.get('MAX_BUILDING_MAP_READ_BYTES', str(50 * 1024 * 1024)))  # 50MB
+MAX_SALES_MAP_READ_BYTES = int(os.environ.get('MAX_SALES_MAP_READ_BYTES', str(50 * 1024 * 1024)))  # 50MB
 
 
 def building_map_object_key(filename):
@@ -820,6 +821,74 @@ def delete_building_map_from_s3(filename):
         return
     try:
         client.delete_object(Bucket=app_config.SUPABASE_S3_BUCKET, Key=building_map_object_key(filename))
+    except Exception:
+        pass
+
+
+# ---------------------------------------------------------------------------
+# Sales Route Map helpers (optimised JPEG for 2D map image uploads)
+# ---------------------------------------------------------------------------
+
+def sales_map_object_key(filename):
+    safe_name = os.path.basename(filename or '').strip()
+    if app_config.SUPABASE_S3_SALES_MAP_PREFIX:
+        return f"{app_config.SUPABASE_S3_SALES_MAP_PREFIX}/{safe_name}"
+    return safe_name
+
+
+def compress_sales_map_image(raw_bytes):
+    """Compress sales-route map image to optimised progressive JPEG."""
+    if not raw_bytes or len(raw_bytes) > MAX_SALES_MAP_READ_BYTES:
+        return None, 0, 0
+    return compress_building_map_image(raw_bytes)
+
+
+def upload_sales_map_to_s3(filename, raw_bytes, content_type='image/jpeg'):
+    client = get_s3_client()
+    if not client:
+        raise RuntimeError('S3 not configured')
+    key = sales_map_object_key(filename)
+    client.put_object(
+        Bucket=app_config.SUPABASE_S3_BUCKET,
+        Key=key,
+        Body=raw_bytes,
+        ContentType=content_type,
+    )
+
+
+def get_sales_map_s3_url(filename):
+    client = get_s3_client()
+    if not client or not filename:
+        return None
+    key = sales_map_object_key(filename)
+    now = time.time()
+    cached = _s3_signed_url_cache.get(key)
+    if cached:
+        url, expires_at = cached
+        if url and expires_at and now < (expires_at - 30):
+            return url
+    try:
+        client.head_object(Bucket=app_config.SUPABASE_S3_BUCKET, Key=key)
+    except Exception:
+        return None
+    url = client.generate_presigned_url(
+        ClientMethod='get_object',
+        Params={'Bucket': app_config.SUPABASE_S3_BUCKET, 'Key': key},
+        ExpiresIn=app_config.SUPABASE_S3_SIGNED_URL_TTL,
+    )
+    try:
+        _s3_signed_url_cache[key] = (url, now + float(app_config.SUPABASE_S3_SIGNED_URL_TTL))
+    except Exception:
+        pass
+    return url
+
+
+def delete_sales_map_from_s3(filename):
+    client = get_s3_client()
+    if not client or not filename:
+        return
+    try:
+        client.delete_object(Bucket=app_config.SUPABASE_S3_BUCKET, Key=sales_map_object_key(filename))
     except Exception:
         pass
 

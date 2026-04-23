@@ -24,7 +24,8 @@ create table if not exists public.full_view_tabs (
   icon text not null default 'ph:house',
   name text not null,
   -- tab_type values: 360_pano | daynight | floor_plan | gallery | project_plan |
-  --                  drone_view | location | highlights | amenities | brochure | custom
+  --                  sales_map | drone_view | location | highlights | amenities |
+  --                  brochure | custom
   tab_type text not null default '360_pano',
   -- Content references (only one set depending on type)
   ref_panorama_id bigint,
@@ -32,6 +33,7 @@ create table if not exists public.full_view_tabs (
   ref_floor_plan_id uuid,
   ref_gallery_id uuid,
   ref_project_plan_id bigint,
+  ref_sales_map_id uuid,
   -- Generic key/value store for custom type data (e.g. {"url": "https://..."})
   content_data jsonb not null default '{}',
   sort_order integer not null default 0,
@@ -42,6 +44,12 @@ create table if not exists public.full_view_tabs (
 
 create index if not exists idx_full_view_tabs_config on public.full_view_tabs(config_id);
 create index if not exists idx_full_view_tabs_sort on public.full_view_tabs(config_id, sort_order);
+
+-- Backfill for existing deployments where full_view_tabs was created earlier
+alter table public.full_view_tabs
+  add column if not exists ref_sales_map_id uuid;
+
+create index if not exists idx_full_view_tabs_ref_sales_map on public.full_view_tabs(ref_sales_map_id);
 
 -- Enable RLS
 alter table public.full_view_configs enable row level security;

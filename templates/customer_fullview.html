@@ -80,6 +80,7 @@
                 data-ref-floorplan="{{ tab.ref_floor_plan_id or '' }}"
                 data-ref-gallery="{{ tab.ref_gallery_id or '' }}"
                 data-ref-projectplan="{{ tab.ref_project_plan_id or '' }}"
+                data-ref-salesmap="{{ tab.ref_sales_map_id or '' }}"
                 data-content='{{ (tab.content_data or {}) | tojson }}'
                 title="{{ tab.name }}">
             <span class="fv-sidebar-icon"><iconify-icon icon="{{ tab.icon }}"></iconify-icon></span>
@@ -244,6 +245,7 @@
         if (type === 'highlights'  && ref) return '/customer/full-view/gallery/'       + ref + wsQ;
         if (type === 'daynight'    && ref) return '/customer/full-view/daynight/'      + ref + wsQ;
         if (type === 'project_plan'&& ref) return '/customer/full-view/project-plan/' + ref + wsQ;
+        if (type === 'sales_map'   && ref) return '/customer/full-view/sales-map/'    + ref + wsQ;
         if (type === 'video') return ytEmbed;
         if (type === 'location' && contentUrl) return contentUrl;
         if (type === 'brochure' && contentUrl) return contentUrl;
@@ -308,12 +310,13 @@
         var fp      = btn.dataset.refFloorplan;
         var gal     = btn.dataset.refGallery;
         var pp      = btn.dataset.refProjectplan;
+        var sm      = btn.dataset.refSalesmap;
         var cd      = parseContentData(btn);
         fvLog('log', 'loadTab called', {
             label: tabDisplayName(btn),
             type: type,
             rawType: rawType,
-            refs: { pano: pano, dn: dn, fp: fp, gal: gal, pp: pp },
+            refs: { pano: pano, dn: dn, fp: fp, gal: gal, pp: pp, sm: sm },
             contentData: cd
         });
         if (headerTitleEl && !headerTitleEl.textContent) {
@@ -334,7 +337,7 @@
         }
 
         /* ---- resolve ref based on type ---- */
-        var ref = fp || gal || dn || pp || '';
+        var ref = fp || gal || dn || pp || sm || '';
 
         /* ---- highlights: prefer gallery, fallback panorama ---- */
         if (type === 'highlights' && !gal && pano) {
@@ -418,7 +421,7 @@
             if (cd && cd.url && normalizeYouTubeEmbedUrl(cd.url)) return true;
             if (type === 'location' || type === 'brochure' || type === 'custom') return false;
             var ref = btn.dataset.refFloorplan || btn.dataset.refGallery
-                    || btn.dataset.refDaynight || btn.dataset.refProjectplan || '';
+                    || btn.dataset.refDaynight || btn.dataset.refProjectplan || btn.dataset.refSalesmap || '';
             return !!embedUrl(type, ref, cd);
         }
 
@@ -428,7 +431,7 @@
                 var b = btns[i];
                 if (normalizeTabType(b.dataset.tabType) !== initTypeNorm) continue;
                 var ref = b.dataset.refFloorplan || b.dataset.refGallery
-                        || b.dataset.refDaynight  || b.dataset.refProjectplan || '';
+                        || b.dataset.refDaynight  || b.dataset.refProjectplan || b.dataset.refSalesmap || '';
                 if (INIT_REF && ref && String(ref) !== String(INIT_REF)) continue;
                 fvLog('log', 'Auto-select matched init target', { label: tabDisplayName(b), type: b.dataset.tabType, ref: ref });
                 loadTab(b);

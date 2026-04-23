@@ -3,6 +3,7 @@
 {% block head_css %}
 <link rel="stylesheet" href="/static/css/dashboard.css">
 <link rel="stylesheet" href="/static/css/floorplans.css">
+<link rel="stylesheet" href="/static/css/sales_route_maps.css">
 {% endblock %}
 {% block content %}
 <div class="floorplans-page" id="floorplans-page">
@@ -17,6 +18,7 @@
             <button class="fp-subtab" data-tab="building-maps" id="subtab-building-maps">Building Maps</button>
             <button class="fp-subtab" data-tab="earth-views" id="subtab-earth-views">Earth Views</button>
             <button class="fp-subtab" data-tab="project-plans" id="subtab-project-plans">Project Plans</button>
+            <button class="fp-subtab" data-tab="route-maps" id="subtab-route-maps">Route Maps</button>
             <button class="fp-subtab" data-tab="galleries" id="subtab-galleries">Gallery</button>
         </div>
 
@@ -163,6 +165,29 @@
                 <div id="pp-linked-maps"></div>
             </div>
         </div><!-- /tab-project-plans -->
+
+        <!-- ========= ROUTE MAPS TAB ========= -->
+        <div class="fp-tab-content" id="tab-route-maps" style="display:none;">
+            <div class="srm-header">
+                <div>
+                    <div class="srm-eyebrow">Sales Tool</div>
+                    <h1 class="srm-title">Route Map Builder</h1>
+                    <p class="srm-subtitle">Upload a map image, place one main pointer and multiple normal pointers, then draw paths between them for customer view.</p>
+                </div>
+                <button class="btn btn-primary" id="srm-new-btn">New Route Map</button>
+            </div>
+
+            <div class="srm-toolbar">
+                <label for="srm-workspace-filter">Project</label>
+                <select id="srm-workspace-filter" class="srm-select">
+                    <option value="">All projects</option>
+                </select>
+            </div>
+
+            <div id="srm-loading" style="text-align:center; padding:2rem; color:var(--color-muted);">Loading route maps...</div>
+            <div class="srm-grid" id="srm-grid"></div>
+            <div class="srm-empty" id="srm-empty" style="display:none;">No route maps yet. Create your first one.</div>
+        </div><!-- /tab-route-maps -->
 
         <!-- ========= GALLERIES TAB ========= -->
         <div class="fp-tab-content" id="tab-galleries" style="display:none;">
@@ -444,6 +469,35 @@
         </div>
     </div>
 
+    <!-- Route Map create modal -->
+    <div class="modal-backdrop" id="srm-create-modal">
+        <div class="modal srm-modal">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
+                <div class="modal-title">Create Sales Route Map</div>
+                <button type="button" class="modal-close" id="srm-create-close" aria-label="Close">&times;</button>
+            </div>
+            <div class="srm-field">
+                <label>Project</label>
+                <select id="srm-create-workspace" class="srm-select">
+                    <option value="">Select project</option>
+                </select>
+            </div>
+            <div class="srm-field">
+                <label>Map Name</label>
+                <input id="srm-create-name" class="srm-input" type="text" maxlength="200" value="Sales Route Map">
+            </div>
+            <div class="srm-field">
+                <label>Map Image</label>
+                <input id="srm-create-file" class="srm-input" type="file" accept="image/png,image/jpeg,image/webp,image/jpg">
+            </div>
+            <div class="srm-error" id="srm-create-error" style="display:none;"></div>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" id="srm-create-cancel">Cancel</button>
+                <button class="btn btn-primary" id="srm-create-submit">Create</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Gallery Create Modal -->
     <div class="modal-backdrop" id="gal-create-modal">
         <div class="modal" style="max-width:480px;">
@@ -540,6 +594,13 @@
 
     function authHeaders() {
         return { 'Authorization': 'Bearer ' + accessToken };
+    }
+
+    function normalizeWorkspaceList(data) {
+        if (Array.isArray(data)) return data;
+        if (data && Array.isArray(data.workspaces)) return data.workspaces;
+        if (data && Array.isArray(data.projects)) return data.projects;
+        return [];
     }
 
     // ------------------------------------------------------------------
@@ -641,7 +702,7 @@
         fetch('/api/workspaces', { headers: authHeaders() })
             .then(function(r) { return r.ok ? r.json() : []; })
             .then(function(data) {
-                var workspaces = Array.isArray(data) ? data : [];
+                var workspaces = normalizeWorkspaceList(data);
                 var selectors = [
                     document.getElementById('fp-cat-workspace'),
                     document.getElementById('bm-workspace'),
@@ -1050,6 +1111,7 @@
             document.getElementById('tab-building-maps').style.display = target === 'building-maps' ? '' : 'none';
             document.getElementById('tab-earth-views').style.display = target === 'earth-views' ? '' : 'none';
             document.getElementById('tab-project-plans').style.display = target === 'project-plans' ? '' : 'none';
+            document.getElementById('tab-route-maps').style.display = target === 'route-maps' ? '' : 'none';
             document.getElementById('tab-galleries').style.display = target === 'galleries' ? '' : 'none';
             if (target === 'daynight') {
                 ensureDaynightEmbedLoaded();
@@ -1062,6 +1124,9 @@
             }
             if (target === 'project-plans' && !ppLoaded) {
                 loadProjectPlans();
+            }
+            if (target === 'route-maps' && !srmLoaded) {
+                loadSalesRouteMaps();
             }
             if (target === 'galleries' && !galLoaded) {
                 loadGalleries();
@@ -1079,6 +1144,7 @@
             'building-maps': 'subtab-building-maps',
             'earth-views': 'subtab-earth-views',
             'project-plans': 'subtab-project-plans',
+            'route-maps': 'subtab-route-maps',
             'galleries': 'subtab-galleries'
         };
         var btnId = tabMap[tab];
@@ -1094,6 +1160,269 @@
         if (!frame) return;
         frame.src = '/daynight?embedded=1';
         daynightEmbedLoaded = true;
+    }
+
+    // ------------------------------------------------------------------
+    // Route Maps
+    // ------------------------------------------------------------------
+
+    var srmLoaded = false;
+    var srmEventsBound = false;
+    var srmPendingAuthLoad = false;
+    var srmMaps = [];
+    var srmWorkspaces = [];
+    var srmActiveWorkspaceId = '';
+
+    function loadSalesRouteMaps() {
+        if (!accessToken) {
+            if (srmPendingAuthLoad) return;
+            srmPendingAuthLoad = true;
+            window.sidebarReady.then(function(ctx) {
+                accessToken = ctx.accessToken;
+                srmPendingAuthLoad = false;
+                loadSalesRouteMaps();
+            }).catch(function() {
+                srmPendingAuthLoad = false;
+            });
+            return;
+        }
+        bindSalesRouteMapEvents();
+        var loading = document.getElementById('srm-loading');
+        if (loading) loading.style.display = '';
+        loadSrmWorkspaces()
+            .then(function() { return loadSrmMaps(); })
+            .then(function() {
+                srmLoaded = true;
+                if (loading) loading.style.display = 'none';
+            })
+            .catch(function() {
+                srmLoaded = true;
+                if (loading) loading.style.display = 'none';
+                renderSrmMaps();
+            });
+    }
+
+    function bindSalesRouteMapEvents() {
+        if (srmEventsBound) return;
+        srmEventsBound = true;
+
+        var newBtn = document.getElementById('srm-new-btn');
+        var createClose = document.getElementById('srm-create-close');
+        var createCancel = document.getElementById('srm-create-cancel');
+        var createModal = document.getElementById('srm-create-modal');
+        var createSubmit = document.getElementById('srm-create-submit');
+        var workspaceFilter = document.getElementById('srm-workspace-filter');
+
+        if (newBtn) {
+            newBtn.addEventListener('click', function() {
+                var err = document.getElementById('srm-create-error');
+                if (err) err.style.display = 'none';
+                var nameInput = document.getElementById('srm-create-name');
+                var fileInput = document.getElementById('srm-create-file');
+                var wsInput = document.getElementById('srm-create-workspace');
+                if (nameInput) nameInput.value = 'Sales Route Map';
+                if (fileInput) fileInput.value = '';
+                if (wsInput) wsInput.value = srmActiveWorkspaceId || '';
+                showModal('srm-create-modal');
+            });
+        }
+        if (createClose) createClose.addEventListener('click', function() { hideModal('srm-create-modal'); });
+        if (createCancel) createCancel.addEventListener('click', function() { hideModal('srm-create-modal'); });
+        if (createModal) {
+            createModal.addEventListener('click', function(e) {
+                if (e.target === createModal) hideModal('srm-create-modal');
+            });
+        }
+        if (createSubmit) createSubmit.addEventListener('click', createSrmMap);
+        if (workspaceFilter) {
+            workspaceFilter.addEventListener('change', function() {
+                srmActiveWorkspaceId = workspaceFilter.value || '';
+                loadSrmMaps();
+            });
+        }
+    }
+
+    function loadSrmWorkspaces() {
+        return fetch('/api/workspaces', { headers: authHeaders() })
+            .then(function(r) { return r.ok ? r.json() : []; })
+            .then(function(data) {
+                srmWorkspaces = normalizeWorkspaceList(data);
+                renderSrmWorkspaceOptions();
+            })
+            .catch(function() {
+                srmWorkspaces = [];
+                renderSrmWorkspaceOptions();
+            });
+    }
+
+    function renderSrmWorkspaceOptions() {
+        var filter = document.getElementById('srm-workspace-filter');
+        var createSel = document.getElementById('srm-create-workspace');
+        if (filter) {
+            while (filter.options.length > 1) filter.remove(1);
+        }
+        if (createSel) {
+            createSel.innerHTML = '<option value="">Select project</option>';
+        }
+        srmWorkspaces.forEach(function(ws) {
+            var name = ws.name || 'Project';
+            if (filter) {
+                var optF = document.createElement('option');
+                optF.value = ws.id;
+                optF.textContent = name;
+                filter.appendChild(optF);
+            }
+            if (createSel) {
+                var optC = document.createElement('option');
+                optC.value = ws.id;
+                optC.textContent = name;
+                createSel.appendChild(optC);
+            }
+        });
+        if (filter) filter.value = srmActiveWorkspaceId || '';
+    }
+
+    function loadSrmMaps() {
+        var query = srmActiveWorkspaceId ? ('?workspace_id=' + encodeURIComponent(srmActiveWorkspaceId)) : '';
+        return fetch('/api/sales-maps' + query, { headers: authHeaders() })
+            .then(function(r) { return r.ok ? r.json() : []; })
+            .then(function(data) {
+                srmMaps = Array.isArray(data) ? data : [];
+                renderSrmMaps();
+            })
+            .catch(function() {
+                srmMaps = [];
+                renderSrmMaps();
+            });
+    }
+
+    function renderSrmMaps() {
+        var grid = document.getElementById('srm-grid');
+        var empty = document.getElementById('srm-empty');
+        if (!grid || !empty) return;
+        if (!srmMaps.length) {
+            grid.innerHTML = '';
+            empty.style.display = '';
+            return;
+        }
+        empty.style.display = 'none';
+        grid.innerHTML = srmMaps.map(function(mapItem) {
+            var badge = mapItem.has_main_marker
+                ? '<span class="srm-badge ok">Main pointer set</span>'
+                : '<span class="srm-badge warn">Main pointer missing</span>';
+            var preview = mapItem.image_url
+                ? '<img src="' + esc(mapItem.image_url) + '" alt="' + esc(mapItem.name) + '" class="srm-thumb">'
+                : '<div class="srm-thumb srm-thumb-empty">No image</div>';
+            return '' +
+                '<div class="srm-card" data-id="' + mapItem.id + '">' +
+                    preview +
+                    '<div class="srm-card-body">' +
+                        '<div class="srm-card-top">' +
+                            '<div class="srm-name">' + esc(mapItem.name) + '</div>' +
+                            badge +
+                        '</div>' +
+                        '<div class="srm-meta">' +
+                            '<span>' + (mapItem.marker_count || 0) + ' pointers</span>' +
+                            '<span>' + (mapItem.route_count || 0) + ' routes</span>' +
+                        '</div>' +
+                        '<div class="srm-actions">' +
+                            '<a class="btn btn-secondary btn-sm" href="/sales-route-maps/editor/' + encodeURIComponent(mapItem.id) + '">Edit</a>' +
+                            '<a class="btn btn-secondary btn-sm" href="' + esc(mapItem.share_url || '#') + '" target="_blank" rel="noopener">Preview</a>' +
+                            '<button class="btn btn-secondary btn-sm srm-copy-btn" data-url="' + esc(mapItem.share_url || '') + '">Copy Link</button>' +
+                            '<button class="btn btn-danger btn-sm srm-delete-btn" data-id="' + mapItem.id + '" data-name="' + esc(mapItem.name) + '">Delete</button>' +
+                        '</div>' +
+                    '</div>' +
+                '</div>';
+        }).join('');
+
+        grid.querySelectorAll('.srm-copy-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var url = btn.dataset.url || '';
+                if (!url) return;
+                navigator.clipboard.writeText(url).then(function() {
+                    var original = btn.textContent;
+                    btn.textContent = 'Copied';
+                    setTimeout(function() { btn.textContent = original; }, 1200);
+                });
+            });
+        });
+
+        grid.querySelectorAll('.srm-delete-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var mapId = btn.dataset.id;
+                var mapName = btn.dataset.name || 'this map';
+                if (!confirm('Delete "' + mapName + '"? This cannot be undone.')) return;
+                btn.disabled = true;
+                fetch('/api/sales-maps/' + encodeURIComponent(mapId), {
+                    method: 'DELETE',
+                    headers: authHeaders()
+                })
+                .then(function(r) {
+                    if (!r.ok) return r.json().then(function(payload) { throw new Error(payload.error || 'Failed to delete route map.'); });
+                    return loadSrmMaps();
+                })
+                .catch(function(err) {
+                    alert(err && err.message ? err.message : 'Failed to delete route map.');
+                })
+                .finally(function() {
+                    btn.disabled = false;
+                });
+            });
+        });
+    }
+
+    function createSrmMap() {
+        var nameInput = document.getElementById('srm-create-name');
+        var wsInput = document.getElementById('srm-create-workspace');
+        var fileInput = document.getElementById('srm-create-file');
+        var err = document.getElementById('srm-create-error');
+        var submit = document.getElementById('srm-create-submit');
+        var name = nameInput && nameInput.value ? nameInput.value.trim() : '';
+        var workspaceId = wsInput ? wsInput.value : '';
+        var file = fileInput && fileInput.files ? fileInput.files[0] : null;
+
+        if (!workspaceId) {
+            if (err) {
+                err.textContent = 'Please select a project.';
+                err.style.display = '';
+            }
+            return;
+        }
+        if (!file) {
+            if (err) {
+                err.textContent = 'Please select a map image.';
+                err.style.display = '';
+            }
+            return;
+        }
+        if (err) err.style.display = 'none';
+        if (submit) submit.disabled = true;
+
+        var fd = new FormData();
+        fd.append('name', name || 'Sales Route Map');
+        fd.append('workspace_id', workspaceId);
+        fd.append('file', file);
+
+        fetch('/api/sales-maps', {
+            method: 'POST',
+            headers: authHeaders(),
+            body: fd
+        })
+        .then(function(r) { return r.json().then(function(d) { return { ok: r.ok, data: d }; }); })
+        .then(function(res) {
+            if (!res.ok) throw new Error((res.data && res.data.error) || 'Failed to create route map.');
+            hideModal('srm-create-modal');
+            return loadSrmMaps();
+        })
+        .catch(function(err2) {
+            if (err) {
+                err.textContent = err2 && err2.message ? err2.message : 'Failed to create route map.';
+                err.style.display = '';
+            }
+        })
+        .finally(function() {
+            if (submit) submit.disabled = false;
+        });
     }
 
     // ------------------------------------------------------------------
