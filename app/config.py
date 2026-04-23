@@ -50,6 +50,7 @@ SUPABASE_S3_FLOORPLAN_PREFIX = os.environ.get('SUPABASE_S3_FLOORPLAN_PREFIX', 'f
 SUPABASE_S3_BUILDING_MAP_PREFIX = os.environ.get('SUPABASE_S3_BUILDING_MAP_PREFIX', 'building-maps').strip('/')
 SUPABASE_S3_GALLERY_PREFIX = os.environ.get('SUPABASE_S3_GALLERY_PREFIX', 'galleries').strip('/')
 SUPABASE_S3_SALES_MAP_PREFIX = os.environ.get('SUPABASE_S3_SALES_MAP_PREFIX', 'sales-route-maps').strip('/')
+SUPABASE_S3_SALES_FLAT360_PREFIX = os.environ.get('SUPABASE_S3_SALES_FLAT360_PREFIX', 'sales-flat360').strip('/')
 
 PAGE_ACCESS_TOKEN_TTL = max(60, int(os.environ.get('PAGE_ACCESS_TOKEN_TTL', '900')))
 

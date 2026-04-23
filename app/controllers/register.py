@@ -114,6 +114,11 @@ from app.services.storage_service import (
     get_sales_map_s3_url,
     delete_sales_map_from_s3,
     MAX_SALES_MAP_READ_BYTES,
+    compress_sales_flat360_image,
+    upload_sales_flat360_to_s3,
+    get_sales_flat360_s3_url,
+    delete_sales_flat360_from_s3,
+    MAX_SALES_FLAT360_READ_BYTES,
     ALLOWED_GALLERY_IMAGE_EXT,
     ALLOWED_GALLERY_VIDEO_EXT,
 )
@@ -215,6 +220,14 @@ from app.services.sales_route_map_service import (
     update_route as srm_update_route,
     delete_route as srm_delete_route,
     get_next_route_sort_order as srm_next_route_sort,
+)
+from app.services.sales_flat360_service import (
+    create_sales_flat360_view as sf360_create,
+    get_sales_flat360_view as sf360_get,
+    get_sales_flat360_view_by_token as sf360_get_by_token,
+    list_sales_flat360_views as sf360_list,
+    update_sales_flat360_view as sf360_update,
+    delete_sales_flat360_view as sf360_delete,
 )
 from app.services.full_view_service import (
     get_config_for_workspace as fv_get_config,
@@ -7861,6 +7874,179 @@ h1 {{ margin:0 0 8px; font-size:22px; }}
             embed=True,
         )
 
+    # ==================================================================
+    # Sales Flat 360 Views
+    # ==================================================================
+
+    def _resolve_sales_flat360_for_admin(sb, view_id, user_id, role):
+        view = sf360_get(sb, view_id)
+        if not view:
+            return None, (jsonify({'error': 'Not found'}), 404)
+        if str(view.get('user_id')) != str(user_id) and role != 'superadmin':
+            return None, (jsonify({'error': 'Forbidden'}), 403)
+        return view, None
+
+    @app.route('/sales-flat360')
+    def sales_flat360_page():
+        return redirect('/floorplans?tab=flat360')
+
+    @app.route('/sales-flat360/editor/<view_id>')
+    def sales_flat360_editor_page(view_id):
+        return render_template('sales_flat360_editor.html', view_id=view_id, **auth_ctx())
+
+    @app.route('/api/sales-flat360', methods=['GET'])
+    @require_admin
+    def api_list_sales_flat360(user_id, role):
+        sb = get_supabase()
+        if not sb:
+            return jsonify({'error': 'Database not configured'}), 503
+        workspace_id = str(request.args.get('workspace_id') or '').strip() or None
+        views = sf360_list(sb, user_id, workspace_id=workspace_id)
+        base = (request.url_root or '').rstrip('/')
+        for item in views:
+            item['image_url'] = get_sales_flat360_s3_url(item.get('image_filename'))
+            item['share_url'] = f"{base}/sales-flat360/view/{item.get('share_token', '')}"
+        return jsonify(views)
+
+    @app.route('/api/sales-flat360', methods=['POST'])
+    @require_admin
+    def api_create_sales_flat360(user_id, role):
+        sb = get_supabase()
+        if not sb:
+            return jsonify({'error': 'Database not configured'}), 503
+        name = str(request.form.get('name') or 'Sales 360 View').strip() or 'Sales 360 View'
+        workspace_id = str(request.form.get('workspace_id') or '').strip() or None
+        if workspace_id:
+            workspace = get_workspace_by_id(sb, workspace_id)
+            if not workspace:
+                return jsonify({'error': 'Project not found'}), 404
+            if not can_manage_workspace(sb, workspace, user_id, role):
+                return jsonify({'error': 'Forbidden'}), 403
+        existing = sf360_list(sb, user_id)
+        if any(v.get('name', '').strip().lower() == name.lower() for v in existing):
+            return jsonify({'error': f'A 360 view named "{name}" already exists'}), 409
+        file_obj = request.files.get('file')
+        if not file_obj:
+            return jsonify({'error': 'No file uploaded'}), 400
+        if not allowed_file(file_obj.filename):
+            return jsonify({'error': 'Invalid file type'}), 400
+        raw_bytes = file_obj.read()
+        if not raw_bytes or len(raw_bytes) > MAX_SALES_FLAT360_READ_BYTES:
+            return jsonify({'error': 'File too large'}), 400
+        jpeg_bytes, width, height = compress_sales_flat360_image(raw_bytes)
+        if not jpeg_bytes:
+            return jsonify({'error': 'Failed to process image'}), 400
+        filename = f"sf360_{uuid.uuid4().hex[:16]}.jpg"
+        upload_sales_flat360_to_s3(filename, jpeg_bytes, 'image/jpeg')
+        profile = get_profile(sb, user_id)
+        org_id = profile.get('org_id') if profile else None
+        created = sf360_create(
+            sb,
+            user_id,
+            org_id,
+            name,
+            filename,
+            width,
+            height,
+            workspace_id=workspace_id,
+        )
+        if not created:
+            return jsonify({'error': 'Failed to create 360 view'}), 500
+        base = (request.url_root or '').rstrip('/')
+        created['image_url'] = get_sales_flat360_s3_url(created.get('image_filename'))
+        created['share_url'] = f"{base}/sales-flat360/view/{created.get('share_token', '')}"
+        return jsonify(created), 201
+
+    @app.route('/api/sales-flat360/<view_id>', methods=['GET'])
+    @require_admin
+    def api_get_sales_flat360(user_id, role, view_id):
+        sb = get_supabase()
+        if not sb:
+            return jsonify({'error': 'Database not configured'}), 503
+        view, err = _resolve_sales_flat360_for_admin(sb, view_id, user_id, role)
+        if err:
+            return err
+        base = (request.url_root or '').rstrip('/')
+        view['image_url'] = get_sales_flat360_s3_url(view.get('image_filename'))
+        view['share_url'] = f"{base}/sales-flat360/view/{view.get('share_token', '')}"
+        return jsonify(view)
+
+    @app.route('/api/sales-flat360/<view_id>', methods=['PATCH'])
+    @require_admin
+    def api_update_sales_flat360(user_id, role, view_id):
+        sb = get_supabase()
+        if not sb:
+            return jsonify({'error': 'Database not configured'}), 503
+        item, err = _resolve_sales_flat360_for_admin(sb, view_id, user_id, role)
+        if err:
+            return err
+        data = request.get_json(silent=True) or {}
+        updates = {}
+        if 'name' in data:
+            updates['name'] = str(data.get('name') or '').strip() or item.get('name')
+        if 'workspace_id' in data:
+            workspace_id = str(data.get('workspace_id') or '').strip() or None
+            if workspace_id:
+                workspace = get_workspace_by_id(sb, workspace_id)
+                if not workspace:
+                    return jsonify({'error': 'Project not found'}), 404
+                if not can_manage_workspace(sb, workspace, user_id, role):
+                    return jsonify({'error': 'Forbidden'}), 403
+            updates['workspace_id'] = workspace_id
+        if updates:
+            updated = sf360_update(sb, view_id, **updates)
+        else:
+            updated = sf360_get(sb, view_id)
+        if not updated:
+            return jsonify({'error': 'Not found'}), 404
+        base = (request.url_root or '').rstrip('/')
+        updated['image_url'] = get_sales_flat360_s3_url(updated.get('image_filename'))
+        updated['share_url'] = f"{base}/sales-flat360/view/{updated.get('share_token', '')}"
+        return jsonify(updated)
+
+    @app.route('/api/sales-flat360/<view_id>', methods=['DELETE'])
+    @require_admin
+    def api_delete_sales_flat360(user_id, role, view_id):
+        sb = get_supabase()
+        if not sb:
+            return jsonify({'error': 'Database not configured'}), 503
+        view, err = _resolve_sales_flat360_for_admin(sb, view_id, user_id, role)
+        if err:
+            return err
+        delete_sales_flat360_from_s3(view.get('image_filename'))
+        sf360_delete(sb, view_id)
+        return jsonify({'success': True})
+
+    @app.route('/sales-flat360/view/<share_token>')
+    def sales_flat360_public_view(share_token):
+        sb = get_supabase()
+        if not sb:
+            return "Database not configured", 503
+        view = sf360_get_by_token(sb, share_token)
+        if not view:
+            return "Not found", 404
+        view['image_url'] = get_sales_flat360_s3_url(view.get('image_filename'))
+        return render_template(
+            'sales_flat360_view.html',
+            flat360_view=view,
+            embed=(request.args.get('embed', '') == '1'),
+        )
+
+    @app.route('/customer/full-view/sales-flat360/<view_id>')
+    def fv_customer_sales_flat360_view(view_id):
+        sb = get_supabase()
+        if not sb:
+            return "Database not configured", 503
+        view = sf360_get(sb, view_id)
+        if not view:
+            return "Not found", 404
+        view['image_url'] = get_sales_flat360_s3_url(view.get('image_filename'))
+        return render_template(
+            'sales_flat360_view.html',
+            flat360_view=view,
+            embed=True,
+        )
+
     # ===================================================================
     # EARTH VIEWS
     # ===================================================================
@@ -9946,6 +10132,7 @@ h1 {{ margin:0 0 8px; font-size:22px; }}
             'ref_gallery_id': data.get('ref_gallery_id'),
             'ref_project_plan_id': data.get('ref_project_plan_id'),
             'ref_sales_map_id': data.get('ref_sales_map_id'),
+            'ref_sales_flat360_id': data.get('ref_sales_flat360_id'),
         }
         tab = fv_create_tab(sb, config_id, icon, name, tab_type, **kwargs)
         if not tab:

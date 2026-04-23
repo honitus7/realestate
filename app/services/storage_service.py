@@ -729,6 +729,9 @@ BUILDING_MAP_MAX_DIMENSION = 4096
 BUILDING_MAP_JPEG_QUALITY = 92
 MAX_BUILDING_MAP_READ_BYTES = int(os.environ.get('MAX_BUILDING_MAP_READ_BYTES', str(50 * 1024 * 1024)))  # 50MB
 MAX_SALES_MAP_READ_BYTES = int(os.environ.get('MAX_SALES_MAP_READ_BYTES', str(50 * 1024 * 1024)))  # 50MB
+MAX_SALES_FLAT360_READ_BYTES = int(os.environ.get('MAX_SALES_FLAT360_READ_BYTES', str(80 * 1024 * 1024)))  # 80MB
+SALES_FLAT360_MAX_DIMENSION = int(os.environ.get('SALES_FLAT360_MAX_DIMENSION', '8192'))
+SALES_FLAT360_JPEG_QUALITY = int(os.environ.get('SALES_FLAT360_JPEG_QUALITY', '92'))
 
 
 def building_map_object_key(filename):
@@ -889,6 +892,103 @@ def delete_sales_map_from_s3(filename):
         return
     try:
         client.delete_object(Bucket=app_config.SUPABASE_S3_BUCKET, Key=sales_map_object_key(filename))
+    except Exception:
+        pass
+
+
+# ---------------------------------------------------------------------------
+# Sales Flat 360 helpers (optimised JPEG for horizontal drag viewer strips)
+# ---------------------------------------------------------------------------
+
+def sales_flat360_object_key(filename):
+    safe_name = os.path.basename(filename or '').strip()
+    if app_config.SUPABASE_S3_SALES_FLAT360_PREFIX:
+        return f"{app_config.SUPABASE_S3_SALES_FLAT360_PREFIX}/{safe_name}"
+    return safe_name
+
+
+def compress_sales_flat360_image(raw_bytes):
+    """Compress flat-360 strip image to optimised progressive JPEG.
+    Returns (jpeg_bytes, width, height) or (None, 0, 0).
+    """
+    if not raw_bytes or len(raw_bytes) > MAX_SALES_FLAT360_READ_BYTES:
+        return None, 0, 0
+    try:
+        img = Image.open(io.BytesIO(raw_bytes))
+    except Exception:
+        return None, 0, 0
+    try:
+        exif = img.getexif()
+        orientation = exif.get(EXIF_ORIENTATION_TAG)
+        if orientation == 3:
+            img = img.rotate(180, expand=True)
+        elif orientation == 6:
+            img = img.rotate(270, expand=True)
+        elif orientation == 8:
+            img = img.rotate(90, expand=True)
+    except Exception:
+        pass
+    img = img.convert('RGB')
+    w, h = img.size
+    if max(w, h) > SALES_FLAT360_MAX_DIMENSION:
+        ratio = SALES_FLAT360_MAX_DIMENSION / float(max(w, h))
+        w = max(1, int(w * ratio))
+        h = max(1, int(h * ratio))
+        img = img.resize((w, h), RESAMPLE_LANCZOS)
+    buf = io.BytesIO()
+    try:
+        img.save(buf, 'JPEG', quality=SALES_FLAT360_JPEG_QUALITY, optimize=True, progressive=True)
+    except Exception:
+        return None, 0, 0
+    return buf.getvalue(), w, h
+
+
+def upload_sales_flat360_to_s3(filename, raw_bytes, content_type='image/jpeg'):
+    client = get_s3_client()
+    if not client:
+        raise RuntimeError('S3 not configured')
+    key = sales_flat360_object_key(filename)
+    client.put_object(
+        Bucket=app_config.SUPABASE_S3_BUCKET,
+        Key=key,
+        Body=raw_bytes,
+        ContentType=content_type,
+    )
+
+
+def get_sales_flat360_s3_url(filename):
+    client = get_s3_client()
+    if not client or not filename:
+        return None
+    key = sales_flat360_object_key(filename)
+    now = time.time()
+    cached = _s3_signed_url_cache.get(key)
+    if cached:
+        url, expires_at = cached
+        if url and expires_at and now < (expires_at - 30):
+            return url
+    try:
+        client.head_object(Bucket=app_config.SUPABASE_S3_BUCKET, Key=key)
+    except Exception:
+        return None
+    url = client.generate_presigned_url(
+        ClientMethod='get_object',
+        Params={'Bucket': app_config.SUPABASE_S3_BUCKET, 'Key': key},
+        ExpiresIn=app_config.SUPABASE_S3_SIGNED_URL_TTL,
+    )
+    try:
+        _s3_signed_url_cache[key] = (url, now + float(app_config.SUPABASE_S3_SIGNED_URL_TTL))
+    except Exception:
+        pass
+    return url
+
+
+def delete_sales_flat360_from_s3(filename):
+    client = get_s3_client()
+    if not client or not filename:
+        return
+    try:
+        client.delete_object(Bucket=app_config.SUPABASE_S3_BUCKET, Key=sales_flat360_object_key(filename))
     except Exception:
         pass
 

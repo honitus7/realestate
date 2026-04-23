@@ -81,6 +81,7 @@
                 data-ref-gallery="{{ tab.ref_gallery_id or '' }}"
                 data-ref-projectplan="{{ tab.ref_project_plan_id or '' }}"
                 data-ref-salesmap="{{ tab.ref_sales_map_id or '' }}"
+                data-ref-salesflat360="{{ tab.ref_sales_flat360_id or '' }}"
                 data-content='{{ (tab.content_data or {}) | tojson }}'
                 title="{{ tab.name }}">
             <span class="fv-sidebar-icon"><iconify-icon icon="{{ tab.icon }}"></iconify-icon></span>
@@ -246,6 +247,7 @@
         if (type === 'daynight'    && ref) return '/customer/full-view/daynight/'      + ref + wsQ;
         if (type === 'project_plan'&& ref) return '/customer/full-view/project-plan/' + ref + wsQ;
         if (type === 'sales_map'   && ref) return '/customer/full-view/sales-map/'    + ref + wsQ;
+        if (type === 'sales_flat360' && ref) return '/customer/full-view/sales-flat360/' + ref + wsQ;
         if (type === 'video') return ytEmbed;
         if (type === 'location' && contentUrl) return contentUrl;
         if (type === 'brochure' && contentUrl) return contentUrl;
@@ -311,12 +313,13 @@
         var gal     = btn.dataset.refGallery;
         var pp      = btn.dataset.refProjectplan;
         var sm      = btn.dataset.refSalesmap;
+        var sf3     = btn.dataset.refSalesflat360;
         var cd      = parseContentData(btn);
         fvLog('log', 'loadTab called', {
             label: tabDisplayName(btn),
             type: type,
             rawType: rawType,
-            refs: { pano: pano, dn: dn, fp: fp, gal: gal, pp: pp, sm: sm },
+            refs: { pano: pano, dn: dn, fp: fp, gal: gal, pp: pp, sm: sm, sf3: sf3 },
             contentData: cd
         });
         if (headerTitleEl && !headerTitleEl.textContent) {
@@ -337,7 +340,7 @@
         }
 
         /* ---- resolve ref based on type ---- */
-        var ref = fp || gal || dn || pp || sm || '';
+        var ref = fp || gal || dn || pp || sm || sf3 || '';
 
         /* ---- highlights: prefer gallery, fallback panorama ---- */
         if (type === 'highlights' && !gal && pano) {

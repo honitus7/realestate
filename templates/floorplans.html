@@ -19,6 +19,7 @@
             <button class="fp-subtab" data-tab="earth-views" id="subtab-earth-views">Earth Views</button>
             <button class="fp-subtab" data-tab="project-plans" id="subtab-project-plans">Project Plans</button>
             <button class="fp-subtab" data-tab="route-maps" id="subtab-route-maps">Route Maps</button>
+            <button class="fp-subtab" data-tab="flat360" id="subtab-flat360">360 Strip</button>
             <button class="fp-subtab" data-tab="galleries" id="subtab-galleries">Gallery</button>
         </div>
 
@@ -188,6 +189,29 @@
             <div class="srm-grid" id="srm-grid"></div>
             <div class="srm-empty" id="srm-empty" style="display:none;">No route maps yet. Create your first one.</div>
         </div><!-- /tab-route-maps -->
+
+        <!-- ========= SALES 360 TAB ========= -->
+        <div class="fp-tab-content" id="tab-flat360" style="display:none;">
+            <div class="srm-header">
+                <div>
+                    <div class="srm-eyebrow">Sales Tool</div>
+                    <h1 class="srm-title">Flat 360 Viewer</h1>
+                    <p class="srm-subtitle">Upload a flat 2D 360 image strip. In customer view users can drag left or right to rotate around.</p>
+                </div>
+                <button class="btn btn-primary" id="sf3-new-btn">New 360 View</button>
+            </div>
+
+            <div class="srm-toolbar">
+                <label for="sf3-workspace-filter">Project</label>
+                <select id="sf3-workspace-filter" class="srm-select">
+                    <option value="">All projects</option>
+                </select>
+            </div>
+
+            <div id="sf3-loading" style="text-align:center; padding:2rem; color:var(--color-muted);">Loading 360 views...</div>
+            <div class="srm-grid" id="sf3-grid"></div>
+            <div class="srm-empty" id="sf3-empty" style="display:none;">No 360 views yet. Create your first one.</div>
+        </div><!-- /tab-flat360 -->
 
         <!-- ========= GALLERIES TAB ========= -->
         <div class="fp-tab-content" id="tab-galleries" style="display:none;">
@@ -494,6 +518,35 @@
             <div class="modal-actions">
                 <button class="btn btn-secondary" id="srm-create-cancel">Cancel</button>
                 <button class="btn btn-primary" id="srm-create-submit">Create</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Sales 360 create modal -->
+    <div class="modal-backdrop" id="sf3-create-modal">
+        <div class="modal srm-modal">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
+                <div class="modal-title">Create Flat 360 View</div>
+                <button type="button" class="modal-close" id="sf3-create-close" aria-label="Close">&times;</button>
+            </div>
+            <div class="srm-field">
+                <label>Project</label>
+                <select id="sf3-create-workspace" class="srm-select">
+                    <option value="">Select project</option>
+                </select>
+            </div>
+            <div class="srm-field">
+                <label>Name</label>
+                <input id="sf3-create-name" class="srm-input" type="text" maxlength="200" value="Sales 360 View">
+            </div>
+            <div class="srm-field">
+                <label>360 Strip Image</label>
+                <input id="sf3-create-file" class="srm-input" type="file" accept="image/png,image/jpeg,image/webp,image/jpg">
+            </div>
+            <div class="srm-error" id="sf3-create-error" style="display:none;"></div>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" id="sf3-create-cancel">Cancel</button>
+                <button class="btn btn-primary" id="sf3-create-submit">Create</button>
             </div>
         </div>
     </div>
@@ -1112,6 +1165,7 @@
             document.getElementById('tab-earth-views').style.display = target === 'earth-views' ? '' : 'none';
             document.getElementById('tab-project-plans').style.display = target === 'project-plans' ? '' : 'none';
             document.getElementById('tab-route-maps').style.display = target === 'route-maps' ? '' : 'none';
+            document.getElementById('tab-flat360').style.display = target === 'flat360' ? '' : 'none';
             document.getElementById('tab-galleries').style.display = target === 'galleries' ? '' : 'none';
             if (target === 'daynight') {
                 ensureDaynightEmbedLoaded();
@@ -1127,6 +1181,9 @@
             }
             if (target === 'route-maps' && !srmLoaded) {
                 loadSalesRouteMaps();
+            }
+            if (target === 'flat360' && !sf3Loaded) {
+                loadSalesFlat360Views();
             }
             if (target === 'galleries' && !galLoaded) {
                 loadGalleries();
@@ -1145,6 +1202,7 @@
             'earth-views': 'subtab-earth-views',
             'project-plans': 'subtab-project-plans',
             'route-maps': 'subtab-route-maps',
+            'flat360': 'subtab-flat360',
             'galleries': 'subtab-galleries'
         };
         var btnId = tabMap[tab];
@@ -1417,6 +1475,265 @@
         .catch(function(err2) {
             if (err) {
                 err.textContent = err2 && err2.message ? err2.message : 'Failed to create route map.';
+                err.style.display = '';
+            }
+        })
+        .finally(function() {
+            if (submit) submit.disabled = false;
+        });
+    }
+
+    // ------------------------------------------------------------------
+    // Sales Flat 360
+    // ------------------------------------------------------------------
+
+    var sf3Loaded = false;
+    var sf3EventsBound = false;
+    var sf3PendingAuthLoad = false;
+    var sf3Views = [];
+    var sf3Workspaces = [];
+    var sf3ActiveWorkspaceId = '';
+
+    function loadSalesFlat360Views() {
+        if (!accessToken) {
+            if (sf3PendingAuthLoad) return;
+            sf3PendingAuthLoad = true;
+            window.sidebarReady.then(function(ctx) {
+                accessToken = ctx.accessToken;
+                sf3PendingAuthLoad = false;
+                loadSalesFlat360Views();
+            }).catch(function() {
+                sf3PendingAuthLoad = false;
+            });
+            return;
+        }
+        bindSalesFlat360Events();
+        var loading = document.getElementById('sf3-loading');
+        if (loading) loading.style.display = '';
+        loadSf3Workspaces()
+            .then(function() { return loadSf3Views(); })
+            .then(function() {
+                sf3Loaded = true;
+                if (loading) loading.style.display = 'none';
+            })
+            .catch(function() {
+                sf3Loaded = true;
+                if (loading) loading.style.display = 'none';
+                renderSf3Views();
+            });
+    }
+
+    function bindSalesFlat360Events() {
+        if (sf3EventsBound) return;
+        sf3EventsBound = true;
+
+        var newBtn = document.getElementById('sf3-new-btn');
+        var createClose = document.getElementById('sf3-create-close');
+        var createCancel = document.getElementById('sf3-create-cancel');
+        var createModal = document.getElementById('sf3-create-modal');
+        var createSubmit = document.getElementById('sf3-create-submit');
+        var workspaceFilter = document.getElementById('sf3-workspace-filter');
+
+        if (newBtn) {
+            newBtn.addEventListener('click', function() {
+                var err = document.getElementById('sf3-create-error');
+                if (err) err.style.display = 'none';
+                var nameInput = document.getElementById('sf3-create-name');
+                var fileInput = document.getElementById('sf3-create-file');
+                var wsInput = document.getElementById('sf3-create-workspace');
+                if (nameInput) nameInput.value = 'Sales 360 View';
+                if (fileInput) fileInput.value = '';
+                if (wsInput) wsInput.value = sf3ActiveWorkspaceId || '';
+                showModal('sf3-create-modal');
+            });
+        }
+        if (createClose) createClose.addEventListener('click', function() { hideModal('sf3-create-modal'); });
+        if (createCancel) createCancel.addEventListener('click', function() { hideModal('sf3-create-modal'); });
+        if (createModal) {
+            createModal.addEventListener('click', function(e) {
+                if (e.target === createModal) hideModal('sf3-create-modal');
+            });
+        }
+        if (createSubmit) createSubmit.addEventListener('click', createSf3View);
+        if (workspaceFilter) {
+            workspaceFilter.addEventListener('change', function() {
+                sf3ActiveWorkspaceId = workspaceFilter.value || '';
+                loadSf3Views();
+            });
+        }
+    }
+
+    function loadSf3Workspaces() {
+        return fetch('/api/workspaces', { headers: authHeaders() })
+            .then(function(r) { return r.ok ? r.json() : []; })
+            .then(function(data) {
+                sf3Workspaces = normalizeWorkspaceList(data);
+                renderSf3WorkspaceOptions();
+            })
+            .catch(function() {
+                sf3Workspaces = [];
+                renderSf3WorkspaceOptions();
+            });
+    }
+
+    function renderSf3WorkspaceOptions() {
+        var filter = document.getElementById('sf3-workspace-filter');
+        var createSel = document.getElementById('sf3-create-workspace');
+        if (filter) {
+            while (filter.options.length > 1) filter.remove(1);
+        }
+        if (createSel) {
+            createSel.innerHTML = '<option value="">Select project</option>';
+        }
+        sf3Workspaces.forEach(function(ws) {
+            var name = ws.name || 'Project';
+            if (filter) {
+                var optF = document.createElement('option');
+                optF.value = ws.id;
+                optF.textContent = name;
+                filter.appendChild(optF);
+            }
+            if (createSel) {
+                var optC = document.createElement('option');
+                optC.value = ws.id;
+                optC.textContent = name;
+                createSel.appendChild(optC);
+            }
+        });
+        if (filter) filter.value = sf3ActiveWorkspaceId || '';
+    }
+
+    function loadSf3Views() {
+        var query = sf3ActiveWorkspaceId ? ('?workspace_id=' + encodeURIComponent(sf3ActiveWorkspaceId)) : '';
+        return fetch('/api/sales-flat360' + query, { headers: authHeaders() })
+            .then(function(r) { return r.ok ? r.json() : []; })
+            .then(function(data) {
+                sf3Views = Array.isArray(data) ? data : [];
+                renderSf3Views();
+            })
+            .catch(function() {
+                sf3Views = [];
+                renderSf3Views();
+            });
+    }
+
+    function renderSf3Views() {
+        var grid = document.getElementById('sf3-grid');
+        var empty = document.getElementById('sf3-empty');
+        if (!grid || !empty) return;
+        if (!sf3Views.length) {
+            grid.innerHTML = '';
+            empty.style.display = '';
+            return;
+        }
+        empty.style.display = 'none';
+        grid.innerHTML = sf3Views.map(function(item) {
+            var preview = item.image_url
+                ? '<img src="' + esc(item.image_url) + '" alt="' + esc(item.name) + '" class="srm-thumb">'
+                : '<div class="srm-thumb srm-thumb-empty">No image</div>';
+            return '' +
+                '<div class="srm-card" data-id="' + item.id + '">' +
+                    preview +
+                    '<div class="srm-card-body">' +
+                        '<div class="srm-card-top">' +
+                            '<div class="srm-name">' + esc(item.name) + '</div>' +
+                            '<span class="srm-badge ok">Drag 360 Ready</span>' +
+                        '</div>' +
+                        '<div class="srm-meta">' +
+                            '<span>' + (item.image_width || 0) + ' x ' + (item.image_height || 0) + '</span>' +
+                        '</div>' +
+                        '<div class="srm-actions">' +
+                            '<a class="btn btn-secondary btn-sm" href="/sales-flat360/editor/' + encodeURIComponent(item.id) + '">Open</a>' +
+                            '<a class="btn btn-secondary btn-sm" href="' + esc(item.share_url || '#') + '" target="_blank" rel="noopener">Preview</a>' +
+                            '<button class="btn btn-secondary btn-sm sf3-copy-btn" data-url="' + esc(item.share_url || '') + '">Copy Link</button>' +
+                            '<button class="btn btn-danger btn-sm sf3-delete-btn" data-id="' + item.id + '" data-name="' + esc(item.name) + '">Delete</button>' +
+                        '</div>' +
+                    '</div>' +
+                '</div>';
+        }).join('');
+
+        grid.querySelectorAll('.sf3-copy-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var url = btn.dataset.url || '';
+                if (!url) return;
+                navigator.clipboard.writeText(url).then(function() {
+                    var original = btn.textContent;
+                    btn.textContent = 'Copied';
+                    setTimeout(function() { btn.textContent = original; }, 1200);
+                });
+            });
+        });
+
+        grid.querySelectorAll('.sf3-delete-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var viewId = btn.dataset.id;
+                var viewName = btn.dataset.name || 'this view';
+                if (!confirm('Delete "' + viewName + '"? This cannot be undone.')) return;
+                btn.disabled = true;
+                fetch('/api/sales-flat360/' + encodeURIComponent(viewId), {
+                    method: 'DELETE',
+                    headers: authHeaders()
+                })
+                .then(function(r) {
+                    if (!r.ok) return r.json().then(function(payload) { throw new Error(payload.error || 'Failed to delete 360 view.'); });
+                    return loadSf3Views();
+                })
+                .catch(function(err) {
+                    alert(err && err.message ? err.message : 'Failed to delete 360 view.');
+                })
+                .finally(function() {
+                    btn.disabled = false;
+                });
+            });
+        });
+    }
+
+    function createSf3View() {
+        var nameInput = document.getElementById('sf3-create-name');
+        var wsInput = document.getElementById('sf3-create-workspace');
+        var fileInput = document.getElementById('sf3-create-file');
+        var err = document.getElementById('sf3-create-error');
+        var submit = document.getElementById('sf3-create-submit');
+        var name = nameInput && nameInput.value ? nameInput.value.trim() : '';
+        var workspaceId = wsInput ? wsInput.value : '';
+        var file = fileInput && fileInput.files ? fileInput.files[0] : null;
+
+        if (!workspaceId) {
+            if (err) {
+                err.textContent = 'Please select a project.';
+                err.style.display = '';
+            }
+            return;
+        }
+        if (!file) {
+            if (err) {
+                err.textContent = 'Please select a 360 image.';
+                err.style.display = '';
+            }
+            return;
+        }
+        if (err) err.style.display = 'none';
+        if (submit) submit.disabled = true;
+
+        var fd = new FormData();
+        fd.append('name', name || 'Sales 360 View');
+        fd.append('workspace_id', workspaceId);
+        fd.append('file', file);
+
+        fetch('/api/sales-flat360', {
+            method: 'POST',
+            headers: authHeaders(),
+            body: fd
+        })
+        .then(function(r) { return r.json().then(function(d) { return { ok: r.ok, data: d }; }); })
+        .then(function(res) {
+            if (!res.ok) throw new Error((res.data && res.data.error) || 'Failed to create 360 view.');
+            hideModal('sf3-create-modal');
+            return loadSf3Views();
+        })
+        .catch(function(err2) {
+            if (err) {
+                err.textContent = err2 && err2.message ? err2.message : 'Failed to create 360 view.';
                 err.style.display = '';
             }
         })
