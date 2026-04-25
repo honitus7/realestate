@@ -1386,12 +1386,38 @@
                         '<div class="srm-actions">' +
                             '<a class="btn btn-secondary btn-sm" href="/sales-route-maps/editor/' + encodeURIComponent(mapItem.id) + '">Edit</a>' +
                             '<a class="btn btn-secondary btn-sm" href="' + esc(mapItem.share_url || '#') + '" target="_blank" rel="noopener">Preview</a>' +
+                            '<button class="btn btn-secondary btn-sm srm-rename-btn" data-id="' + mapItem.id + '" data-name="' + esc(mapItem.name) + '">Rename</button>' +
                             '<button class="btn btn-secondary btn-sm srm-copy-btn" data-url="' + esc(mapItem.share_url || '') + '">Copy Link</button>' +
                             '<button class="btn btn-danger btn-sm srm-delete-btn" data-id="' + mapItem.id + '" data-name="' + esc(mapItem.name) + '">Delete</button>' +
                         '</div>' +
                     '</div>' +
                 '</div>';
         }).join('');
+
+        grid.querySelectorAll('.srm-rename-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var mapId = btn.dataset.id;
+                var currentName = btn.dataset.name || '';
+                var nextName = (window.prompt('Rename route map', currentName) || '').trim();
+                if (!nextName || nextName === currentName) return;
+                btn.disabled = true;
+                fetch('/api/sales-maps/' + encodeURIComponent(mapId), {
+                    method: 'PATCH',
+                    headers: Object.assign({ 'Content-Type': 'application/json' }, authHeaders()),
+                    body: JSON.stringify({ name: nextName })
+                })
+                .then(function(r) {
+                    if (!r.ok) return r.json().then(function(payload) { throw new Error(payload.error || 'Failed to rename route map.'); });
+                    return loadSrmMaps();
+                })
+                .catch(function(err) {
+                    alert(err && err.message ? err.message : 'Failed to rename route map.');
+                })
+                .finally(function() {
+                    btn.disabled = false;
+                });
+            });
+        });
 
         grid.querySelectorAll('.srm-copy-btn').forEach(function(btn) {
             btn.addEventListener('click', function() {
@@ -1645,12 +1671,38 @@
                         '<div class="srm-actions">' +
                             '<a class="btn btn-secondary btn-sm" href="/sales-flat360/editor/' + encodeURIComponent(item.id) + '">Open</a>' +
                             '<a class="btn btn-secondary btn-sm" href="' + esc(item.share_url || '#') + '" target="_blank" rel="noopener">Preview</a>' +
+                            '<button class="btn btn-secondary btn-sm sf3-rename-btn" data-id="' + item.id + '" data-name="' + esc(item.name) + '">Rename</button>' +
                             '<button class="btn btn-secondary btn-sm sf3-copy-btn" data-url="' + esc(item.share_url || '') + '">Copy Link</button>' +
                             '<button class="btn btn-danger btn-sm sf3-delete-btn" data-id="' + item.id + '" data-name="' + esc(item.name) + '">Delete</button>' +
                         '</div>' +
                     '</div>' +
                 '</div>';
         }).join('');
+
+        grid.querySelectorAll('.sf3-rename-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var viewId = btn.dataset.id;
+                var currentName = btn.dataset.name || '';
+                var nextName = (window.prompt('Rename 360 view', currentName) || '').trim();
+                if (!nextName || nextName === currentName) return;
+                btn.disabled = true;
+                fetch('/api/sales-flat360/' + encodeURIComponent(viewId), {
+                    method: 'PATCH',
+                    headers: Object.assign({ 'Content-Type': 'application/json' }, authHeaders()),
+                    body: JSON.stringify({ name: nextName })
+                })
+                .then(function(r) {
+                    if (!r.ok) return r.json().then(function(payload) { throw new Error(payload.error || 'Failed to rename 360 view.'); });
+                    return loadSf3Views();
+                })
+                .catch(function(err) {
+                    alert(err && err.message ? err.message : 'Failed to rename 360 view.');
+                })
+                .finally(function() {
+                    btn.disabled = false;
+                });
+            });
+        });
 
         grid.querySelectorAll('.sf3-copy-btn').forEach(function(btn) {
             btn.addEventListener('click', function() {

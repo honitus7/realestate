@@ -232,6 +232,7 @@
                     (hasMedia ? '<div class="dn-share-row"><input type="text" readonly value="' + escAttr(p.share_url || '') + '"><button class="btn btn-secondary dn-copy-btn" data-url="' + escAttr(p.share_url || '') + '">Copy</button></div>' : '<div style="font-size:0.8rem;color:var(--color-muted);margin-bottom:0.5rem;">Media not uploaded yet</div>') +
                     '<div class="dn-card-actions" style="margin-top:0.75rem;">' +
                         (hasMedia ? '<a class="btn btn-secondary" href="' + escAttr(p.preview_url || p.share_url || '') + '" target="_blank">Preview</a>' : '') +
+                        '<button class="btn btn-secondary dn-rename-btn" data-id="' + escAttr(String(p.id || '')) + '" data-name="' + escAttr(String(p.name || '')) + '">Rename</button>' +
                         '<button class="btn btn-danger dn-delete-btn" data-id="' + p.id + '">Delete</button>' +
                     '</div>' +
                 '</div>';
@@ -241,6 +242,36 @@
         grid.querySelectorAll('.dn-copy-btn').forEach(function(btn) {
             btn.addEventListener('click', function() {
                 navigator.clipboard.writeText(btn.dataset.url).then(function() { toast('Link copied!'); });
+            });
+        });
+        // Rename buttons
+        grid.querySelectorAll('.dn-rename-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var id = String(btn.dataset.id || '').trim();
+                var current = String(btn.dataset.name || '').trim();
+                if (!id) return;
+                var nextName = window.prompt('Enter new project name', current);
+                if (nextName === null) return;
+                nextName = nextName.trim();
+                if (!nextName || nextName === current) return;
+                fetch('/api/daynight/' + id, {
+                    method: 'PATCH',
+                    headers: Object.assign({ 'Content-Type': 'application/json' }, authHeaders()),
+                    body: JSON.stringify({ name: nextName })
+                })
+                .then(function(r) {
+                    return r.json().catch(function() { return {}; }).then(function(payload) {
+                        if (!r.ok) throw new Error(payload.error || 'Failed to rename project');
+                        return payload;
+                    });
+                })
+                .then(function() {
+                    toast('Project renamed');
+                    loadProjects();
+                })
+                .catch(function(err) {
+                    toast(err && err.message ? err.message : 'Rename failed');
+                });
             });
         });
         // Delete buttons

@@ -6535,6 +6535,39 @@ h1 {{ margin:0 0 8px; font-size:22px; }}
         project['share_url'] = f"{(request.url_root or '').rstrip('/')}/daynight/view/{project.get('share_token', '')}"
         return jsonify(project)
 
+    @app.route('/api/daynight/<project_id>', methods=['PATCH'])
+    @require_admin
+    def api_update_daynight(user_id, role, project_id):
+        sb = get_supabase()
+        if not sb:
+            return jsonify({'error': 'Database not configured'}), 503
+        project = dn_get(sb, project_id)
+        if not project:
+            return jsonify({'error': 'Not found'}), 404
+        if str(project.get('user_id')) != str(user_id) and role != 'superadmin':
+            return jsonify({'error': 'Forbidden'}), 403
+        data = request.get_json(silent=True) or {}
+        updates = {}
+        if 'name' in data:
+            name = str(data.get('name') or '').strip()
+            if not name:
+                return jsonify({'error': 'Name is required'}), 400
+            updates['name'] = name
+        if not updates:
+            return jsonify({'error': 'No supported fields provided'}), 400
+        updated = dn_update(sb, project_id, **updates)
+        if not updated:
+            return jsonify({'error': 'Update failed'}), 500
+        updated['share_url'] = f"{(request.url_root or '').rstrip('/')}/daynight/view/{updated.get('share_token', '')}"
+        updated['preview_url'] = f"{(request.url_root or '').rstrip('/')}/daynight/preview/{updated.get('share_token', '')}"
+        if updated.get('media_type') == 'image' and updated.get('stitched_filename'):
+            updated['media_url'] = get_daynight_s3_url(updated['stitched_filename'])
+        elif updated.get('media_type') == 'video' and updated.get('video_filename'):
+            updated['media_url'] = get_daynight_s3_url(updated['video_filename'])
+        else:
+            updated['media_url'] = None
+        return jsonify(updated)
+
     @app.route('/api/daynight/<project_id>/upload-images', methods=['POST'])
     @require_admin
     def api_daynight_upload_images(user_id, role, project_id):
