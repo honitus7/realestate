@@ -753,7 +753,7 @@ async function saveTab() {
     }
     if (type === 'daynight') {
         const v = document.getElementById('fv-ref-daynight').value;
-        if (v) body.ref_daynight_id = Number(v);
+        if (v) body.ref_daynight_id = v;
     }
     if (type === 'floor_plan') {
         const v = document.getElementById('fv-ref-floorplan').value;
@@ -765,7 +765,7 @@ async function saveTab() {
     }
     if (type === 'project_plan') {
         const v = document.getElementById('fv-ref-projectplan').value;
-        if (v) body.ref_project_plan_id = Number(v);
+        if (v) body.ref_project_plan_id = v;
     }
     if (type === 'sales_map') {
         const v = document.getElementById('fv-ref-salesmap').value;

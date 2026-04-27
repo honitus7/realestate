@@ -29,10 +29,10 @@ create table if not exists public.full_view_tabs (
   tab_type text not null default '360_pano',
   -- Content references (only one set depending on type)
   ref_panorama_id bigint,
-  ref_daynight_id bigint,
+  ref_daynight_id uuid references public.daynight_projects(id) on delete set null,
   ref_floor_plan_id uuid,
   ref_gallery_id uuid,
-  ref_project_plan_id bigint,
+  ref_project_plan_id uuid references public.project_plans(id) on delete set null,
   ref_sales_map_id uuid,
   -- Generic key/value store for custom type data (e.g. {"url": "https://..."})
   content_data jsonb not null default '{}',

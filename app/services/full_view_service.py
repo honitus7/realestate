@@ -3,6 +3,69 @@ Full View Creator - CRUD for full_view_configs and full_view_tabs.
 """
 
 
+_ALL_REF_FIELDS = (
+    'ref_panorama_id',
+    'ref_daynight_id',
+    'ref_floor_plan_id',
+    'ref_gallery_id',
+    'ref_project_plan_id',
+    'ref_sales_map_id',
+    'ref_sales_flat360_id',
+)
+
+# Some deployments created these columns with the wrong SQL type, so we persist
+# them inside content_data and hydrate them back onto the row on reads.
+_CONTENT_DATA_REF_FIELDS = (
+    'ref_daynight_id',
+    'ref_project_plan_id',
+)
+
+
+def _as_content_data(value):
+    return dict(value) if isinstance(value, dict) else {}
+
+
+def _normalize_ref_value(value):
+    if value in (None, '', 'null'):
+        return None
+    text = str(value).strip()
+    return text or None
+
+
+def _hydrate_tab_refs(row):
+    if not row:
+        return row
+    tab = dict(row)
+    content_data = _as_content_data(tab.get('content_data'))
+    for field in _CONTENT_DATA_REF_FIELDS:
+        fallback = _normalize_ref_value(content_data.get(field))
+        if fallback is not None:
+            tab[field] = fallback
+    tab['content_data'] = content_data
+    return tab
+
+
+def _prepare_tab_row(row):
+    prepared = dict(row)
+    content_data = _as_content_data(prepared.get('content_data'))
+    for field in _CONTENT_DATA_REF_FIELDS:
+        has_field = field in prepared
+        value = _normalize_ref_value(prepared.get(field))
+        if has_field:
+            prepared[field] = None
+        if value is None:
+            content_data.pop(field, None)
+            continue
+        content_data[field] = value
+    prepared['content_data'] = content_data
+    return prepared
+
+
+def _get_tab(sb, tab_id):
+    resp = sb.table('full_view_tabs').select('*').eq('id', str(tab_id)).limit(1).execute()
+    return resp.data[0] if resp.data else None
+
+
 # ---------------------------------------------------------------------------
 # Config CRUD
 # ---------------------------------------------------------------------------
@@ -69,7 +132,7 @@ def list_tabs(sb, config_id, visible_only=False):
     if visible_only:
         q = q.eq('is_visible', True)
     resp = q.execute()
-    return resp.data or []
+    return [_hydrate_tab_refs(row) for row in (resp.data or [])]
 
 
 def create_tab(sb, config_id, icon, name, tab_type, **kwargs):
@@ -82,32 +145,35 @@ def create_tab(sb, config_id, icon, name, tab_type, **kwargs):
         'sort_order': kwargs.get('sort_order', 0),
         'content_data': kwargs.get('content_data') or {},
     }
-    for field in ('ref_panorama_id', 'ref_daynight_id', 'ref_floor_plan_id',
-                  'ref_gallery_id', 'ref_project_plan_id', 'ref_sales_map_id', 'ref_sales_flat360_id'):
+    for field in _ALL_REF_FIELDS:
         val = kwargs.get(field)
         if val is not None:
             row[field] = val
+    row = _prepare_tab_row(row)
     resp = sb.table('full_view_tabs').insert(row).execute()
-    return resp.data[0] if resp.data else None
+    return _hydrate_tab_refs(resp.data[0]) if resp.data else None
 
 
 def update_tab(sb, tab_id, **fields):
     clean = {k: v for k, v in fields.items() if k in _TAB_WRITABLE}
     if not clean:
         return None
+    existing = _get_tab(sb, tab_id) or {}
     # Nullify all ref fields when switching types so stale refs don't persist
     if 'tab_type' in clean:
-        for f in ('ref_panorama_id', 'ref_daynight_id', 'ref_floor_plan_id',
-                  'ref_gallery_id', 'ref_project_plan_id', 'ref_sales_map_id', 'ref_sales_flat360_id'):
+        for f in _ALL_REF_FIELDS:
             if f not in clean:
                 clean[f] = None
+    if 'content_data' not in clean:
+        clean['content_data'] = existing.get('content_data') or {}
+    clean = _prepare_tab_row(clean)
     resp = (
         sb.table('full_view_tabs')
         .update(clean)
         .eq('id', str(tab_id))
         .execute()
     )
-    return resp.data[0] if resp.data else None
+    return _hydrate_tab_refs(resp.data[0]) if resp.data else None
 
 
 def delete_tab(sb, tab_id):

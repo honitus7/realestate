@@ -108,7 +108,10 @@
         }
     });
 
-    // Show first item
+    var userUnmuted = false;
+    var unmuteBtn = document.getElementById('gv-unmute');
+
+    // Show first item after all control refs are ready.
     if (ITEMS.length > 0) {
         showItem(0, false);
     }
@@ -148,9 +151,6 @@
         }
     }
 
-    var userUnmuted = false;
-    var unmuteBtn = document.getElementById('gv-unmute');
-
     function loadItem(item) {
         resetTransform();
         pageEl.classList.toggle('gv-active-video', item.type === 'video');
@@ -174,9 +174,9 @@
             vidEl.onloadeddata = function() {
                 vidBg.classList.add('loaded');
             };
-            if (!userUnmuted) {
+            if (unmuteBtn && !userUnmuted) {
                 unmuteBtn.style.display = '';
-            } else {
+            } else if (unmuteBtn) {
                 unmuteBtn.style.display = 'none';
             }
         } else {
@@ -190,23 +190,25 @@
             imgEl.onload = function() {
                 imgEl.classList.add('loaded');
             };
-            unmuteBtn.style.display = 'none';
+            if (unmuteBtn) unmuteBtn.style.display = 'none';
         }
     }
 
     // Unmute on button click
-    unmuteBtn.addEventListener('click', function() {
-        userUnmuted = true;
-        vidEl.muted = false;
-        unmuteBtn.style.display = 'none';
-    });
+    if (unmuteBtn) {
+        unmuteBtn.addEventListener('click', function() {
+            userUnmuted = true;
+            vidEl.muted = false;
+            unmuteBtn.style.display = 'none';
+        });
+    }
 
     // Also unmute on any click on the media area (user gesture)
     document.getElementById('gv-media-area').addEventListener('click', function(e) {
         if (!userUnmuted && vidBg.style.display !== 'none') {
             userUnmuted = true;
             vidEl.muted = false;
-            unmuteBtn.style.display = 'none';
+            if (unmuteBtn) unmuteBtn.style.display = 'none';
         }
     });
 
