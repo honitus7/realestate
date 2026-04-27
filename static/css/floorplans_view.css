@@ -126,7 +126,7 @@
 .fpv-panel {
     position: fixed;
     bottom: 1.5rem;
-    right: 1.5rem;
+    right: 7rem;
     z-index: 20;
     width: 260px;
     max-height: calc(100vh - 6rem);
