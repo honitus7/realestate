@@ -27,6 +27,7 @@ from app.core.serializers import (
     panorama_upload_serializer,
     plot_upload_serializer,
     marker_upload_serializer,
+    daynight_upload_serializer,
 )
 from app.services.panorama_service import (
     get_panorama_with_access,
@@ -90,10 +91,12 @@ from app.services.storage_service import (
     compress_marker_image,
     probe_image_dimensions,
     upload_daynight_to_s3,
+    daynight_object_key,
     get_daynight_s3_url,
     delete_daynight_from_s3,
     stitch_images_horizontally,
     MAX_DAYNIGHT_IMAGE_READ_BYTES,
+    buffer_uploaded_file,
     convert_floorplan_to_webp_lossless,
     upload_floorplan_to_s3,
     get_floorplan_s3_url,
@@ -285,6 +288,16 @@ def _detect_ext_from_content_type(content_type):
     ext = (content_type or '').lower().strip()
     ext = CONTENT_TYPE_TO_EXT.get(ext, 'jpg')
     return ext if ext in ALLOWED_EXTENSIONS else 'jpg'
+
+
+def _detect_video_ext_from_content_type(content_type):
+    content_type = str(content_type or '').split(';', 1)[0].lower().strip()
+    for ext, mime in VIDEO_CONTENT_TYPES.items():
+        if content_type == mime:
+            return ext
+    if content_type in ('video/x-m4v',):
+        return 'mp4'
+    return ''
 
 
 def allowed_file(filename):
@@ -6464,7 +6477,12 @@ h1 {{ margin:0 0 8px; font-size:22px; }}
 
     @app.route('/daynight')
     def daynight_page():
-        return render_template('daynight.html', **auth_ctx())
+        return render_template(
+            'daynight.html',
+            max_daynight_video_bytes=MAX_DAYNIGHT_VIDEO_BYTES,
+            max_upload_bytes=current_app.config.get('MAX_CONTENT_LENGTH') or 0,
+            **auth_ctx(),
+        )
 
     @app.route('/api/daynight', methods=['GET'])
     @require_admin
@@ -6590,7 +6608,11 @@ h1 {{ margin:0 0 8px; font-size:22px; }}
             ext = (f.filename or '').rsplit('.', 1)[-1].lower() if f.filename else ''
             if ext not in ALLOWED_EXTENSIONS:
                 return jsonify({'error': f'Invalid image type: {f.filename}'}), 400
-            raw = read_uploaded_file_bytes(f, MAX_DAYNIGHT_IMAGE_READ_BYTES)
+            try:
+                raw = read_uploaded_file_bytes(f, MAX_DAYNIGHT_IMAGE_READ_BYTES)
+            except ValueError:
+                max_mb = max(1, int(MAX_DAYNIGHT_IMAGE_READ_BYTES / (1024 * 1024)))
+                return jsonify({'error': f'Image too large: {f.filename} (max {max_mb}MB each)'}), 413
             if not raw:
                 return jsonify({'error': f'Empty file: {f.filename}'}), 400
             image_bytes_list.append(raw)
@@ -6598,27 +6620,93 @@ h1 {{ margin:0 0 8px; font-size:22px; }}
         try:
             stitched_bytes, join_positions, width, height = stitch_images_horizontally(image_bytes_list)
         except Exception as e:
+            current_app.logger.exception('Day/night image stitching failed for project %s', project_id)
             return jsonify({'error': f'Stitching failed: {str(e)}'}), 500
         filename = f"dn_{project_id}_{uuid.uuid4().hex[:8]}.jpg"
-        # Delete old stitched image if exists
         old_fn = project.get('stitched_filename')
-        if old_fn:
-            delete_daynight_from_s3(old_fn)
         try:
             upload_daynight_to_s3(filename, stitched_bytes, 'image/jpeg')
         except Exception as e:
+            current_app.logger.exception('Day/night image upload failed for project %s', project_id)
             return jsonify({'error': f'Upload failed: {str(e)}'}), 500
-        dn_update(sb, project_id,
-                  stitched_filename=filename,
-                  stitched_width=width,
-                  stitched_height=height,
-                  join_positions=join_positions,
-                  source_images=source_names)
-        updated = dn_get(sb, project_id)
+        updated = dn_update(sb, project_id,
+                            stitched_filename=filename,
+                            stitched_width=width,
+                            stitched_height=height,
+                            join_positions=join_positions,
+                            source_images=source_names)
+        if not updated:
+            delete_daynight_from_s3(filename)
+            return jsonify({'error': 'Failed to save upload metadata'}), 500
+        if old_fn and old_fn != filename:
+            delete_daynight_from_s3(old_fn)
         if updated:
             updated['media_url'] = get_daynight_s3_url(filename)
             updated['share_url'] = f"{(request.url_root or '').rstrip('/')}/daynight/view/{updated.get('share_token', '')}"
         return jsonify(updated or {'success': True})
+
+    @app.route('/api/daynight/<project_id>/upload-video-url', methods=['POST'])
+    @require_admin
+    def api_daynight_upload_video_url(user_id, role, project_id):
+        if not use_s3():
+            return jsonify({'error': 'Supabase S3 is not configured'}), 503
+        sb = get_supabase()
+        if not sb:
+            return jsonify({'error': 'Database not configured'}), 503
+        project = dn_get(sb, project_id)
+        if not project:
+            return jsonify({'error': 'Not found'}), 404
+        if str(project.get('user_id')) != str(user_id) and role != 'superadmin':
+            return jsonify({'error': 'Forbidden'}), 403
+        if project.get('media_type') != 'video':
+            return jsonify({'error': 'Project media_type is not video'}), 400
+        payload = request.get_json(silent=True) or request.form or {}
+        original_filename = str(payload.get('original_filename') or payload.get('filename') or '').strip()
+        if not original_filename:
+            return jsonify({'error': 'original_filename is required'}), 400
+        try:
+            size_bytes = int(payload.get('size_bytes') or payload.get('size') or 0)
+        except Exception:
+            size_bytes = 0
+        if size_bytes and size_bytes > MAX_DAYNIGHT_VIDEO_BYTES:
+            max_mb = max(1, int(MAX_DAYNIGHT_VIDEO_BYTES / (1024 * 1024)))
+            return jsonify({'error': f'Video too large (max {max_mb}MB)'}), 413
+        content_type_hint = str(payload.get('content_type') or '').split(';', 1)[0].lower().strip()
+        ext = original_filename.rsplit('.', 1)[-1].lower() if '.' in original_filename else ''
+        if ext not in ALLOWED_VIDEO_EXTENSIONS and content_type_hint:
+            ext = _detect_video_ext_from_content_type(content_type_hint)
+        if ext not in ALLOWED_VIDEO_EXTENSIONS:
+            return jsonify({'error': f'Invalid video type. Allowed: {", ".join(sorted(ALLOWED_VIDEO_EXTENSIONS))}'}), 400
+        content_type = VIDEO_CONTENT_TYPES.get(ext, content_type_hint or 'video/mp4')
+        client = get_s3_client()
+        if not client:
+            return jsonify({'error': 'Supabase S3 is not fully configured'}), 503
+        safe_name = secure_filename(str(project.get('name') or 'daynight').strip()) or 'daynight'
+        filename = f"dn_{project_id}_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}_{safe_name}_{uuid.uuid4().hex[:8]}.{ext}"
+        key = daynight_object_key(filename)
+        try:
+            upload_url = client.generate_presigned_url(
+                ClientMethod='put_object',
+                Params={'Bucket': SUPABASE_S3_BUCKET, 'Key': key, 'ContentType': content_type},
+                ExpiresIn=int(SUPABASE_S3_UPLOAD_URL_TTL),
+            )
+        except Exception as e:
+            current_app.logger.exception('Failed to generate day/night video upload URL for project %s', project_id)
+            return jsonify({'error': str(e)}), 500
+        token = daynight_upload_serializer(secret_key).dumps({
+            'user_id': str(user_id),
+            'project_id': str(project_id),
+            'filename': filename,
+            'content_type': content_type,
+        })
+        return jsonify({
+            'filename': filename,
+            'upload_url': upload_url,
+            'upload_token': token,
+            'content_type': content_type,
+            'max_bytes': MAX_DAYNIGHT_VIDEO_BYTES,
+            'expires_in': int(SUPABASE_S3_UPLOAD_URL_TTL),
+        })
 
     @app.route('/api/daynight/<project_id>/upload-video', methods=['POST'])
     @require_admin
@@ -6633,30 +6721,100 @@ h1 {{ margin:0 0 8px; font-size:22px; }}
             return jsonify({'error': 'Forbidden'}), 403
         if project.get('media_type') != 'video':
             return jsonify({'error': 'Project media_type is not video'}), 400
-        f = request.files.get('video')
-        if not f:
-            return jsonify({'error': 'No video file provided'}), 400
-        ext = (f.filename or '').rsplit('.', 1)[-1].lower() if f.filename else ''
-        if ext not in ALLOWED_VIDEO_EXTENSIONS:
-            return jsonify({'error': f'Invalid video type. Allowed: {", ".join(ALLOWED_VIDEO_EXTENSIONS)}'}), 400
-        content_type = VIDEO_CONTENT_TYPES.get(ext, 'video/mp4')
-        raw = read_uploaded_file_bytes(f, MAX_DAYNIGHT_VIDEO_BYTES)
-        if not raw:
-            return jsonify({'error': 'Empty file'}), 400
-        filename = f"dn_{project_id}_{uuid.uuid4().hex[:8]}.{ext}"
+
+        form_payload = request.form or {}
+        direct_filename = os.path.basename(str(form_payload.get('filename') or '').strip())
+        upload_token = str(form_payload.get('upload_token') or '').strip()
         old_fn = project.get('video_filename')
-        if old_fn:
-            delete_daynight_from_s3(old_fn)
+        filename = ''
+        content_type = 'video/mp4'
+        staged_file = None
+        uploaded_object_exists = False
+
         try:
-            upload_daynight_to_s3(filename, raw, content_type)
-        except Exception as e:
-            return jsonify({'error': f'Upload failed: {str(e)}'}), 500
-        dn_update(sb, project_id, video_filename=filename)
-        updated = dn_get(sb, project_id)
-        if updated:
+            if direct_filename or upload_token:
+                if not direct_filename:
+                    return jsonify({'error': 'filename is required'}), 400
+                if not upload_token:
+                    return jsonify({'error': 'upload_token is required'}), 400
+                if not use_s3():
+                    return jsonify({'error': 'Supabase S3 is not configured'}), 503
+                try:
+                    signed = daynight_upload_serializer(secret_key).loads(
+                        upload_token,
+                        max_age=int(SUPABASE_S3_UPLOAD_URL_TTL),
+                    )
+                except SignatureExpired:
+                    return jsonify({'error': 'upload_token expired; request a new upload URL'}), 400
+                except BadSignature:
+                    return jsonify({'error': 'Invalid upload_token'}), 400
+                if (
+                    str(signed.get('user_id')) != str(user_id)
+                    or str(signed.get('project_id')) != str(project_id)
+                    or str(signed.get('filename')) != direct_filename
+                ):
+                    return jsonify({'error': 'Invalid upload_token'}), 403
+                ext = direct_filename.rsplit('.', 1)[-1].lower() if '.' in direct_filename else ''
+                if ext not in ALLOWED_VIDEO_EXTENSIONS:
+                    return jsonify({'error': f'Invalid video type. Allowed: {", ".join(sorted(ALLOWED_VIDEO_EXTENSIONS))}'}), 400
+                content_type = str(signed.get('content_type') or VIDEO_CONTENT_TYPES.get(ext, 'video/mp4'))
+                client = get_s3_client()
+                if not client:
+                    return jsonify({'error': 'Supabase S3 is not fully configured'}), 503
+                try:
+                    head = client.head_object(Bucket=SUPABASE_S3_BUCKET, Key=daynight_object_key(direct_filename))
+                except Exception:
+                    return jsonify({'error': 'Uploaded file not found; please retry'}), 400
+                size_bytes = int((head or {}).get('ContentLength') or 0)
+                if size_bytes > MAX_DAYNIGHT_VIDEO_BYTES:
+                    delete_daynight_from_s3(direct_filename)
+                    max_mb = max(1, int(MAX_DAYNIGHT_VIDEO_BYTES / (1024 * 1024)))
+                    return jsonify({'error': f'Video too large (max {max_mb}MB)'}), 413
+                filename = direct_filename
+                uploaded_object_exists = True
+            else:
+                f = request.files.get('video')
+                if not f:
+                    return jsonify({'error': 'No video file provided'}), 400
+                ext = (f.filename or '').rsplit('.', 1)[-1].lower() if f.filename else ''
+                content_type_hint = str(getattr(f, 'content_type', '') or getattr(f, 'mimetype', '') or '').split(';', 1)[0].lower().strip()
+                if ext not in ALLOWED_VIDEO_EXTENSIONS and content_type_hint:
+                    ext = _detect_video_ext_from_content_type(content_type_hint)
+                if ext not in ALLOWED_VIDEO_EXTENSIONS:
+                    return jsonify({'error': f'Invalid video type. Allowed: {", ".join(sorted(ALLOWED_VIDEO_EXTENSIONS))}'}), 400
+                content_type = VIDEO_CONTENT_TYPES.get(ext, content_type_hint or 'video/mp4')
+                try:
+                    staged_file, size_bytes = buffer_uploaded_file(f, MAX_DAYNIGHT_VIDEO_BYTES)
+                except ValueError:
+                    max_mb = max(1, int(MAX_DAYNIGHT_VIDEO_BYTES / (1024 * 1024)))
+                    return jsonify({'error': f'Video too large (max {max_mb}MB)'}), 413
+                if size_bytes <= 0 or not staged_file:
+                    return jsonify({'error': 'Empty file'}), 400
+                filename = f"dn_{project_id}_{uuid.uuid4().hex[:8]}.{ext}"
+                upload_daynight_to_s3(filename, staged_file, content_type)
+                uploaded_object_exists = True
+
+            updated = dn_update(sb, project_id, video_filename=filename)
+            if not updated:
+                if uploaded_object_exists and filename and filename != old_fn:
+                    delete_daynight_from_s3(filename)
+                return jsonify({'error': 'Failed to save upload metadata'}), 500
+            if old_fn and old_fn != filename:
+                delete_daynight_from_s3(old_fn)
             updated['media_url'] = get_daynight_s3_url(filename)
             updated['share_url'] = f"{(request.url_root or '').rstrip('/')}/daynight/view/{updated.get('share_token', '')}"
-        return jsonify(updated or {'success': True})
+            return jsonify(updated)
+        except Exception as e:
+            current_app.logger.exception('Day/night video upload failed for project %s', project_id)
+            if uploaded_object_exists and filename and filename != old_fn:
+                delete_daynight_from_s3(filename)
+            return jsonify({'error': f'Upload failed: {str(e)}'}), 500
+        finally:
+            if staged_file:
+                try:
+                    staged_file.close()
+                except Exception:
+                    pass
 
     @app.route('/api/daynight/<project_id>', methods=['DELETE'])
     @require_admin

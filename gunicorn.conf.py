@@ -9,7 +9,8 @@ bind = f"0.0.0.0:{os.environ.get('PORT', '5000')}"
 workers = int(os.environ.get("GUNICORN_WORKERS", "1"))
 worker_class = "gthread"
 threads = int(os.environ.get("GUNICORN_THREADS", "4"))
-timeout = int(os.environ.get("GUNICORN_TIMEOUT", "120"))
+# Large media uploads can take a while in production, especially on slower links.
+timeout = int(os.environ.get("GUNICORN_TIMEOUT", "300"))
 graceful_timeout = int(os.environ.get("GUNICORN_GRACEFUL_TIMEOUT", "30"))
 keepalive = int(os.environ.get("GUNICORN_KEEPALIVE", "15"))
 # Recycle often to limit memory creep (thumbnails + PIL can spike)

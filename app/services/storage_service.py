@@ -4,6 +4,7 @@ No Flask dependency; callers pass config or use app.config.
 """
 import io
 import os
+import tempfile
 import time
 
 from PIL import Image
@@ -63,7 +64,7 @@ def get_s3_client():
                 signature_version='s3v4',
                 s3={'addressing_style': 'path'},
                 connect_timeout=5,
-                read_timeout=30,
+                read_timeout=120,
                 retries={'max_attempts': 6, 'mode': 'standard'},
             )
         _s3_client = boto3.client(**kwargs)
@@ -362,6 +363,39 @@ def read_uploaded_file_bytes(file_storage, max_bytes):
             raise ValueError('file_too_large')
         return data or b''
     return stream.read() or b''
+
+
+def buffer_uploaded_file(file_storage, max_bytes, chunk_size=1024 * 1024):
+    if not file_storage:
+        return None, 0
+    stream = getattr(file_storage, 'stream', None) or file_storage
+    try:
+        stream.seek(0)
+    except Exception:
+        pass
+    cap = int(max_bytes) if max_bytes else 0
+    spool_limit = 8 * 1024 * 1024
+    if cap > 0:
+        spool_limit = max(1024 * 1024, min(spool_limit, cap))
+    staged = tempfile.SpooledTemporaryFile(max_size=spool_limit)
+    total = 0
+    try:
+        while True:
+            chunk = stream.read(chunk_size)
+            if not chunk:
+                break
+            total += len(chunk)
+            if cap > 0 and total > cap:
+                raise ValueError('file_too_large')
+            staged.write(chunk)
+        staged.seek(0)
+        return staged, total
+    except Exception:
+        try:
+            staged.close()
+        except Exception:
+            pass
+        raise
 
 
 def get_panorama_s3_url(filename):

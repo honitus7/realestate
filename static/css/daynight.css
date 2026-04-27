@@ -173,10 +173,11 @@
 .dn-card-actions {
     display: flex;
     gap: 0.5rem;
+    flex-wrap: wrap;
 }
 
 .dn-card-actions .btn {
-    flex: 1;
+    flex: 1 1 140px;
     font-size: 0.78rem;
     padding: 0.4rem 0.6rem;
 }
@@ -218,6 +219,11 @@
 .dn-type-btn.active {
     background: var(--color-accent, #c9a962);
     color: #000;
+}
+
+.dn-type-btn:disabled {
+    opacity: 0.65;
+    cursor: not-allowed;
 }
 
 .dn-upload-zone {

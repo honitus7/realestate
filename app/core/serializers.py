@@ -17,6 +17,10 @@ def marker_upload_serializer(secret_key):
     return URLSafeTimedSerializer(secret_key, salt='marker-image-upload')
 
 
+def daynight_upload_serializer(secret_key):
+    return URLSafeTimedSerializer(secret_key, salt='daynight-video-upload')
+
+
 def page_access_serializer(secret_key):
     return URLSafeTimedSerializer(secret_key, salt='page-access')
 

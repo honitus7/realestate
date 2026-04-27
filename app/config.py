@@ -3,10 +3,21 @@ Application configuration from environment.
 """
 import os
 
+DEFAULT_MAX_UPLOAD_BYTES = 50 * 1024 * 1024
+MAX_DAYNIGHT_VIDEO_BYTES = int(os.environ.get('MAX_DAYNIGHT_VIDEO_BYTES', str(200 * 1024 * 1024)))
+MAX_UPLOAD_OVERHEAD_BYTES = int(os.environ.get('MAX_UPLOAD_OVERHEAD_BYTES', str(5 * 1024 * 1024)))
+CONFIGURED_MAX_UPLOAD_BYTES = int(os.environ.get('MAX_UPLOAD_BYTES', '0') or 0)
+
 # Flask
 SECRET_KEY = os.environ.get('FLASK_SECRET_KEY', '')
 UPLOAD_FOLDER = 'uploads'
-MAX_CONTENT_LENGTH = int(os.environ.get('MAX_UPLOAD_BYTES', str(50 * 1024 * 1024)))  # 50MB
+# Keep Flask's request-body cap aligned with the largest supported upload
+# plus multipart overhead so large day/night videos aren't rejected early.
+MAX_CONTENT_LENGTH = max(
+    DEFAULT_MAX_UPLOAD_BYTES,
+    CONFIGURED_MAX_UPLOAD_BYTES,
+    MAX_DAYNIGHT_VIDEO_BYTES + MAX_UPLOAD_OVERHEAD_BYTES,
+)
 # Performance: cache static files (seconds); 1 day default
 SEND_FILE_MAX_AGE_DEFAULT = int(os.environ.get('SEND_FILE_MAX_AGE_DEFAULT', str(86400)))
 # Slightly faster JSON responses (no key sorting)
@@ -61,7 +72,6 @@ ALLOWED_VIDEO_EXTENSIONS = {'mp4', 'webm', 'mov'}
 VIDEO_CONTENT_TYPES = {
     'mp4': 'video/mp4', 'webm': 'video/webm', 'mov': 'video/quicktime',
 }
-MAX_DAYNIGHT_VIDEO_BYTES = int(os.environ.get('MAX_DAYNIGHT_VIDEO_BYTES', str(200 * 1024 * 1024)))
 AUDIO_CONTENT_TYPES = {
     'mp3': 'audio/mpeg', 'wav': 'audio/wav', 'm4a': 'audio/mp4',
     'ogg': 'audio/ogg', 'webm': 'audio/webm',
