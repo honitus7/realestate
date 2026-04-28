@@ -7,8 +7,14 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Lora:wght@400;500;600;700&family=Merriweather:wght@400;700&family=Montserrat:wght@400;500;600;700&family=Oswald:wght@400;500;600&family=Poppins:wght@400;500;600;700&family=Syne:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/vendor/photo-sphere-viewer/photo-sphere-viewer.css">
+    <link rel="stylesheet" href="/static/vendor/photo-sphere-viewer/plugins/markers.css">
     <link rel="stylesheet" href="/static/css/theme.css">
     <link rel="stylesheet" href="/static/css/gallery_view.css">
+    <script src="/static/vendor/uevent/browser.js"></script>
+    <script src="/static/vendor/three/three.min.js"></script>
+    <script src="/static/vendor/photo-sphere-viewer/photo-sphere-viewer.js"></script>
+    <script src="/static/vendor/photo-sphere-viewer/plugins/markers.js"></script>
 </head>
 <body>
 <div class="gv-page" id="gv-page">
@@ -19,6 +25,7 @@
             <div class="gv-video-bg" id="gv-video-bg" style="display:none;">
                 <video class="gv-video" id="gv-video" autoplay loop muted playsinline></video>
             </div>
+            <div class="gv-psv" id="gv-psv" style="display:none;"></div>
         </div>
 
         <!-- Unmute overlay -->
@@ -195,16 +202,25 @@
 
     var ITEMS = [
         {% for item in items %}
-        { url: {{ item.media_url|tojson }}, type: {{ item.media_type|tojson }}, name: {{ item.name|tojson }} }{% if not loop.last %},{% endif %}
+        {
+            url: {{ item.media_url|tojson }},
+            type: {{ item.media_type|tojson }},
+            name: {{ item.name|tojson }},
+            media_width: {{ (item.media_width or 0)|int }},
+            media_height: {{ (item.media_height or 0)|int }}
+        }{% if not loop.last %},{% endif %}
         {% endfor %}
     ];
 
     var imgEl = document.getElementById('gv-image');
     var vidEl = document.getElementById('gv-video');
     var vidBg = document.getElementById('gv-video-bg');
+    var psvEl = document.getElementById('gv-psv');
     var currentIdx = 0;
     var scale = 1, panX = 0, panY = 0;
     var isDragging = false, dragStartX, dragStartY, startPanX, startPanY;
+    var itemLoadToken = 0;
+    var psvViewer = null;
     var singleItem = ITEMS.length <= 1;
     var pageEl = document.getElementById('gv-page');
     var modeFitBtn = document.getElementById('gv-mode-fit');
@@ -233,10 +249,175 @@
         setViewMode(saved === 'fill' ? 'fill' : 'fit');
     })();
 
+    function supportsPsv() {
+        return !!(window.PhotoSphereViewer && window.PhotoSphereViewer.Viewer && psvEl);
+    }
+
+    function isLikelyEquirectangularSize(width, height) {
+        width = Number(width || 0);
+        height = Number(height || 0);
+        if (!(width > 0) || !(height > 0)) return false;
+        var ratio = width / height;
+        return ratio >= 1.9 && ratio <= 2.1;
+    }
+
+    function isEquirectActive() {
+        return pageEl.classList.contains('gv-active-equirect');
+    }
+
+    function syncControlsForMedia() {
+        var disableFitFill = isEquirectActive();
+        if (modeFitBtn) modeFitBtn.disabled = disableFitFill;
+        if (modeFillBtn) modeFillBtn.disabled = disableFitFill;
+    }
+
+    function resolveEquirectangular(item) {
+        if (!supportsPsv() || !item || item.type !== 'image' || !item.url) {
+            return Promise.resolve(false);
+        }
+        if (item._equirectKnown) return Promise.resolve(!!item._isEquirect);
+
+        var known = isLikelyEquirectangularSize(item.media_width, item.media_height);
+        if (known) {
+            item._equirectKnown = true;
+            item._isEquirect = true;
+            return Promise.resolve(true);
+        }
+
+        return new Promise(function(resolve) {
+            var probe = new Image();
+            probe.onload = function() {
+                item.media_width = probe.naturalWidth || 0;
+                item.media_height = probe.naturalHeight || 0;
+                item._isEquirect = isLikelyEquirectangularSize(item.media_width, item.media_height);
+                item._equirectKnown = true;
+                resolve(!!item._isEquirect);
+            };
+            probe.onerror = function() {
+                item._equirectKnown = true;
+                item._isEquirect = false;
+                resolve(false);
+            };
+            probe.src = item.url;
+        });
+    }
+
+    function destroyPsvViewer() {
+        if (!psvViewer) return;
+        try { psvViewer.destroy(); } catch (e) {}
+        psvViewer = null;
+    }
+
+    function hideVideoLayer() {
+        vidBg.style.display = 'none';
+        vidBg.classList.remove('loaded', 'fade-out');
+        try { vidEl.pause(); } catch (e) {}
+        vidEl.removeAttribute('src');
+    }
+
+    function showImageItem(item) {
+        pageEl.classList.remove('gv-active-equirect');
+        pageEl.classList.remove('gv-active-video');
+        hideVideoLayer();
+        if (psvEl) psvEl.style.display = 'none';
+        imgEl.style.display = '';
+        imgEl.classList.remove('fade-out');
+        imgEl.src = item.url;
+        imgEl.onload = function() {
+            imgEl.classList.add('loaded');
+        };
+        if (unmuteBtn) unmuteBtn.style.display = 'none';
+        syncControlsForMedia();
+    }
+
+    function showVideoItem(item) {
+        pageEl.classList.remove('gv-active-equirect');
+        pageEl.classList.add('gv-active-video');
+        imgEl.style.display = 'none';
+        imgEl.classList.remove('loaded', 'fade-out');
+        if (psvEl) psvEl.style.display = 'none';
+        vidBg.style.display = '';
+        vidBg.classList.remove('fade-out');
+        vidEl.src = item.url;
+        vidEl.muted = !userUnmuted;
+        vidEl.setAttribute('autoplay', '');
+        vidEl.load();
+        vidEl.play().then(function() {
+            vidBg.classList.add('loaded');
+        }).catch(function() {
+            vidEl.muted = true;
+            vidEl.play().then(function() {
+                vidBg.classList.add('loaded');
+            }).catch(function() {});
+        });
+        vidEl.onloadeddata = function() {
+            vidBg.classList.add('loaded');
+        };
+        if (unmuteBtn && !userUnmuted) {
+            unmuteBtn.style.display = '';
+        } else if (unmuteBtn) {
+            unmuteBtn.style.display = 'none';
+        }
+        syncControlsForMedia();
+    }
+
+    function showEquirectItem(item) {
+        pageEl.classList.add('gv-active-equirect');
+        pageEl.classList.remove('gv-active-video');
+        hideVideoLayer();
+        imgEl.style.display = 'none';
+        imgEl.classList.remove('loaded', 'fade-out');
+        if (unmuteBtn) unmuteBtn.style.display = 'none';
+        if (!supportsPsv()) {
+            showImageItem(item);
+            return;
+        }
+        psvEl.style.display = '';
+        var psvPlugins = [];
+        if (window.PhotoSphereViewer && window.PhotoSphereViewer.MarkersPlugin) {
+            psvPlugins.push([PhotoSphereViewer.MarkersPlugin, {}]);
+        }
+        var options = {
+            container: psvEl,
+            panorama: item.url,
+            navbar: false,
+            mousewheel: true,
+            mousemove: true,
+            touchmoveTwoFingers: false,
+            autorotateDelay: null,
+            autorotateSpeed: '1.1rpm',
+            autorotateLat: '5deg',
+            loadingTxt: '',
+            defaultZoomLvl: 25,
+            defaultLong: 0,
+            defaultLat: 0,
+            maxFov: 100,
+            plugins: psvPlugins
+        };
+        if (psvViewer && typeof psvViewer.setPanorama === 'function') {
+            psvViewer.setPanorama(item.url, { showLoader: false, transition: 900 }).then(function() {
+                if (typeof psvViewer.resize === 'function') psvViewer.resize();
+            }).catch(function() {
+                showImageItem(item);
+            });
+        } else {
+            destroyPsvViewer();
+            try {
+                psvViewer = new PhotoSphereViewer.Viewer(options);
+                if (typeof psvViewer.resize === 'function') psvViewer.resize();
+            } catch (e) {
+                showImageItem(item);
+                return;
+            }
+        }
+        syncControlsForMedia();
+    }
+
     function showItem(idx, animate) {
         var item = ITEMS[idx];
         if (!item) return;
         currentIdx = idx;
+        var token = ++itemLoadToken;
 
         if (animate) {
             // Fade out current
@@ -244,9 +425,9 @@
             imgEl.classList.remove('loaded');
             vidBg.classList.add('fade-out');
             vidBg.classList.remove('loaded');
-            setTimeout(function() { loadItem(item); }, 250);
+            setTimeout(function() { loadItem(item, token); }, 250);
         } else {
-            loadItem(item);
+            loadItem(item, token);
         }
 
         // Update panel selection
@@ -262,47 +443,21 @@
         }
     }
 
-    function loadItem(item) {
+    function loadItem(item, token) {
         resetTransform();
-        pageEl.classList.toggle('gv-active-video', item.type === 'video');
         if (item.type === 'video') {
-            imgEl.style.display = 'none';
-            imgEl.classList.remove('loaded', 'fade-out');
-            vidBg.style.display = '';
-            vidBg.classList.remove('fade-out');
-            vidEl.src = item.url;
-            vidEl.muted = !userUnmuted;
-            vidEl.setAttribute('autoplay', '');
-            vidEl.load();
-            vidEl.play().then(function() {
-                vidBg.classList.add('loaded');
-            }).catch(function() {
-                vidEl.muted = true;
-                vidEl.play().then(function() {
-                    vidBg.classList.add('loaded');
-                }).catch(function() {});
-            });
-            vidEl.onloadeddata = function() {
-                vidBg.classList.add('loaded');
-            };
-            if (unmuteBtn && !userUnmuted) {
-                unmuteBtn.style.display = '';
-            } else if (unmuteBtn) {
-                unmuteBtn.style.display = 'none';
-            }
-        } else {
-            vidBg.style.display = 'none';
-            vidBg.classList.remove('loaded', 'fade-out');
-            vidEl.pause();
-            vidEl.removeAttribute('src');
-            imgEl.style.display = '';
-            imgEl.classList.remove('fade-out');
-            imgEl.src = item.url;
-            imgEl.onload = function() {
-                imgEl.classList.add('loaded');
-            };
-            if (unmuteBtn) unmuteBtn.style.display = 'none';
+            showVideoItem(item);
+            return;
         }
+
+        resolveEquirectangular(item).then(function(isEquirect) {
+            if (token !== itemLoadToken) return;
+            if (isEquirect) {
+                showEquirectItem(item);
+            } else {
+                showImageItem(item);
+            }
+        });
     }
 
     // Unmute on button click
@@ -379,21 +534,35 @@
     }
 
     function activeEl() {
+        if (isEquirectActive()) return null;
         return imgEl.style.display !== 'none' ? imgEl : vidBg;
     }
 
     function applyTransform() {
         var el = activeEl();
+        if (!el) return;
         el.style.transform = 'translate(' + panX + 'px, ' + panY + 'px) scale(' + scale + ')';
     }
 
     document.getElementById('gv-zoom-in').addEventListener('click', function() {
+        if (isEquirectActive() && psvViewer && typeof psvViewer.zoomIn === 'function') {
+            psvViewer.zoomIn();
+            return;
+        }
         scale = Math.min(scale * 1.3, 5); applyTransform();
     });
     document.getElementById('gv-zoom-out').addEventListener('click', function() {
+        if (isEquirectActive() && psvViewer && typeof psvViewer.zoomOut === 'function') {
+            psvViewer.zoomOut();
+            return;
+        }
         scale = Math.max(scale / 1.3, 0.5); applyTransform();
     });
     document.getElementById('gv-zoom-reset').addEventListener('click', function() {
+        if (isEquirectActive() && psvViewer && typeof psvViewer.zoom === 'function') {
+            psvViewer.zoom(0);
+            return;
+        }
         resetTransform();
     });
 
@@ -401,6 +570,7 @@
 
     // Mouse wheel zoom
     mediaArea.addEventListener('wheel', function(e) {
+        if (isEquirectActive()) return;
         e.preventDefault();
         var delta = e.deltaY > 0 ? 0.9 : 1.1;
         scale = Math.max(0.5, Math.min(5, scale * delta));
@@ -409,6 +579,7 @@
 
     // Pan with mouse drag
     mediaArea.addEventListener('mousedown', function(e) {
+        if (isEquirectActive()) return;
         if (scale <= 1) return;
         isDragging = true;
         dragStartX = e.clientX; dragStartY = e.clientY;
@@ -429,6 +600,7 @@
     // Touch support
     var touchStartDist = 0, touchStartScale = 1;
     mediaArea.addEventListener('touchstart', function(e) {
+        if (isEquirectActive()) return;
         if (e.touches.length === 2) {
             touchStartDist = Math.hypot(
                 e.touches[0].clientX - e.touches[1].clientX,
@@ -444,6 +616,7 @@
     }, { passive: true });
 
     mediaArea.addEventListener('touchmove', function(e) {
+        if (isEquirectActive()) return;
         if (e.touches.length === 2) {
             e.preventDefault();
             var dist = Math.hypot(
@@ -472,6 +645,12 @@
             showItem((currentIdx - 1 + ITEMS.length) % ITEMS.length, true);
         }
     });
+
+    window.addEventListener('resize', function() {
+        if (psvViewer && typeof psvViewer.resize === 'function') psvViewer.resize();
+    });
+
+    window.addEventListener('beforeunload', destroyPsvViewer);
 })();
 </script>
 </body>
