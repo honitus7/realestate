@@ -3,17 +3,19 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ workspace_name or 'Full View' }} – PropMark</title>
+    <title>{{ workspace_name or 'Full View' }} - PropMark</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Lora:wght@400;500;600;700&family=Merriweather:wght@400;700&family=Montserrat:wght@400;500;600;700&family=Oswald:wght@400;500;600&family=Poppins:wght@400;500;600;700&family=Syne:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/static/css/theme.css">
     <link rel="stylesheet" href="/static/css/fv_sidebar.css">
     <script src="https://code.iconify.design/iconify-icon/1.0.8/iconify-icon.min.js"></script>
+    {% if is_editor %}
+    <script src="/static/js/supabase.min.js"></script>
+    {% endif %}
     <style>
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-        html, body { width: 100%; height: 100%; overflow: hidden; background: #0c0e14; }
-        /* Common shell header */
+        html, body { width: 100%; height: 100%; overflow: hidden; background: #0c0e14; font-family: 'Syne', sans-serif; }
         .cfv-header {
             position: fixed;
             top: 14px;
@@ -48,8 +50,6 @@
             overflow: hidden;
             text-overflow: ellipsis;
         }
-
-        /* Content iframe — fills the whole viewport */
         #cfv-frame {
             position: fixed;
             inset: 0;
@@ -58,19 +58,163 @@
             border: none;
         }
 
+        .fv-style-editor {
+            position: fixed;
+            top: 86px;
+            left: 14px;
+            z-index: 280;
+            width: min(350px, calc(100vw - 28px));
+            max-height: calc(100vh - 102px);
+            overflow-y: auto;
+            background: rgba(10, 17, 30, 0.92);
+            border: 1px solid rgba(255, 255, 255, 0.16);
+            border-radius: 14px;
+            box-shadow: 0 14px 44px rgba(0, 0, 0, 0.36);
+            color: rgba(245, 249, 255, 0.95);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+        }
+        .fv-style-editor-head {
+            position: sticky;
+            top: 0;
+            z-index: 2;
+            padding: 0.85rem 0.95rem;
+            border-bottom: 1px solid rgba(255,255,255,0.14);
+            background: rgba(8, 14, 26, 0.92);
+        }
+        .fv-style-editor-title {
+            font-size: 0.85rem;
+            font-weight: 700;
+            letter-spacing: 0.02em;
+        }
+        .fv-style-editor-sub {
+            margin-top: 0.18rem;
+            font-size: 0.68rem;
+            color: rgba(232, 240, 255, 0.72);
+            line-height: 1.35;
+        }
+        .fv-style-editor-body {
+            padding: 0.85rem 0.95rem 0.95rem;
+            display: grid;
+            gap: 0.85rem;
+        }
+        .fv-style-section {
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 10px;
+            padding: 0.7rem;
+            background: rgba(255,255,255,0.04);
+        }
+        .fv-style-section-title {
+            font-size: 0.69rem;
+            text-transform: uppercase;
+            letter-spacing: 0.09em;
+            font-weight: 700;
+            margin-bottom: 0.62rem;
+            color: rgba(221, 234, 255, 0.88);
+        }
+        .fv-style-field {
+            margin-bottom: 0.55rem;
+        }
+        .fv-style-field:last-child {
+            margin-bottom: 0;
+        }
+        .fv-style-label {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-size: 0.67rem;
+            font-weight: 600;
+            color: rgba(236, 244, 255, 0.84);
+            margin-bottom: 0.25rem;
+            letter-spacing: 0.02em;
+        }
+        .fv-style-val {
+            color: rgba(177, 223, 255, 0.95);
+            font-weight: 700;
+        }
+        .fv-style-input,
+        .fv-style-select {
+            width: 100%;
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 8px;
+            background: rgba(9, 16, 29, 0.85);
+            color: #f7fbff;
+            font-size: 0.72rem;
+            font-family: 'Syne', sans-serif;
+            padding: 0.38rem 0.45rem;
+        }
+        .fv-style-input[type="color"] {
+            width: 100%;
+            height: 30px;
+            padding: 0.12rem;
+            cursor: pointer;
+        }
+        .fv-style-input[type="range"] {
+            padding: 0;
+            accent-color: #59ceff;
+            cursor: pointer;
+        }
+        .fv-style-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.45rem;
+        }
+        .fv-style-actions {
+            display: flex;
+            gap: 0.45rem;
+            flex-wrap: wrap;
+        }
+        .fv-style-btn {
+            border: 1px solid rgba(255,255,255,0.2);
+            background: rgba(255,255,255,0.08);
+            color: #f2f8ff;
+            border-radius: 8px;
+            font-family: 'Syne', sans-serif;
+            font-size: 0.7rem;
+            font-weight: 700;
+            padding: 0.42rem 0.6rem;
+            cursor: pointer;
+        }
+        .fv-style-btn:hover {
+            background: rgba(255,255,255,0.14);
+        }
+        .fv-style-btn.primary {
+            background: rgba(59, 168, 235, 0.24);
+            border-color: rgba(100, 194, 250, 0.46);
+        }
+        .fv-style-status {
+            min-height: 1rem;
+            font-size: 0.67rem;
+            color: rgba(173, 255, 204, 0.95);
+        }
+        .fv-style-status.error {
+            color: rgba(255, 180, 180, 0.95);
+        }
+
+        @media (max-width: 768px) {
+            .fv-style-editor {
+                top: auto;
+                bottom: calc(86px + env(safe-area-inset-bottom, 0));
+                left: 10px;
+                right: 10px;
+                width: auto;
+                max-height: min(58vh, 560px);
+            }
+            .cfv-header {
+                max-width: calc(100vw - 24px);
+            }
+        }
     </style>
 </head>
 <body>
-<div class="cfv-header" id="cfv-header">
+    <div class="cfv-header" id="cfv-header">
         <div class="cfv-header-title" id="cfv-header-title">{{ workspace_name or 'Project' }}</div>
         <div class="cfv-header-sub" id="cfv-header-sub">Full View</div>
     </div>
 
-    <!-- Content iframe — renders floor plans / gallery / daynight / project plan -->
     <iframe id="cfv-frame" src="about:blank" allow="autoplay; encrypted-media; picture-in-picture; fullscreen"></iframe>
 
-    <!-- Full View Sidebar -->
-    {% if fv_config and fv_config.get('is_active') and fv_config.get('tabs') %}
+    {% if fv_config and fv_config.get('tabs') and (is_editor or fv_config.get('is_active')) %}
     <nav class="fv-sidebar" id="fv-sidebar" aria-label="Full View Navigation">
         {% for tab in fv_config.get('tabs', []) %}
         <button class="fv-sidebar-btn" type="button"
@@ -93,21 +237,367 @@
 
     <button type="button" class="fv-nav-reveal-fab" id="fv-nav-reveal-fab" aria-label="Show navigation" hidden></button>
 
+    {% if is_editor %}
+    <aside class="fv-style-editor" id="fv-style-editor">
+        <div class="fv-style-editor-head">
+            <div class="fv-style-editor-title">Full View Screen Editor</div>
+            <div class="fv-style-editor-sub">Sidebar theme, floor plan/gallery selection modal colors, and modal size are synced to customer full view.</div>
+        </div>
+        <div class="fv-style-editor-body">
+            <div class="fv-style-section">
+                <div class="fv-style-section-title">Theme</div>
+                <div class="fv-style-field">
+                    <label class="fv-style-label" for="fv-style-theme">Menu Theme Preset</label>
+                    <select id="fv-style-theme" class="fv-style-select">
+                        <option value="blue">Classic Blue</option>
+                        <option value="slate">Slate Night</option>
+                        <option value="light">Light Glass</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="fv-style-section">
+                <div class="fv-style-section-title">Menu Colors</div>
+                <div class="fv-style-grid">
+                    <div class="fv-style-field">
+                        <label class="fv-style-label" for="fv-style-menu-start">Gradient Start</label>
+                        <input id="fv-style-menu-start" class="fv-style-input" type="color">
+                    </div>
+                    <div class="fv-style-field">
+                        <label class="fv-style-label" for="fv-style-menu-end">Gradient End</label>
+                        <input id="fv-style-menu-end" class="fv-style-input" type="color">
+                    </div>
+                    <div class="fv-style-field">
+                        <label class="fv-style-label" for="fv-style-menu-accent">Accent Glow</label>
+                        <input id="fv-style-menu-accent" class="fv-style-input" type="color">
+                    </div>
+                    <div class="fv-style-field">
+                        <label class="fv-style-label" for="fv-style-menu-border">Menu Border</label>
+                        <input id="fv-style-menu-border" class="fv-style-input" type="color">
+                    </div>
+                    <div class="fv-style-field">
+                        <label class="fv-style-label" for="fv-style-menu-text">Menu Text</label>
+                        <input id="fv-style-menu-text" class="fv-style-input" type="color">
+                    </div>
+                    <div class="fv-style-field">
+                        <label class="fv-style-label" for="fv-style-menu-active-bg">Active Row</label>
+                        <input id="fv-style-menu-active-bg" class="fv-style-input" type="color">
+                    </div>
+                    <div class="fv-style-field">
+                        <label class="fv-style-label" for="fv-style-menu-active-text">Active Text</label>
+                        <input id="fv-style-menu-active-text" class="fv-style-input" type="color">
+                    </div>
+                    <div class="fv-style-field">
+                        <label class="fv-style-label" for="fv-style-menu-width">Menu Width <span class="fv-style-val" id="fv-style-menu-width-val"></span></label>
+                        <input id="fv-style-menu-width" class="fv-style-input" type="range" min="72" max="180" step="1">
+                    </div>
+                    <div class="fv-style-field">
+                        <label class="fv-style-label" for="fv-style-menu-font">Menu Font</label>
+                        <select id="fv-style-menu-font" class="fv-style-select">
+                            <option value="Syne">Syne</option>
+                            <option value="Inter">Inter</option>
+                            <option value="Poppins">Poppins</option>
+                            <option value="Montserrat">Montserrat</option>
+                            <option value="Lora">Lora</option>
+                            <option value="Merriweather">Merriweather</option>
+                            <option value="Oswald">Oswald</option>
+                        </select>
+                    </div>
+                    <div class="fv-style-field">
+                        <label class="fv-style-label" for="fv-style-menu-font-size">Menu Label Size <span class="fv-style-val" id="fv-style-menu-font-size-val"></span></label>
+                        <input id="fv-style-menu-font-size" class="fv-style-input" type="range" min="9" max="18" step="1">
+                    </div>
+                </div>
+            </div>
+
+            <div class="fv-style-section">
+                <div class="fv-style-section-title">Floor Plan Modal</div>
+                <div class="fv-style-grid">
+                    <div class="fv-style-field">
+                        <label class="fv-style-label" for="fv-style-modal-bg">Modal BG</label>
+                        <input id="fv-style-modal-bg" class="fv-style-input" type="color">
+                    </div>
+                    <div class="fv-style-field">
+                        <label class="fv-style-label" for="fv-style-modal-border">Modal Border</label>
+                        <input id="fv-style-modal-border" class="fv-style-input" type="color">
+                    </div>
+                    <div class="fv-style-field">
+                        <label class="fv-style-label" for="fv-style-modal-title">Title Text</label>
+                        <input id="fv-style-modal-title" class="fv-style-input" type="color">
+                    </div>
+                    <div class="fv-style-field">
+                        <label class="fv-style-label" for="fv-style-modal-item">Item Text</label>
+                        <input id="fv-style-modal-item" class="fv-style-input" type="color">
+                    </div>
+                    <div class="fv-style-field">
+                        <label class="fv-style-label" for="fv-style-modal-active-bg">Active Item BG</label>
+                        <input id="fv-style-modal-active-bg" class="fv-style-input" type="color">
+                    </div>
+                    <div class="fv-style-field">
+                        <label class="fv-style-label" for="fv-style-modal-active-border">Active Item Border</label>
+                        <input id="fv-style-modal-active-border" class="fv-style-input" type="color">
+                    </div>
+                    <div class="fv-style-field">
+                        <label class="fv-style-label" for="fv-style-modal-width">Modal Width <span class="fv-style-val" id="fv-style-modal-width-val"></span></label>
+                        <input id="fv-style-modal-width" class="fv-style-input" type="range" min="220" max="2200" step="1">
+                    </div>
+                    <div class="fv-style-field">
+                        <label class="fv-style-label" for="fv-style-modal-height">Modal Height <span class="fv-style-val" id="fv-style-modal-height-val"></span></label>
+                        <input id="fv-style-modal-height" class="fv-style-input" type="range" min="20" max="100" step="1">
+                    </div>
+                    <div class="fv-style-field">
+                        <label class="fv-style-label" for="fv-style-modal-right">Right Offset <span class="fv-style-val" id="fv-style-modal-right-val"></span></label>
+                        <input id="fv-style-modal-right" class="fv-style-input" type="range" min="0" max="280" step="1">
+                    </div>
+                    <div class="fv-style-field">
+                        <label class="fv-style-label" for="fv-style-modal-bottom">Bottom Offset <span class="fv-style-val" id="fv-style-modal-bottom-val"></span></label>
+                        <input id="fv-style-modal-bottom" class="fv-style-input" type="range" min="0" max="120" step="1">
+                    </div>
+                    <div class="fv-style-field">
+                        <label class="fv-style-label" for="fv-style-modal-title-font">Title Font</label>
+                        <select id="fv-style-modal-title-font" class="fv-style-select">
+                            <option value="Syne">Syne</option>
+                            <option value="Inter">Inter</option>
+                            <option value="Poppins">Poppins</option>
+                            <option value="Montserrat">Montserrat</option>
+                            <option value="Lora">Lora</option>
+                            <option value="Merriweather">Merriweather</option>
+                            <option value="Oswald">Oswald</option>
+                        </select>
+                    </div>
+                    <div class="fv-style-field">
+                        <label class="fv-style-label" for="fv-style-modal-item-font">Item Font</label>
+                        <select id="fv-style-modal-item-font" class="fv-style-select">
+                            <option value="Syne">Syne</option>
+                            <option value="Inter">Inter</option>
+                            <option value="Poppins">Poppins</option>
+                            <option value="Montserrat">Montserrat</option>
+                            <option value="Lora">Lora</option>
+                            <option value="Merriweather">Merriweather</option>
+                            <option value="Oswald">Oswald</option>
+                        </select>
+                    </div>
+                    <div class="fv-style-field">
+                        <label class="fv-style-label" for="fv-style-modal-title-size">Title Size <span class="fv-style-val" id="fv-style-modal-title-size-val"></span></label>
+                        <input id="fv-style-modal-title-size" class="fv-style-input" type="range" min="11" max="24" step="1">
+                    </div>
+                    <div class="fv-style-field">
+                        <label class="fv-style-label" for="fv-style-modal-item-size">Item Size <span class="fv-style-val" id="fv-style-modal-item-size-val"></span></label>
+                        <input id="fv-style-modal-item-size" class="fv-style-input" type="range" min="10" max="22" step="1">
+                    </div>
+                </div>
+            </div>
+
+            <div class="fv-style-section">
+                <div class="fv-style-section-title">Gallery Modal</div>
+                <div class="fv-style-grid">
+                    <div class="fv-style-field">
+                        <label class="fv-style-label" for="fv-style-gallery-modal-bg">Modal BG</label>
+                        <input id="fv-style-gallery-modal-bg" class="fv-style-input" type="color">
+                    </div>
+                    <div class="fv-style-field">
+                        <label class="fv-style-label" for="fv-style-gallery-modal-border">Modal Border</label>
+                        <input id="fv-style-gallery-modal-border" class="fv-style-input" type="color">
+                    </div>
+                    <div class="fv-style-field">
+                        <label class="fv-style-label" for="fv-style-gallery-modal-title">Title Text</label>
+                        <input id="fv-style-gallery-modal-title" class="fv-style-input" type="color">
+                    </div>
+                    <div class="fv-style-field">
+                        <label class="fv-style-label" for="fv-style-gallery-modal-item">Item Text</label>
+                        <input id="fv-style-gallery-modal-item" class="fv-style-input" type="color">
+                    </div>
+                    <div class="fv-style-field">
+                        <label class="fv-style-label" for="fv-style-gallery-modal-active-bg">Active Item BG</label>
+                        <input id="fv-style-gallery-modal-active-bg" class="fv-style-input" type="color">
+                    </div>
+                    <div class="fv-style-field">
+                        <label class="fv-style-label" for="fv-style-gallery-modal-active-border">Active Item Border</label>
+                        <input id="fv-style-gallery-modal-active-border" class="fv-style-input" type="color">
+                    </div>
+                    <div class="fv-style-field">
+                        <label class="fv-style-label" for="fv-style-gallery-modal-width">Modal Width <span class="fv-style-val" id="fv-style-gallery-modal-width-val"></span></label>
+                        <input id="fv-style-gallery-modal-width" class="fv-style-input" type="range" min="220" max="2200" step="1">
+                    </div>
+                    <div class="fv-style-field">
+                        <label class="fv-style-label" for="fv-style-gallery-modal-height">Modal Height <span class="fv-style-val" id="fv-style-gallery-modal-height-val"></span></label>
+                        <input id="fv-style-gallery-modal-height" class="fv-style-input" type="range" min="20" max="100" step="1">
+                    </div>
+                    <div class="fv-style-field">
+                        <label class="fv-style-label" for="fv-style-gallery-modal-right">Right Offset <span class="fv-style-val" id="fv-style-gallery-modal-right-val"></span></label>
+                        <input id="fv-style-gallery-modal-right" class="fv-style-input" type="range" min="0" max="280" step="1">
+                    </div>
+                    <div class="fv-style-field">
+                        <label class="fv-style-label" for="fv-style-gallery-modal-bottom">Bottom Offset <span class="fv-style-val" id="fv-style-gallery-modal-bottom-val"></span></label>
+                        <input id="fv-style-gallery-modal-bottom" class="fv-style-input" type="range" min="0" max="120" step="1">
+                    </div>
+                    <div class="fv-style-field">
+                        <label class="fv-style-label" for="fv-style-gallery-modal-title-font">Title Font</label>
+                        <select id="fv-style-gallery-modal-title-font" class="fv-style-select">
+                            <option value="Syne">Syne</option>
+                            <option value="Inter">Inter</option>
+                            <option value="Poppins">Poppins</option>
+                            <option value="Montserrat">Montserrat</option>
+                            <option value="Lora">Lora</option>
+                            <option value="Merriweather">Merriweather</option>
+                            <option value="Oswald">Oswald</option>
+                        </select>
+                    </div>
+                    <div class="fv-style-field">
+                        <label class="fv-style-label" for="fv-style-gallery-modal-item-font">Item Font</label>
+                        <select id="fv-style-gallery-modal-item-font" class="fv-style-select">
+                            <option value="Syne">Syne</option>
+                            <option value="Inter">Inter</option>
+                            <option value="Poppins">Poppins</option>
+                            <option value="Montserrat">Montserrat</option>
+                            <option value="Lora">Lora</option>
+                            <option value="Merriweather">Merriweather</option>
+                            <option value="Oswald">Oswald</option>
+                        </select>
+                    </div>
+                    <div class="fv-style-field">
+                        <label class="fv-style-label" for="fv-style-gallery-modal-title-size">Title Size <span class="fv-style-val" id="fv-style-gallery-modal-title-size-val"></span></label>
+                        <input id="fv-style-gallery-modal-title-size" class="fv-style-input" type="range" min="11" max="24" step="1">
+                    </div>
+                    <div class="fv-style-field">
+                        <label class="fv-style-label" for="fv-style-gallery-modal-item-size">Item Size <span class="fv-style-val" id="fv-style-gallery-modal-item-size-val"></span></label>
+                        <input id="fv-style-gallery-modal-item-size" class="fv-style-input" type="range" min="10" max="22" step="1">
+                    </div>
+                </div>
+            </div>
+
+            <div class="fv-style-actions">
+                <button class="fv-style-btn" id="fv-style-open-floorplan" type="button">Preview Floor Plans</button>
+                <button class="fv-style-btn" id="fv-style-open-gallery" type="button">Preview Gallery</button>
+                <button class="fv-style-btn" id="fv-style-reset" type="button">Reset</button>
+                <button class="fv-style-btn primary" id="fv-style-save" type="button">Save Style</button>
+            </div>
+            <div class="fv-style-status" id="fv-style-status"></div>
+        </div>
+    </aside>
+    {% endif %}
+
 <script>
 (function () {
     'use strict';
 
-    var WS_ID   = {{ (workspace_id or '') | tojson }};
+    var WS_ID = {{ (workspace_id or '') | tojson }};
     var INIT_TYPE = {{ (init_type or '') | tojson }};
-    var INIT_REF  = {{ (init_ref  or '') | tojson }};
+    var INIT_REF = {{ (init_ref or '') | tojson }};
+    var IS_EDITOR = {{ (is_editor or false) | tojson }};
+    var FV_CONFIG_ID = {{ (fv_config.get('id') if fv_config else '') | tojson }};
+    var INITIAL_STYLE = {{ (fv_style or {}) | tojson }};
+    var SUPABASE_URL = {{ (supabase_url or '') | tojson }};
+    var SUPABASE_ANON_KEY = {{ (supabase_anon_key or '') | tojson }};
 
-    var frame   = document.getElementById('cfv-frame');
+    var frame = document.getElementById('cfv-frame');
     var sidebar = document.getElementById('fv-sidebar');
     var headerTitleEl = document.getElementById('cfv-header-title');
     var headerSubEl = document.getElementById('cfv-header-sub');
     var navFab = document.getElementById('fv-nav-reveal-fab');
     var activeBtn = null;
     var DEBUG = true;
+    var styleState = null;
+    var SHELL_BASE_PATH = (IS_EDITOR ? '/customer/full-view/edit/' : '/customer/full-view/') + encodeURIComponent(WS_ID || '');
+
+    function defaultModalStyle() {
+        return {
+            bg: '#1e1e1e',
+            border: '#d6dee6',
+            title_text: '#ffffff',
+            item_text: '#f2f6ff',
+            item_active_bg: '#3e567f',
+            item_active_border: '#a4c1ea',
+            width: 260,
+            max_height_vh: 72,
+            right_offset: 112,
+            bottom_offset: 24,
+            title_font_family: 'Syne',
+            item_font_family: 'Syne',
+            title_font_size_px: 13,
+            item_font_size_px: 12
+        };
+    }
+
+    var DEFAULT_STYLE = {
+        menu_theme: 'blue',
+        sidebar: {
+            bg_start: '#253f69',
+            bg_end: '#162b51',
+            border: '#77a3cf',
+            accent: '#3ec2ff',
+            text: '#e9f1fb',
+            active_bg: '#cfd5df',
+            active_text: '#26344f',
+            width: 92,
+            font_family: 'Syne',
+            font_size_px: 9
+        },
+        modal: defaultModalStyle(),
+        modal_floorplan: defaultModalStyle(),
+        modal_gallery: defaultModalStyle()
+    };
+
+    var THEME_PRESETS = {
+        blue: {
+            sidebar: {
+                bg_start: '#253f69',
+                bg_end: '#162b51',
+                border: '#77a3cf',
+                accent: '#3ec2ff',
+                text: '#e9f1fb',
+                active_bg: '#cfd5df',
+                active_text: '#26344f'
+            },
+            modal: {
+                bg: '#1e1e1e',
+                border: '#d6dee6',
+                title_text: '#ffffff',
+                item_text: '#f2f6ff',
+                item_active_bg: '#3e567f',
+                item_active_border: '#a4c1ea'
+            }
+        },
+        slate: {
+            sidebar: {
+                bg_start: '#1b2637',
+                bg_end: '#101925',
+                border: '#5c738f',
+                accent: '#4eb6ff',
+                text: '#dce9ff',
+                active_bg: '#3d4f67',
+                active_text: '#ffffff'
+            },
+            modal: {
+                bg: '#131b26',
+                border: '#7388a2',
+                title_text: '#f2f8ff',
+                item_text: '#dbe8ff',
+                item_active_bg: '#385072',
+                item_active_border: '#9fb9da'
+            }
+        },
+        light: {
+            sidebar: {
+                bg_start: '#f2f7ff',
+                bg_end: '#dfeaf9',
+                border: '#8ca5c2',
+                accent: '#2a8cff',
+                text: '#20344f',
+                active_bg: '#ffffff',
+                active_text: '#20344f'
+            },
+            modal: {
+                bg: '#f3f7ff',
+                border: '#9eb4cf',
+                title_text: '#1d314d',
+                item_text: '#1f3657',
+                item_active_bg: '#d7e4f6',
+                item_active_border: '#8eabd0'
+            }
+        }
+    };
+    var FONT_FAMILIES = ['Syne', 'Inter', 'Poppins', 'Montserrat', 'Lora', 'Merriweather', 'Oswald'];
 
     function fvLog(level, message, data) {
         if (!DEBUG) return;
@@ -122,6 +612,174 @@
             return;
         }
         console.log(prefix, data || '');
+    }
+
+    function cloneObj(v) {
+        return JSON.parse(JSON.stringify(v || {}));
+    }
+
+    function deepMerge(target, source) {
+        if (!source || typeof source !== 'object') return target;
+        Object.keys(source).forEach(function (key) {
+            var srcVal = source[key];
+            if (srcVal && typeof srcVal === 'object' && !Array.isArray(srcVal)) {
+                if (!target[key] || typeof target[key] !== 'object' || Array.isArray(target[key])) {
+                    target[key] = {};
+                }
+                deepMerge(target[key], srcVal);
+                return;
+            }
+            target[key] = srcVal;
+        });
+        return target;
+    }
+
+    function clampInt(value, min, max, fallback) {
+        var n = parseInt(value, 10);
+        if (Number.isNaN(n)) return fallback;
+        if (n < min) return min;
+        if (n > max) return max;
+        return n;
+    }
+
+    function sanitizeHex(value, fallback) {
+        var s = String(value || '').trim();
+        if (/^#[0-9a-fA-F]{6}$/.test(s)) return s.toLowerCase();
+        if (/^#[0-9a-fA-F]{3}$/.test(s)) {
+            return '#' + s[1] + s[1] + s[2] + s[2] + s[3] + s[3];
+        }
+        return fallback;
+    }
+
+    function sanitizeFontFamily(value, fallback) {
+        var v = String(value || '').trim();
+        if (!v) return fallback;
+        for (var i = 0; i < FONT_FAMILIES.length; i++) {
+            if (FONT_FAMILIES[i].toLowerCase() === v.toLowerCase()) return FONT_FAMILIES[i];
+        }
+        return fallback;
+    }
+
+    function hexToRgba(hex, alpha) {
+        var clean = sanitizeHex(hex, '#000000').replace('#', '');
+        var r = parseInt(clean.slice(0, 2), 16);
+        var g = parseInt(clean.slice(2, 4), 16);
+        var b = parseInt(clean.slice(4, 6), 16);
+        return 'rgba(' + r + ', ' + g + ', ' + b + ', ' + alpha + ')';
+    }
+
+    function mixHexColor(hexA, hexB, ratio) {
+        var a = sanitizeHex(hexA, '#000000').replace('#', '');
+        var b = sanitizeHex(hexB, '#000000').replace('#', '');
+        var rr = Math.max(0, Math.min(1, ratio));
+        var r = Math.round(parseInt(a.slice(0, 2), 16) * (1 - rr) + parseInt(b.slice(0, 2), 16) * rr);
+        var g = Math.round(parseInt(a.slice(2, 4), 16) * (1 - rr) + parseInt(b.slice(2, 4), 16) * rr);
+        var bl = Math.round(parseInt(a.slice(4, 6), 16) * (1 - rr) + parseInt(b.slice(4, 6), 16) * rr);
+        function toHex(n) {
+            var out = n.toString(16);
+            return out.length === 1 ? ('0' + out) : out;
+        }
+        return '#' + toHex(r) + toHex(g) + toHex(bl);
+    }
+
+    function normalizeModalBlock(modalRaw, fallbackRaw) {
+        var fallback = (fallbackRaw && typeof fallbackRaw === 'object') ? fallbackRaw : DEFAULT_STYLE.modal;
+        var modal = (modalRaw && typeof modalRaw === 'object') ? modalRaw : {};
+        return {
+            bg: sanitizeHex(modal.bg, fallback.bg),
+            border: sanitizeHex(modal.border, fallback.border),
+            title_text: sanitizeHex(modal.title_text, fallback.title_text),
+            item_text: sanitizeHex(modal.item_text, fallback.item_text),
+            item_active_bg: sanitizeHex(modal.item_active_bg, fallback.item_active_bg),
+            item_active_border: sanitizeHex(modal.item_active_border, fallback.item_active_border),
+            width: clampInt(modal.width, 220, 2200, fallback.width),
+            max_height_vh: clampInt(modal.max_height_vh, 20, 100, fallback.max_height_vh),
+            right_offset: clampInt(modal.right_offset, 0, 280, fallback.right_offset),
+            bottom_offset: clampInt(modal.bottom_offset, 0, 120, fallback.bottom_offset),
+            title_font_family: sanitizeFontFamily(modal.title_font_family, fallback.title_font_family),
+            item_font_family: sanitizeFontFamily(modal.item_font_family, fallback.item_font_family),
+            title_font_size_px: clampInt(modal.title_font_size_px, 11, 24, fallback.title_font_size_px),
+            item_font_size_px: clampInt(modal.item_font_size_px, 10, 22, fallback.item_font_size_px)
+        };
+    }
+
+    function normalizeStyle(raw) {
+        var input = (raw && typeof raw === 'object') ? raw : {};
+        var merged = deepMerge(cloneObj(DEFAULT_STYLE), input);
+        if (!THEME_PRESETS[merged.menu_theme]) merged.menu_theme = 'blue';
+
+        merged.sidebar.bg_start = sanitizeHex(merged.sidebar.bg_start, DEFAULT_STYLE.sidebar.bg_start);
+        merged.sidebar.bg_end = sanitizeHex(merged.sidebar.bg_end, DEFAULT_STYLE.sidebar.bg_end);
+        merged.sidebar.border = sanitizeHex(merged.sidebar.border, DEFAULT_STYLE.sidebar.border);
+        merged.sidebar.accent = sanitizeHex(merged.sidebar.accent, DEFAULT_STYLE.sidebar.accent);
+        merged.sidebar.text = sanitizeHex(merged.sidebar.text, DEFAULT_STYLE.sidebar.text);
+        merged.sidebar.active_bg = sanitizeHex(merged.sidebar.active_bg, DEFAULT_STYLE.sidebar.active_bg);
+        merged.sidebar.active_text = sanitizeHex(merged.sidebar.active_text, DEFAULT_STYLE.sidebar.active_text);
+        merged.sidebar.width = clampInt(merged.sidebar.width, 72, 180, DEFAULT_STYLE.sidebar.width);
+        merged.sidebar.font_family = sanitizeFontFamily(merged.sidebar.font_family, DEFAULT_STYLE.sidebar.font_family);
+        merged.sidebar.font_size_px = clampInt(merged.sidebar.font_size_px, 9, 18, DEFAULT_STYLE.sidebar.font_size_px);
+
+        var legacyModal = (input.modal && typeof input.modal === 'object') ? input.modal : null;
+        var hasFloorPlanModal = (input.modal_floorplan && typeof input.modal_floorplan === 'object');
+        var hasGalleryModal = (input.modal_gallery && typeof input.modal_gallery === 'object');
+        if (legacyModal && !hasFloorPlanModal) deepMerge(merged.modal_floorplan, legacyModal);
+        if (legacyModal && !hasGalleryModal) deepMerge(merged.modal_gallery, legacyModal);
+
+        merged.modal = normalizeModalBlock(merged.modal, DEFAULT_STYLE.modal);
+        merged.modal_floorplan = normalizeModalBlock(merged.modal_floorplan, merged.modal);
+        merged.modal_gallery = normalizeModalBlock(merged.modal_gallery, merged.modal);
+        return merged;
+    }
+
+    function setCssVar(name, value) {
+        document.documentElement.style.setProperty(name, value);
+    }
+
+    function applyStyleConfig(style) {
+        var s = normalizeStyle(style);
+        var menuMid = mixHexColor(s.sidebar.bg_start, s.sidebar.bg_end, 0.45);
+        setCssVar('--fv-menu-bg-start', s.sidebar.bg_start);
+        setCssVar('--fv-menu-bg-mid', menuMid);
+        setCssVar('--fv-menu-bg-end', s.sidebar.bg_end);
+        setCssVar('--fv-menu-border', hexToRgba(s.sidebar.border, 0.58));
+        setCssVar('--fv-menu-accent', s.sidebar.accent);
+        setCssVar('--fv-menu-text', s.sidebar.text);
+        setCssVar('--fv-menu-active-bg', s.sidebar.active_bg);
+        setCssVar('--fv-menu-active-text', s.sidebar.active_text);
+        setCssVar('--fv-menu-width', s.sidebar.width + 'px');
+        setCssVar('--fv-menu-glow', hexToRgba(s.sidebar.accent, 0.28));
+        setCssVar('--fv-menu-font-family', "'" + s.sidebar.font_family + "', sans-serif");
+        setCssVar('--fv-menu-font-size', s.sidebar.font_size_px + 'px');
+
+        setCssVar('--fv-modal-bg', hexToRgba(s.modal_floorplan.bg, 0.82));
+        setCssVar('--fv-modal-border', hexToRgba(s.modal_floorplan.border, 0.38));
+        setCssVar('--fv-modal-title', s.modal_floorplan.title_text);
+        setCssVar('--fv-modal-item-text', hexToRgba(s.modal_floorplan.item_text, 0.9));
+        setCssVar('--fv-modal-item-active-bg', hexToRgba(s.modal_floorplan.item_active_bg, 0.35));
+        setCssVar('--fv-modal-item-active-border', hexToRgba(s.modal_floorplan.item_active_border, 0.62));
+        setCssVar('--fv-modal-width', s.modal_floorplan.width + 'px');
+        setCssVar('--fv-modal-height', s.modal_floorplan.max_height_vh + 'vh');
+        setCssVar('--fv-modal-max-height', s.modal_floorplan.max_height_vh + 'vh');
+        setCssVar('--fv-modal-right', s.modal_floorplan.right_offset + 'px');
+        setCssVar('--fv-modal-bottom', s.modal_floorplan.bottom_offset + 'px');
+        setCssVar('--fv-modal-title-font-family', "'" + s.modal_floorplan.title_font_family + "', sans-serif");
+        setCssVar('--fv-modal-item-font-family', "'" + s.modal_floorplan.item_font_family + "', sans-serif");
+        setCssVar('--fv-modal-title-font-size', s.modal_floorplan.title_font_size_px + 'px');
+        setCssVar('--fv-modal-item-font-size', s.modal_floorplan.item_font_size_px + 'px');
+    }
+
+    function postStylePreview() {
+        if (!frame || !frame.contentWindow) return;
+        frame.contentWindow.postMessage({
+            type: 'fv-style-preview',
+            style: normalizeStyle(styleState)
+        }, window.location.origin);
+    }
+
+    function applyAndBroadcastStyle() {
+        styleState = normalizeStyle(styleState);
+        applyStyleConfig(styleState);
+        if (IS_EDITOR) postStylePreview();
     }
 
     function normalizeTabType(type) {
@@ -184,7 +842,6 @@
             var host = (url.hostname || '').toLowerCase();
             var path = url.pathname || '';
             var id = null;
-
             if (host === 'youtu.be') {
                 var parts = path.split('/').filter(Boolean);
                 id = parts[0] || null;
@@ -193,10 +850,9 @@
                 else if (path.startsWith('/embed/')) id = path.split('/')[2] || null;
                 else if (path.startsWith('/shorts/')) id = path.split('/')[2] || null;
                 else if (path.startsWith('/live/')) id = path.split('/')[2] || null;
-            } else if (host === 'm.youtube.com') {
-                if (path === '/watch') id = url.searchParams.get('v');
+            } else if (host === 'm.youtube.com' && path === '/watch') {
+                id = url.searchParams.get('v');
             }
-
             if (!id) return null;
             id = id.trim();
             if (!/^[A-Za-z0-9_-]{11}$/.test(id)) {
@@ -205,7 +861,7 @@
             }
             if (/^[A-Za-z0-9_-]{11}$/.test(id)) return id;
         } catch (e) {
-            // ignore and try loose parsing fallback below
+            // ignore and fallback below
         }
         return extractYouTubeIdLoose(rawUrl) || extractYouTubeIdLoose(normalized);
     }
@@ -215,14 +871,7 @@
         if (!normalized) return null;
         var id = extractYouTubeId(normalized);
         if (!id) return null;
-        var params = [
-            'autoplay=1',
-            'mute=1',
-            'playsinline=1',
-            'rel=0',
-            'modestbranding=1',
-            'controls=1'
-        ];
+        var params = ['autoplay=1', 'mute=1', 'playsinline=1', 'rel=0', 'modestbranding=1', 'controls=1'];
         return 'https://www.youtube-nocookie.com/embed/' + id + '?' + params.join('&');
     }
 
@@ -230,7 +879,6 @@
         return /^https:\/\/www\.youtube-nocookie\.com\/embed\//i.test(String(url || ''));
     }
 
-    /* ---- build the embed URL for a given type + ref ---- */
     function embedUrl(type, ref, contentData) {
         contentData = normalizeContentData(contentData);
         var contentUrl = (contentData && contentData.url) ? String(contentData.url).trim() : '';
@@ -240,18 +888,18 @@
             if (ytEmbed) return ytEmbed;
         }
         var wsQ = '?workspace_id=' + encodeURIComponent(WS_ID) + '&embed=1';
-        if (type === 'floor_plan'  && ref) return '/customer/full-view/floor-plan/'   + ref + wsQ;
-        if (type === 'gallery'     && ref) return '/customer/full-view/gallery/'       + ref + wsQ;
-        if (type === 'amenities'   && ref) return '/customer/full-view/gallery/'       + ref + wsQ;
-        if (type === 'highlights'  && ref) return '/customer/full-view/gallery/'       + ref + wsQ;
-        if (type === 'daynight'    && ref) return '/customer/full-view/daynight/'      + ref + wsQ;
-        if (type === 'project_plan'&& ref) return '/customer/full-view/project-plan/' + ref + wsQ;
-        if (type === 'sales_map'   && ref) return '/customer/full-view/sales-map/'    + ref + wsQ;
+        if (type === 'floor_plan' && ref) return '/customer/full-view/floor-plan/' + ref + wsQ;
+        if (type === 'gallery' && ref) return '/customer/full-view/gallery/' + ref + wsQ;
+        if (type === 'amenities' && ref) return '/customer/full-view/gallery/' + ref + wsQ;
+        if (type === 'highlights' && ref) return '/customer/full-view/gallery/' + ref + wsQ;
+        if (type === 'daynight' && ref) return '/customer/full-view/daynight/' + ref + wsQ;
+        if (type === 'project_plan' && ref) return '/customer/full-view/project-plan/' + ref + wsQ;
+        if (type === 'sales_map' && ref) return '/customer/full-view/sales-map/' + ref + wsQ;
         if (type === 'sales_flat360' && ref) return '/customer/full-view/sales-flat360/' + ref + wsQ;
         if (type === 'video') return ytEmbed;
         if (type === 'location' && contentUrl) return contentUrl;
         if (type === 'brochure' && contentUrl) return contentUrl;
-        if (type === 'custom'   && contentUrl) return contentUrl;
+        if (type === 'custom' && contentUrl) return contentUrl;
         return null;
     }
 
@@ -292,9 +940,7 @@
         }
     }
 
-    if (navFab) {
-        navFab.innerHTML = '<iconify-icon icon="ph:list"></iconify-icon>';
-    }
+    if (navFab) navFab.innerHTML = '<iconify-icon icon="ph:list"></iconify-icon>';
     if (navFab) {
         navFab.addEventListener('click', function () {
             if (sidebar) sidebar.classList.remove('fv-sidebar--hidden');
@@ -306,61 +952,43 @@
 
     function loadTab(btn) {
         var rawType = btn.dataset.tabType;
-        var type    = normalizeTabType(rawType);
-        var pano    = btn.dataset.refPanorama;
-        var dn      = btn.dataset.refDaynight;
-        var fp      = btn.dataset.refFloorplan;
-        var gal     = btn.dataset.refGallery;
-        var pp      = btn.dataset.refProjectplan;
-        var sm      = btn.dataset.refSalesmap;
-        var sf3     = btn.dataset.refSalesflat360;
-        var cd      = parseContentData(btn);
-        fvLog('log', 'loadTab called', {
-            label: tabDisplayName(btn),
-            type: type,
-            rawType: rawType,
-            refs: { pano: pano, dn: dn, fp: fp, gal: gal, pp: pp, sm: sm, sf3: sf3 },
-            contentData: cd
-        });
-        if (headerTitleEl && !headerTitleEl.textContent) {
-            headerTitleEl.textContent = 'Project';
-        }
+        var type = normalizeTabType(rawType);
+        var pano = btn.dataset.refPanorama;
+        var dn = btn.dataset.refDaynight;
+        var fp = btn.dataset.refFloorplan;
+        var gal = btn.dataset.refGallery;
+        var pp = btn.dataset.refProjectplan;
+        var sm = btn.dataset.refSalesmap;
+        var sf3 = btn.dataset.refSalesflat360;
+        var cd = parseContentData(btn);
+
+        if (headerTitleEl && !headerTitleEl.textContent) headerTitleEl.textContent = 'Project';
         if (headerSubEl) {
             var labelEl = btn.querySelector('.fv-sidebar-label');
             var label = (labelEl && labelEl.textContent) ? labelEl.textContent.trim() : (btn.title || 'Full View');
             headerSubEl.textContent = label || 'Full View';
         }
 
-        /* ---- 360° / drone: go back to panorama ---- */
         if (type === '360_pano' || type === 'drone_view') {
             var dest = WS_ID ? '/customer/project/' + WS_ID : null;
-            fvLog('log', 'Navigating back to panorama route', { dest: dest, pano: pano });
             if (dest) window.location.href = pano ? dest + '?pano=' + pano : dest;
             return;
         }
 
-        /* ---- resolve ref based on type ---- */
         var ref = fp || gal || dn || pp || sm || sf3 || '';
-
-        /* ---- highlights: prefer gallery, fallback panorama ---- */
         if (type === 'highlights' && !gal && pano) {
-            fvLog('log', 'Highlights fallback to panorama route', { workspace_id: WS_ID, pano: pano });
             if (WS_ID) window.location.href = '/customer/project/' + WS_ID + '?pano=' + pano;
             return;
         }
 
         var url = embedUrl(type, ref, cd);
-        fvLog('log', 'Resolved URL for tab', { type: type, ref: ref, url: url });
         if (!url) {
-            fvLog('warn', 'No URL resolved for clicked tab', { type: type, ref: ref, contentData: cd });
             setActive(null);
             updateShellHomeSidebarState(null);
             return;
         }
 
-        /* ---- external URL (location/brochure/custom): open new tab ---- */
         if (!isYouTubeEmbedUrl(url) && type !== 'video' && (url.startsWith('http') || url.startsWith('//'))) {
-            fvLog('log', 'Opening external URL in new tab', { type: type, url: url });
             window.open(url, '_blank', 'noopener');
             setActive(null);
             updateShellHomeSidebarState(null);
@@ -368,54 +996,40 @@
         }
 
         setActive(btn);
-        fvLog('log', 'Loading tab inside iframe', { type: type, url: url });
         frame.src = url;
         updateShellHomeSidebarState(btn);
-
-        /* update browser URL bar without navigation */
         if (history.replaceState && WS_ID) {
-            history.replaceState(null, '', '/customer/full-view/' + WS_ID
+            history.replaceState(null, '', SHELL_BASE_PATH
                 + '?type=' + encodeURIComponent(type)
-                + '&ref='  + encodeURIComponent(ref));
+                + '&ref=' + encodeURIComponent(ref));
         }
     }
 
-    /* ---- bind sidebar buttons ---- */
     if (sidebar) {
         sidebar.addEventListener('click', function (evt) {
             var btn = evt.target && evt.target.closest ? evt.target.closest('.fv-sidebar-btn') : null;
             if (!btn || !sidebar.contains(btn)) return;
             evt.preventDefault();
-            fvLog('log', 'Sidebar click captured', {
-                label: tabDisplayName(btn),
-                type: btn.dataset.tabType || '',
-                rawContent: btn.dataset.content || '{}'
-            });
             loadTab(btn);
         });
-        fvLog('log', 'Sidebar click delegation bound', { buttonCount: sidebar.querySelectorAll('.fv-sidebar-btn').length });
     }
 
     if (frame) {
         frame.addEventListener('load', function () {
-            fvLog('log', 'Iframe load event', { src: frame.src });
+            fvLog('log', 'Iframe loaded', { src: frame.src });
+            if (IS_EDITOR) {
+                setTimeout(postStylePreview, 30);
+            }
         });
         frame.addEventListener('error', function () {
-            fvLog('error', 'Iframe error event', { src: frame.src });
+            fvLog('error', 'Iframe error', { src: frame.src });
         });
     }
 
-    /* ---- auto-select initial tab based on URL params ---- */
     function autoSelect() {
         if (!sidebar) return;
         var btns = sidebar.querySelectorAll('.fv-sidebar-btn');
         var initTypeNorm = normalizeTabType(INIT_TYPE);
-        fvLog('log', 'Auto-select started', {
-            initType: INIT_TYPE,
-            initTypeNorm: initTypeNorm,
-            initRef: INIT_REF,
-            totalButtons: btns.length
-        });
 
         function isInternalEmbeddable(btn) {
             var type = normalizeTabType(btn.dataset.tabType || '');
@@ -424,41 +1038,317 @@
             if (cd && cd.url && normalizeYouTubeEmbedUrl(cd.url)) return true;
             if (type === 'location' || type === 'brochure' || type === 'custom') return false;
             var ref = btn.dataset.refFloorplan || btn.dataset.refGallery
-                    || btn.dataset.refDaynight || btn.dataset.refProjectplan || btn.dataset.refSalesmap || '';
+                || btn.dataset.refDaynight || btn.dataset.refProjectplan || btn.dataset.refSalesmap || '';
             return !!embedUrl(type, ref, cd);
         }
 
-        // 1) Try URL-requested target when provided
         if (initTypeNorm) {
             for (var i = 0; i < btns.length; i++) {
                 var b = btns[i];
                 if (normalizeTabType(b.dataset.tabType) !== initTypeNorm) continue;
-                var ref = b.dataset.refFloorplan || b.dataset.refGallery
-                        || b.dataset.refDaynight  || b.dataset.refProjectplan || b.dataset.refSalesmap || '';
-                if (INIT_REF && ref && String(ref) !== String(INIT_REF)) continue;
-                fvLog('log', 'Auto-select matched init target', { label: tabDisplayName(b), type: b.dataset.tabType, ref: ref });
+                var initRef = b.dataset.refFloorplan || b.dataset.refGallery
+                    || b.dataset.refDaynight || b.dataset.refProjectplan || b.dataset.refSalesmap || '';
+                if (INIT_REF && initRef && String(initRef) !== String(INIT_REF)) continue;
                 loadTab(b);
                 return;
             }
         }
 
-        // 2) Default landing behavior: auto-load the first internal project tab
+        if (IS_EDITOR) {
+            for (var pref = 0; pref < btns.length; pref++) {
+                if (normalizeTabType(btns[pref].dataset.tabType) === 'floor_plan') {
+                    loadTab(btns[pref]);
+                    return;
+                }
+            }
+            for (var pref2 = 0; pref2 < btns.length; pref2++) {
+                var t = normalizeTabType(btns[pref2].dataset.tabType);
+                if (t === 'gallery' || t === 'highlights' || t === 'amenities') {
+                    loadTab(btns[pref2]);
+                    return;
+                }
+            }
+        }
+
         for (var j = 0; j < btns.length; j++) {
             if (isInternalEmbeddable(btns[j])) {
-                fvLog('log', 'Auto-select chose first internal tab', {
-                    label: tabDisplayName(btns[j]),
-                    type: btns[j].dataset.tabType
-                });
                 loadTab(btns[j]);
                 return;
             }
         }
-        fvLog('warn', 'Auto-select found no embeddable tab');
     }
 
+    function firstTabByTypes(typeList) {
+        if (!sidebar) return null;
+        for (var i = 0; i < typeList.length; i++) {
+            var selector = '.fv-sidebar-btn[data-tab-type="' + typeList[i] + '"]';
+            var found = sidebar.querySelector(selector);
+            if (found) return found;
+        }
+        return null;
+    }
+
+    function showEditorStatus(message, isError) {
+        var el = document.getElementById('fv-style-status');
+        if (!el) return;
+        el.textContent = message || '';
+        el.classList.toggle('error', !!isError);
+        if (message) {
+            setTimeout(function () {
+                if (el.textContent === message) el.textContent = '';
+            }, 3500);
+        }
+    }
+
+    function editorAuthHeaders() {
+        if (!window._supabase) return Promise.resolve({ 'Content-Type': 'application/json' });
+        return window._supabase.auth.getSession().then(function (r) {
+            var h = { 'Content-Type': 'application/json' };
+            if (r.data.session && r.data.session.access_token) h.Authorization = 'Bearer ' + r.data.session.access_token;
+            return h;
+        });
+    }
+
+    function syncEditorForm() {
+        var s = normalizeStyle(styleState);
+        var set = function (id, value) {
+            var el = document.getElementById(id);
+            if (!el) return;
+            el.value = value;
+        };
+        set('fv-style-theme', s.menu_theme);
+        set('fv-style-menu-start', s.sidebar.bg_start);
+        set('fv-style-menu-end', s.sidebar.bg_end);
+        set('fv-style-menu-border', s.sidebar.border);
+        set('fv-style-menu-accent', s.sidebar.accent);
+        set('fv-style-menu-text', s.sidebar.text);
+        set('fv-style-menu-active-bg', s.sidebar.active_bg);
+        set('fv-style-menu-active-text', s.sidebar.active_text);
+        set('fv-style-menu-width', s.sidebar.width);
+        set('fv-style-menu-font', s.sidebar.font_family);
+        set('fv-style-menu-font-size', s.sidebar.font_size_px);
+        set('fv-style-modal-bg', s.modal_floorplan.bg);
+        set('fv-style-modal-border', s.modal_floorplan.border);
+        set('fv-style-modal-title', s.modal_floorplan.title_text);
+        set('fv-style-modal-item', s.modal_floorplan.item_text);
+        set('fv-style-modal-active-bg', s.modal_floorplan.item_active_bg);
+        set('fv-style-modal-active-border', s.modal_floorplan.item_active_border);
+        set('fv-style-modal-width', s.modal_floorplan.width);
+        set('fv-style-modal-height', s.modal_floorplan.max_height_vh);
+        set('fv-style-modal-right', s.modal_floorplan.right_offset);
+        set('fv-style-modal-bottom', s.modal_floorplan.bottom_offset);
+        set('fv-style-modal-title-font', s.modal_floorplan.title_font_family);
+        set('fv-style-modal-item-font', s.modal_floorplan.item_font_family);
+        set('fv-style-modal-title-size', s.modal_floorplan.title_font_size_px);
+        set('fv-style-modal-item-size', s.modal_floorplan.item_font_size_px);
+        set('fv-style-gallery-modal-bg', s.modal_gallery.bg);
+        set('fv-style-gallery-modal-border', s.modal_gallery.border);
+        set('fv-style-gallery-modal-title', s.modal_gallery.title_text);
+        set('fv-style-gallery-modal-item', s.modal_gallery.item_text);
+        set('fv-style-gallery-modal-active-bg', s.modal_gallery.item_active_bg);
+        set('fv-style-gallery-modal-active-border', s.modal_gallery.item_active_border);
+        set('fv-style-gallery-modal-width', s.modal_gallery.width);
+        set('fv-style-gallery-modal-height', s.modal_gallery.max_height_vh);
+        set('fv-style-gallery-modal-right', s.modal_gallery.right_offset);
+        set('fv-style-gallery-modal-bottom', s.modal_gallery.bottom_offset);
+        set('fv-style-gallery-modal-title-font', s.modal_gallery.title_font_family);
+        set('fv-style-gallery-modal-item-font', s.modal_gallery.item_font_family);
+        set('fv-style-gallery-modal-title-size', s.modal_gallery.title_font_size_px);
+        set('fv-style-gallery-modal-item-size', s.modal_gallery.item_font_size_px);
+
+        var mapVals = [
+            ['fv-style-menu-width-val', s.sidebar.width + 'px'],
+            ['fv-style-menu-font-size-val', s.sidebar.font_size_px + 'px'],
+            ['fv-style-modal-width-val', s.modal_floorplan.width + 'px'],
+            ['fv-style-modal-height-val', s.modal_floorplan.max_height_vh + 'vh'],
+            ['fv-style-modal-right-val', s.modal_floorplan.right_offset + 'px'],
+            ['fv-style-modal-bottom-val', s.modal_floorplan.bottom_offset + 'px'],
+            ['fv-style-modal-title-size-val', s.modal_floorplan.title_font_size_px + 'px'],
+            ['fv-style-modal-item-size-val', s.modal_floorplan.item_font_size_px + 'px'],
+            ['fv-style-gallery-modal-width-val', s.modal_gallery.width + 'px'],
+            ['fv-style-gallery-modal-height-val', s.modal_gallery.max_height_vh + 'vh'],
+            ['fv-style-gallery-modal-right-val', s.modal_gallery.right_offset + 'px'],
+            ['fv-style-gallery-modal-bottom-val', s.modal_gallery.bottom_offset + 'px'],
+            ['fv-style-gallery-modal-title-size-val', s.modal_gallery.title_font_size_px + 'px'],
+            ['fv-style-gallery-modal-item-size-val', s.modal_gallery.item_font_size_px + 'px']
+        ];
+        mapVals.forEach(function (row) {
+            var node = document.getElementById(row[0]);
+            if (node) node.textContent = row[1];
+        });
+    }
+
+    function bindEditor() {
+        if (!IS_EDITOR) return;
+        if (window.supabase && SUPABASE_URL && SUPABASE_ANON_KEY && !window._supabase) {
+            try {
+                window._supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+            } catch (e) {
+                fvLog('warn', 'Supabase init failed for editor save', e);
+            }
+        }
+
+        syncEditorForm();
+        function bindColor(id, setter) {
+            var el = document.getElementById(id);
+            if (!el) return;
+            el.addEventListener('input', function () {
+                setter(el.value);
+                applyAndBroadcastStyle();
+            });
+        }
+        function bindRange(id, setter, valId, unit) {
+            var el = document.getElementById(id);
+            if (!el) return;
+            el.addEventListener('input', function () {
+                var v = parseInt(el.value, 10) || 0;
+                setter(v);
+                var lbl = document.getElementById(valId);
+                if (lbl) lbl.textContent = v + unit;
+                applyAndBroadcastStyle();
+            });
+        }
+        function bindSelect(id, setter) {
+            var el = document.getElementById(id);
+            if (!el) return;
+            el.addEventListener('change', function () {
+                setter(el.value);
+                applyAndBroadcastStyle();
+            });
+        }
+
+        var themeSel = document.getElementById('fv-style-theme');
+        if (themeSel) {
+            themeSel.addEventListener('change', function () {
+                var preset = THEME_PRESETS[themeSel.value];
+                styleState.menu_theme = themeSel.value;
+                if (preset) {
+                    deepMerge(styleState.sidebar, preset.sidebar);
+                    deepMerge(styleState.modal, preset.modal);
+                    deepMerge(styleState.modal_floorplan, preset.modal);
+                    deepMerge(styleState.modal_gallery, preset.modal);
+                }
+                styleState = normalizeStyle(styleState);
+                syncEditorForm();
+                applyAndBroadcastStyle();
+            });
+        }
+
+        bindColor('fv-style-menu-start', function (v) { styleState.sidebar.bg_start = v; });
+        bindColor('fv-style-menu-end', function (v) { styleState.sidebar.bg_end = v; });
+        bindColor('fv-style-menu-border', function (v) { styleState.sidebar.border = v; });
+        bindColor('fv-style-menu-accent', function (v) { styleState.sidebar.accent = v; });
+        bindColor('fv-style-menu-text', function (v) { styleState.sidebar.text = v; });
+        bindColor('fv-style-menu-active-bg', function (v) { styleState.sidebar.active_bg = v; });
+        bindColor('fv-style-menu-active-text', function (v) { styleState.sidebar.active_text = v; });
+        bindColor('fv-style-modal-bg', function (v) { styleState.modal_floorplan.bg = v; });
+        bindColor('fv-style-modal-border', function (v) { styleState.modal_floorplan.border = v; });
+        bindColor('fv-style-modal-title', function (v) { styleState.modal_floorplan.title_text = v; });
+        bindColor('fv-style-modal-item', function (v) { styleState.modal_floorplan.item_text = v; });
+        bindColor('fv-style-modal-active-bg', function (v) { styleState.modal_floorplan.item_active_bg = v; });
+        bindColor('fv-style-modal-active-border', function (v) { styleState.modal_floorplan.item_active_border = v; });
+        bindColor('fv-style-gallery-modal-bg', function (v) { styleState.modal_gallery.bg = v; });
+        bindColor('fv-style-gallery-modal-border', function (v) { styleState.modal_gallery.border = v; });
+        bindColor('fv-style-gallery-modal-title', function (v) { styleState.modal_gallery.title_text = v; });
+        bindColor('fv-style-gallery-modal-item', function (v) { styleState.modal_gallery.item_text = v; });
+        bindColor('fv-style-gallery-modal-active-bg', function (v) { styleState.modal_gallery.item_active_bg = v; });
+        bindColor('fv-style-gallery-modal-active-border', function (v) { styleState.modal_gallery.item_active_border = v; });
+        bindSelect('fv-style-menu-font', function (v) { styleState.sidebar.font_family = v; });
+        bindSelect('fv-style-modal-title-font', function (v) { styleState.modal_floorplan.title_font_family = v; });
+        bindSelect('fv-style-modal-item-font', function (v) { styleState.modal_floorplan.item_font_family = v; });
+        bindSelect('fv-style-gallery-modal-title-font', function (v) { styleState.modal_gallery.title_font_family = v; });
+        bindSelect('fv-style-gallery-modal-item-font', function (v) { styleState.modal_gallery.item_font_family = v; });
+
+        bindRange('fv-style-menu-width', function (v) { styleState.sidebar.width = v; }, 'fv-style-menu-width-val', 'px');
+        bindRange('fv-style-menu-font-size', function (v) { styleState.sidebar.font_size_px = v; }, 'fv-style-menu-font-size-val', 'px');
+        bindRange('fv-style-modal-width', function (v) { styleState.modal_floorplan.width = v; }, 'fv-style-modal-width-val', 'px');
+        bindRange('fv-style-modal-height', function (v) { styleState.modal_floorplan.max_height_vh = v; }, 'fv-style-modal-height-val', 'vh');
+        bindRange('fv-style-modal-right', function (v) { styleState.modal_floorplan.right_offset = v; }, 'fv-style-modal-right-val', 'px');
+        bindRange('fv-style-modal-bottom', function (v) { styleState.modal_floorplan.bottom_offset = v; }, 'fv-style-modal-bottom-val', 'px');
+        bindRange('fv-style-modal-title-size', function (v) { styleState.modal_floorplan.title_font_size_px = v; }, 'fv-style-modal-title-size-val', 'px');
+        bindRange('fv-style-modal-item-size', function (v) { styleState.modal_floorplan.item_font_size_px = v; }, 'fv-style-modal-item-size-val', 'px');
+        bindRange('fv-style-gallery-modal-width', function (v) { styleState.modal_gallery.width = v; }, 'fv-style-gallery-modal-width-val', 'px');
+        bindRange('fv-style-gallery-modal-height', function (v) { styleState.modal_gallery.max_height_vh = v; }, 'fv-style-gallery-modal-height-val', 'vh');
+        bindRange('fv-style-gallery-modal-right', function (v) { styleState.modal_gallery.right_offset = v; }, 'fv-style-gallery-modal-right-val', 'px');
+        bindRange('fv-style-gallery-modal-bottom', function (v) { styleState.modal_gallery.bottom_offset = v; }, 'fv-style-gallery-modal-bottom-val', 'px');
+        bindRange('fv-style-gallery-modal-title-size', function (v) { styleState.modal_gallery.title_font_size_px = v; }, 'fv-style-gallery-modal-title-size-val', 'px');
+        bindRange('fv-style-gallery-modal-item-size', function (v) { styleState.modal_gallery.item_font_size_px = v; }, 'fv-style-gallery-modal-item-size-val', 'px');
+
+        var previewFloorPlan = document.getElementById('fv-style-open-floorplan');
+        if (previewFloorPlan) {
+            previewFloorPlan.addEventListener('click', function () {
+                var tab = firstTabByTypes(['floor_plan']);
+                if (!tab) {
+                    showEditorStatus('Add a Floor Plan tab first in Full View Creator.', true);
+                    return;
+                }
+                loadTab(tab);
+            });
+        }
+
+        var previewGallery = document.getElementById('fv-style-open-gallery');
+        if (previewGallery) {
+            previewGallery.addEventListener('click', function () {
+                var tab = firstTabByTypes(['gallery', 'highlights', 'amenities']);
+                if (!tab) {
+                    showEditorStatus('Add a Gallery tab first in Full View Creator.', true);
+                    return;
+                }
+                loadTab(tab);
+            });
+        }
+
+        var resetBtn = document.getElementById('fv-style-reset');
+        if (resetBtn) {
+            resetBtn.addEventListener('click', function () {
+                styleState = normalizeStyle(DEFAULT_STYLE);
+                syncEditorForm();
+                applyAndBroadcastStyle();
+                showEditorStatus('Theme reset to default.', false);
+            });
+        }
+
+        var saveBtn = document.getElementById('fv-style-save');
+        if (saveBtn) {
+            saveBtn.addEventListener('click', async function () {
+                try {
+                    var headers = await editorAuthHeaders();
+                    if (!FV_CONFIG_ID) {
+                        var createRes = await fetch('/api/full-view/config', {
+                            method: 'POST',
+                            headers: headers,
+                            body: JSON.stringify({ workspace_id: WS_ID })
+                        });
+                        if (!createRes.ok) {
+                            var createTxt = await createRes.text();
+                            throw new Error(createTxt || 'Failed to create Full View config');
+                        }
+                        var created = await createRes.json();
+                        FV_CONFIG_ID = (created && created.config && created.config.id) ? created.config.id : '';
+                        if (!FV_CONFIG_ID) throw new Error('Failed to resolve config id');
+                    }
+                    var res = await fetch('/api/full-view/config/' + encodeURIComponent(FV_CONFIG_ID), {
+                        method: 'PUT',
+                        headers: headers,
+                        body: JSON.stringify({ style: normalizeStyle(styleState) })
+                    });
+                    if (!res.ok) {
+                        var txt = await res.text();
+                        throw new Error(txt || 'Save failed');
+                    }
+                    showEditorStatus('Style saved and synced to customer full view.', false);
+                } catch (e) {
+                    showEditorStatus('Save failed: ' + String(e.message || e), true);
+                }
+            });
+        }
+    }
+
+    styleState = normalizeStyle(INITIAL_STYLE);
+    applyAndBroadcastStyle();
     autoSelect();
+    bindEditor();
 })();
 </script>
 </body>
 </html>
-

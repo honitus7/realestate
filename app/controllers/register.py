@@ -7153,7 +7153,8 @@ h1 {{ margin:0 0 8px; font-size:22px; }}
         return render_template('floorplans_view.html',
                                catalogue=cat,
                                items=items,
-                               workspace_name=cat.get('name', 'Floor Plans'))
+                               workspace_name=cat.get('name', 'Floor Plans'),
+                               fv_style={})
 
     # ==================================================================
     # Building Maps
@@ -8951,7 +8952,8 @@ h1 {{ margin:0 0 8px; font-size:22px; }}
             return "No media uploaded yet", 404
         return render_template('gallery_view.html',
                                gallery=gal,
-                               items=items)
+                               items=items,
+                               fv_style={})
 
     # ── User Management (admin-only) ──────────────────────────────────
 
@@ -10288,6 +10290,8 @@ h1 {{ margin:0 0 8px; font-size:22px; }}
         if not sb:
             return jsonify({'error': 'Database not configured'}), 503
         data = request.get_json(silent=True) or {}
+        if 'style' in data and not isinstance(data.get('style'), dict):
+            return jsonify({'error': 'style must be a JSON object'}), 400
         updated = fv_update_config(sb, config_id, **data)
         return jsonify({'config': updated})
 
@@ -10419,12 +10423,44 @@ h1 {{ margin:0 0 8px; font-size:22px; }}
         fv_config = fv_get_config_with_tabs(sb, workspace_id)
         init_type = request.args.get('type', '').strip() or None
         init_ref  = request.args.get('ref',  '').strip() or None
+        fv_style = {}
+        if fv_config and isinstance(fv_config.get('style'), dict):
+            fv_style = fv_config.get('style')
         return render_template('customer_fullview.html',
                                workspace_id=workspace_id,
                                workspace_name=ws.get('name', ''),
                                fv_config=fv_config,
+                               fv_style=fv_style,
+                               is_editor=False,
                                init_type=init_type,
                                init_ref=init_ref)
+
+    @app.route('/customer/full-view/edit/<workspace_id>')
+    def fv_customer_shell_editor(workspace_id):
+        """Full View shell editor for style customization."""
+        sb = get_supabase()
+        if not sb:
+            return "Database not configured", 503
+        ws = get_workspace_by_id(sb, workspace_id)
+        if not ws:
+            return "Workspace not found", 404
+
+        config = fv_get_config(sb, workspace_id)
+        tabs = fv_list_tabs(sb, config['id']) if config else []
+        fv_config = dict(config or {})
+        fv_config['tabs'] = tabs
+        fv_style = fv_config.get('style') if isinstance(fv_config.get('style'), dict) else {}
+        init_type = request.args.get('type', '').strip() or None
+        init_ref = request.args.get('ref', '').strip() or None
+        return render_template('customer_fullview.html',
+                               workspace_id=workspace_id,
+                               workspace_name=ws.get('name', ''),
+                               fv_config=fv_config,
+                               fv_style=fv_style,
+                               is_editor=True,
+                               init_type=init_type,
+                               init_ref=init_ref,
+                               **auth_ctx())
 
     @app.route('/customer/full-view/floor-plan/<catalogue_id>')
     def fv_customer_floorplan_view(catalogue_id):
@@ -10439,10 +10475,18 @@ h1 {{ margin:0 0 8px; font-size:22px; }}
         for item in items:
             item['image_url'] = get_floorplan_s3_url(item.get('image_filename'))
         items = [it for it in items if it.get('image_url')]
+        workspace_id = (request.args.get('workspace_id') or '').strip() or None
+        fv_style = {}
+        if workspace_id:
+            fv_cfg = fv_get_config(sb, workspace_id)
+            style_blob = (fv_cfg or {}).get('style')
+            if isinstance(style_blob, dict):
+                fv_style = style_blob
         return render_template('floorplans_view.html',
                                catalogue=cat,
                                items=items,
                                workspace_name=cat.get('name', 'Floor Plans'),
+                               fv_style=fv_style,
                                fv_config=None)
 
     @app.route('/customer/full-view/gallery/<gallery_id>')
@@ -10458,9 +10502,17 @@ h1 {{ margin:0 0 8px; font-size:22px; }}
         for item in items:
             item['media_url'] = get_gallery_s3_url(item.get('filename'))
         items = [it for it in items if it.get('media_url')]
+        workspace_id = (request.args.get('workspace_id') or '').strip() or None
+        fv_style = {}
+        if workspace_id:
+            fv_cfg = fv_get_config(sb, workspace_id)
+            style_blob = (fv_cfg or {}).get('style')
+            if isinstance(style_blob, dict):
+                fv_style = style_blob
         return render_template('gallery_view.html',
                                gallery=gal,
                                items=items,
+                               fv_style=fv_style,
                                fv_config=None)
 
     @app.route('/customer/full-view/daynight/<project_id>')

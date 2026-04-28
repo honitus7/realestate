@@ -6,7 +6,7 @@
     <title>{{ catalogue.name or 'Floor Plans' }} – {{ workspace_name or 'PropMark' }}</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Lora:wght@400;500;600;700&family=Merriweather:wght@400;700&family=Montserrat:wght@400;500;600;700&family=Oswald:wght@400;500;600&family=Poppins:wght@400;500;600;700&family=Syne:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/static/css/theme.css">
     <link rel="stylesheet" href="/static/css/floorplans_view.css">
 </head>
@@ -54,6 +54,117 @@
 
 <script>
 (function() {
+    var INITIAL_STYLE = {{ (fv_style or {}) | tojson }};
+    var DEFAULT_MODAL = {
+        bg: '#1e1e1e',
+        border: '#d6dee6',
+        title_text: '#ffffff',
+        item_text: '#f2f6ff',
+        item_active_bg: '#3e567f',
+        item_active_border: '#a4c1ea',
+        width: 260,
+        max_height_vh: 72,
+        right_offset: 112,
+        bottom_offset: 24,
+        title_font_family: 'Syne',
+        item_font_family: 'Syne',
+        title_font_size_px: 13,
+        item_font_size_px: 12
+    };
+    var FONT_FAMILIES = ['Syne', 'Inter', 'Poppins', 'Montserrat', 'Lora', 'Merriweather', 'Oswald'];
+
+    function clampInt(value, min, max, fallback) {
+        var n = parseInt(value, 10);
+        if (Number.isNaN(n)) return fallback;
+        if (n < min) return min;
+        if (n > max) return max;
+        return n;
+    }
+
+    function sanitizeHex(value, fallback) {
+        var s = String(value || '').trim();
+        if (/^#[0-9a-fA-F]{6}$/.test(s)) return s.toLowerCase();
+        if (/^#[0-9a-fA-F]{3}$/.test(s)) {
+            return '#' + s[1] + s[1] + s[2] + s[2] + s[3] + s[3];
+        }
+        return fallback;
+    }
+
+    function sanitizeFontFamily(value, fallback) {
+        var v = String(value || '').trim();
+        if (!v) return fallback;
+        for (var i = 0; i < FONT_FAMILIES.length; i++) {
+            if (FONT_FAMILIES[i].toLowerCase() === v.toLowerCase()) return FONT_FAMILIES[i];
+        }
+        return fallback;
+    }
+
+    function hexToRgba(hex, alpha) {
+        var clean = sanitizeHex(hex, '#000000').replace('#', '');
+        var r = parseInt(clean.slice(0, 2), 16);
+        var g = parseInt(clean.slice(2, 4), 16);
+        var b = parseInt(clean.slice(4, 6), 16);
+        return 'rgba(' + r + ', ' + g + ', ' + b + ', ' + alpha + ')';
+    }
+
+    function normalizeModalStyle(raw) {
+        var modal = {};
+        if (raw && raw.modal_floorplan && typeof raw.modal_floorplan === 'object') {
+            modal = raw.modal_floorplan;
+        } else if (raw && raw.modal && typeof raw.modal === 'object') {
+            modal = raw.modal;
+        }
+        return {
+            bg: sanitizeHex(modal.bg, DEFAULT_MODAL.bg),
+            border: sanitizeHex(modal.border, DEFAULT_MODAL.border),
+            title_text: sanitizeHex(modal.title_text, DEFAULT_MODAL.title_text),
+            item_text: sanitizeHex(modal.item_text, DEFAULT_MODAL.item_text),
+            item_active_bg: sanitizeHex(modal.item_active_bg, DEFAULT_MODAL.item_active_bg),
+            item_active_border: sanitizeHex(modal.item_active_border, DEFAULT_MODAL.item_active_border),
+            width: clampInt(modal.width, 220, 2200, DEFAULT_MODAL.width),
+            max_height_vh: clampInt(modal.max_height_vh, 20, 100, DEFAULT_MODAL.max_height_vh),
+            right_offset: clampInt(modal.right_offset, 0, 280, DEFAULT_MODAL.right_offset),
+            bottom_offset: clampInt(modal.bottom_offset, 0, 120, DEFAULT_MODAL.bottom_offset),
+            title_font_family: sanitizeFontFamily(modal.title_font_family, DEFAULT_MODAL.title_font_family),
+            item_font_family: sanitizeFontFamily(modal.item_font_family, DEFAULT_MODAL.item_font_family),
+            title_font_size_px: clampInt(modal.title_font_size_px, 11, 24, DEFAULT_MODAL.title_font_size_px),
+            item_font_size_px: clampInt(modal.item_font_size_px, 10, 22, DEFAULT_MODAL.item_font_size_px)
+        };
+    }
+
+    function setCssVar(name, value) {
+        document.documentElement.style.setProperty(name, value);
+    }
+
+    function applyModalStyle(raw) {
+        var m = normalizeModalStyle(raw);
+        setCssVar('--fv-modal-bg', hexToRgba(m.bg, 0.82));
+        setCssVar('--fv-modal-border', hexToRgba(m.border, 0.38));
+        setCssVar('--fv-modal-title', m.title_text);
+        setCssVar('--fv-modal-item-text', hexToRgba(m.item_text, 0.9));
+        setCssVar('--fv-modal-item-active-bg', hexToRgba(m.item_active_bg, 0.35));
+        setCssVar('--fv-modal-item-active-border', hexToRgba(m.item_active_border, 0.62));
+        setCssVar('--fv-modal-width', m.width + 'px');
+        setCssVar('--fv-modal-height', m.max_height_vh + 'vh');
+        setCssVar('--fv-modal-max-height', m.max_height_vh + 'vh');
+        setCssVar('--fv-modal-right', m.right_offset + 'px');
+        setCssVar('--fv-modal-bottom', m.bottom_offset + 'px');
+        setCssVar('--fv-modal-title-font-family', "'" + m.title_font_family + "', sans-serif");
+        setCssVar('--fv-modal-item-font-family', "'" + m.item_font_family + "', sans-serif");
+        setCssVar('--fv-modal-title-font-size', m.title_font_size_px + 'px');
+        setCssVar('--fv-modal-item-font-size', m.item_font_size_px + 'px');
+    }
+
+    applyModalStyle(INITIAL_STYLE);
+
+    window.addEventListener('message', function (evt) {
+        if (evt.origin !== window.location.origin) return;
+        var data = evt.data || {};
+        if (data.type === 'fv-style-preview' && data.style && typeof data.style === 'object') {
+            applyModalStyle(data.style);
+        }
+    });
+
     var items = document.querySelectorAll('.fpv-panel-item');
     var imgEl = document.getElementById('fpv-image');
     var panel = document.getElementById('fpv-panel');

@@ -125,15 +125,16 @@
 /* -- Floor Plan selector panel (gallery dark glass) -- */
 .fpv-panel {
     position: fixed;
-    bottom: 1.5rem;
-    right: 7rem;
+    bottom: var(--fv-modal-bottom, 1.5rem);
+    right: var(--fv-modal-right, 7rem);
     z-index: 20;
-    width: 260px;
-    max-height: calc(100vh - 6rem);
-    background: rgba(30, 30, 30, 0.8);
+    width: min(var(--fv-modal-width, 260px), max(0px, calc(100vw - var(--fv-modal-right, 0px))));
+    height: min(var(--fv-modal-height, var(--fv-modal-max-height, 72vh)), max(0px, calc(100vh - var(--fv-modal-bottom, 0px))));
+    max-height: min(var(--fv-modal-height, var(--fv-modal-max-height, 72vh)), max(0px, calc(100vh - var(--fv-modal-bottom, 0px))));
+    background: var(--fv-modal-bg, rgba(30, 30, 30, 0.8));
     backdrop-filter: blur(18px) saturate(160%);
     -webkit-backdrop-filter: blur(18px) saturate(160%);
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    border: 1px solid var(--fv-modal-border, rgba(255, 255, 255, 0.08));
     border-radius: 14px;
     box-shadow: 0 4px 18px rgba(0, 0, 0, 0.35);
     display: flex;
@@ -152,9 +153,10 @@
 }
 
 .fpv-panel-title {
-    font-size: 0.82rem;
+    font-size: var(--fv-modal-title-font-size, 0.82rem);
     font-weight: 700;
-    color: #ffffff;
+    color: var(--fv-modal-title, #ffffff);
+    font-family: var(--fv-modal-title-font-family, var(--font-body, 'Syne', sans-serif));
     letter-spacing: 0.01em;
     margin: 0;
 }
@@ -165,7 +167,7 @@
     border-radius: 7px;
     background: transparent;
     border: 1px solid transparent;
-    color: rgba(255, 255, 255, 0.6);
+    color: var(--fv-modal-item-text, rgba(255, 255, 255, 0.6));
     cursor: pointer;
     display: flex;
     align-items: center;
@@ -181,8 +183,9 @@
 .fpv-panel-list {
     --fpv-row-height: 2.25rem;
     --fpv-row-gap: 0.2rem;
-    flex: 0 1 auto;
-    max-height: calc((5 * var(--fpv-row-height)) + (4 * var(--fpv-row-gap)));
+    flex: 1 1 auto;
+    min-height: 0;
+    max-height: none;
     overflow-y: auto;
     padding: 0.4rem;
     display: flex;
@@ -206,10 +209,10 @@
     border: 1px solid transparent;
     border-radius: 8px;
     cursor: pointer;
-    font-family: var(--font-body, 'Syne', sans-serif);
-    font-size: 0.78rem;
+    font-family: var(--fv-modal-item-font-family, var(--font-body, 'Syne', sans-serif));
+    font-size: var(--fv-modal-item-font-size, 0.78rem);
     font-weight: 600;
-    color: rgba(255, 255, 255, 0.85);
+    color: var(--fv-modal-item-text, rgba(255, 255, 255, 0.85));
     text-align: left;
     width: 100%;
     display: block;
@@ -224,8 +227,8 @@
 }
 
 .fpv-panel-item.active {
-    background: rgba(255, 255, 255, 0.12);
-    border-color: rgba(255, 255, 255, 0.15);
+    background: var(--fv-modal-item-active-bg, rgba(255, 255, 255, 0.12));
+    border-color: var(--fv-modal-item-active-border, rgba(255, 255, 255, 0.15));
 }
 
 /* Collapsed state - just shows a small pill to re-open */
@@ -236,6 +239,7 @@
 
 .fpv-panel.collapsed {
     width: auto;
+    height: auto;
     max-height: none;
     padding: 0;
     border-radius: 12px;
@@ -244,10 +248,10 @@
 .fpv-panel-expand {
     display: none;
     padding: 0.55rem 0.85rem;
-    font-family: var(--font-body, 'Syne', sans-serif);
-    font-size: 0.75rem;
+    font-family: var(--fv-modal-title-font-family, var(--font-body, 'Syne', sans-serif));
+    font-size: var(--fv-modal-title-font-size, 0.75rem);
     font-weight: 700;
-    color: #ffffff;
+    color: var(--fv-modal-title, #ffffff);
     cursor: pointer;
     background: none;
     border: none;
@@ -263,11 +267,12 @@
 /* -- Responsive -- */
 @media (max-width: 600px) {
     .fpv-panel {
-        bottom: 1rem;
-        right: 1rem;
-        left: 1rem;
-        width: auto;
-        max-height: 40vh;
+        bottom: max(0px, var(--fv-modal-bottom, 1rem));
+        right: max(0px, var(--fv-modal-right, 1rem));
+        left: auto;
+        width: min(var(--fv-modal-width, 260px), max(0px, calc(100vw - max(0px, var(--fv-modal-right, 0px)))));
+        height: min(var(--fv-modal-height, var(--fv-modal-max-height, 40vh)), max(0px, calc(100vh - max(0px, var(--fv-modal-bottom, 0px)))));
+        max-height: min(var(--fv-modal-height, var(--fv-modal-max-height, 40vh)), max(0px, calc(100vh - max(0px, var(--fv-modal-bottom, 0px)))));
     }
 
     .fpv-image-wrap {

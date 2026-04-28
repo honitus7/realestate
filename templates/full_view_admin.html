@@ -65,6 +65,10 @@
                         <iconify-icon icon="ph:link"></iconify-icon>
                         Copy Link
                     </button>
+                    <button class="btn btn-secondary btn-sm" id="fv-edit-screen-btn">
+                        <iconify-icon icon="ph:paint-brush-household"></iconify-icon>
+                        Edit Screen
+                    </button>
                     <button class="btn btn-primary btn-sm" id="fv-add-tab-btn">
                         <iconify-icon icon="ph:plus-bold"></iconify-icon>
                         Add Tab
@@ -849,6 +853,12 @@ function bindEvents() {
         const url = fullViewShellUrl();
         if (!url) return;
         window.open(url, '_blank', 'noopener');
+    });
+
+    // Edit screen button
+    document.getElementById('fv-edit-screen-btn').addEventListener('click', function () {
+        if (!currentWorkspaceId) return;
+        window.open('/customer/full-view/edit/' + encodeURIComponent(currentWorkspaceId), '_blank', 'noopener');
     });
 
     // Copy Link button

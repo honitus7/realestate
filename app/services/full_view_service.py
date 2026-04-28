@@ -25,6 +25,10 @@ def _as_content_data(value):
     return dict(value) if isinstance(value, dict) else {}
 
 
+def _as_style_data(value):
+    return dict(value) if isinstance(value, dict) else {}
+
+
 def _normalize_ref_value(value):
     if value in (None, '', 'null'):
         return None
@@ -61,6 +65,14 @@ def _prepare_tab_row(row):
     return prepared
 
 
+def _normalize_config_row(row):
+    if not row:
+        return row
+    config = dict(row)
+    config['style'] = _as_style_data(config.get('style'))
+    return config
+
+
 def _get_tab(sb, tab_id):
     resp = sb.table('full_view_tabs').select('*').eq('id', str(tab_id)).limit(1).execute()
     return resp.data[0] if resp.data else None
@@ -78,23 +90,27 @@ def get_config_for_workspace(sb, workspace_id):
         .limit(1)
         .execute()
     )
-    return resp.data[0] if resp.data else None
+    return _normalize_config_row(resp.data[0]) if resp.data else None
 
 
-def create_config(sb, workspace_id, user_id, org_id=None):
+def create_config(sb, workspace_id, user_id, org_id=None, style=None):
     row = {
         'workspace_id': str(workspace_id),
         'user_id': str(user_id),
         'is_active': True,
     }
+    if style is not None:
+        row['style'] = _as_style_data(style)
     if org_id:
         row['org_id'] = str(org_id)
     resp = sb.table('full_view_configs').insert(row).execute()
-    return resp.data[0] if resp.data else None
+    return _normalize_config_row(resp.data[0]) if resp.data else None
 
 
 def update_config(sb, config_id, **fields):
     clean = {k: v for k, v in fields.items() if k in {'is_active'}}
+    if 'style' in fields:
+        clean['style'] = _as_style_data(fields.get('style'))
     if not clean:
         return None
     resp = (
@@ -103,7 +119,7 @@ def update_config(sb, config_id, **fields):
         .eq('id', str(config_id))
         .execute()
     )
-    return resp.data[0] if resp.data else None
+    return _normalize_config_row(resp.data[0]) if resp.data else None
 
 
 def delete_config(sb, config_id):

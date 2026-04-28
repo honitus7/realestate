@@ -9,6 +9,7 @@ create table if not exists public.full_view_configs (
   org_id uuid references public.organizations(id) on delete set null,
   user_id uuid not null references auth.users(id) on delete cascade,
   is_active boolean not null default true,
+  style jsonb not null default '{}'::jsonb,
   created_at timestamptz default now(),
   updated_at timestamptz default now(),
   unique(workspace_id)
