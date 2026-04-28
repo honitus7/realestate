@@ -328,10 +328,10 @@
         </div>
     </div>
 
-    <!-- Rename item modal -->
+    <!-- Rename modal -->
     <div class="modal-backdrop" id="fp-rename-modal">
         <div class="modal" style="max-width:420px;">
-            <div class="modal-title" style="margin-bottom:1rem;">Rename Floor Plan</div>
+            <div class="modal-title" id="fp-rename-title" style="margin-bottom:1rem;">Rename Floor Plan</div>
             <div class="form-group" style="margin-bottom:1rem;">
                 <input type="text" class="form-input" id="fp-rename-input" maxlength="200">
             </div>
@@ -717,6 +717,7 @@
                     '</div>' +
                     '<div class="fp-card-actions">' +
                         '<button class="btn btn-secondary fp-manage-btn" data-id="' + c.id + '">Manage</button>' +
+                        '<button class="btn btn-secondary fp-rename-cat-btn" data-id="' + c.id + '" data-name="' + esc(c.name) + '">Rename</button>' +
                         '<button class="btn btn-danger fp-del-cat-btn" data-id="' + c.id + '" data-name="' + esc(c.name) + '">Delete</button>' +
                     '</div>' +
                 '</div>' +
@@ -737,6 +738,12 @@
             btn.addEventListener('click', function(e) {
                 e.stopPropagation();
                 openCatalogue(btn.dataset.id);
+            });
+        });
+        grid.querySelectorAll('.fp-rename-cat-btn').forEach(function(btn) {
+            btn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                openRename(btn.dataset.id, btn.dataset.name, 'catalogue');
             });
         });
         grid.querySelectorAll('.fp-del-cat-btn').forEach(function(btn) {
@@ -1105,26 +1112,41 @@
     // Rename item
     // ------------------------------------------------------------------
 
-    var renameItemId = null;
+    var renameTargetId = null;
+    var renameTargetType = 'item';
 
-    function openRename(id, name) {
-        renameItemId = id;
+    function openRename(id, name, type) {
+        renameTargetId = id;
+        renameTargetType = type || 'item';
+        document.getElementById('fp-rename-title').textContent =
+            renameTargetType === 'catalogue' ? 'Rename Catalogue' : 'Rename Floor Plan';
         document.getElementById('fp-rename-input').value = name;
         showModal('fp-rename-modal');
     }
 
-    document.getElementById('fp-rename-cancel').addEventListener('click', function() { hideModal('fp-rename-modal'); });
+    document.getElementById('fp-rename-cancel').addEventListener('click', function() {
+        hideModal('fp-rename-modal');
+        renameTargetId = null;
+    });
     document.getElementById('fp-rename-confirm').addEventListener('click', function() {
         var name = document.getElementById('fp-rename-input').value.trim();
-        if (!name || !renameItemId) { hideModal('fp-rename-modal'); return; }
-        fetch('/api/floorplans/items/' + renameItemId, {
+        if (!name || !renameTargetId) { hideModal('fp-rename-modal'); return; }
+        var endpoint = renameTargetType === 'catalogue'
+            ? ('/api/floorplans/catalogues/' + renameTargetId)
+            : ('/api/floorplans/items/' + renameTargetId);
+        fetch(endpoint, {
             method: 'PATCH',
             headers: Object.assign({'Content-Type': 'application/json'}, authHeaders()),
             body: JSON.stringify({ name: name })
         })
         .then(function() {
             hideModal('fp-rename-modal');
-            loadItems();
+            renameTargetId = null;
+            if (renameTargetType === 'catalogue') {
+                loadCatalogues();
+            } else {
+                loadItems();
+            }
         });
     });
 
