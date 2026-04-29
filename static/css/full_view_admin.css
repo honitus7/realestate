@@ -6,17 +6,28 @@
 /* ---------- Page layout ---------- */
 .fv-page {
     display: flex;
-    min-height: 100vh;
+    height: 100vh;
     background: var(--color-bg);
     color: var(--color-text);
+    overflow: hidden;
 }
 
 .fv-main {
     flex: 1;
+    width: 100%;
     padding: 2.5rem 2.5rem 4rem;
     min-width: 0;
+    min-height: 0;
     overflow-y: auto;
-    max-width: 860px;
+    overflow-x: hidden;
+    max-width: none;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+}
+
+.fv-main::-webkit-scrollbar {
+    width: 0;
+    height: 0;
 }
 
 /* ---------- Header ---------- */

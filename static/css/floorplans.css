@@ -2,9 +2,10 @@
 
 .floorplans-page {
     display: flex;
-    min-height: 100vh;
+    height: 100vh;
     background: var(--color-bg);
     color: var(--color-text);
+    overflow: hidden;
 }
 
 .floorplans-main {
@@ -12,6 +13,27 @@
     padding: 2rem 2.5rem;
     max-width: 1100px;
     margin: 0 auto;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+}
+
+.floorplans-main::-webkit-scrollbar {
+    width: 0;
+    height: 0;
+}
+
+/* Hide all visible scrollbars inside Sales Tool while keeping scroll behavior */
+.floorplans-page * {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+}
+
+.floorplans-page *::-webkit-scrollbar {
+    width: 0;
+    height: 0;
 }
 
 /* -- Subtabs -- */
