@@ -2035,8 +2035,9 @@ def register_routes(app):
         sb = get_supabase()
         if not sb:
             return jsonify({'error': 'Database not configured'}), 503
+        lightweight = _is_truthy(request.args.get('lightweight'))
         try:
-            out = ws_list_workspaces(sb, user_id)
+            out = ws_list_workspaces(sb, user_id, lightweight=lightweight)
             return jsonify(out)
         except Exception as e:
             if is_workspace_schema_missing(e):
@@ -10265,9 +10266,17 @@ h1 {{ margin:0 0 8px; font-size:22px; }}
         if not sb:
             return jsonify({'error': 'Database not configured'}), 503
         workspace_id = request.args.get('workspace_id', '').strip()
+        autocreate = _is_truthy(request.args.get('autocreate'))
         if not workspace_id:
             return jsonify({'error': 'workspace_id is required'}), 400
         config = fv_get_config(sb, workspace_id)
+        if not config and autocreate:
+            ws = get_workspace_by_id(sb, workspace_id)
+            if not ws:
+                return jsonify({'error': 'Workspace not found'}), 404
+            profile = get_profile(sb, user_id)
+            org_id = (profile or {}).get('org_id')
+            config = fv_create_config(sb, workspace_id, user_id, org_id)
         if not config:
             return jsonify({'config': None, 'tabs': []})
         tabs = fv_list_tabs(sb, config['id'])

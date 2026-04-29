@@ -106,11 +106,27 @@ def can_manage_workspace(sb, workspace, user_id, role):
     return bool(caller_org and workspace_org and str(caller_org) == str(workspace_org))
 
 
-def list_workspaces(sb, user_id):
+def list_workspaces(sb, user_id, lightweight=False):
+    select_fields = 'id, user_id, org_id, name, created_at, updated_at, main_panorama_id'
     try:
-        owned = sb.table('workspaces').select('*').eq('user_id', user_id).order('updated_at', desc=True).execute()
+        if lightweight:
+            owned = (
+                sb.table('workspaces')
+                .select(select_fields)
+                .eq('user_id', user_id)
+                .order('updated_at', desc=True)
+                .execute()
+            )
+        else:
+            owned = sb.table('workspaces').select('*').eq('user_id', user_id).order('updated_at', desc=True).execute()
     except Exception:
-        owned = sb.table('workspaces').select('id, user_id, org_id, name, created_at, updated_at, main_panorama_id').eq('user_id', user_id).order('updated_at', desc=True).execute()
+        owned = (
+            sb.table('workspaces')
+            .select(select_fields)
+            .eq('user_id', user_id)
+            .order('updated_at', desc=True)
+            .execute()
+        )
 
     shared_acc = sb.table('workspace_access').select('workspace_id, access_type').eq('user_id', user_id).execute()
     out = []
@@ -129,15 +145,24 @@ def list_workspaces(sb, user_id):
 
     if shared_map:
         try:
-            shared_rows = sb.table('workspaces').select('*').in_('id', list(shared_map.keys())).execute()
+            if lightweight:
+                shared_rows = sb.table('workspaces').select(select_fields).in_('id', list(shared_map.keys())).execute()
+            else:
+                shared_rows = sb.table('workspaces').select('*').in_('id', list(shared_map.keys())).execute()
         except Exception:
-            shared_rows = sb.table('workspaces').select('id, user_id, org_id, name, created_at, updated_at, main_panorama_id').in_('id', list(shared_map.keys())).execute()
+            shared_rows = sb.table('workspaces').select(select_fields).in_('id', list(shared_map.keys())).execute()
         for row in (shared_rows.data or []):
             wsid = str(row.get('id'))
             access_type = shared_map.get(wsid, 'viewer')
             item = serialize_workspace_row(row, access_type)
             by_id[wsid] = item
             out.append(item)
+
+    if lightweight:
+        for row in out:
+            row['panorama_count'] = 0
+        out.sort(key=lambda x: ((x.get('access_type') != 'owner'), str(x.get('name') or '').lower()))
+        return out
 
     counts = {}
     for pano in (list_panoramas_for_user(sb, user_id) or []):

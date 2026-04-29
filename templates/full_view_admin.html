@@ -410,16 +410,36 @@ async function init() {
 /* ------------------------------------------------------------------ */
 /*  Workspaces                                                         */
 /* ------------------------------------------------------------------ */
+function renderWorkspaceOptions(workspaces) {
+    const sel = document.getElementById('fv-workspace-select');
+    const current = sel.value;
+    while (sel.options.length > 1) sel.remove(1);
+    (workspaces || []).forEach(ws => {
+        const o = document.createElement('option');
+        o.value = ws.id;
+        o.textContent = ws.name;
+        sel.appendChild(o);
+    });
+    if (current) sel.value = current;
+}
+
 async function loadWorkspaces() {
+    const cacheKey = 'fv_workspaces_light_v1';
     try {
-        const d = await apiFetch('/api/workspaces');
-        const sel = document.getElementById('fv-workspace-select');
-        (d.workspaces || d || []).forEach(ws => {
-            const o = document.createElement('option');
-            o.value = ws.id;
-            o.textContent = ws.name;
-            sel.appendChild(o);
-        });
+        const raw = sessionStorage.getItem(cacheKey);
+        if (raw) {
+            const cached = JSON.parse(raw);
+            if (Array.isArray(cached) && cached.length) {
+                renderWorkspaceOptions(cached);
+            }
+        }
+    } catch (e) {}
+
+    try {
+        const d = await apiFetch('/api/workspaces?lightweight=1');
+        const rows = (d.workspaces || d || []);
+        renderWorkspaceOptions(rows);
+        try { sessionStorage.setItem(cacheKey, JSON.stringify(rows)); } catch (e) {}
     } catch (e) { console.error('loadWorkspaces', e); }
 }
 
@@ -435,23 +455,19 @@ async function openWorkspace(wsId) {
     const opt = sel.querySelector(`option[value="${wsId}"]`);
     document.getElementById('fv-builder-ws-name').textContent = opt ? opt.textContent : wsId;
 
-    // Fetch or create config
-    const d = await apiFetch('/api/full-view/config?workspace_id=' + encodeURIComponent(wsId));
-    if (d.config) {
-        currentConfigId = d.config.id;
-        document.getElementById('fv-active-check').checked = !!d.config.is_active;
-        currentTabs = d.tabs || [];
-    } else {
-        // Create fresh config
-        const r = await apiPost('/api/full-view/config', { workspace_id: wsId });
-        currentConfigId = r.config.id;
-        document.getElementById('fv-active-check').checked = true;
-        currentTabs = [];
-    }
+    // Kick off secondary data in background (do not block tab rendering)
+    const resourcesTask = loadResources(wsId);
+    const shareTask = loadShareUrl(wsId);
 
-    // Load resource dropdowns + share URL in parallel
-    await Promise.all([loadResources(wsId), loadShareUrl(wsId)]);
+    // Fetch config (auto-creates if missing) and render immediately
+    const d = await apiFetch('/api/full-view/config?workspace_id=' + encodeURIComponent(wsId) + '&autocreate=1');
+    currentConfigId = d.config ? d.config.id : null;
+    document.getElementById('fv-active-check').checked = d.config ? !!d.config.is_active : true;
+    currentTabs = d.tabs || [];
     renderTabs();
+
+    // Let background tasks settle without affecting first paint
+    Promise.allSettled([resourcesTask, shareTask]).catch(() => {});
 }
 
 /* ------------------------------------------------------------------ */
