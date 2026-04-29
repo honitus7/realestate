@@ -50,12 +50,25 @@
             overflow: hidden;
             text-overflow: ellipsis;
         }
-        #cfv-frame {
+        .cfv-frame-host {
             position: fixed;
             inset: 0;
             width: 100%;
             height: 100%;
+            z-index: 1;
+            background: #0c0e14;
+        }
+        .cfv-tab-frame {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
             border: none;
+            background: #0c0e14;
+            display: none;
+        }
+        .cfv-tab-frame.cfv-tab-frame--active {
+            display: block;
         }
 
         .fv-style-editor {
@@ -212,7 +225,7 @@
         <div class="cfv-header-sub" id="cfv-header-sub">Full View</div>
     </div>
 
-    <iframe id="cfv-frame" src="about:blank" allow="autoplay; encrypted-media; picture-in-picture; fullscreen"></iframe>
+    <div class="cfv-frame-host" id="cfv-frame-host" aria-live="polite"></div>
 
     {% if fv_config and fv_config.get('tabs') and (is_editor or fv_config.get('is_active')) %}
     <nav class="fv-sidebar" id="fv-sidebar" aria-label="Full View Navigation">
@@ -509,15 +522,23 @@
     var SUPABASE_URL = {{ (supabase_url or '') | tojson }};
     var SUPABASE_ANON_KEY = {{ (supabase_anon_key or '') | tojson }};
 
-    var frame = document.getElementById('cfv-frame');
+    var frameHost = document.getElementById('cfv-frame-host');
     var sidebar = document.getElementById('fv-sidebar');
     var headerTitleEl = document.getElementById('cfv-header-title');
     var headerSubEl = document.getElementById('cfv-header-sub');
     var navFab = document.getElementById('fv-nav-reveal-fab');
     var activeBtn = null;
+    var activeFrame = null;
+    var frameCache = {};
+    var tabMetaByKey = {};
+    var preloadStarted = false;
+    var preloadedFrameCount = 0;
     var DEBUG = true;
     var styleState = null;
     var SHELL_BASE_PATH = (IS_EDITOR ? '/customer/full-view/edit/' : '/customer/full-view/') + encodeURIComponent(WS_ID || '');
+    var PREFETCH_STATE_KEY = 'fv_shell_prefetch_v3::' + String(WS_ID || '');
+    var PREFETCH_TTL_MS = 15 * 60 * 1000;
+    var MAX_PRELOADED_FRAMES = 8;
 
     function defaultModalStyle() {
         return {
@@ -1083,8 +1104,8 @@
     }
 
     function postStylePreview() {
-        if (!frame || !frame.contentWindow) return;
-        frame.contentWindow.postMessage({
+        if (!activeFrame || !activeFrame.contentWindow) return;
+        activeFrame.contentWindow.postMessage({
             type: 'fv-style-preview',
             style: normalizeStyle(styleState)
         }, window.location.origin);
@@ -1193,6 +1214,14 @@
         return /^https:\/\/www\.youtube-nocookie\.com\/embed\//i.test(String(url || ''));
     }
 
+    function panoramaEmbedUrl(panoramaId) {
+        if (!WS_ID) return null;
+        var url = '/customer/project/' + encodeURIComponent(WS_ID) + '?embed=1';
+        var panoRef = String(panoramaId || '').trim();
+        if (panoRef) url += '&pano=' + encodeURIComponent(panoRef);
+        return url;
+    }
+
     function embedUrl(type, ref, contentData) {
         contentData = normalizeContentData(contentData);
         var contentUrl = (contentData && contentData.url) ? String(contentData.url).trim() : '';
@@ -1215,6 +1244,202 @@
         if (type === 'brochure' && contentUrl) return contentUrl;
         if (type === 'custom' && contentUrl) return contentUrl;
         return null;
+    }
+
+    function tabRefForButton(btn) {
+        if (!btn) return '';
+        return String(
+            btn.dataset.refFloorplan ||
+            btn.dataset.refGallery ||
+            btn.dataset.refDaynight ||
+            btn.dataset.refProjectplan ||
+            btn.dataset.refSalesmap ||
+            btn.dataset.refSalesflat360 ||
+            btn.dataset.refPanorama ||
+            ''
+        ).trim();
+    }
+
+    function buildTabMeta(btn) {
+        if (!btn) return null;
+        var type = normalizeTabType(btn.dataset.tabType || '');
+        var pano = String(btn.dataset.refPanorama || '').trim();
+        var gal = String(btn.dataset.refGallery || '').trim();
+        var ref = tabRefForButton(btn);
+        var cd = parseContentData(btn);
+        var url = null;
+
+        if (type === '360_pano' || type === 'drone_view') {
+            ref = pano || ref;
+            url = panoramaEmbedUrl(pano || ref);
+        } else if (type === 'highlights' && !gal && pano) {
+            ref = pano;
+            url = panoramaEmbedUrl(pano);
+        } else {
+            url = embedUrl(type, ref, cd);
+        }
+
+        var opensNewWindow = Boolean(
+            url &&
+            !isYouTubeEmbedUrl(url) &&
+            type !== 'video' &&
+            (url.indexOf('http://') === 0 || url.indexOf('https://') === 0 || url.indexOf('//') === 0)
+        );
+        var isEmbeddable = Boolean(url && !opensNewWindow);
+        var key = type + '::' + String(ref || '') + '::' + String(url || '');
+        var meta = {
+            key: key,
+            type: type,
+            ref: String(ref || ''),
+            url: url,
+            opensNewWindow: opensNewWindow,
+            isEmbeddable: isEmbeddable,
+            btn: btn
+        };
+        tabMetaByKey[key] = meta;
+        return meta;
+    }
+
+    function readPrefetchState() {
+        try {
+            var raw = window.localStorage ? localStorage.getItem(PREFETCH_STATE_KEY) : null;
+            if (!raw) return { ts: 0, keys: [] };
+            var parsed = JSON.parse(raw);
+            if (!parsed || typeof parsed !== 'object') return { ts: 0, keys: [] };
+            if (!Array.isArray(parsed.keys)) parsed.keys = [];
+            return parsed;
+        } catch (e) {
+            return { ts: 0, keys: [] };
+        }
+    }
+
+    function writePrefetchState(state) {
+        try {
+            if (!window.localStorage) return;
+            localStorage.setItem(PREFETCH_STATE_KEY, JSON.stringify(state || { ts: Date.now(), keys: [] }));
+        } catch (e) { }
+    }
+
+    function markPrefetchedFrameKey(key) {
+        if (!key) return;
+        var state = readPrefetchState();
+        var keys = Array.isArray(state.keys) ? state.keys.slice(0) : [];
+        if (keys.indexOf(key) < 0) keys.push(key);
+        state.keys = keys.slice(-60);
+        state.ts = Date.now();
+        writePrefetchState(state);
+    }
+
+    function shouldPreloadInBackground() {
+        var conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+        if (!conn) return true;
+        if (conn.saveData) return false;
+        var type = String(conn.effectiveType || '').toLowerCase();
+        if (type.indexOf('2g') >= 0 || type.indexOf('slow-2g') >= 0) return false;
+        return true;
+    }
+
+    function prefetchDocument(url) {
+        if (!url) return;
+        if (!(url.indexOf('/') === 0 || url.indexOf(window.location.origin) === 0)) return;
+        try {
+            var link = document.createElement('link');
+            link.rel = 'prefetch';
+            link.as = 'document';
+            link.href = url;
+            document.head.appendChild(link);
+        } catch (e) { }
+        try {
+            fetch(url, { credentials: 'same-origin', mode: 'same-origin', cache: 'force-cache' }).catch(function () { });
+        } catch (e2) { }
+    }
+
+    function ensureTabFrame(meta, opts) {
+        opts = opts || {};
+        if (!meta || !meta.isEmbeddable || !meta.url || !frameHost) return null;
+        var frameEl = frameCache[meta.key] || null;
+        if (!frameEl) {
+            if (opts.preload && preloadedFrameCount >= MAX_PRELOADED_FRAMES) return null;
+            frameEl = document.createElement('iframe');
+            frameEl.className = 'cfv-tab-frame';
+            frameEl.setAttribute('allow', 'autoplay; encrypted-media; picture-in-picture; fullscreen');
+            // YouTube embeds can throw Error 153 when cross-origin referer is suppressed.
+            frameEl.setAttribute('referrerpolicy', 'strict-origin-when-cross-origin');
+            frameEl.setAttribute('loading', opts.preload ? 'lazy' : 'eager');
+            frameEl.dataset.key = meta.key;
+            frameEl.dataset.url = meta.url;
+            frameEl.addEventListener('load', function () {
+                fvLog('log', 'Iframe loaded', { src: frameEl.getAttribute('src') || '' });
+                markPrefetchedFrameKey(meta.key);
+                if (IS_EDITOR && activeFrame === frameEl) setTimeout(postStylePreview, 30);
+            });
+            frameEl.addEventListener('error', function () {
+                fvLog('error', 'Iframe error', { src: frameEl.getAttribute('src') || '' });
+            });
+            frameCache[meta.key] = frameEl;
+            frameHost.appendChild(frameEl);
+            if (opts.preload) preloadedFrameCount += 1;
+        }
+        if (frameEl.getAttribute('src') !== meta.url) {
+            frameEl.setAttribute('src', meta.url);
+        }
+        return frameEl;
+    }
+
+    function showTabFrame(frameEl) {
+        Object.keys(frameCache).forEach(function (key) {
+            var node = frameCache[key];
+            if (node) node.classList.remove('cfv-tab-frame--active');
+        });
+        if (!frameEl) {
+            activeFrame = null;
+            return;
+        }
+        frameEl.classList.add('cfv-tab-frame--active');
+        activeFrame = frameEl;
+    }
+
+    function activateTabFrame(meta) {
+        var frameEl = ensureTabFrame(meta, { preload: false });
+        showTabFrame(frameEl);
+        return frameEl;
+    }
+
+    function scheduleFramePreload(currentMeta) {
+        if (preloadStarted || !sidebar || !frameHost) return;
+        preloadStarted = true;
+
+        var state = readPrefetchState();
+        var stale = (Date.now() - Number(state.ts || 0)) > PREFETCH_TTL_MS;
+        var seen = new Set(Array.isArray(state.keys) ? state.keys : []);
+        var queue = [];
+        sidebar.querySelectorAll('.fv-sidebar-btn').forEach(function (btn) {
+            var meta = buildTabMeta(btn);
+            if (!meta || !meta.isEmbeddable || !meta.url) return;
+            if (currentMeta && meta.key === currentMeta.key) return;
+            queue.push(meta);
+        });
+        if (!queue.length) return;
+
+        queue.sort(function (a, b) {
+            var aSeen = seen.has(a.key) ? 1 : 0;
+            var bSeen = seen.has(b.key) ? 1 : 0;
+            return aSeen - bSeen;
+        });
+        if (!stale) queue = queue.slice(0, Math.min(queue.length, 4));
+        if (!shouldPreloadInBackground()) queue = queue.slice(0, 2);
+
+        var idx = 0;
+        function step() {
+            if (idx >= queue.length) return;
+            var meta = queue[idx++];
+            prefetchDocument(meta.url);
+            ensureTabFrame(meta, { preload: true });
+            setTimeout(step, 220);
+        }
+
+        if (typeof requestIdleCallback === 'function') requestIdleCallback(step, { timeout: 2200 });
+        else setTimeout(step, 320);
     }
 
     function setActive(btn) {
@@ -1264,17 +1489,9 @@
         });
     }
 
-    function loadTab(btn) {
-        var rawType = btn.dataset.tabType;
-        var type = normalizeTabType(rawType);
-        var pano = btn.dataset.refPanorama;
-        var dn = btn.dataset.refDaynight;
-        var fp = btn.dataset.refFloorplan;
-        var gal = btn.dataset.refGallery;
-        var pp = btn.dataset.refProjectplan;
-        var sm = btn.dataset.refSalesmap;
-        var sf3 = btn.dataset.refSalesflat360;
-        var cd = parseContentData(btn);
+    function loadTab(btn, opts) {
+        opts = opts || {};
+        var meta = buildTabMeta(btn);
 
         if (headerTitleEl && !headerTitleEl.textContent) headerTitleEl.textContent = 'Project';
         if (headerSubEl) {
@@ -1283,39 +1500,31 @@
             headerSubEl.textContent = label || 'Full View';
         }
 
-        if (type === '360_pano' || type === 'drone_view') {
-            var dest = WS_ID ? '/customer/project/' + WS_ID : null;
-            if (dest) window.location.href = pano ? dest + '?pano=' + pano : dest;
-            return;
-        }
-
-        var ref = fp || gal || dn || pp || sm || sf3 || '';
-        if (type === 'highlights' && !gal && pano) {
-            if (WS_ID) window.location.href = '/customer/project/' + WS_ID + '?pano=' + pano;
-            return;
-        }
-
-        var url = embedUrl(type, ref, cd);
-        if (!url) {
+        if (!meta || !meta.url) {
             setActive(null);
             updateShellHomeSidebarState(null);
+            showTabFrame(null);
             return;
         }
 
-        if (!isYouTubeEmbedUrl(url) && type !== 'video' && (url.startsWith('http') || url.startsWith('//'))) {
-            window.open(url, '_blank', 'noopener');
+        if (meta.opensNewWindow) {
+            window.open(meta.url, '_blank', 'noopener');
             setActive(null);
             updateShellHomeSidebarState(null);
+            showTabFrame(null);
             return;
         }
 
         setActive(btn);
-        frame.src = url;
         updateShellHomeSidebarState(btn);
+        var frameEl = activateTabFrame(meta);
+        if (!frameEl) return;
+
+        if (!opts.skipPreload) scheduleFramePreload(meta);
         if (history.replaceState && WS_ID) {
             history.replaceState(null, '', SHELL_BASE_PATH
-                + '?type=' + encodeURIComponent(type)
-                + '&ref=' + encodeURIComponent(ref));
+                + '?type=' + encodeURIComponent(meta.type)
+                + '&ref=' + encodeURIComponent(meta.ref || ''));
         }
     }
 
@@ -1328,40 +1537,21 @@
         });
     }
 
-    if (frame) {
-        frame.addEventListener('load', function () {
-            fvLog('log', 'Iframe loaded', { src: frame.src });
-            if (IS_EDITOR) {
-                setTimeout(postStylePreview, 30);
-            }
-        });
-        frame.addEventListener('error', function () {
-            fvLog('error', 'Iframe error', { src: frame.src });
-        });
-    }
-
     function autoSelect() {
         if (!sidebar) return;
         var btns = sidebar.querySelectorAll('.fv-sidebar-btn');
         var initTypeNorm = normalizeTabType(INIT_TYPE);
 
         function isInternalEmbeddable(btn) {
-            var type = normalizeTabType(btn.dataset.tabType || '');
-            if (type === '360_pano' || type === 'drone_view') return false;
-            var cd = parseContentData(btn);
-            if (cd && cd.url && normalizeYouTubeEmbedUrl(cd.url)) return true;
-            if (type === 'location' || type === 'brochure' || type === 'custom') return false;
-            var ref = btn.dataset.refFloorplan || btn.dataset.refGallery
-                || btn.dataset.refDaynight || btn.dataset.refProjectplan || btn.dataset.refSalesmap || '';
-            return !!embedUrl(type, ref, cd);
+            var meta = buildTabMeta(btn);
+            return !!(meta && meta.isEmbeddable);
         }
 
         if (initTypeNorm) {
             for (var i = 0; i < btns.length; i++) {
                 var b = btns[i];
                 if (normalizeTabType(b.dataset.tabType) !== initTypeNorm) continue;
-                var initRef = b.dataset.refFloorplan || b.dataset.refGallery
-                    || b.dataset.refDaynight || b.dataset.refProjectplan || b.dataset.refSalesmap || '';
+                var initRef = tabRefForButton(b);
                 if (INIT_REF && initRef && String(initRef) !== String(INIT_REF)) continue;
                 loadTab(b);
                 return;

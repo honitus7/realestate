@@ -1038,10 +1038,10 @@ def register_routes(app):
         mobile_panorama_map = load_mobile_panorama_map(sb, parent_ids)
         return workspace_id, workspace_panoramas, customer_view_config, mobile_panorama_map
 
-    def render_customer_panorama_template(sb, panorama, org_name, canonical_slug, full_view=False, initial_panorama_id=None):
+    def render_customer_panorama_template(sb, panorama, org_name, canonical_slug, full_view=False, initial_panorama_id=None, embed_mode=False):
         workspace_id, workspace_panoramas, customer_view_config, mobile_panorama_map = build_customer_workspace_context(sb, panorama)
         fv_config = None
-        if workspace_id:
+        if workspace_id and not embed_mode:
             fv_config = fv_get_config_with_tabs(sb, workspace_id)
         resp = make_response(render_template(
             'customer_3d.html',
@@ -1049,6 +1049,7 @@ def register_routes(app):
             org_name=org_name,
             org_slug=canonical_slug,
             full_view=full_view,
+            embed_mode=embed_mode,
             workspace_panoramas=workspace_panoramas,
             initial_panorama_id=initial_panorama_id,
             workspace_id=workspace_id,
@@ -1057,7 +1058,11 @@ def register_routes(app):
             fv_config=fv_config,
             **auth_ctx()
         ))
-        resp.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate'
+        # Keep customer panorama pages warm for fast tab switching.
+        if embed_mode:
+            resp.headers['Cache-Control'] = 'private, max-age=120, stale-while-revalidate=240'
+        else:
+            resp.headers['Cache-Control'] = 'private, max-age=45, stale-while-revalidate=90'
         return resp
 
     @app.route('/customer/edit/<workspace_id>')
@@ -1232,9 +1237,10 @@ def register_routes(app):
         if not panorama:
             return "Panorama not found", 404
         org_name, canonical_slug = get_org_name_and_slug_for_panorama(sb, panorama)
+        embed_mode = str(request.args.get('embed') or '').strip() == '1'
         # IMPORTANT: Keep this URL stable (no redirects). It should always open the
         # current workspace main panorama, even if the main panorama changes later.
-        return render_customer_panorama_template(sb, panorama, org_name, canonical_slug)
+        return render_customer_panorama_template(sb, panorama, org_name, canonical_slug, embed_mode=embed_mode)
 
     @app.route('/panoview/<endpoint>')
     def customer_project_share_view(endpoint):

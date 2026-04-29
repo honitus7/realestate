@@ -335,7 +335,7 @@
     </div>
 
     <!-- ===================== FULL VIEW SIDEBAR (Desktop right / Mobile bottom) ===================== -->
-    {% if fv_config and fv_config.get('is_active') and fv_config.get('tabs') %}
+    {% if not embed_mode and fv_config and fv_config.get('is_active') and fv_config.get('tabs') %}
     <nav class="fv-sidebar" id="fv-sidebar" aria-label="Full View Navigation">
         {% for tab in fv_config.get('tabs', []) %}
         <button class="fv-sidebar-btn" type="button"
@@ -345,6 +345,8 @@
                 data-ref-floorplan="{{ tab.ref_floor_plan_id or '' }}"
                 data-ref-gallery="{{ tab.ref_gallery_id or '' }}"
                 data-ref-projectplan="{{ tab.ref_project_plan_id or '' }}"
+                data-ref-salesmap="{{ tab.ref_sales_map_id or '' }}"
+                data-ref-salesflat360="{{ tab.ref_sales_flat360_id or '' }}"
                 data-content='{{ (tab.content_data or {}) | tojson }}'
                 title="{{ tab.name }}">
             <span class="fv-sidebar-icon"><iconify-icon icon="{{ tab.icon }}"></iconify-icon></span>
@@ -367,6 +369,7 @@
         const USE_ANIMATED_ICONS = {{ (panorama.get('use_animated_icons', false) if panorama else false) | tojson }};
         const START_VIEW = {{ (panorama.get('start_view') if panorama else none) | tojson }};
         const FULL_VIEW = {{ (full_view or false)| tojson }};
+        const EMBED_MODE = {{ (embed_mode or false) | tojson }};
         const WORKSPACE_PANORAMAS = {{ (workspace_panoramas or [])| tojson }};
         const MOBILE_PANORAMA_MAP = {{ (mobile_panorama_map or {})|tojson }};
         const IN_WORKSPACE = Array.isArray(WORKSPACE_PANORAMAS) && WORKSPACE_PANORAMAS.length > 0;
@@ -4409,6 +4412,11 @@
         var sidebar   = document.getElementById('fv-sidebar');
         var navFabFv  = document.getElementById('fv-nav-reveal-fab');
         var activeBtn = null;
+        var prefetchScheduled = false;
+
+        if (typeof EMBED_MODE !== 'undefined' && EMBED_MODE) {
+            return;
+        }
 
         function escAttr(v) {
             return String(v == null ? '' : v).replace(/"/g, '&quot;');
@@ -4439,6 +4447,8 @@
                     ' data-ref-floorplan="' + escAttr(tab.ref_floor_plan_id || '') + '"' +
                     ' data-ref-gallery="' + escAttr(tab.ref_gallery_id || '') + '"' +
                     ' data-ref-projectplan="' + escAttr(tab.ref_project_plan_id || '') + '"' +
+                    ' data-ref-salesmap="' + escAttr(tab.ref_sales_map_id || '') + '"' +
+                    ' data-ref-salesflat360="' + escAttr(tab.ref_sales_flat360_id || '') + '"' +
                     ' data-content="' + escAttr(contentJson) + '"' +
                     ' title="' + escAttr(tab.name || '') + '">' +
                     '<span class="fv-sidebar-icon"><iconify-icon icon="' + escAttr(tab.icon || 'ph:house') + '"></iconify-icon></span>' +
@@ -4493,6 +4503,55 @@
             var r = String(ref || '').trim();
             if (r) url += '&ref=' + encodeURIComponent(r);
             return url;
+        }
+
+        function prefetchDocument(url) {
+            if (!url) return;
+            try {
+                var link = document.createElement('link');
+                link.rel = 'prefetch';
+                link.as = 'document';
+                link.href = url;
+                document.head.appendChild(link);
+            } catch (e) { }
+            try {
+                fetch(url, { credentials: 'same-origin', mode: 'same-origin', cache: 'force-cache' }).catch(function () { });
+            } catch (e2) { }
+        }
+
+        function prefetchShellTargets() {
+            if (!WORKSPACE_ID || !sidebar) return;
+            if (prefetchScheduled) return;
+            prefetchScheduled = true;
+
+            var urls = new Set();
+            urls.add('/customer/full-view/' + encodeURIComponent(String(WORKSPACE_ID || '')));
+            sidebar.querySelectorAll('.fv-sidebar-btn').forEach(function (btn) {
+                var type = String(btn.dataset.tabType || '').trim();
+                var pano = String(btn.dataset.refPanorama || '').trim();
+                var gal = String(btn.dataset.refGallery || '').trim();
+                if (type === '360_pano' || type === 'drone_view') return;
+                if (type === 'highlights' && !gal && pano) return;
+                var fp = String(btn.dataset.refFloorplan || '').trim();
+                var dn = String(btn.dataset.refDaynight || '').trim();
+                var pp = String(btn.dataset.refProjectplan || '').trim();
+                var sm = String(btn.dataset.refSalesmap || '').trim();
+                var sf3 = String(btn.dataset.refSalesflat360 || '').trim();
+                var ref = fp || gal || dn || pp || sm || sf3 || '';
+                var url = shellUrl(type, ref);
+                if (url) urls.add(url);
+            });
+
+            var queue = Array.from(urls);
+            var idx = 0;
+            function step() {
+                if (idx >= queue.length) return;
+                prefetchDocument(queue[idx]);
+                idx += 1;
+                setTimeout(step, 140);
+            }
+            if (typeof requestIdleCallback === 'function') requestIdleCallback(step, { timeout: 1800 });
+            else setTimeout(step, 300);
         }
 
         function getCurrentPanoramaIdForSidebar() {
@@ -4591,6 +4650,8 @@
                     var fp      = btn.dataset.refFloorplan;
                     var gal     = btn.dataset.refGallery;
                     var pp      = btn.dataset.refProjectplan;
+                    var sm      = btn.dataset.refSalesmap;
+                    var sf3     = btn.dataset.refSalesflat360;
                     var cd      = {};
                     try { cd = JSON.parse(btn.dataset.content || '{}'); } catch (e) {}
 
@@ -4619,7 +4680,7 @@
                     }
 
                     /* ---- everything else: go to Full View shell (same tab) ---- */
-                    var ref = fp || gal || dn || pp || '';
+                    var ref = fp || gal || dn || pp || sm || sf3 || '';
                     var url = shellUrl(type, ref);
                     if (url) {
                         setActive(btn);
@@ -4638,6 +4699,7 @@
             installPanoramaSwitchActiveSync();
             bindSidebarHandlers();
             syncActiveFromCurrentPanorama();
+            prefetchShellTargets();
             return true;
         }
 
