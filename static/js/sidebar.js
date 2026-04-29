@@ -25,7 +25,7 @@
             return;
         }
         var href = (link.getAttribute('href') || '').replace(/\/+$/, '') || '/';
-        var isSalesToolsAlias = (href === '/floorplans' && currentPath === '/daynight');
+        var isSalesToolsAlias = ((href === '/salestools' || href === '/floorplans') && currentPath === '/daynight');
         if (currentPath === href || currentPath.indexOf(href + '/') === 0 || isSalesToolsAlias) {
             link.classList.add('active');
         } else {

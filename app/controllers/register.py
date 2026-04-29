@@ -6912,9 +6912,16 @@ h1 {{ margin:0 0 8px; font-size:22px; }}
     # Floor Plan Catalogue
     # ==================================================================
 
+    @app.route('/salestools')
+    def sales_tools_page():
+        return render_template('floorplans.html', **auth_ctx())
+
     @app.route('/floorplans')
     def floorplans_page():
-        return render_template('floorplans.html', **auth_ctx())
+        qs = request.query_string.decode('utf-8').strip() if request.query_string else ''
+        if qs:
+            return redirect(f'/salestools?{qs}')
+        return redirect('/salestools')
 
     @app.route('/api/floorplans/catalogues', methods=['GET'])
     @require_admin
@@ -7635,7 +7642,7 @@ h1 {{ margin:0 0 8px; font-size:22px; }}
 
     @app.route('/sales-route-maps')
     def sales_route_maps_page():
-        return redirect('/floorplans?tab=route-maps')
+        return redirect('/salestools?tab=route-maps')
 
     @app.route('/sales-route-maps/editor/<map_id>')
     def sales_route_map_editor_page(map_id):
@@ -8081,7 +8088,7 @@ h1 {{ margin:0 0 8px; font-size:22px; }}
 
     @app.route('/sales-flat360')
     def sales_flat360_page():
-        return redirect('/floorplans?tab=flat360')
+        return redirect('/salestools?tab=flat360')
 
     @app.route('/sales-flat360/editor/<view_id>')
     def sales_flat360_editor_page(view_id):

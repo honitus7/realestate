@@ -13,8 +13,8 @@
     <div class="floorplans-main">
         <!-- Subtabs -->
         <div class="fp-subtabs">
-            <button class="fp-subtab" data-tab="daynight" id="subtab-daynight">Day/Night</button>
-            <button class="fp-subtab active" data-tab="floorplans" id="subtab-floorplans">Floor Plans</button>
+            <button class="fp-subtab active" data-tab="daynight" id="subtab-daynight">Day/Night</button>
+            <button class="fp-subtab" data-tab="floorplans" id="subtab-floorplans">Floor Plans</button>
             <button class="fp-subtab" data-tab="building-maps" id="subtab-building-maps">Building Maps</button>
             <button class="fp-subtab" data-tab="earth-views" id="subtab-earth-views">Earth Views</button>
             <button class="fp-subtab" data-tab="project-plans" id="subtab-project-plans">Project Plans</button>
@@ -24,7 +24,7 @@
         </div>
 
         <!-- ========= DAY/NIGHT TAB ========= -->
-        <div class="fp-tab-content" id="tab-daynight" style="display:none;">
+        <div class="fp-tab-content" id="tab-daynight">
             <div class="fp-daynight-embed-shell">
                 <iframe id="fp-daynight-frame"
                         class="fp-daynight-embed-frame"
@@ -36,7 +36,7 @@
         </div><!-- /tab-daynight -->
 
         <!-- ========= FLOOR PLANS TAB ========= -->
-        <div class="fp-tab-content" id="tab-floorplans">
+        <div class="fp-tab-content" id="tab-floorplans" style="display:none;">
         <!-- List view -->
         <div id="fp-list-view">
             <div class="floorplans-header">
@@ -643,13 +643,36 @@
     var pendingFiles = [];
     var pendingFileIndex = 0;
     var orderDirty = false;
+    var fpLoaded = false;
+    var workspaceOptionsLoaded = false;
+    var SALES_TAB_ORDER = ['daynight', 'floorplans', 'building-maps', 'earth-views', 'project-plans', 'route-maps', 'flat360', 'galleries'];
+    var SALES_DEFAULT_TAB = SALES_TAB_ORDER[0];
+    var initialSalesTab = resolveInitialSalesTab();
+    var pendingAuthLoads = Object.create(null);
+    var salesTabManuallySelected = false;
 
     // Wait for sidebar auth then start
     window.sidebarReady.then(function(ctx) {
         accessToken = ctx.accessToken;
-        loadCatalogues();
         loadWorkspacesForModal();
+        if (!salesTabManuallySelected) {
+            activateSalesTab(initialSalesTab);
+        }
     });
+
+    function waitForAuthAndRetry(key, retryFn) {
+        if (accessToken) return false;
+        if (pendingAuthLoads[key]) return true;
+        pendingAuthLoads[key] = true;
+        window.sidebarReady.then(function(ctx) {
+            accessToken = ctx.accessToken;
+            pendingAuthLoads[key] = false;
+            retryFn();
+        }).catch(function() {
+            pendingAuthLoads[key] = false;
+        });
+        return true;
+    }
 
     function authHeaders() {
         return { 'Authorization': 'Bearer ' + accessToken };
@@ -667,10 +690,20 @@
     // ------------------------------------------------------------------
 
     function loadCatalogues() {
+        if (waitForAuthAndRetry('catalogues', loadCatalogues)) return;
         fetch('/api/floorplans/catalogues', { headers: authHeaders() })
-            .then(function(r) { return r.ok ? r.json() : []; })
+            .then(function(r) {
+                if (!r.ok) throw new Error('Failed to load catalogues');
+                return r.json();
+            })
             .then(function(data) {
                 catalogues = data;
+                fpLoaded = true;
+                renderCatalogues();
+            })
+            .catch(function() {
+                fpLoaded = false;
+                catalogues = [];
                 renderCatalogues();
             });
     }
@@ -765,8 +798,12 @@
     // ------------------------------------------------------------------
 
     function loadWorkspacesForModal() {
+        if (waitForAuthAndRetry('workspace-options', loadWorkspacesForModal)) return;
         fetch('/api/workspaces', { headers: authHeaders() })
-            .then(function(r) { return r.ok ? r.json() : []; })
+            .then(function(r) {
+                if (!r.ok) throw new Error('Failed to load workspaces');
+                return r.json();
+            })
             .then(function(data) {
                 var workspaces = normalizeWorkspaceList(data);
                 var selectors = [
@@ -777,6 +814,7 @@
                 ].filter(Boolean);
                 if (!selectors.length) return;
                 if (!workspaces.length) {
+                    workspaceOptionsLoaded = true;
                     selectors.forEach(function(sel) {
                         sel.innerHTML = '<option value="">No projects found</option>';
                     });
@@ -788,8 +826,10 @@
                 selectors.forEach(function(sel) {
                     sel.innerHTML = optionsHtml;
                 });
+                workspaceOptionsLoaded = true;
             })
             .catch(function() {
+                workspaceOptionsLoaded = false;
                 ['fp-cat-workspace', 'bm-workspace', 'pp-workspace', 'gal-workspace'].forEach(function(id) {
                     var sel = document.getElementById(id);
                     if (sel) sel.innerHTML = '<option value="">Failed to load projects</option>';
@@ -1184,60 +1224,70 @@
 
     document.querySelectorAll('.fp-subtab').forEach(function(tab) {
         tab.addEventListener('click', function() {
-            var target = tab.dataset.tab;
-            document.querySelectorAll('.fp-subtab').forEach(function(t) { t.classList.remove('active'); });
-            tab.classList.add('active');
-            document.getElementById('tab-daynight').style.display = target === 'daynight' ? '' : 'none';
-            document.getElementById('tab-floorplans').style.display = target === 'floorplans' ? '' : 'none';
-            document.getElementById('tab-building-maps').style.display = target === 'building-maps' ? '' : 'none';
-            document.getElementById('tab-earth-views').style.display = target === 'earth-views' ? '' : 'none';
-            document.getElementById('tab-project-plans').style.display = target === 'project-plans' ? '' : 'none';
-            document.getElementById('tab-route-maps').style.display = target === 'route-maps' ? '' : 'none';
-            document.getElementById('tab-flat360').style.display = target === 'flat360' ? '' : 'none';
-            document.getElementById('tab-galleries').style.display = target === 'galleries' ? '' : 'none';
-            if (target === 'daynight') {
-                ensureDaynightEmbedLoaded();
-            }
-            if (target === 'building-maps' && !bmLoaded) {
-                loadBuildingMaps();
-            }
-            if (target === 'earth-views' && !evLoaded) {
-                loadEarthViews();
-            }
-            if (target === 'project-plans' && !ppLoaded) {
-                loadProjectPlans();
-            }
-            if (target === 'route-maps' && !srmLoaded) {
-                loadSalesRouteMaps();
-            }
-            if (target === 'flat360' && !sf3Loaded) {
-                loadSalesFlat360Views();
-            }
-            if (target === 'galleries' && !galLoaded) {
-                loadGalleries();
-            }
+            salesTabManuallySelected = true;
+            activateSalesTab(tab.dataset.tab);
         });
     });
 
-    (function applyInitialTabFromQuery() {
+    function resolveInitialSalesTab() {
         var qs = new URLSearchParams(window.location.search || '');
-        var tab = (qs.get('tab') || '').trim().toLowerCase();
-        if (!tab) return;
-        var tabMap = {
-            'daynight': 'subtab-daynight',
-            'floorplans': 'subtab-floorplans',
-            'building-maps': 'subtab-building-maps',
-            'earth-views': 'subtab-earth-views',
-            'project-plans': 'subtab-project-plans',
-            'route-maps': 'subtab-route-maps',
-            'flat360': 'subtab-flat360',
-            'galleries': 'subtab-galleries'
-        };
-        var btnId = tabMap[tab];
-        if (!btnId) return;
-        var btn = document.getElementById(btnId);
-        if (btn) btn.click();
-    })();
+        var requestedTab = (qs.get('tab') || '').trim().toLowerCase();
+        if (SALES_TAB_ORDER.indexOf(requestedTab) >= 0) return requestedTab;
+        return SALES_DEFAULT_TAB;
+    }
+
+    function activateSalesTab(tabName) {
+        var target = (tabName || '').trim().toLowerCase();
+        if (SALES_TAB_ORDER.indexOf(target) < 0) {
+            target = SALES_DEFAULT_TAB;
+        }
+        document.querySelectorAll('.fp-subtab').forEach(function(t) {
+            t.classList.toggle('active', t.dataset.tab === target);
+        });
+        SALES_TAB_ORDER.forEach(function(tab) {
+            var panel = document.getElementById('tab-' + tab);
+            if (panel) panel.style.display = (tab === target ? '' : 'none');
+        });
+        initSalesTab(target);
+    }
+
+    function initSalesTab(target) {
+        if (target === 'daynight') {
+            ensureDaynightEmbedLoaded();
+            return;
+        }
+        if (target === 'floorplans') {
+            if (!fpLoaded) loadCatalogues();
+            if (!workspaceOptionsLoaded) loadWorkspacesForModal();
+            return;
+        }
+        if (target === 'building-maps') {
+            if (!bmLoaded) loadBuildingMaps();
+            if (!workspaceOptionsLoaded) loadWorkspacesForModal();
+            return;
+        }
+        if (target === 'earth-views') {
+            if (!evLoaded) loadEarthViews();
+            return;
+        }
+        if (target === 'project-plans') {
+            if (!ppLoaded) loadProjectPlans();
+            if (!workspaceOptionsLoaded) loadWorkspacesForModal();
+            return;
+        }
+        if (target === 'route-maps') {
+            if (!srmLoaded) loadSalesRouteMaps();
+            return;
+        }
+        if (target === 'flat360') {
+            if (!sf3Loaded) loadSalesFlat360Views();
+            return;
+        }
+        if (target === 'galleries') {
+            if (!galLoaded) loadGalleries();
+            if (!workspaceOptionsLoaded) loadWorkspacesForModal();
+        }
+    }
 
     var daynightEmbedLoaded = false;
     function ensureDaynightEmbedLoaded() {
@@ -1830,11 +1880,20 @@
     var buildingMaps = [];
 
     function loadBuildingMaps() {
+        if (waitForAuthAndRetry('building-maps', loadBuildingMaps)) return;
         fetch('/api/building-maps', { headers: authHeaders() })
-            .then(function(r) { return r.ok ? r.json() : []; })
+            .then(function(r) {
+                if (!r.ok) throw new Error('Failed to load building maps');
+                return r.json();
+            })
             .then(function(data) {
                 buildingMaps = data;
                 bmLoaded = true;
+                renderBuildingMaps();
+            })
+            .catch(function() {
+                bmLoaded = false;
+                buildingMaps = [];
                 renderBuildingMaps();
             });
     }
@@ -2037,11 +2096,20 @@
     var evDeleteTarget = null;
 
     function loadEarthViews() {
+        if (waitForAuthAndRetry('earth-views', loadEarthViews)) return;
         fetch('/api/earth-views', { headers: authHeaders() })
-            .then(function(r) { return r.ok ? r.json() : []; })
+            .then(function(r) {
+                if (!r.ok) throw new Error('Failed to load earth views');
+                return r.json();
+            })
             .then(function(data) {
                 earthViews = data;
                 evLoaded = true;
+                renderEarthViews();
+            })
+            .catch(function() {
+                evLoaded = false;
+                earthViews = [];
                 renderEarthViews();
             });
     }
@@ -2168,11 +2236,20 @@
     var ppManagePlanId = null;
 
     function loadProjectPlans() {
+        if (waitForAuthAndRetry('project-plans', loadProjectPlans)) return;
         fetch('/api/project-plans', { headers: authHeaders() })
-            .then(function(r) { return r.ok ? r.json() : []; })
+            .then(function(r) {
+                if (!r.ok) throw new Error('Failed to load project plans');
+                return r.json();
+            })
             .then(function(data) {
                 projectPlans = data;
                 ppLoaded = true;
+                renderProjectPlans();
+            })
+            .catch(function() {
+                ppLoaded = false;
+                projectPlans = [];
                 renderProjectPlans();
             });
     }
@@ -2446,11 +2523,20 @@
     var galPendingIsVideo = false;
 
     function loadGalleries() {
+        if (waitForAuthAndRetry('galleries', loadGalleries)) return;
         fetch('/api/galleries', { headers: authHeaders() })
-            .then(function(r) { return r.ok ? r.json() : []; })
+            .then(function(r) {
+                if (!r.ok) throw new Error('Failed to load galleries');
+                return r.json();
+            })
             .then(function(data) {
                 galleries = data;
                 galLoaded = true;
+                renderGalleries();
+            })
+            .catch(function() {
+                galLoaded = false;
+                galleries = [];
                 renderGalleries();
             });
     }
