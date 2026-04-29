@@ -206,6 +206,7 @@
             url: {{ item.media_url|tojson }},
             type: {{ item.media_type|tojson }},
             name: {{ item.name|tojson }},
+            is_360: {{ item.get('is_360')|tojson }},
             media_width: {{ (item.media_width or 0)|int }},
             media_height: {{ (item.media_height or 0)|int }}
         }{% if not loop.last %},{% endif %}
@@ -253,14 +254,6 @@
         return !!(window.PhotoSphereViewer && window.PhotoSphereViewer.Viewer && psvEl);
     }
 
-    function isLikelyEquirectangularSize(width, height) {
-        width = Number(width || 0);
-        height = Number(height || 0);
-        if (!(width > 0) || !(height > 0)) return false;
-        var ratio = width / height;
-        return ratio >= 1.9 && ratio <= 2.1;
-    }
-
     function isEquirectActive() {
         return pageEl.classList.contains('gv-active-equirect');
     }
@@ -275,31 +268,13 @@
         if (!supportsPsv() || !item || item.type !== 'image' || !item.url) {
             return Promise.resolve(false);
         }
-        if (item._equirectKnown) return Promise.resolve(!!item._isEquirect);
 
-        var known = isLikelyEquirectangularSize(item.media_width, item.media_height);
-        if (known) {
+        if (typeof item.is_360 === 'boolean') {
             item._equirectKnown = true;
-            item._isEquirect = true;
-            return Promise.resolve(true);
+            item._isEquirect = item.is_360;
+            return Promise.resolve(item.is_360);
         }
-
-        return new Promise(function(resolve) {
-            var probe = new Image();
-            probe.onload = function() {
-                item.media_width = probe.naturalWidth || 0;
-                item.media_height = probe.naturalHeight || 0;
-                item._isEquirect = isLikelyEquirectangularSize(item.media_width, item.media_height);
-                item._equirectKnown = true;
-                resolve(!!item._isEquirect);
-            };
-            probe.onerror = function() {
-                item._equirectKnown = true;
-                item._isEquirect = false;
-                resolve(false);
-            };
-            probe.src = item.url;
-        });
+        return Promise.resolve(false);
     }
 
     function destroyPsvViewer() {

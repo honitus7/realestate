@@ -536,6 +536,19 @@
     transition: background 0.2s, color 0.2s, border-color 0.2s;
 }
 
+.fp-item-btn.flag360 {
+    width: 40px;
+    font-size: 0.62rem;
+    font-weight: 800;
+    letter-spacing: 0.01em;
+}
+
+.fp-item-btn.flag360.active {
+    color: #0f5132;
+    border-color: rgba(16, 185, 129, 0.55);
+    background: rgba(16, 185, 129, 0.18);
+}
+
 .fp-item-btn:hover {
     background: var(--color-accent-hover);
     color: var(--color-text);

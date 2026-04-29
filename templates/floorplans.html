@@ -613,6 +613,12 @@
             <div class="form-group" style="margin-bottom:1rem;">
                 <input type="text" class="form-input" id="gal-item-name-input" placeholder="e.g., Living Room View">
             </div>
+            <div class="form-group" id="gal-item-is360-wrap" style="margin-bottom:1rem;">
+                <label style="display:flex;align-items:center;gap:0.45rem;font-size:0.82rem;color:var(--color-text);">
+                    <input type="checkbox" id="gal-item-is360">
+                    Mark as 360 image
+                </label>
+            </div>
             <div class="modal-actions">
                 <button class="btn btn-secondary" id="gal-name-skip">Skip</button>
                 <button class="btn btn-primary" id="gal-name-confirm">Upload</button>
@@ -2437,6 +2443,7 @@
     var galOrderDirty = false;
     var galPendingFiles = [];
     var galPendingFileIndex = 0;
+    var galPendingIsVideo = false;
 
     function loadGalleries() {
         fetch('/api/galleries', { headers: authHeaders() })
@@ -2635,10 +2642,14 @@
         list.innerHTML = galItems.map(function(item, idx) {
             var sizeStr = item.file_size_bytes ? formatBytes(item.file_size_bytes) : '';
             var typeStr = item.media_type === 'video' ? 'Video' : 'Image';
-            var meta = [typeStr, sizeStr].filter(Boolean).join(' \u00b7 ');
+            var has360 = item.media_type === 'image' && !!item.is_360;
+            var meta = [typeStr, has360 ? '360°' : '', sizeStr].filter(Boolean).join(' \u00b7 ');
             var thumbHtml = item.media_type === 'video'
                 ? '<div class="fp-item-thumb" style="display:flex;align-items:center;justify-content:center;background:var(--color-surface);font-size:1.2rem;">&#9654;</div>'
                 : '<img class="fp-item-thumb" src="' + esc(item.media_url || '') + '" alt="' + esc(item.name) + '">';
+            var toggle360Btn = item.media_type === 'image'
+                ? '<button class="fp-item-btn flag360' + (has360 ? ' active' : '') + '" data-id="' + item.id + '" data-is360="' + (has360 ? '1' : '0') + '" title="Toggle 360 mode">360</button>'
+                : '';
             return '<div class="fp-item" draggable="true" data-id="' + item.id + '" data-idx="' + idx + '">' +
                 '<div class="fp-item-drag" title="Drag to reorder">' +
                     '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="16" y2="6"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="8" y1="18" x2="16" y2="18"/></svg>' +
@@ -2649,6 +2660,7 @@
                     '<div class="fp-item-size">' + meta + '</div>' +
                 '</div>' +
                 '<div class="fp-item-actions">' +
+                    toggle360Btn +
                     '<button class="fp-item-btn rename" data-id="' + item.id + '" data-name="' + esc(item.name) + '" title="Rename">' +
                         '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 3a2.83 2.83 0 0 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>' +
                     '</button>' +
@@ -2667,6 +2679,25 @@
                 galDeleteTarget = { type: 'item', id: btn.dataset.id, name: btn.dataset.name };
                 document.getElementById('gal-delete-text').textContent = 'Delete "' + btn.dataset.name + '"? This cannot be undone.';
                 showModal('gal-delete-modal');
+            });
+        });
+        list.querySelectorAll('.fp-item-btn.flag360').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var itemId = btn.dataset.id;
+                var nextIs360 = btn.dataset.is360 !== '1';
+                btn.disabled = true;
+                fetch('/api/gallery-items/' + itemId, {
+                    method: 'PATCH',
+                    headers: Object.assign({ 'Content-Type': 'application/json' }, authHeaders()),
+                    body: JSON.stringify({ is_360: nextIs360 })
+                }).then(function(r) {
+                    if (!r.ok) throw new Error('Failed to update 360 flag');
+                    return r.json();
+                }).then(function() {
+                    loadGalItems();
+                }).catch(function() {
+                    btn.disabled = false;
+                });
             });
         });
 
@@ -2747,8 +2778,13 @@
         var nameFromFile = file.name.replace(/\.[^.]+$/, '').replace(/[_-]+/g, ' ');
         document.getElementById('gal-item-name-input').value = nameFromFile;
         var isVideo = file.type.startsWith('video/');
+        galPendingIsVideo = isVideo;
         var imgEl = document.getElementById('gal-name-preview');
         var vidEl = document.getElementById('gal-name-preview-video');
+        var is360Wrap = document.getElementById('gal-item-is360-wrap');
+        var is360Input = document.getElementById('gal-item-is360');
+        if (is360Input) is360Input.checked = false;
+        if (is360Wrap) is360Wrap.style.display = isVideo ? 'none' : '';
         if (isVideo) {
             imgEl.style.display = 'none';
             vidEl.style.display = '';
@@ -2765,8 +2801,10 @@
 
     document.getElementById('gal-name-confirm').addEventListener('click', function() {
         var name = document.getElementById('gal-item-name-input').value.trim() || 'Untitled';
+        var is360Input = document.getElementById('gal-item-is360');
+        var is360 = !galPendingIsVideo && !!(is360Input && is360Input.checked);
         hideModal('gal-name-modal');
-        galUploadFile(galPendingFiles[galPendingFileIndex], name);
+        galUploadFile(galPendingFiles[galPendingFileIndex], name, is360);
     });
 
     document.getElementById('gal-name-skip').addEventListener('click', function() {
@@ -2777,7 +2815,7 @@
         }
     });
 
-    function galUploadFile(file, name) {
+    function galUploadFile(file, name, is360) {
         if (!currentGallery) return;
         document.getElementById('gal-upload-progress').style.display = '';
         document.getElementById('gal-progress-fill').style.width = '40%';
@@ -2786,6 +2824,7 @@
         var fd = new FormData();
         fd.append('name', name);
         fd.append('file', file);
+        fd.append('is_360', is360 ? 'true' : 'false');
 
         fetch('/api/galleries/' + currentGallery.id + '/items', {
             method: 'POST',

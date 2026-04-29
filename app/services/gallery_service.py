@@ -116,18 +116,29 @@ def get_item(sb, item_id):
 
 
 def create_item(sb, gallery_id, name, filename, media_type='image',
-                media_width=0, media_height=0, file_size_bytes=0, sort_order=0):
+                media_width=0, media_height=0, file_size_bytes=0, sort_order=0,
+                is_360=False):
     row = {
         'gallery_id': str(gallery_id),
         'name': name,
         'filename': filename,
         'media_type': media_type,
+        'is_360': bool(is_360),
         'media_width': media_width,
         'media_height': media_height,
         'file_size_bytes': file_size_bytes,
         'sort_order': sort_order,
     }
-    resp = sb.table('gallery_items').insert(row).execute()
+    try:
+        resp = sb.table('gallery_items').insert(row).execute()
+    except Exception as e:
+        # Backward compatibility when is_360 column is not yet migrated.
+        msg = str(e).lower()
+        if 'is_360' in row and 'is_360' in msg and ('column' in msg or 'does not exist' in msg):
+            row.pop('is_360', None)
+            resp = sb.table('gallery_items').insert(row).execute()
+        else:
+            raise
     data = resp.data
     return data[0] if data else None
 
@@ -136,11 +147,22 @@ def update_item(sb, item_id, **fields):
     clean = {}
     for k, v in fields.items():
         if k in ('name', 'sort_order', 'filename', 'media_type',
-                 'media_width', 'media_height', 'file_size_bytes'):
-            clean[k] = v
+                 'media_width', 'media_height', 'file_size_bytes', 'is_360'):
+            clean[k] = bool(v) if k == 'is_360' else v
     if not clean:
         return None
-    resp = sb.table('gallery_items').update(clean).eq('id', str(item_id)).execute()
+    try:
+        resp = sb.table('gallery_items').update(clean).eq('id', str(item_id)).execute()
+    except Exception as e:
+        # Backward compatibility when is_360 column is not yet migrated.
+        msg = str(e).lower()
+        if 'is_360' in clean and 'is_360' in msg and ('column' in msg or 'does not exist' in msg):
+            clean.pop('is_360', None)
+            if not clean:
+                return get_item(sb, item_id)
+            resp = sb.table('gallery_items').update(clean).eq('id', str(item_id)).execute()
+        else:
+            raise
     data = resp.data
     return data[0] if data else None
 

@@ -561,6 +561,7 @@ create table if not exists public.gallery_items (
   gallery_id uuid not null references public.galleries(id) on delete cascade,
   name text not null,
   media_type text not null default 'image',
+  is_360 boolean not null default false,
   filename text not null,
   file_size_bytes bigint default 0,
   media_width int default 0,
@@ -572,6 +573,7 @@ create table if not exists public.gallery_items (
 
 create index if not exists idx_gallery_items_gallery on public.gallery_items(gallery_id);
 create index if not exists idx_gallery_items_sort_order on public.gallery_items(gallery_id, sort_order);
+create index if not exists idx_gallery_items_gallery_is360 on public.gallery_items(gallery_id, is_360);
 
 -- 20) Earth Views
 create table if not exists public.earth_views (

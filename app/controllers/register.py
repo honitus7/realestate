@@ -8839,6 +8839,7 @@ h1 {{ margin:0 0 8px; font-size:22px; }}
         if not gal or (str(gal.get('user_id')) != str(user_id) and role != 'superadmin'):
             return jsonify({'error': 'Forbidden'}), 403
         name = request.form.get('name', '').strip() or 'Media'
+        raw_is_360 = request.form.get('is_360')
         f = request.files.get('file')
         if not f or not f.filename:
             return jsonify({'error': 'No file provided'}), 400
@@ -8863,6 +8864,15 @@ h1 {{ margin:0 0 8px; font-size:22px; }}
             upload_gallery_to_s3(filename, raw_bytes, content_types.get(ext, 'video/mp4'))
             file_size = len(raw_bytes)
             w, h = 0, 0
+
+        if is_image:
+            if raw_is_360 is not None and str(raw_is_360).strip() != '':
+                is_360 = _is_truthy(raw_is_360)
+            else:
+                is_360 = False
+        else:
+            is_360 = False
+
         sort_order = gal_next_sort_order(sb, gallery_id)
         item = gal_create_item(
             sb, gallery_id, name, filename,
@@ -8870,6 +8880,7 @@ h1 {{ margin:0 0 8px; font-size:22px; }}
             media_width=w, media_height=h,
             file_size_bytes=file_size,
             sort_order=sort_order,
+            is_360=is_360,
         )
         if not item:
             return jsonify({'error': 'Failed to create item'}), 500
@@ -8892,6 +8903,8 @@ h1 {{ margin:0 0 8px; font-size:22px; }}
         updates = {}
         if 'name' in data:
             updates['name'] = str(data['name']).strip()
+        if 'is_360' in data:
+            updates['is_360'] = _is_truthy(data.get('is_360'))
         if updates:
             gal_update_item(sb, item_id, **updates)
         updated = gal_get_item(sb, item_id)
