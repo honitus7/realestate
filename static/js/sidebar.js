@@ -17,6 +17,112 @@
     var sb = window.supabase.createClient(url, key);
     window._supabase = sb;
 
+    function _pmSleep(ms) {
+        return new Promise(function (resolve) { setTimeout(resolve, Number(ms) || 0); });
+    }
+
+    function _pmGetSessionOnce() {
+        return sb.auth.getSession()
+            .then(function (r) { return (r && r.data && r.data.session) ? r.data.session : null; })
+            .catch(function () { return null; });
+    }
+
+    function _pmWaitForSession(maxAttempts, delayMs) {
+        var attemptsLeft = Math.max(0, Number(maxAttempts) || 0);
+        var waitMs = Math.max(40, Number(delayMs) || 120);
+        function step() {
+            return _pmGetSessionOnce().then(function (session) {
+                if (session || attemptsLeft <= 0) return session;
+                attemptsLeft -= 1;
+                return _pmSleep(waitMs).then(step);
+            });
+        }
+        return step();
+    }
+
+    function _pmShouldRetryStatus(status) {
+        return status === 408 || status === 425 || status === 429 || status === 500 || status === 502 || status === 503 || status === 504;
+    }
+
+    function _pmRetryDelayMs(attempt, baseDelayMs) {
+        var base = Math.max(80, Number(baseDelayMs) || 220);
+        var jitter = Math.floor(Math.random() * 70);
+        return Math.min(1400, (base * Math.pow(1.8, attempt)) + jitter);
+    }
+
+    async function _pmBuildHeaders(existingHeaders, opts) {
+        var headers = Object.assign({}, existingHeaders || {});
+        var hasAuth = !!(headers.Authorization || headers.authorization);
+        if (hasAuth) return headers;
+        var session = await _pmWaitForSession(
+            opts && opts.waitAttempts != null ? opts.waitAttempts : 6,
+            opts && opts.waitDelayMs != null ? opts.waitDelayMs : 120
+        );
+        if (session && session.access_token) {
+            headers.Authorization = 'Bearer ' + session.access_token;
+        }
+        return headers;
+    }
+
+    async function _pmFetchWithRetry(url, opts, retryOpts) {
+        var options = opts || {};
+        var ro = retryOpts || {};
+        var retries = Math.max(0, Number(ro.retries) || 0);
+        var retryAuth = ro.retryAuth !== false;
+        var method = String(options.method || 'GET').toUpperCase();
+        var allowRetry = method === 'GET' || method === 'HEAD' || method === 'OPTIONS' || ro.allowRetryOnWrite === true;
+        var lastNetworkErr = null;
+        for (var attempt = 0; attempt <= retries; attempt += 1) {
+            var merged = Object.assign({}, options);
+            merged.headers = await _pmBuildHeaders(options.headers, ro);
+            try {
+                var res = await fetch(url, merged);
+                if (res.ok) return res;
+                if (!allowRetry || attempt >= retries) return res;
+                if (retryAuth && res.status === 401) {
+                    try { await sb.auth.refreshSession(); } catch (e) { /* best effort */ }
+                    await _pmSleep(_pmRetryDelayMs(attempt, ro.baseDelayMs));
+                    continue;
+                }
+                if (_pmShouldRetryStatus(res.status)) {
+                    await _pmSleep(_pmRetryDelayMs(attempt, ro.baseDelayMs));
+                    continue;
+                }
+                return res;
+            } catch (err) {
+                lastNetworkErr = err;
+                if (!allowRetry || attempt >= retries) break;
+                await _pmSleep(_pmRetryDelayMs(attempt, ro.baseDelayMs));
+            }
+        }
+        throw lastNetworkErr || new Error('Network request failed');
+    }
+
+    async function _pmFetchJsonWithRetry(url, opts, retryOpts) {
+        var res = await _pmFetchWithRetry(url, opts, retryOpts);
+        var text = '';
+        try { text = await res.text(); } catch (e) { text = ''; }
+        var data = null;
+        try { data = text ? JSON.parse(text) : null; } catch (e2) { data = null; }
+        if (!res.ok) {
+            var msg = (data && data.error) ? data.error : (text || res.statusText || ('Request failed (' + res.status + ')'));
+            var err = new Error(msg);
+            err.status = res.status;
+            err.payload = data;
+            throw err;
+        }
+        return data;
+    }
+
+    // Shared API helpers for pages with list-heavy CRUD UI.
+    window.pmApi = window.pmApi || {};
+    window.pmApi.waitForSession = _pmWaitForSession;
+    window.pmApi.getAuthHeaders = function (opts) {
+        return _pmBuildHeaders((opts && opts.headers) || null, opts || {});
+    };
+    window.pmApi.fetchWithRetry = _pmFetchWithRetry;
+    window.pmApi.fetchJsonWithRetry = _pmFetchJsonWithRetry;
+
     // ---- Active link highlight based on current URL ----
     var currentPath = window.location.pathname.replace(/\/+$/, '') || '/';
     document.querySelectorAll('.sidebar-link[data-page]').forEach(function (link) {

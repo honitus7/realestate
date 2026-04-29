@@ -1069,33 +1069,52 @@
         async function loadWorkspaces() {
             if (!workspaceList) return;
             try {
-                const headers = await getAuthHeaders();
-                const response = await fetch('/api/workspaces', { headers });
-                if (response.status === 401) {
-                    window.location.replace('/login');
-                    return;
-                }
-                if (!response.ok) {
-                    if (response.status === 503 || response.status === 404) {
-                        workspaceFeatureReady = false;
-                        if (createWorkspaceBtn) createWorkspaceBtn.style.display = 'none';
-                        workspaces = [];
+                let data = null;
+                if (window.pmApi && typeof window.pmApi.fetchJsonWithRetry === 'function') {
+                    data = await window.pmApi.fetchJsonWithRetry('/api/workspaces', {}, {
+                        retries: 2,
+                        baseDelayMs: 220,
+                        waitAttempts: 8,
+                        waitDelayMs: 140
+                    });
+                } else {
+                    const headers = await getAuthHeaders();
+                    const response = await fetch('/api/workspaces', { headers });
+                    if (response.status === 401) {
+                        window.location.replace('/login');
                         return;
                     }
-                    throw new Error('Failed to load folders');
+                    if (!response.ok) {
+                        if (response.status === 503 || response.status === 404) {
+                            workspaceFeatureReady = false;
+                            if (createWorkspaceBtn) createWorkspaceBtn.style.display = 'none';
+                            workspaces = [];
+                            return;
+                        }
+                        throw new Error('Failed to load folders');
+                    }
+                    data = await response.json();
                 }
+
                 workspaceFeatureReady = true;
                 var isDashboardAdminForBtn = currentUserRole === 'admin' || currentUserRole === 'superadmin';
                 if (createWorkspaceBtn) createWorkspaceBtn.style.display = isDashboardAdminForBtn ? '' : 'none';
-                workspaces = await response.json();
+                workspaces = Array.isArray(data) ? data : [];
                 if (selectedWorkspaceKey.indexOf('ws:') === 0) {
                     var existing = getWorkspaceById(selectedWorkspaceKey.slice(3));
                     if (!existing) selectedWorkspaceKey = 'unfiled';
                 }
             } catch (error) {
+                if (error && (error.status === 503 || error.status === 404)) {
+                    workspaceFeatureReady = false;
+                    if (createWorkspaceBtn) createWorkspaceBtn.style.display = 'none';
+                    workspaces = [];
+                    return;
+                }
                 workspaceFeatureReady = false;
                 if (createWorkspaceBtn) createWorkspaceBtn.style.display = 'none';
-                workspaces = [];
+                // Preserve last successful state when possible to avoid empty flicker on transient failures.
+                if (!Array.isArray(workspaces)) workspaces = [];
             }
         }
 
@@ -1719,22 +1738,32 @@
         async function loadProjects() {
             projectsLoadFailed = false;
             try {
-                const headers = await getAuthHeaders();
-                const response = await fetch('/api/panoramas', { headers });
-                if (response.status === 401) {
-                    window.location.replace('/login');
-                    return;
+                if (window.pmApi && typeof window.pmApi.fetchJsonWithRetry === 'function') {
+                    const data = await window.pmApi.fetchJsonWithRetry('/api/panoramas', {}, {
+                        retries: 2,
+                        baseDelayMs: 220,
+                        waitAttempts: 8,
+                        waitDelayMs: 140
+                    });
+                    projects = Array.isArray(data) ? data : [];
+                } else {
+                    const headers = await getAuthHeaders();
+                    const response = await fetch('/api/panoramas', { headers });
+                    if (response.status === 401) {
+                        window.location.replace('/login');
+                        return;
+                    }
+                    if (!response.ok) {
+                        let detail = '';
+                        try { detail = await response.text(); } catch (e) { }
+                        console.warn('Projects load failed', response.status, detail.slice(0, 200));
+                        throw new Error(`Failed to load projects (${response.status})`);
+                    }
+                    projects = await response.json();
                 }
-                if (!response.ok) {
-                    let detail = '';
-                    try { detail = await response.text(); } catch (e) { }
-                    console.warn('Projects load failed', response.status, detail.slice(0, 200));
-                    throw new Error(`Failed to load projects (${response.status})`);
-                }
-                projects = await response.json();
                 updateCrmNavVisibility();
             } catch (error) {
-                projects = [];
+                if (!Array.isArray(projects)) projects = [];
                 projectsLoadFailed = true;
                 updateCrmNavVisibility();
             }

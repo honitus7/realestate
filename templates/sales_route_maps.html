@@ -25,6 +25,7 @@
                 <option value="">All projects</option>
             </select>
         </div>
+        <div class="srm-inline-status" id="srm-status" style="display:none;"></div>
 
         <div class="srm-grid" id="srm-grid"></div>
         <div class="srm-empty" id="srm-empty" style="display:none;">No route maps yet. Create your first one.</div>
@@ -65,6 +66,22 @@
     var workspaces = [];
     var activeWorkspaceId = '';
 
+    function setStatus(message, kind) {
+        var el = document.getElementById('srm-status');
+        if (!el) return;
+        if (!message) {
+            el.style.display = 'none';
+            el.className = 'srm-inline-status';
+            el.textContent = '';
+            return;
+        }
+        el.style.display = '';
+        el.textContent = message;
+        el.className = 'srm-inline-status';
+        if (kind === 'warn') el.className += ' srm-inline-status--warn';
+        if (kind === 'error') el.className += ' srm-inline-status--error';
+    }
+
     function authHeaders() {
         if (!window._supabase) return Promise.resolve({});
         return window._supabase.auth.getSession().then(function (r) {
@@ -77,13 +94,21 @@
     }
 
     async function apiFetch(url, opts) {
+        if (window.pmApi && typeof window.pmApi.fetchJsonWithRetry === 'function') {
+            return window.pmApi.fetchJsonWithRetry(url, opts, {
+                retries: 2,
+                baseDelayMs: 220,
+                waitAttempts: 8,
+                waitDelayMs: 140
+            });
+        }
         var headers = await authHeaders();
         var response = await fetch(url, Object.assign({ headers: headers }, opts || {}));
-        if (!response.ok) {
-            var text = await response.text();
-            throw new Error(text || response.statusText);
-        }
-        return response.json();
+        var text = await response.text().catch(function () { return ''; });
+        var payload = null;
+        try { payload = text ? JSON.parse(text) : null; } catch (e) { payload = null; }
+        if (!response.ok) throw new Error((payload && payload.error) || text || response.statusText);
+        return payload;
     }
 
     function showModal(id) { document.getElementById(id).classList.add('visible'); }
@@ -253,15 +278,19 @@
     }
 
     async function loadWorkspaces() {
+        setStatus('Loading projects…');
         var response = await apiFetch('/api/workspaces');
         workspaces = response.workspaces || response || [];
         renderWorkspaceOptions();
+        setStatus('');
     }
 
     async function loadMaps() {
+        setStatus('Loading route maps…');
         var query = activeWorkspaceId ? ('?workspace_id=' + encodeURIComponent(activeWorkspaceId)) : '';
         maps = await apiFetch('/api/sales-maps' + query);
         renderMaps();
+        setStatus('');
     }
 
     function bindWorkspaceFilter() {
@@ -274,8 +303,14 @@
     async function init() {
         bindModalEvents();
         bindWorkspaceFilter();
-        await loadWorkspaces();
-        await loadMaps();
+        try {
+            await loadWorkspaces();
+            await loadMaps();
+        } catch (error) {
+            maps = [];
+            renderMaps();
+            setStatus((error && error.message) ? error.message : 'Unable to load route maps right now.', 'error');
+        }
     }
 
     window.__srmInit = init;

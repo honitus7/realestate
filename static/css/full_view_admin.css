@@ -111,6 +111,45 @@
     align-items: stretch;
 }
 
+.fv-inline-status {
+    margin-top: 0.7rem;
+    padding: 0.5rem 0.7rem;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    background: var(--color-surface);
+    color: var(--color-text-dim);
+    font-size: 0.76rem;
+    line-height: 1.45;
+}
+
+.fv-inline-status--compact {
+    margin: 0;
+    border-left: none;
+    border-right: none;
+    border-bottom: 1px solid var(--color-border);
+    border-top: 1px solid var(--color-border);
+    border-radius: 0;
+    padding: 0.45rem 1.25rem;
+}
+
+.fv-status--ok {
+    background: rgba(34, 197, 94, 0.12);
+    border-color: rgba(34, 197, 94, 0.24);
+    color: #166534;
+}
+
+.fv-status--warn {
+    background: rgba(234, 179, 8, 0.14);
+    border-color: rgba(217, 119, 6, 0.26);
+    color: #854d0e;
+}
+
+.fv-status--error {
+    background: rgba(239, 68, 68, 0.12);
+    border-color: rgba(239, 68, 68, 0.22);
+    color: #991b1b;
+}
+
 /* ---------- Form controls ---------- */
 .fv-label {
     display: block;

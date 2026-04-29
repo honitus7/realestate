@@ -678,6 +678,21 @@
         return { 'Authorization': 'Bearer ' + accessToken };
     }
 
+    function apiJson(url, opts, retryOpts) {
+        if (window.pmApi && typeof window.pmApi.fetchJsonWithRetry === 'function') {
+            return window.pmApi.fetchJsonWithRetry(url, opts, Object.assign({
+                retries: 2,
+                baseDelayMs: 220,
+                waitAttempts: 8,
+                waitDelayMs: 140
+            }, retryOpts || {}));
+        }
+        return fetch(url, opts || {}).then(function(r) {
+            if (!r.ok) throw new Error('Request failed (' + r.status + ')');
+            return r.json();
+        });
+    }
+
     function normalizeWorkspaceList(data) {
         if (Array.isArray(data)) return data;
         if (data && Array.isArray(data.workspaces)) return data.workspaces;
@@ -691,11 +706,7 @@
 
     function loadCatalogues() {
         if (waitForAuthAndRetry('catalogues', loadCatalogues)) return;
-        fetch('/api/floorplans/catalogues', { headers: authHeaders() })
-            .then(function(r) {
-                if (!r.ok) throw new Error('Failed to load catalogues');
-                return r.json();
-            })
+        apiJson('/api/floorplans/catalogues', { headers: authHeaders() })
             .then(function(data) {
                 catalogues = data;
                 fpLoaded = true;
@@ -799,11 +810,7 @@
 
     function loadWorkspacesForModal() {
         if (waitForAuthAndRetry('workspace-options', loadWorkspacesForModal)) return;
-        fetch('/api/workspaces', { headers: authHeaders() })
-            .then(function(r) {
-                if (!r.ok) throw new Error('Failed to load workspaces');
-                return r.json();
-            })
+        apiJson('/api/workspaces', { headers: authHeaders() })
             .then(function(data) {
                 var workspaces = normalizeWorkspaceList(data);
                 var selectors = [
@@ -1379,8 +1386,7 @@
     }
 
     function loadSrmWorkspaces() {
-        return fetch('/api/workspaces', { headers: authHeaders() })
-            .then(function(r) { return r.ok ? r.json() : []; })
+        return apiJson('/api/workspaces', { headers: authHeaders() })
             .then(function(data) {
                 srmWorkspaces = normalizeWorkspaceList(data);
                 renderSrmWorkspaceOptions();
@@ -1420,8 +1426,7 @@
 
     function loadSrmMaps() {
         var query = srmActiveWorkspaceId ? ('?workspace_id=' + encodeURIComponent(srmActiveWorkspaceId)) : '';
-        return fetch('/api/sales-maps' + query, { headers: authHeaders() })
-            .then(function(r) { return r.ok ? r.json() : []; })
+        return apiJson('/api/sales-maps' + query, { headers: authHeaders() })
             .then(function(data) {
                 srmMaps = Array.isArray(data) ? data : [];
                 renderSrmMaps();
@@ -1668,8 +1673,7 @@
     }
 
     function loadSf3Workspaces() {
-        return fetch('/api/workspaces', { headers: authHeaders() })
-            .then(function(r) { return r.ok ? r.json() : []; })
+        return apiJson('/api/workspaces', { headers: authHeaders() })
             .then(function(data) {
                 sf3Workspaces = normalizeWorkspaceList(data);
                 renderSf3WorkspaceOptions();
@@ -1709,8 +1713,7 @@
 
     function loadSf3Views() {
         var query = sf3ActiveWorkspaceId ? ('?workspace_id=' + encodeURIComponent(sf3ActiveWorkspaceId)) : '';
-        return fetch('/api/sales-flat360' + query, { headers: authHeaders() })
-            .then(function(r) { return r.ok ? r.json() : []; })
+        return apiJson('/api/sales-flat360' + query, { headers: authHeaders() })
             .then(function(data) {
                 sf3Views = Array.isArray(data) ? data : [];
                 renderSf3Views();

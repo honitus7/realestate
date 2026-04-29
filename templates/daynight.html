@@ -138,6 +138,19 @@
         return { 'Authorization': 'Bearer ' + window._accessToken };
     }
 
+    async function apiJson(url, opts, retryOpts) {
+        if (window.pmApi && typeof window.pmApi.fetchJsonWithRetry === 'function') {
+            return window.pmApi.fetchJsonWithRetry(url, opts, Object.assign({
+                retries: 2,
+                baseDelayMs: 220,
+                waitAttempts: 8,
+                waitDelayMs: 140
+            }, retryOpts || {}));
+        }
+        var response = await fetch(url, opts || {});
+        return parseResponse(response, 'Request failed');
+    }
+
     function escHtml(s) {
         var d = document.createElement('div');
         d.textContent = s == null ? '' : String(s);
@@ -458,41 +471,46 @@
         });
     }
 
-    function loadWorkspaces() {
-        fetch('/api/workspaces', { headers: authHeaders() })
-            .then(function(r) { return r.ok ? r.json() : []; })
-            .then(function(data) {
-                workspaces = Array.isArray(data) ? data : [];
-                var sel = document.getElementById('dn-workspace');
-                if (!sel) return;
-                if (!workspaces.length) {
-                    sel.innerHTML = '<option value="">No projects found</option>';
-                    if (projects.length) renderProjects();
-                    return;
-                }
-                sel.innerHTML = workspaces.map(function(w) {
-                    return '<option value="' + escAttr(String(w.id || '')) + '">' + escHtml(w.name || 'Project') + '</option>';
-                }).join('');
+    async function loadWorkspaces() {
+        try {
+            var data = await apiJson('/api/workspaces', { headers: authHeaders() });
+            workspaces = Array.isArray(data) ? data : [];
+            var sel = document.getElementById('dn-workspace');
+            if (!sel) return;
+            if (!workspaces.length) {
+                sel.innerHTML = '<option value="">No projects found</option>';
                 if (projects.length) renderProjects();
-            })
-            .catch(function() {
-                var sel = document.getElementById('dn-workspace');
-                if (sel) sel.innerHTML = '<option value="">Failed to load projects</option>';
-                if (projects.length) renderProjects();
-            });
+                return;
+            }
+            sel.innerHTML = workspaces.map(function(w) {
+                return '<option value="' + escAttr(String(w.id || '')) + '">' + escHtml(w.name || 'Project') + '</option>';
+            }).join('');
+            if (projects.length) renderProjects();
+        } catch (err) {
+            var sel = document.getElementById('dn-workspace');
+            if (sel) sel.innerHTML = '<option value="">Failed to load projects</option>';
+            if (projects.length) renderProjects();
+        }
     }
 
-    function loadProjects() {
-        fetch('/api/daynight', { headers: authHeaders() })
-            .then(function(r) { return r.ok ? r.json() : []; })
-            .then(function(data) {
-                projects = Array.isArray(data) ? data : [];
-                renderProjects();
-            })
-            .catch(function() {
-                projects = [];
-                renderProjects();
-            });
+    async function loadProjects() {
+        var loading = document.getElementById('dn-loading');
+        if (loading) {
+            loading.style.display = '';
+            loading.textContent = 'Loading...';
+        }
+        try {
+            var data = await apiJson('/api/daynight', { headers: authHeaders() });
+            projects = Array.isArray(data) ? data : [];
+            renderProjects();
+        } catch (err) {
+            projects = [];
+            renderProjects();
+            if (loading) {
+                loading.style.display = '';
+                loading.textContent = (err && err.message) ? ('Failed to load projects: ' + err.message) : 'Failed to load projects. Please retry.';
+            }
+        }
     }
 
     function renderProjects() {

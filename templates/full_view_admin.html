@@ -37,6 +37,7 @@
                     Open Builder
                 </button>
             </div>
+            <div class="fv-inline-status" id="fv-ws-status" style="display:none;"></div>
         </div>
 
         <!-- Step 2: Builder (hidden until workspace selected) -->
@@ -97,6 +98,7 @@
                 <iconify-icon icon="ph:devices"></iconify-icon>
                 Sidebar appears right (desktop) or bottom (mobile)
             </div>
+            <div class="fv-inline-status fv-inline-status--compact" id="fv-resource-status" style="display:none;"></div>
 
             <!-- Tab rows -->
             <div class="fv-tabs-list" id="fv-tabs-list">
@@ -364,28 +366,70 @@ let galleries = [];
 let projectPlans = [];
 let salesRouteMaps = [];
 let salesFlat360Views = [];
+let resourcesLoadedWorkspaceId = null;
+let resourceLoadPromise = null;
+
+function setInlineStatus(id, message, kind) {
+    var el = document.getElementById(id);
+    if (!el) return;
+    if (!message) {
+        el.style.display = 'none';
+        el.textContent = '';
+        el.className = el.className
+            .replace(/\bfv-status--ok\b/g, '')
+            .replace(/\bfv-status--warn\b/g, '')
+            .replace(/\bfv-status--error\b/g, '');
+        return;
+    }
+    el.style.display = '';
+    el.textContent = message;
+    el.className = el.className
+        .replace(/\bfv-status--ok\b/g, '')
+        .replace(/\bfv-status--warn\b/g, '')
+        .replace(/\bfv-status--error\b/g, '');
+    if (kind === 'ok') el.className += ' fv-status--ok';
+    if (kind === 'warn') el.className += ' fv-status--warn';
+    if (kind === 'error') el.className += ' fv-status--error';
+}
 
 /* ------------------------------------------------------------------ */
 /*  Auth                                                               */
 /* ------------------------------------------------------------------ */
 function authHeaders() {
-    if (!window._supabase) return Promise.resolve({});
+    if (window.pmApi && typeof window.pmApi.getAuthHeaders === 'function') {
+        return window.pmApi.getAuthHeaders({
+            headers: { 'Content-Type': 'application/json' },
+            waitAttempts: 8,
+            waitDelayMs: 140
+        });
+    }
+    if (!window._supabase) return Promise.resolve({ 'Content-Type': 'application/json' });
     return window._supabase.auth.getSession().then(function (r) {
         var h = { 'Content-Type': 'application/json' };
-        if (r.data.session && r.data.session.access_token)
-            h['Authorization'] = 'Bearer ' + r.data.session.access_token;
+        if (r.data.session && r.data.session.access_token) h.Authorization = 'Bearer ' + r.data.session.access_token;
         return h;
     });
 }
 
 async function apiFetch(url, opts) {
-    const h = await authHeaders();
-    const res = await fetch(url, { headers: h, ...opts });
-    if (!res.ok) {
-        const t = await res.text();
-        throw new Error(t || res.statusText);
+    if (window.pmApi && typeof window.pmApi.fetchJsonWithRetry === 'function') {
+        return window.pmApi.fetchJsonWithRetry(url, opts, {
+            retries: 2,
+            baseDelayMs: 220,
+            waitAttempts: 8,
+            waitDelayMs: 140
+        });
     }
-    return res.json();
+    const h = await authHeaders();
+    const merged = Object.assign({ headers: h }, opts || {});
+    const res = await fetch(url, merged);
+    const text = await res.text().catch(function () { return ''; });
+    let payload = null;
+    try { payload = text ? JSON.parse(text) : null; } catch (e) { payload = null; }
+    if (!res.ok) {
+        throw new Error((payload && payload.error) || text || res.statusText);
+    }
+    return payload;
 }
 
 async function apiPost(url, body) {
@@ -425,22 +469,37 @@ function renderWorkspaceOptions(workspaces) {
 
 async function loadWorkspaces() {
     const cacheKey = 'fv_workspaces_light_v1';
+    let hadCachedRows = false;
     try {
         const raw = sessionStorage.getItem(cacheKey);
         if (raw) {
             const cached = JSON.parse(raw);
             if (Array.isArray(cached) && cached.length) {
                 renderWorkspaceOptions(cached);
+                hadCachedRows = true;
             }
         }
     } catch (e) {}
 
+    setInlineStatus('fv-ws-status', 'Loading projects…', '');
     try {
         const d = await apiFetch('/api/workspaces?lightweight=1');
         const rows = (d.workspaces || d || []);
         renderWorkspaceOptions(rows);
         try { sessionStorage.setItem(cacheKey, JSON.stringify(rows)); } catch (e) {}
-    } catch (e) { console.error('loadWorkspaces', e); }
+        if (!rows.length) {
+            setInlineStatus('fv-ws-status', 'No projects found yet.', 'warn');
+            return;
+        }
+        setInlineStatus('fv-ws-status', '');
+    } catch (e) {
+        console.error('loadWorkspaces', e);
+        setInlineStatus(
+            'fv-ws-status',
+            hadCachedRows ? 'Showing cached projects. Refresh or retry if something looks outdated.' : 'Could not load projects right now. Please retry.',
+            'error'
+        );
+    }
 }
 
 /* ------------------------------------------------------------------ */
@@ -448,7 +507,10 @@ async function loadWorkspaces() {
 /* ------------------------------------------------------------------ */
 async function openWorkspace(wsId) {
     currentWorkspaceId = wsId;
+    resourcesLoadedWorkspaceId = null;
+    resourceLoadPromise = null;
     document.getElementById('fv-builder').style.display = '';
+    setInlineStatus('fv-resource-status', 'Loading builder data…', '');
 
     // Workspace name
     const sel = document.getElementById('fv-workspace-select');
@@ -456,18 +518,36 @@ async function openWorkspace(wsId) {
     document.getElementById('fv-builder-ws-name').textContent = opt ? opt.textContent : wsId;
 
     // Kick off secondary data in background (do not block tab rendering)
-    const resourcesTask = loadResources(wsId);
+    resourceLoadPromise = loadResources(wsId).finally(function () {
+        resourceLoadPromise = null;
+    });
     const shareTask = loadShareUrl(wsId);
 
-    // Fetch config (auto-creates if missing) and render immediately
-    const d = await apiFetch('/api/full-view/config?workspace_id=' + encodeURIComponent(wsId) + '&autocreate=1');
-    currentConfigId = d.config ? d.config.id : null;
-    document.getElementById('fv-active-check').checked = d.config ? !!d.config.is_active : true;
-    currentTabs = d.tabs || [];
-    renderTabs();
+    try {
+        // Fetch config (auto-creates if missing) and render immediately
+        const d = await apiFetch('/api/full-view/config?workspace_id=' + encodeURIComponent(wsId) + '&autocreate=1');
+        currentConfigId = d.config ? d.config.id : null;
+        document.getElementById('fv-active-check').checked = d.config ? !!d.config.is_active : true;
+        currentTabs = d.tabs || [];
+        renderTabs();
+    } catch (err) {
+        currentConfigId = null;
+        currentTabs = [];
+        renderTabs();
+        setInlineStatus('fv-resource-status', (err && err.message) ? err.message : 'Unable to load builder data.', 'error');
+        return;
+    }
 
     // Let background tasks settle without affecting first paint
-    Promise.allSettled([resourcesTask, shareTask]).catch(() => {});
+    Promise.allSettled([resourceLoadPromise, shareTask]).then(function () {
+        if (!resourcesLoadedWorkspaceId) {
+            setInlineStatus('fv-resource-status', 'Some linked lists are still unavailable. Open Add Tab again to retry.', 'warn');
+        } else {
+            setInlineStatus('fv-resource-status', '');
+        }
+    }).catch(function () {
+        setInlineStatus('fv-resource-status', 'Some linked lists are still unavailable. Open Add Tab again to retry.', 'warn');
+    });
 }
 
 /* ------------------------------------------------------------------ */
@@ -476,13 +556,16 @@ async function openWorkspace(wsId) {
 let currentShareUrl = null;
 
 async function loadShareUrl(wsId) {
+    const bar = document.getElementById('fv-share-bar');
+    const input = document.getElementById('fv-share-bar-url');
+    const openLink = document.getElementById('fv-share-bar-open');
+    if (bar) bar.style.display = 'none';
+    if (input) input.value = '';
+    if (openLink) openLink.href = '#';
     try {
         const d = await apiFetch('/api/workspaces/' + encodeURIComponent(wsId) + '/share-endpoint');
         const share = d.share || {};
         currentShareUrl = share.custom_url || share.default_url || null;
-        const bar = document.getElementById('fv-share-bar');
-        const input = document.getElementById('fv-share-bar-url');
-        const openLink = document.getElementById('fv-share-bar-open');
         if (currentShareUrl) {
             input.value = currentShareUrl;
             openLink.href = currentShareUrl;
@@ -495,25 +578,84 @@ async function loadShareUrl(wsId) {
 /*  Resource dropdowns                                                 */
 /* ------------------------------------------------------------------ */
 async function loadResources(wsId) {
-    try {
-        const wsQ = '?workspace_id=' + encodeURIComponent(wsId);
-        const [panos, dns, fps, gals, pps, srms, sf360s] = await Promise.allSettled([
-            apiFetch('/api/panoramas' + wsQ),
-            apiFetch('/api/daynight' + wsQ),
-            apiFetch('/api/floorplans/catalogues' + wsQ),
-            apiFetch('/api/galleries' + wsQ),
-            apiFetch('/api/project-plans' + wsQ),
-            apiFetch('/api/sales-maps' + wsQ),
-            apiFetch('/api/sales-flat360' + wsQ),
-        ]);
-        workspacePanoramas = (panos.value?.panoramas || panos.value || []);
-        daynightProjects   = (Array.isArray(dns.value) ? dns.value : (dns.value?.projects || []));
-        floorPlanCatalogues = (fps.value?.catalogues || fps.value || []);
-        galleries          = (gals.value?.galleries || gals.value || []);
-        projectPlans       = (pps.value?.plans      || pps.value  || []);
-        salesRouteMaps     = (srms.value?.maps || srms.value || []);
-        salesFlat360Views  = (sf360s.value?.views || sf360s.value || []);
-    } catch (e) { console.error('loadResources', e); }
+    const wsQ = '?workspace_id=' + encodeURIComponent(wsId);
+    const tasks = [
+        { key: 'panoramas', label: 'Panoramas', url: '/api/panoramas' + wsQ, pick: function (v) { return (v && (v.panoramas || v)) || []; } },
+        { key: 'daynight', label: 'Day/Night', url: '/api/daynight' + wsQ, pick: function (v) { return Array.isArray(v) ? v : ((v && v.projects) || []); } },
+        { key: 'floorplans', label: 'Floor plans', url: '/api/floorplans/catalogues' + wsQ, pick: function (v) { return (v && (v.catalogues || v)) || []; } },
+        { key: 'galleries', label: 'Galleries', url: '/api/galleries' + wsQ, pick: function (v) { return (v && (v.galleries || v)) || []; } },
+        { key: 'projectplans', label: 'Project plans', url: '/api/project-plans' + wsQ, pick: function (v) { return (v && (v.plans || v)) || []; } },
+        { key: 'salesmaps', label: 'Sales maps', url: '/api/sales-maps' + wsQ, pick: function (v) { return (v && (v.maps || v)) || []; } },
+        { key: 'salesflat360', label: 'Sales 360', url: '/api/sales-flat360' + wsQ, pick: function (v) { return (v && (v.views || v)) || []; } }
+    ];
+    setInlineStatus('fv-resource-status', 'Loading linked lists…', '');
+
+    function normalizeList(value) {
+        return Array.isArray(value) ? value : [];
+    }
+
+    const values = {
+        panoramas: [],
+        daynight: [],
+        floorplans: [],
+        galleries: [],
+        projectplans: [],
+        salesmaps: [],
+        salesflat360: []
+    };
+
+    const failed = [];
+    const settled = await Promise.allSettled(tasks.map(function (task) { return apiFetch(task.url); }));
+    settled.forEach(function (result, index) {
+        const task = tasks[index];
+        if (result.status === 'fulfilled') {
+            values[task.key] = normalizeList(task.pick(result.value));
+        } else {
+            failed.push(task);
+        }
+    });
+
+    if (failed.length) {
+        for (let i = 0; i < failed.length; i += 1) {
+            const task = failed[i];
+            try {
+                const data = await apiFetch(task.url);
+                values[task.key] = normalizeList(task.pick(data));
+                failed.splice(i, 1);
+                i -= 1;
+            } catch (err) {
+                console.warn('Full View resource retry failed:', task.key, err);
+            }
+        }
+    }
+
+    workspacePanoramas = values.panoramas;
+    daynightProjects = values.daynight;
+    floorPlanCatalogues = values.floorplans;
+    galleries = values.galleries;
+    projectPlans = values.projectplans;
+    salesRouteMaps = values.salesmaps;
+    salesFlat360Views = values.salesflat360;
+
+    if (failed.length) {
+        resourcesLoadedWorkspaceId = null;
+        setInlineStatus('fv-resource-status', 'Some linked lists failed: ' + failed.map(function (x) { return x.label; }).join(', ') + '.', 'warn');
+        return false;
+    }
+    resourcesLoadedWorkspaceId = wsId;
+    setInlineStatus('fv-resource-status', '');
+    return true;
+}
+
+async function ensureResourcesLoaded() {
+    if (!currentWorkspaceId) return;
+    if (resourcesLoadedWorkspaceId === currentWorkspaceId) return;
+    if (!resourceLoadPromise) {
+        resourceLoadPromise = loadResources(currentWorkspaceId).finally(function () {
+            resourceLoadPromise = null;
+        });
+    }
+    await resourceLoadPromise;
 }
 
 function populateSelect(selId, items, valueKey, labelKey) {
@@ -656,8 +798,13 @@ function bindRowButtons() {
             if (!tab) return;
             const newVisible = !tab.is_visible;
             tab.is_visible = newVisible;
-            await apiPut('/api/full-view/tabs/' + id, { is_visible: newVisible });
-            renderTabs();
+            try {
+                await apiPut('/api/full-view/tabs/' + id, { is_visible: newVisible });
+                renderTabs();
+            } catch (e) {
+                tab.is_visible = !newVisible;
+                setInlineStatus('fv-resource-status', (e && e.message) ? e.message : 'Failed to update visibility.', 'error');
+            }
         });
     });
     document.querySelectorAll('.fv-row-btn--edit').forEach(btn => {
@@ -671,9 +818,13 @@ function bindRowButtons() {
         btn.addEventListener('click', async () => {
             const id = btn.dataset.id;
             if (!confirm('Delete this subtab?')) return;
-            await apiDelete('/api/full-view/tabs/' + id);
-            currentTabs = currentTabs.filter(t => t.id !== id);
-            renderTabs();
+            try {
+                await apiDelete('/api/full-view/tabs/' + id);
+                currentTabs = currentTabs.filter(t => t.id !== id);
+                renderTabs();
+            } catch (e) {
+                setInlineStatus('fv-resource-status', (e && e.message) ? e.message : 'Failed to delete tab.', 'error');
+            }
         });
     });
 }
@@ -681,7 +832,17 @@ function bindRowButtons() {
 /* ------------------------------------------------------------------ */
 /*  Tab dialog                                                         */
 /* ------------------------------------------------------------------ */
-function openTabDialog(tab) {
+async function openTabDialog(tab) {
+    const saveBtn = document.getElementById('fv-dialog-save');
+    if (saveBtn) saveBtn.disabled = true;
+    try {
+        await ensureResourcesLoaded();
+    } catch (e) {
+        setInlineStatus('fv-resource-status', 'Could not refresh linked lists. You can still save URL/custom tabs.', 'warn');
+    } finally {
+        if (saveBtn) saveBtn.disabled = false;
+    }
+
     editingTabId = tab ? tab.id : null;
     document.getElementById('fv-dialog-title').textContent = tab ? 'Edit Subtab' : 'Add Subtab';
 
@@ -903,7 +1064,7 @@ function bindEvents() {
     });
 
     // Add tab
-    document.getElementById('fv-add-tab-btn').addEventListener('click', () => openTabDialog(null));
+    document.getElementById('fv-add-tab-btn').addEventListener('click', function () { openTabDialog(null); });
 
     // Dialog
     document.getElementById('fv-dialog-close').addEventListener('click', closeTabDialog);

@@ -46,6 +46,28 @@
     margin-bottom: 1.15rem;
 }
 
+.srm-inline-status {
+    margin: -0.45rem 0 0.9rem;
+    padding: 0.5rem 0.7rem;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--color-border);
+    background: var(--color-surface);
+    color: var(--color-text-dim);
+    font-size: 0.78rem;
+}
+
+.srm-inline-status--warn {
+    background: rgba(234, 179, 8, 0.14);
+    border-color: rgba(217, 119, 6, 0.25);
+    color: #854d0e;
+}
+
+.srm-inline-status--error {
+    background: rgba(239, 68, 68, 0.12);
+    border-color: rgba(239, 68, 68, 0.22);
+    color: #991b1b;
+}
+
 .srm-toolbar label {
     font-size: 0.78rem;
     text-transform: uppercase;
