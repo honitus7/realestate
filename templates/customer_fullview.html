@@ -292,6 +292,10 @@
                         <input id="fv-style-menu-width" class="fv-style-input" type="range" min="72" max="180" step="1">
                     </div>
                     <div class="fv-style-field">
+                        <label class="fv-style-label" for="fv-style-menu-icon-size">Menu Icon Size <span class="fv-style-val" id="fv-style-menu-icon-size-val"></span></label>
+                        <input id="fv-style-menu-icon-size" class="fv-style-input" type="range" min="12" max="40" step="1">
+                    </div>
+                    <div class="fv-style-field">
                         <label class="fv-style-label" for="fv-style-menu-font">Menu Font</label>
                         <select id="fv-style-menu-font" class="fv-style-select">
                             <option value="Syne">Syne</option>
@@ -530,6 +534,7 @@
             active_bg: '#cfd5df',
             active_text: '#26344f',
             width: 92,
+            icon_size_px: 22,
             font_family: 'Syne',
             font_size_px: 9
         },
@@ -716,6 +721,7 @@
         merged.sidebar.active_bg = sanitizeHex(merged.sidebar.active_bg, DEFAULT_STYLE.sidebar.active_bg);
         merged.sidebar.active_text = sanitizeHex(merged.sidebar.active_text, DEFAULT_STYLE.sidebar.active_text);
         merged.sidebar.width = clampInt(merged.sidebar.width, 72, 180, DEFAULT_STYLE.sidebar.width);
+        merged.sidebar.icon_size_px = clampInt(merged.sidebar.icon_size_px, 12, 40, DEFAULT_STYLE.sidebar.icon_size_px);
         merged.sidebar.font_family = sanitizeFontFamily(merged.sidebar.font_family, DEFAULT_STYLE.sidebar.font_family);
         merged.sidebar.font_size_px = clampInt(merged.sidebar.font_size_px, 9, 18, DEFAULT_STYLE.sidebar.font_size_px);
 
@@ -747,9 +753,17 @@
         setCssVar('--fv-menu-active-bg', s.sidebar.active_bg);
         setCssVar('--fv-menu-active-text', s.sidebar.active_text);
         setCssVar('--fv-menu-width', s.sidebar.width + 'px');
+        setCssVar('--fv-menu-icon-size', s.sidebar.icon_size_px + 'px');
+        setCssVar('--fv-menu-icon-box-size', clampInt(s.sidebar.icon_size_px + 4, 16, 52, 26) + 'px');
         setCssVar('--fv-menu-glow', hexToRgba(s.sidebar.accent, 0.28));
         setCssVar('--fv-menu-font-family', "'" + s.sidebar.font_family + "', sans-serif");
         setCssVar('--fv-menu-font-size', s.sidebar.font_size_px + 'px');
+        if (sidebar) {
+            var iconSizePx = s.sidebar.icon_size_px + 'px';
+            sidebar.querySelectorAll('.fv-sidebar-icon iconify-icon').forEach(function (node) {
+                node.style.fontSize = iconSizePx;
+            });
+        }
 
         setCssVar('--fv-modal-bg', hexToRgba(s.modal_floorplan.bg, 0.82));
         setCssVar('--fv-modal-border', hexToRgba(s.modal_floorplan.border, 0.38));
@@ -1125,6 +1139,7 @@
         set('fv-style-menu-active-bg', s.sidebar.active_bg);
         set('fv-style-menu-active-text', s.sidebar.active_text);
         set('fv-style-menu-width', s.sidebar.width);
+        set('fv-style-menu-icon-size', s.sidebar.icon_size_px);
         set('fv-style-menu-font', s.sidebar.font_family);
         set('fv-style-menu-font-size', s.sidebar.font_size_px);
         set('fv-style-modal-bg', s.modal_floorplan.bg);
@@ -1158,6 +1173,7 @@
 
         var mapVals = [
             ['fv-style-menu-width-val', s.sidebar.width + 'px'],
+            ['fv-style-menu-icon-size-val', s.sidebar.icon_size_px + 'px'],
             ['fv-style-menu-font-size-val', s.sidebar.font_size_px + 'px'],
             ['fv-style-modal-width-val', s.modal_floorplan.width + 'px'],
             ['fv-style-modal-height-val', s.modal_floorplan.max_height_vh + 'vh'],
@@ -1260,6 +1276,7 @@
         bindSelect('fv-style-gallery-modal-item-font', function (v) { styleState.modal_gallery.item_font_family = v; });
 
         bindRange('fv-style-menu-width', function (v) { styleState.sidebar.width = v; }, 'fv-style-menu-width-val', 'px');
+        bindRange('fv-style-menu-icon-size', function (v) { styleState.sidebar.icon_size_px = v; }, 'fv-style-menu-icon-size-val', 'px');
         bindRange('fv-style-menu-font-size', function (v) { styleState.sidebar.font_size_px = v; }, 'fv-style-menu-font-size-val', 'px');
         bindRange('fv-style-modal-width', function (v) { styleState.modal_floorplan.width = v; }, 'fv-style-modal-width-val', 'px');
         bindRange('fv-style-modal-height', function (v) { styleState.modal_floorplan.max_height_vh = v; }, 'fv-style-modal-height-val', 'vh');

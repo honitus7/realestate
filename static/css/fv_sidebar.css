@@ -106,8 +106,8 @@
 }
 
 .fv-sidebar-icon {
-    width: 26px;
-    height: 26px;
+    width: var(--fv-menu-icon-box-size, 26px);
+    height: var(--fv-menu-icon-box-size, 26px);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -116,8 +116,11 @@
 }
 
 .fv-sidebar-icon iconify-icon {
-    width: 22px;
-    height: 22px;
+    width: var(--fv-menu-icon-size, 22px);
+    height: var(--fv-menu-icon-size, 22px);
+    font-size: var(--fv-menu-icon-size, 22px);
+    line-height: 1;
+    display: block;
 }
 
 .fv-sidebar-btn--active .fv-sidebar-icon {
