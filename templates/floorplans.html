@@ -253,9 +253,9 @@
                     <input type="file" id="gal-file-input" accept="image/png,image/jpeg,image/webp,image/gif,video/mp4,video/webm,video/quicktime" multiple style="display:none;">
                 </div>
 
-                <!-- Upload progress -->
-                <div class="fp-upload-progress" id="gal-upload-progress" style="display:none;">
-                    <div class="progress-bar"><div class="progress-fill" id="gal-progress-fill"></div></div>
+                <!-- Upload progress (shown via .visible — same pattern as floor plan uploads) -->
+                <div class="fp-upload-progress" id="gal-upload-progress">
+                    <div class="progress-bar"><div class="progress-fill" id="gal-progress-fill" style="width:0%"></div></div>
                     <div class="progress-text" id="gal-progress-text">Uploading...</div>
                 </div>
 
@@ -2905,40 +2905,99 @@
     });
 
     function galUploadFile(file, name, is360) {
-        if (!currentGallery) return;
-        document.getElementById('gal-upload-progress').style.display = '';
-        document.getElementById('gal-progress-fill').style.width = '40%';
-        document.getElementById('gal-progress-text').textContent = 'Uploading ' + (galPendingFileIndex + 1) + '/' + galPendingFiles.length + '...';
+        var progress = document.getElementById('gal-upload-progress');
+        var fill = document.getElementById('gal-progress-fill');
+        var text = document.getElementById('gal-progress-text');
+
+        function galResetProgressChrome() {
+            text.style.color = '';
+        }
+
+        function galShowUploadError(message, resetQueue) {
+            if (resetQueue) {
+                galPendingFiles = [];
+                galPendingFileIndex = 0;
+            }
+            text.textContent = message;
+            text.style.color = 'var(--color-danger, #ef4444)';
+            fill.style.width = '0%';
+            progress.classList.add('visible');
+            setTimeout(function() {
+                progress.classList.remove('visible');
+                galResetProgressChrome();
+            }, 6000);
+        }
+
+        if (!currentGallery) {
+            galShowUploadError('No gallery is open. Go back and open a gallery, then try again.', false);
+            return;
+        }
+
+        progress.classList.add('visible');
+        galResetProgressChrome();
+        fill.style.width = '0%';
+        text.textContent = 'Starting upload ' + (galPendingFileIndex + 1) + '/' + galPendingFiles.length + '...';
 
         var fd = new FormData();
         fd.append('name', name);
         fd.append('file', file);
         fd.append('is_360', is360 ? 'true' : 'false');
 
-        fetch('/api/galleries/' + currentGallery.id + '/items', {
-            method: 'POST',
-            headers: authHeaders(),
-            body: fd
-        })
-        .then(function(r) { return r.json().then(function(d) { return { ok: r.ok, data: d }; }); })
-        .then(function(res) {
-            document.getElementById('gal-progress-fill').style.width = '100%';
-            galPendingFileIndex++;
-            if (galPendingFileIndex < galPendingFiles.length) {
-                setTimeout(function() {
-                    document.getElementById('gal-progress-fill').style.width = '0%';
-                    galProcessNextFile();
-                }, 300);
+        var xhr = new XMLHttpRequest();
+        var headers = authHeaders();
+
+        xhr.upload.addEventListener('progress', function(ev) {
+            if (ev.lengthComputable && ev.total > 0) {
+                var pct = Math.round((ev.loaded / ev.total) * 100);
+                fill.style.width = pct + '%';
+                text.textContent = 'Uploading ' + (galPendingFileIndex + 1) + '/' + galPendingFiles.length + ' — ' + pct + '%';
             } else {
-                setTimeout(function() {
-                    document.getElementById('gal-upload-progress').style.display = 'none';
-                }, 500);
-                loadGalItems();
+                fill.style.width = '35%';
+                text.textContent = 'Uploading ' + (galPendingFileIndex + 1) + '/' + galPendingFiles.length + '...';
             }
-        })
-        .catch(function() {
-            document.getElementById('gal-upload-progress').style.display = 'none';
         });
+
+        xhr.addEventListener('load', function() {
+            var ok = xhr.status >= 200 && xhr.status < 300;
+            if (ok) {
+                fill.style.width = '100%';
+                text.textContent = 'Saved.';
+                galPendingFileIndex++;
+                if (galPendingFileIndex < galPendingFiles.length) {
+                    setTimeout(function() {
+                        fill.style.width = '0%';
+                        galProcessNextFile();
+                    }, 300);
+                } else {
+                    setTimeout(function() {
+                        progress.classList.remove('visible');
+                        fill.style.width = '0%';
+                    }, 500);
+                    loadGalItems();
+                }
+                return;
+            }
+            var msg = '';
+            try {
+                var payload = JSON.parse(xhr.responseText || '{}');
+                if (payload && payload.error) msg = String(payload.error);
+            } catch (e) {}
+            if (!msg) msg = xhr.status ? ('Upload failed (' + xhr.status + ')') : 'Upload failed';
+            galShowUploadError(msg, true);
+        });
+
+        xhr.addEventListener('error', function() {
+            galShowUploadError('Upload failed (network error). Check your connection and try again.', true);
+        });
+
+        xhr.addEventListener('timeout', function() {
+            galShowUploadError('Upload timed out. For large videos, try again or use a smaller file.', true);
+        });
+
+        xhr.open('POST', '/api/galleries/' + currentGallery.id + '/items');
+        xhr.timeout = 15 * 60 * 1000;
+        if (headers.Authorization) xhr.setRequestHeader('Authorization', headers.Authorization);
+        xhr.send(fd);
     }
 
     // Rename

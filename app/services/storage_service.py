@@ -24,6 +24,16 @@ EXIF_ORIENTATION_TAG = 274
 _s3_client = None
 _s3_signed_url_cache = {}
 
+
+def _s3_tls_verify_setting():
+    """TLS verify for boto3 S3 (Supabase storage). Matches app/core/database.py SUPABASE_SSL_VERIFY."""
+    if os.environ.get('SUPABASE_SSL_VERIFY', 'true').lower() in ('false', '0', 'no'):
+        return False
+    ca = os.environ.get('SUPABASE_S3_CA_BUNDLE', '').strip()
+    if ca and os.path.isfile(ca):
+        return ca
+    return True
+
 PANORAMA_THUMB_MAX_DIMENSION = 400
 PANORAMA_THUMB_JPEG_QUALITY = 82
 MAX_PANORAMA_THUMB_READ_BYTES = int(os.environ.get('MAX_PANORAMA_THUMB_READ_BYTES', str(20 * 1024 * 1024)))  # 20MB
@@ -59,6 +69,9 @@ def get_s3_client():
             'aws_access_key_id': app_config.SUPABASE_S3_ACCESS_KEY_ID,
             'aws_secret_access_key': app_config.SUPABASE_S3_SECRET_ACCESS_KEY,
         }
+        verify = _s3_tls_verify_setting()
+        if verify is not True:
+            kwargs['verify'] = verify
         if BotoConfig:
             kwargs['config'] = BotoConfig(
                 signature_version='s3v4',
@@ -1081,17 +1094,37 @@ def compress_gallery_image(raw_bytes):
     return buf.getvalue(), w, h
 
 
+def _is_s3_tls_verification_error(exc):
+    try:
+        from botocore.exceptions import SSLError as BotoSSLError
+        if isinstance(exc, BotoSSLError):
+            return True
+    except Exception:
+        pass
+    msg = (str(exc) or '').lower()
+    return 'certificate verify failed' in msg or 'ssl' in msg and 'cert' in msg
+
+
 def upload_gallery_to_s3(filename, raw_bytes, content_type='image/jpeg'):
     client = get_s3_client()
     if not client:
         raise RuntimeError('S3 not configured')
     key = gallery_object_key(filename)
-    client.put_object(
-        Bucket=app_config.SUPABASE_S3_BUCKET,
-        Key=key,
-        Body=raw_bytes,
-        ContentType=content_type,
-    )
+    try:
+        client.put_object(
+            Bucket=app_config.SUPABASE_S3_BUCKET,
+            Key=key,
+            Body=raw_bytes,
+            ContentType=content_type,
+        )
+    except Exception as e:
+        if _is_s3_tls_verification_error(e):
+            raise RuntimeError(
+                'Storage upload failed: TLS certificate verification error. '
+                'Set SUPABASE_SSL_VERIFY=false for local dev behind a proxy, or SUPABASE_S3_CA_BUNDLE '
+                'to a PEM file with your corporate root CA, then restart the app.'
+            ) from None
+        raise
 
 
 def get_gallery_s3_url(filename):

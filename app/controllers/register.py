@@ -8865,19 +8865,24 @@ h1 {{ margin:0 0 8px; font-size:22px; }}
         raw_bytes = f.read()
         if not raw_bytes or len(raw_bytes) > MAX_GALLERY_READ_BYTES:
             return jsonify({'error': 'File too large (max 100MB)'}), 400
-        if is_image:
-            processed, w, h = compress_gallery_image(raw_bytes)
-            if not processed:
-                return jsonify({'error': 'Failed to process image'}), 400
-            filename = f"gal_{uuid.uuid4().hex[:16]}.jpg"
-            upload_gallery_to_s3(filename, processed, 'image/jpeg')
-            file_size = len(processed)
-        else:
-            content_types = {'mp4': 'video/mp4', 'webm': 'video/webm', 'mov': 'video/quicktime'}
-            filename = f"gal_{uuid.uuid4().hex[:16]}.{ext}"
-            upload_gallery_to_s3(filename, raw_bytes, content_types.get(ext, 'video/mp4'))
-            file_size = len(raw_bytes)
-            w, h = 0, 0
+        try:
+            if is_image:
+                processed, w, h = compress_gallery_image(raw_bytes)
+                if not processed:
+                    return jsonify({'error': 'Failed to process image'}), 400
+                filename = f"gal_{uuid.uuid4().hex[:16]}.jpg"
+                upload_gallery_to_s3(filename, processed, 'image/jpeg')
+                file_size = len(processed)
+            else:
+                content_types = {'mp4': 'video/mp4', 'webm': 'video/webm', 'mov': 'video/quicktime'}
+                filename = f"gal_{uuid.uuid4().hex[:16]}.{ext}"
+                upload_gallery_to_s3(filename, raw_bytes, content_types.get(ext, 'video/mp4'))
+                file_size = len(raw_bytes)
+                w, h = 0, 0
+        except RuntimeError as e:
+            msg = str(e) or 'Upload failed'
+            code = 503 if 'not configured' in msg.lower() else 502
+            return jsonify({'error': msg}), code
 
         if is_image:
             if raw_is_360 is not None and str(raw_is_360).strip() != '':
