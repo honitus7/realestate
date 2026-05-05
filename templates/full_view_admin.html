@@ -412,16 +412,17 @@ function authHeaders() {
 }
 
 async function apiFetch(url, opts) {
+    const baseHeaders = await authHeaders();
+    const merged = Object.assign({}, opts || {});
+    merged.headers = Object.assign({}, baseHeaders, (opts && opts.headers) || {});
     if (window.pmApi && typeof window.pmApi.fetchJsonWithRetry === 'function') {
-        return window.pmApi.fetchJsonWithRetry(url, opts, {
+        return window.pmApi.fetchJsonWithRetry(url, merged, {
             retries: 2,
             baseDelayMs: 220,
             waitAttempts: 8,
             waitDelayMs: 140
         });
     }
-    const h = await authHeaders();
-    const merged = Object.assign({ headers: h }, opts || {});
     const res = await fetch(url, merged);
     const text = await res.text().catch(function () { return ''; });
     let payload = null;
@@ -908,12 +909,49 @@ function updateTypeFields(type) {
 
 }
 
+function selectedOptionLabel(selectId) {
+    var sel = document.getElementById(selectId);
+    if (!sel) return '';
+    var idx = sel.selectedIndex;
+    if (idx < 0) return '';
+    var option = sel.options[idx];
+    if (!option) return '';
+    var value = String(option.value || '').trim();
+    if (!value) return '';
+    return String(option.textContent || '').trim();
+}
+
+function fallbackTabName(type) {
+    if (type === '360_pano') return selectedOptionLabel('fv-ref-panorama');
+    if (type === 'daynight') return selectedOptionLabel('fv-ref-daynight');
+    if (type === 'floor_plan') return selectedOptionLabel('fv-ref-floorplan');
+    if (type === 'gallery') return selectedOptionLabel('fv-ref-gallery');
+    if (type === 'project_plan') return selectedOptionLabel('fv-ref-projectplan');
+    if (type === 'sales_map') return selectedOptionLabel('fv-ref-salesmap');
+    if (type === 'sales_flat360') return selectedOptionLabel('fv-ref-salesflat360');
+    if (type === 'video') return 'Video';
+    if (type === 'brochure') return 'Brochure';
+    if (type === 'location') return 'Location';
+    if (type === 'custom') return 'Custom';
+    return '';
+}
+
+async function ensureCurrentConfigId() {
+    if (currentConfigId) return currentConfigId;
+    if (!currentWorkspaceId) throw new Error('Please select a workspace first.');
+    const d = await apiFetch('/api/full-view/config?workspace_id=' + encodeURIComponent(currentWorkspaceId) + '&autocreate=1');
+    currentConfigId = (d && d.config && d.config.id) ? d.config.id : null;
+    if (!currentConfigId) throw new Error('Full View config is not ready. Please reopen the builder and try again.');
+    return currentConfigId;
+}
+
 async function saveTab() {
     const icon     = document.getElementById('fv-icon-value').value || 'ph:house';
-    const name     = document.getElementById('fv-tab-name').value.trim();
+    let name       = document.getElementById('fv-tab-name').value.trim();
     const type     = normalizeTabType(document.getElementById('fv-tab-type').value);
     const visible  = document.getElementById('fv-tab-visible').checked;
 
+    if (!name) name = fallbackTabName(type);
     if (!name) { alert('Please enter a label.'); return; }
 
     const body = {
@@ -930,34 +968,43 @@ async function saveTab() {
 
     if (type === '360_pano') {
         const v = document.getElementById('fv-ref-panorama').value;
+        if (!v) { alert('Please select a panorama.'); return; }
         if (v) body.ref_panorama_id = Number(v);
     }
     if (type === 'daynight') {
         const v = document.getElementById('fv-ref-daynight').value;
+        if (!v) { alert('Please select a Day/Night project.'); return; }
         if (v) body.ref_daynight_id = v;
     }
     if (type === 'floor_plan') {
         const v = document.getElementById('fv-ref-floorplan').value;
+        if (!v) { alert('Please select a floor plan catalogue.'); return; }
         if (v) body.ref_floor_plan_id = v;
     }
     if (type === 'gallery') {
         const v = document.getElementById('fv-ref-gallery').value;
+        if (!v) { alert('Please select a gallery.'); return; }
         if (v) body.ref_gallery_id = v;
     }
     if (type === 'project_plan') {
         const v = document.getElementById('fv-ref-projectplan').value;
+        if (!v) { alert('Please select a project plan.'); return; }
         if (v) body.ref_project_plan_id = v;
     }
     if (type === 'sales_map') {
         const v = document.getElementById('fv-ref-salesmap').value;
+        if (!v) { alert('Please select a Sales Route Map.'); return; }
         if (v) body.ref_sales_map_id = v;
     }
     if (type === 'sales_flat360') {
         const v = document.getElementById('fv-ref-salesflat360').value;
+        if (!v) { alert('Please select a Sales 360 View.'); return; }
         if (v) body.ref_sales_flat360_id = v;
     }
     if (['location', 'brochure', 'custom', 'video'].includes(type)) {
-        body.content_data = { url: document.getElementById('fv-ref-url').value.trim() };
+        var urlValue = document.getElementById('fv-ref-url').value.trim();
+        if (!urlValue) { alert('Please enter a URL.'); return; }
+        body.content_data = { url: urlValue };
     }
 
     try {
@@ -966,7 +1013,8 @@ async function saveTab() {
             const idx = currentTabs.findIndex(t => t.id === editingTabId);
             if (idx >= 0) currentTabs[idx] = r.tab;
         } else {
-            body.config_id = currentConfigId;
+            body.config_id = await ensureCurrentConfigId();
+            body.workspace_id = currentWorkspaceId || null;
             body.sort_order = currentTabs.length;
             const r = await apiPost('/api/full-view/tabs', body);
             currentTabs.push(r.tab);

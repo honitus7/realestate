@@ -86,6 +86,16 @@
 
                 <div class="sre-panel-section">
                     <div class="sre-panel-title">Routes</div>
+                    <div class="sre-field-grid">
+                        <div class="sre-field">
+                            <label for="sre-route-color">New Route Color</label>
+                            <input id="sre-route-color" class="sre-route-color-input" type="color" value="#162338">
+                        </div>
+                        <div class="sre-field">
+                            <label for="sre-route-width">New Route Width</label>
+                            <input id="sre-route-width" class="sre-input sre-route-width-input" type="number" min="1" max="12" step="1" value="3">
+                        </div>
+                    </div>
                     <div id="sre-routes-list" class="sre-list"></div>
                 </div>
             </aside>
@@ -122,6 +132,42 @@
         if (num < 0) return 0;
         if (num > 1) return 1;
         return num;
+    }
+
+    function clampLineWidth(value) {
+        var num = Number(value);
+        if (!Number.isFinite(num)) return 3;
+        return Math.max(1, Math.min(12, Math.round(num)));
+    }
+
+    function normalizeHexColor(value, fallback) {
+        var raw = String(value || '').trim();
+        if (/^#[0-9a-fA-F]{3}$/.test(raw)) {
+            return '#' + raw[1] + raw[1] + raw[2] + raw[2] + raw[3] + raw[3];
+        }
+        if (/^#[0-9a-fA-F]{6}$/.test(raw)) return raw.toLowerCase();
+        return fallback || '#162338';
+    }
+
+    function routeColor(route) {
+        return normalizeHexColor(route && route.color, '#162338');
+    }
+
+    function routeLineWidth(route) {
+        return clampLineWidth(route && route.line_width);
+    }
+
+    function routeStrokeWidthSvg(lineWidth) {
+        return String(clampLineWidth(lineWidth) * 0.002);
+    }
+
+    function currentDraftRouteStyle() {
+        var colorInput = document.getElementById('sre-route-color');
+        var widthInput = document.getElementById('sre-route-width');
+        return {
+            color: normalizeHexColor(colorInput ? colorInput.value : '', '#162338'),
+            line_width: clampLineWidth(widthInput ? widthInput.value : 3)
+        };
     }
 
     function escapeHtml(text) {
@@ -324,6 +370,8 @@
             var polyline = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
             polyline.setAttribute('points', pointsToSvg(points));
             polyline.setAttribute('class', 'sre-route');
+            polyline.style.stroke = routeColor(route);
+            polyline.style.strokeWidth = routeStrokeWidthSvg(routeLineWidth(route));
             routesSvgEl.appendChild(polyline);
         });
 
@@ -334,8 +382,11 @@
                     .concat(routeDraft.waypoints.map(function (point) { return { x: point.x, y: point.y }; }));
                 if (draftPoints.length >= 2) {
                     var draftPolyline = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
+                    var draftStyle = currentDraftRouteStyle();
                     draftPolyline.setAttribute('points', pointsToSvg(draftPoints));
                     draftPolyline.setAttribute('class', 'sre-route sre-route-draft');
+                    draftPolyline.style.stroke = draftStyle.color;
+                    draftPolyline.style.strokeWidth = routeStrokeWidthSvg(draftStyle.line_width);
                     routesSvgEl.appendChild(draftPolyline);
                 }
             }
@@ -386,11 +437,48 @@
                 var fromMarker = markerById(route.from_marker_id);
                 var toMarker = markerById(route.to_marker_id);
                 var label = markerName(fromMarker) + ' -> ' + markerName(toMarker);
-                return '<div class="sre-list-row">' +
+                var color = routeColor(route);
+                var lineWidth = routeLineWidth(route);
+                return '<div class="sre-list-row sre-route-row">' +
+                    '<div class="sre-route-top">' +
                     '<span class="sre-route-name">' + escapeHtml(label) + '</span>' +
+                    '<span class="sre-route-style"><span class="sre-route-swatch" style="background:' + escapeHtml(color) + ';"></span><span class="sre-chip">W ' + lineWidth + '</span></span>' +
+                    '</div>' +
+                    '<div class="sre-route-controls">' +
+                    '<input type="color" id="sre-route-color-' + route.id + '" class="sre-route-color-input" value="' + escapeHtml(color) + '">' +
+                    '<input type="number" id="sre-route-width-' + route.id + '" class="sre-input sre-route-width-input" min="1" max="12" step="1" value="' + lineWidth + '">' +
+                    '<button type="button" class="btn btn-secondary btn-sm" data-route-style-id="' + route.id + '">Save</button>' +
                     '<button type="button" class="btn btn-danger btn-sm" data-route-id="' + route.id + '">Delete</button>' +
+                    '</div>' +
                     '</div>';
             }).join('');
+            routesList.querySelectorAll('[data-route-style-id]').forEach(function (btn) {
+                btn.addEventListener('click', async function () {
+                    var routeId = btn.dataset.routeStyleId;
+                    var colorInput = document.getElementById('sre-route-color-' + routeId);
+                    var widthInput = document.getElementById('sre-route-width-' + routeId);
+                    var color = normalizeHexColor(colorInput ? colorInput.value : '', '#162338');
+                    var lineWidth = clampLineWidth(widthInput ? widthInput.value : 3);
+                    if (colorInput) colorInput.value = color;
+                    if (widthInput) widthInput.value = String(lineWidth);
+                    btn.disabled = true;
+                    try {
+                        await apiFetch('/api/sales-map-routes/' + encodeURIComponent(routeId), {
+                            method: 'PATCH',
+                            body: JSON.stringify({
+                                color: color,
+                                line_width: lineWidth
+                            })
+                        });
+                        await loadMap();
+                        setStatus('Route style updated.', 'ok');
+                    } catch (error) {
+                        setStatus((error && error.message) ? error.message : 'Failed to update route style', 'warn');
+                    } finally {
+                        btn.disabled = false;
+                    }
+                });
+            });
             routesList.querySelectorAll('[data-route-id]').forEach(function (btn) {
                 btn.addEventListener('click', async function () {
                     if (!confirm('Delete this route?')) return;
@@ -484,6 +572,7 @@
         var startMarker = markerById(routeDraft.startMarkerId);
         if (!startMarker || !endMarker) return;
         if (String(startMarker.id) === String(endMarker.id)) return;
+        var routeStyle = currentDraftRouteStyle();
         var points = [{ x: clampRatio(startMarker.x_ratio), y: clampRatio(startMarker.y_ratio) }]
             .concat(routeDraft.waypoints.map(function (waypoint) { return { x: waypoint.x, y: waypoint.y }; }))
             .concat([{ x: clampRatio(endMarker.x_ratio), y: clampRatio(endMarker.y_ratio) }]);
@@ -492,7 +581,9 @@
             body: JSON.stringify({
                 from_marker_id: startMarker.id,
                 to_marker_id: endMarker.id,
-                path_points: points
+                path_points: points,
+                color: routeStyle.color,
+                line_width: routeStyle.line_width
             })
         });
         routeDraft.startMarkerId = null;
@@ -580,6 +671,21 @@
             if (mode === 'draw_route') setStatus('Route drawing canceled.', 'warn');
             renderMapOverlay();
         });
+
+        var routeColorInput = document.getElementById('sre-route-color');
+        var routeWidthInput = document.getElementById('sre-route-width');
+        if (routeColorInput) {
+            routeColorInput.addEventListener('change', function () {
+                routeColorInput.value = normalizeHexColor(routeColorInput.value, '#162338');
+                if (mode === 'draw_route' && routeDraft.startMarkerId) renderMapOverlay();
+            });
+        }
+        if (routeWidthInput) {
+            routeWidthInput.addEventListener('change', function () {
+                routeWidthInput.value = String(clampLineWidth(routeWidthInput.value));
+                if (mode === 'draw_route' && routeDraft.startMarkerId) renderMapOverlay();
+            });
+        }
 
         document.getElementById('sre-save-marker').addEventListener('click', function () {
             saveSelectedMarker().catch(function (error) {

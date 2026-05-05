@@ -51,6 +51,33 @@
         return num;
     }
 
+    function clampLineWidth(value) {
+        var num = Number(value);
+        if (!Number.isFinite(num)) return 3;
+        return Math.max(1, Math.min(12, Math.round(num)));
+    }
+
+    function normalizeHexColor(value, fallback) {
+        var raw = String(value || '').trim();
+        if (/^#[0-9a-fA-F]{3}$/.test(raw)) {
+            return '#' + raw[1] + raw[1] + raw[2] + raw[2] + raw[3] + raw[3];
+        }
+        if (/^#[0-9a-fA-F]{6}$/.test(raw)) return raw.toLowerCase();
+        return fallback || '#162338';
+    }
+
+    function routeColor(route) {
+        return normalizeHexColor(route && route.color, '#162338');
+    }
+
+    function routeLineWidth(route) {
+        return clampLineWidth(route && route.line_width);
+    }
+
+    function routeStrokeWidthSvg(lineWidth) {
+        return String(clampLineWidth(lineWidth) * 0.002);
+    }
+
     function markerById(markerId) {
         return MARKERS.find(function (marker) { return String(marker.id) === String(markerId); }) || null;
     }
@@ -151,12 +178,16 @@
         return points.map(function (point) { return point.x + ',' + point.y; }).join(' ');
     }
 
-    function animateRoute(points) {
+    function animateRoute(points, style) {
         clearRouteLayer();
+        var strokeColor = normalizeHexColor(style && style.color, '#162338');
+        var strokeWidth = routeStrokeWidthSvg(style && style.line_width);
 
         var polyline = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
         polyline.setAttribute('class', 'srv-path');
         polyline.setAttribute('points', pointsToSvg(points));
+        polyline.style.stroke = strokeColor;
+        polyline.style.strokeWidth = strokeWidth;
         routesSvg.appendChild(polyline);
 
         var length = polyline.getTotalLength();
@@ -169,6 +200,7 @@
         var dot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
         dot.setAttribute('class', 'srv-dot');
         dot.setAttribute('r', '0.01');
+        dot.style.fill = strokeColor;
         routesSvg.appendChild(dot);
 
         var startedAt = null;
@@ -200,8 +232,10 @@
 
         var routeMatch = findRoute(mainMarker, targetMarker);
         var points;
+        var style = { color: '#162338', line_width: 3 };
         if (routeMatch) {
             points = normalizeRoutePoints(routeMatch.route, mainMarker, targetMarker, routeMatch.reverse);
+            style = { color: routeColor(routeMatch.route), line_width: routeLineWidth(routeMatch.route) };
             statusEl.textContent = 'Showing route: ' + markerLabel(mainMarker) + ' -> ' + markerLabel(targetMarker);
         } else {
             points = [
@@ -210,7 +244,7 @@
             ];
             statusEl.textContent = 'Direct route shown (custom route not configured).';
         }
-        animateRoute(points);
+        animateRoute(points, style);
     }
 
     function init() {

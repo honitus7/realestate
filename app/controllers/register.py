@@ -329,6 +329,21 @@ def _workspace_share_payload(workspace_id, custom_endpoint=None):
 
 
 def register_routes(app):
+
+    def _json_payload():
+        """Best-effort JSON body parser that also handles text/plain payloads."""
+        data = request.get_json(silent=True)
+        if isinstance(data, dict):
+            return data
+        raw = request.get_data(cache=True, as_text=True) or ''
+        if raw:
+            try:
+                parsed = json.loads(raw)
+                if isinstance(parsed, dict):
+                    return parsed
+            except Exception:
+                pass
+        return {}
     secret_key = app.secret_key or app_config.SECRET_KEY
 
     def _issue_page_access_token(user_id, panorama_id, mode):
@@ -10306,7 +10321,7 @@ h1 {{ margin:0 0 8px; font-size:22px; }}
         sb = get_supabase()
         if not sb:
             return jsonify({'error': 'Database not configured'}), 503
-        data = request.get_json(silent=True) or {}
+        data = _json_payload()
         workspace_id = (data.get('workspace_id') or '').strip()
         if not workspace_id:
             return jsonify({'error': 'workspace_id is required'}), 400
@@ -10350,13 +10365,34 @@ h1 {{ margin:0 0 8px; font-size:22px; }}
         sb = get_supabase()
         if not sb:
             return jsonify({'error': 'Database not configured'}), 503
-        data = request.get_json(silent=True) or {}
+        data = _json_payload()
         config_id = (data.get('config_id') or '').strip()
+        workspace_id = (data.get('workspace_id') or '').strip()
         icon = (data.get('icon') or 'ph:house').strip()
         name = (data.get('name') or '').strip()
         tab_type = (data.get('tab_type') or '360_pano').strip()
-        if not config_id or not name:
-            return jsonify({'error': 'config_id and name are required'}), 400
+        smap = None
+        if tab_type == 'sales_map':
+            ref_sales_map_id = (data.get('ref_sales_map_id') or '').strip()
+            if ref_sales_map_id:
+                smap = srm_get(sb, ref_sales_map_id)
+                if not workspace_id:
+                    workspace_id = str((smap or {}).get('workspace_id') or '').strip()
+                if not name:
+                    name = str((smap or {}).get('name') or '').strip() or 'Sales Route Map'
+        if not config_id and workspace_id:
+            cfg = fv_get_config(sb, workspace_id)
+            if not cfg:
+                ws = get_workspace_by_id(sb, workspace_id)
+                if ws:
+                    profile = get_profile(sb, user_id)
+                    org_id = (profile or {}).get('org_id')
+                    cfg = fv_create_config(sb, workspace_id, user_id, org_id)
+            config_id = str((cfg or {}).get('id') or '').strip()
+        if not config_id:
+            return jsonify({'error': 'config_id is required'}), 400
+        if not name:
+            return jsonify({'error': 'name is required'}), 400
         kwargs = {
             'is_visible': data.get('is_visible', True),
             'sort_order': data.get('sort_order', 0),
@@ -10380,7 +10416,7 @@ h1 {{ margin:0 0 8px; font-size:22px; }}
         sb = get_supabase()
         if not sb:
             return jsonify({'error': 'Database not configured'}), 503
-        data = request.get_json(silent=True) or {}
+        data = _json_payload()
         updated = fv_update_tab(sb, tab_id, **data)
         return jsonify({'tab': updated})
 
@@ -10399,7 +10435,7 @@ h1 {{ margin:0 0 8px; font-size:22px; }}
         sb = get_supabase()
         if not sb:
             return jsonify({'error': 'Database not configured'}), 503
-        data = request.get_json(silent=True) or {}
+        data = _json_payload()
         config_id = (data.get('config_id') or '').strip()
         tab_ids = data.get('tab_ids') or []
         if not config_id or not tab_ids:
