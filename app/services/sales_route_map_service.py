@@ -4,10 +4,35 @@ This module powers map-image uploads, pointers, and drawable routes.
 """
 import uuid
 import json
+from postgrest.exceptions import APIError
 
 
 def _generate_share_token():
     return uuid.uuid4().hex[:12]
+
+
+def _default_marker_icon(marker_type):
+    return 'main-star' if str(marker_type or '').strip().lower() == 'main' else 'plot-pin'
+
+
+def _normalize_marker_icon(marker):
+    if not isinstance(marker, dict):
+        return marker
+    icon_key = str(marker.get('icon_key') or '').strip().lower()
+    marker['icon_key'] = icon_key or _default_marker_icon(marker.get('marker_type'))
+    return marker
+
+
+def _is_missing_marker_icon_column_error(exc):
+    payload = {}
+    raw = exc.args[0] if getattr(exc, 'args', None) else {}
+    if isinstance(raw, dict):
+        payload = raw
+    code = str(payload.get('code') or '')
+    message = str(payload.get('message') or str(exc))
+    if code and code != 'PGRST204':
+        return False
+    return "'icon_key'" in message and "'sales_route_map_markers'" in message
 
 
 # ---------------------------------------------------------------------------
@@ -92,13 +117,14 @@ def list_markers(sb, map_id):
         .order('created_at')
         .execute()
     )
-    return resp.data or []
+    markers = resp.data or []
+    return [_normalize_marker_icon(marker) for marker in markers]
 
 
 def get_marker(sb, marker_id):
     resp = sb.table('sales_route_map_markers').select('*').eq('id', str(marker_id)).execute()
     data = resp.data
-    return data[0] if data else None
+    return _normalize_marker_icon(data[0]) if data else None
 
 
 def get_next_marker_sort_order(sb, map_id):
@@ -131,9 +157,16 @@ def create_marker(sb, map_id, marker_type, label, x_ratio, y_ratio, icon_key='',
         'y_ratio': float(y_ratio),
         'sort_order': int(sort_order or 0),
     }
-    resp = sb.table('sales_route_map_markers').insert(row).execute()
+    try:
+        resp = sb.table('sales_route_map_markers').insert(row).execute()
+    except APIError as exc:
+        if not _is_missing_marker_icon_column_error(exc):
+            raise
+        legacy_row = dict(row)
+        legacy_row.pop('icon_key', None)
+        resp = sb.table('sales_route_map_markers').insert(legacy_row).execute()
     data = resp.data
-    return data[0] if data else None
+    return _normalize_marker_icon(data[0]) if data else None
 
 
 def update_marker(sb, marker_id, **fields):
@@ -145,9 +178,18 @@ def update_marker(sb, marker_id, **fields):
             clean[k] = float(v)
     if not clean:
         return None
-    resp = sb.table('sales_route_map_markers').update(clean).eq('id', str(marker_id)).execute()
+    try:
+        resp = sb.table('sales_route_map_markers').update(clean).eq('id', str(marker_id)).execute()
+    except APIError as exc:
+        if not _is_missing_marker_icon_column_error(exc) or 'icon_key' not in clean:
+            raise
+        legacy_clean = dict(clean)
+        legacy_clean.pop('icon_key', None)
+        if not legacy_clean:
+            return get_marker(sb, marker_id)
+        resp = sb.table('sales_route_map_markers').update(legacy_clean).eq('id', str(marker_id)).execute()
     data = resp.data
-    return data[0] if data else None
+    return _normalize_marker_icon(data[0]) if data else None
 
 
 def delete_marker(sb, marker_id):
