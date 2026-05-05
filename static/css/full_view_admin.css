@@ -684,9 +684,94 @@
 
 /* ---------- Responsive ---------- */
 @media (max-width: 768px) {
-    .fv-main { padding: 1.25rem 1rem 3rem; }
+    .fv-main { padding: 1.25rem 1rem calc(5.9rem + env(safe-area-inset-bottom, 0px)); }
     .fv-ws-row { flex-direction: column; }
     .fv-builder-header { flex-direction: column; align-items: flex-start; }
     .fv-row-type { display: none; }
     .fv-icon-grid { grid-template-columns: repeat(auto-fill, minmax(68px, 1fr)); }
+
+    .fv-page .dashboard-sidebar {
+        position: fixed;
+        left: 0;
+        right: 0;
+        top: auto;
+        bottom: 0;
+        width: 100%;
+        min-width: 0;
+        height: auto;
+        min-height: 0;
+        border-right: none;
+        border-top: 1px solid var(--color-border);
+        box-shadow: 0 -8px 20px rgba(22, 35, 56, 0.12);
+        z-index: 140;
+    }
+
+    .fv-page .dashboard-sidebar.sidebar-collapsed {
+        width: 100%;
+        min-width: 0;
+    }
+
+    .fv-page .sidebar-toggle,
+    .fv-page .sidebar-footer,
+    .fv-page .sidebar-upload-wrap {
+        display: none;
+    }
+
+    .fv-page .sidebar-nav {
+        margin-top: 0;
+        padding: 0.4rem 0.45rem calc(0.4rem + env(safe-area-inset-bottom, 0px));
+        flex-direction: row;
+        align-items: stretch;
+        gap: 0.22rem;
+        overflow-x: hidden;
+        overflow-y: hidden;
+        flex-wrap: nowrap;
+    }
+
+    .fv-page .sidebar-link {
+        flex: 1 1 0;
+        min-width: 0;
+        max-width: none;
+        margin-right: 0;
+        padding: 0.42rem 0.18rem;
+        border-radius: var(--radius-sm);
+        border: 1px solid transparent;
+        flex-direction: column;
+        justify-content: center;
+        gap: 0.28rem;
+    }
+
+    .fv-page .sidebar-link.active {
+        border-left-width: 1px;
+        border-left-color: var(--border-strong);
+        background: var(--color-bg-elevated);
+    }
+
+    .fv-page .sidebar-icon {
+        width: 20px;
+        height: 20px;
+    }
+
+    .fv-page .sidebar-icon svg {
+        width: 18px;
+        height: 18px;
+    }
+
+    .fv-page .dashboard-sidebar .sidebar-text {
+        opacity: 1;
+        width: auto;
+        overflow: visible;
+        padding: 0;
+        margin: 0;
+        white-space: nowrap;
+        text-align: center;
+        font-size: 0.56rem;
+        line-height: 1.15;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .fv-page .sidebar-collapsed .sidebar-link[data-tooltip]::after {
+        display: none;
+    }
 }

@@ -194,8 +194,9 @@
         border-radius: 14px 14px 0 0;
         box-shadow: 0 -10px 20px rgba(0, 0, 0, 0.45);
 
-        overflow-x: auto;
+        overflow-x: hidden;
         overflow-y: hidden;
+        flex-wrap: nowrap;
     }
 
     .fv-sidebar::before {
@@ -204,8 +205,10 @@
 
     .fv-sidebar-btn {
         min-height: 60px;
-        min-width: 72px;
-        flex-shrink: 0;
+        width: auto;
+        min-width: 0;
+        flex: 1 1 0;
+        padding: 6px 3px 5px;
         border-radius: 8px;
     }
 
@@ -214,7 +217,10 @@
     }
 
     .fv-sidebar-label {
-        max-width: 60px;
-        font-size: var(--fv-menu-font-size, 0.55rem);
+        max-width: 100%;
+        font-size: clamp(0.45rem, 1.7vw, var(--fv-menu-font-size, 0.55rem));
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
     }
 }
