@@ -35,6 +35,30 @@ def _is_missing_marker_icon_column_error(exc):
     return "'icon_key'" in message and "'sales_route_map_markers'" in message
 
 
+def _is_missing_route_distance_column_error(exc):
+    payload = {}
+    raw = exc.args[0] if getattr(exc, 'args', None) else {}
+    if isinstance(raw, dict):
+        payload = raw
+    code = str(payload.get('code') or '')
+    message = str(payload.get('message') or str(exc))
+    if code and code != 'PGRST204':
+        return False
+    return "'distance_km'" in message and "'sales_route_map_routes'" in message
+
+
+def _normalize_distance_km(value):
+    if value in (None, ''):
+        return None
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return None
+    if number < 0:
+        return None
+    return round(number, 3)
+
+
 # ---------------------------------------------------------------------------
 # Sales map CRUD
 # ---------------------------------------------------------------------------
@@ -227,6 +251,7 @@ def list_routes(sb, map_id):
     routes = resp.data or []
     for route in routes:
         route['path_points'] = _normalize_points(route.get('path_points'))
+        route['distance_km'] = _normalize_distance_km(route.get('distance_km'))
     return routes
 
 
@@ -237,6 +262,7 @@ def get_route(sb, route_id):
         return None
     route = data[0]
     route['path_points'] = _normalize_points(route.get('path_points'))
+    route['distance_km'] = _normalize_distance_km(route.get('distance_km'))
     return route
 
 
@@ -247,7 +273,17 @@ def get_next_route_sort_order(sb, map_id):
     return max(int(r.get('sort_order', 0) or 0) for r in routes) + 1
 
 
-def create_route(sb, map_id, from_marker_id, to_marker_id, path_points, color='#162338', line_width=3, sort_order=0):
+def create_route(
+    sb,
+    map_id,
+    from_marker_id,
+    to_marker_id,
+    path_points,
+    color='#162338',
+    line_width=3,
+    distance_km=None,
+    sort_order=0,
+):
     row = {
         'map_id': str(map_id),
         'from_marker_id': str(from_marker_id),
@@ -255,14 +291,23 @@ def create_route(sb, map_id, from_marker_id, to_marker_id, path_points, color='#
         'path_points': json.dumps(_normalize_points(path_points)),
         'color': str(color or '#162338'),
         'line_width': int(line_width or 3),
+        'distance_km': _normalize_distance_km(distance_km),
         'sort_order': int(sort_order or 0),
     }
-    resp = sb.table('sales_route_map_routes').insert(row).execute()
+    try:
+        resp = sb.table('sales_route_map_routes').insert(row).execute()
+    except APIError as exc:
+        if not _is_missing_route_distance_column_error(exc):
+            raise
+        legacy_row = dict(row)
+        legacy_row.pop('distance_km', None)
+        resp = sb.table('sales_route_map_routes').insert(legacy_row).execute()
     data = resp.data
     if not data:
         return None
     route = data[0]
     route['path_points'] = _normalize_points(route.get('path_points'))
+    route['distance_km'] = _normalize_distance_km(route.get('distance_km'))
     return route
 
 
@@ -273,16 +318,28 @@ def update_route(sb, route_id, **fields):
             clean[k] = str(v) if v is not None else None
         elif k in ('line_width', 'sort_order'):
             clean[k] = int(v)
+        elif k == 'distance_km':
+            clean[k] = _normalize_distance_km(v)
         elif k == 'path_points':
             clean[k] = json.dumps(_normalize_points(v))
     if not clean:
         return None
-    resp = sb.table('sales_route_map_routes').update(clean).eq('id', str(route_id)).execute()
+    try:
+        resp = sb.table('sales_route_map_routes').update(clean).eq('id', str(route_id)).execute()
+    except APIError as exc:
+        if not _is_missing_route_distance_column_error(exc) or 'distance_km' not in clean:
+            raise
+        legacy_clean = dict(clean)
+        legacy_clean.pop('distance_km', None)
+        if not legacy_clean:
+            return get_route(sb, route_id)
+        resp = sb.table('sales_route_map_routes').update(legacy_clean).eq('id', str(route_id)).execute()
     data = resp.data
     if not data:
         return None
     route = data[0]
     route['path_points'] = _normalize_points(route.get('path_points'))
+    route['distance_km'] = _normalize_distance_km(route.get('distance_km'))
     return route
 
 

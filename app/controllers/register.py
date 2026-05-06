@@ -7647,6 +7647,19 @@ h1 {{ margin:0 0 8px; font-size:22px; }}
             return None
         return ratio
 
+    def _parse_distance_km(value):
+        if value is None:
+            return True, None
+        if isinstance(value, str) and not value.strip():
+            return True, None
+        try:
+            distance = float(value)
+        except (TypeError, ValueError):
+            return False, None
+        if distance < 0:
+            return False, None
+        return True, round(distance, 3)
+
     _srm_icon_key_re = re.compile(r'^[a-z0-9_-]{1,64}$')
     _srm_allowed_icon_keys = {
         'main-star',
@@ -7707,6 +7720,24 @@ h1 {{ margin:0 0 8px; font-size:22px; }}
         if abs(last['x'] - end['x']) > 1e-9 or abs(last['y'] - end['y']) > 1e-9:
             clean.append(end)
         return clean
+
+    def _sync_routes_for_marker(sb, map_id, marker_id, updated_marker=None):
+        routes = srm_list_routes(sb, map_id)
+        marker_id_str = str(marker_id)
+        for route in routes:
+            from_id = str(route.get('from_marker_id') or '')
+            to_id = str(route.get('to_marker_id') or '')
+            if marker_id_str not in (from_id, to_id):
+                continue
+            from_marker = updated_marker if from_id == marker_id_str else srm_get_marker(sb, from_id)
+            to_marker = updated_marker if to_id == marker_id_str else srm_get_marker(sb, to_id)
+            if not from_marker or not to_marker:
+                continue
+            anchored_points = _ensure_route_endpoints(route.get('path_points') or [], from_marker, to_marker)
+            try:
+                srm_update_route(sb, route.get('id'), path_points=anchored_points)
+            except Exception:
+                continue
 
     def _resolve_sales_map_for_admin(sb, map_id, user_id, role):
         smap = srm_get(sb, map_id)
@@ -7961,6 +7992,8 @@ h1 {{ margin:0 0 8px; font-size:22px; }}
             updated = srm_update_marker(sb, marker_id, **updates)
         else:
             updated = srm_get_marker(sb, marker_id)
+        if updated and ('x_ratio' in updates or 'y_ratio' in updates):
+            _sync_routes_for_marker(sb, map_id, marker_id, updated_marker=updated)
         return jsonify(updated)
 
     @app.route('/api/sales-map-markers/<marker_id>', methods=['DELETE'])
@@ -8017,6 +8050,9 @@ h1 {{ margin:0 0 8px; font-size:22px; }}
             line_width = max(1, min(12, int(line_width)))
         except (TypeError, ValueError):
             return jsonify({'error': 'line_width must be an integer'}), 400
+        distance_valid, distance_km = _parse_distance_km(data.get('distance_km'))
+        if not distance_valid:
+            return jsonify({'error': 'distance_km must be a number >= 0'}), 400
         points = _ensure_route_endpoints(data.get('path_points') or [], from_marker, to_marker)
         sort_order = srm_next_route_sort(sb, map_id)
         try:
@@ -8028,6 +8064,7 @@ h1 {{ margin:0 0 8px; font-size:22px; }}
                 points,
                 color=str(data.get('color') or '#162338').strip() or '#162338',
                 line_width=line_width,
+                distance_km=distance_km,
                 sort_order=sort_order,
             )
         except Exception as exc:
@@ -8082,6 +8119,11 @@ h1 {{ margin:0 0 8px; font-size:22px; }}
                 updates['line_width'] = max(1, min(12, int(data.get('line_width'))))
             except (TypeError, ValueError):
                 return jsonify({'error': 'line_width must be an integer'}), 400
+        if 'distance_km' in data:
+            distance_valid, distance_km = _parse_distance_km(data.get('distance_km'))
+            if not distance_valid:
+                return jsonify({'error': 'distance_km must be a number >= 0'}), 400
+            updates['distance_km'] = distance_km
         if 'sort_order' in data:
             try:
                 updates['sort_order'] = int(data.get('sort_order'))

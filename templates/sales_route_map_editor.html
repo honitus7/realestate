@@ -51,7 +51,7 @@
                     <div id="sre-selected-empty" class="sre-note">Select a pointer to edit details.</div>
                     <div id="sre-selected-form" style="display:none;">
                         <div class="sre-field">
-                            <label for="sre-marker-label">Label</label>
+                            <label for="sre-marker-label">Marker Name</label>
                             <input id="sre-marker-label" class="sre-input" type="text" maxlength="120">
                         </div>
                         <div class="sre-field">
@@ -95,6 +95,10 @@
                             <label for="sre-route-width">New Route Width</label>
                             <input id="sre-route-width" class="sre-input sre-route-width-input" type="number" min="1" max="12" step="1" value="3">
                         </div>
+                        <div class="sre-field">
+                            <label for="sre-route-distance">New Route Distance (km)</label>
+                            <input id="sre-route-distance" class="sre-input sre-route-distance-input" type="number" min="0" step="0.01" placeholder="e.g. 8.5">
+                        </div>
                     </div>
                     <div id="sre-routes-list" class="sre-list"></div>
                 </div>
@@ -125,6 +129,18 @@
     var routesSvgEl = null;
     var statusEl = null;
     var modeLabelEl = null;
+    var liveRouteSaveTimers = {};
+    var liveRouteSaveQueue = {};
+    var liveRouteSaveInFlight = {};
+    var dragState = {
+        active: false,
+        markerId: null,
+        pointerId: null,
+        markerEl: null,
+        latestRatios: null,
+        moved: false,
+        suppressStageClick: false
+    };
 
     function clampRatio(value) {
         var num = Number(value);
@@ -161,12 +177,31 @@
         return String(clampLineWidth(lineWidth) * 0.002);
     }
 
+    function normalizeDistanceKm(value) {
+        if (value === null || value === undefined) return null;
+        var raw = String(value).trim();
+        if (!raw) return null;
+        var num = Number(raw);
+        if (!Number.isFinite(num) || num < 0) return null;
+        return Math.round(num * 1000) / 1000;
+    }
+
+    function routeDistanceKm(route) {
+        return normalizeDistanceKm(route && route.distance_km);
+    }
+
+    function routeById(routeId) {
+        return routes.find(function (route) { return String(route.id) === String(routeId); }) || null;
+    }
+
     function currentDraftRouteStyle() {
         var colorInput = document.getElementById('sre-route-color');
         var widthInput = document.getElementById('sre-route-width');
+        var distanceInput = document.getElementById('sre-route-distance');
         return {
             color: normalizeHexColor(colorInput ? colorInput.value : '', '#162338'),
-            line_width: clampLineWidth(widthInput ? widthInput.value : 3)
+            line_width: clampLineWidth(widthInput ? widthInput.value : 3),
+            distance_km: normalizeDistanceKm(distanceInput ? distanceInput.value : null)
         };
     }
 
@@ -301,7 +336,7 @@
             add_main: 'Mode: Add Main Pointer (click on map)',
             add_normal: 'Mode: Add Normal Pointer (click on map)',
             draw_route: 'Mode: Draw Route (start marker -> waypoints -> end marker)',
-            move_marker: 'Mode: Move Selected Pointer (click on new location)'
+            move_marker: 'Mode: Move Pointer (drag a pointer or click on new location)'
         };
         modeLabelEl.textContent = labels[mode] || 'Mode: Select';
         renderMapOverlay();
@@ -311,12 +346,16 @@
         return markerById(selectedMarkerId);
     }
 
-    function stageRatiosFromEvent(event) {
+    function stageRatiosFromClient(clientX, clientY) {
         var rect = imageEl.getBoundingClientRect();
         if (rect.width <= 0 || rect.height <= 0) return null;
-        var xRatio = clampRatio((event.clientX - rect.left) / rect.width);
-        var yRatio = clampRatio((event.clientY - rect.top) / rect.height);
+        var xRatio = clampRatio((clientX - rect.left) / rect.width);
+        var yRatio = clampRatio((clientY - rect.top) / rect.height);
         return { x: xRatio, y: yRatio };
+    }
+
+    function stageRatiosFromEvent(event) {
+        return stageRatiosFromClient(event.clientX, event.clientY);
     }
 
     function anchoredRoutePoints(route) {
@@ -343,26 +382,7 @@
         return points.map(function (point) { return point.x + ',' + point.y; }).join(' ');
     }
 
-    function renderMapOverlay() {
-        if (!mapData) return;
-
-        markersLayerEl.innerHTML = '';
-        markers.forEach(function (marker) {
-            var markerBtn = document.createElement('button');
-            markerBtn.type = 'button';
-            markerBtn.className = 'sre-marker ' + (marker.marker_type === 'main' ? 'main' : 'normal');
-            if (String(marker.id) === String(selectedMarkerId)) markerBtn.classList.add('selected');
-            markerBtn.style.left = (clampRatio(marker.x_ratio) * 100) + '%';
-            markerBtn.style.top = (clampRatio(marker.y_ratio) * 100) + '%';
-            markerBtn.title = markerName(marker);
-            markerBtn.innerHTML = '<span class="sre-marker-icon">' + markerIconSvg(marker) + '</span>';
-            markerBtn.addEventListener('click', function (event) {
-                event.stopPropagation();
-                onMarkerClick(marker);
-            });
-            markersLayerEl.appendChild(markerBtn);
-        });
-
+    function renderRoutesOverlay() {
         routesSvgEl.innerHTML = '';
         routes.forEach(function (route) {
             var points = anchoredRoutePoints(route);
@@ -393,6 +413,120 @@
         }
     }
 
+    function canDragMarkers() {
+        return mode === 'move_marker';
+    }
+
+    function beginMarkerDrag(event, marker, markerBtn) {
+        if (!canDragMarkers()) return;
+        if (typeof event.button === 'number' && event.button !== 0) return;
+        event.preventDefault();
+        event.stopPropagation();
+        selectedMarkerId = marker.id;
+        document.querySelectorAll('.sre-marker.selected').forEach(function (el) {
+            el.classList.remove('selected');
+        });
+        markerBtn.classList.add('selected');
+        renderMarkerPanel();
+        renderLists();
+        dragState.active = true;
+        dragState.markerId = String(marker.id);
+        dragState.pointerId = event.pointerId;
+        dragState.markerEl = markerBtn;
+        dragState.latestRatios = { x: clampRatio(marker.x_ratio), y: clampRatio(marker.y_ratio) };
+        dragState.moved = false;
+        if (markerBtn.setPointerCapture) {
+            try { markerBtn.setPointerCapture(event.pointerId); } catch (_e) {}
+        }
+        document.addEventListener('pointermove', handleMarkerDragMove);
+        document.addEventListener('pointerup', finishMarkerDrag);
+        document.addEventListener('pointercancel', finishMarkerDrag);
+    }
+
+    function handleMarkerDragMove(event) {
+        if (!dragState.active) return;
+        if (event.pointerId !== dragState.pointerId) return;
+        var marker = markerById(dragState.markerId);
+        if (!marker) return;
+        var ratios = stageRatiosFromClient(event.clientX, event.clientY);
+        if (!ratios) return;
+        dragState.moved = true;
+        dragState.latestRatios = ratios;
+        marker.x_ratio = ratios.x;
+        marker.y_ratio = ratios.y;
+        if (dragState.markerEl) {
+            dragState.markerEl.style.left = (ratios.x * 100) + '%';
+            dragState.markerEl.style.top = (ratios.y * 100) + '%';
+        }
+        renderRoutesOverlay();
+    }
+
+    async function finishMarkerDrag(event) {
+        if (!dragState.active) return;
+        if (event.pointerId !== dragState.pointerId) return;
+        var markerId = dragState.markerId;
+        var latestRatios = dragState.latestRatios;
+        var moved = dragState.moved;
+        var markerEl = dragState.markerEl;
+        var pointerId = dragState.pointerId;
+
+        dragState.active = false;
+        dragState.markerId = null;
+        dragState.pointerId = null;
+        dragState.markerEl = null;
+        dragState.latestRatios = null;
+        dragState.moved = false;
+
+        if (markerEl && markerEl.releasePointerCapture && pointerId !== null) {
+            try { markerEl.releasePointerCapture(pointerId); } catch (_e) {}
+        }
+        document.removeEventListener('pointermove', handleMarkerDragMove);
+        document.removeEventListener('pointerup', finishMarkerDrag);
+        document.removeEventListener('pointercancel', finishMarkerDrag);
+
+        if (!moved || !markerId || !latestRatios) return;
+        dragState.suppressStageClick = true;
+        try {
+            await moveMarkerById(markerId, latestRatios.x, latestRatios.y);
+            setStatus('Pointer moved. Linked route endpoints were adjusted.', 'ok');
+        } catch (error) {
+            await loadMap();
+            setStatus((error && error.message) ? error.message : 'Failed to move pointer', 'warn');
+        }
+    }
+
+    function renderMarkersOverlay() {
+        markersLayerEl.innerHTML = '';
+        markers.forEach(function (marker) {
+            var markerBtn = document.createElement('button');
+            markerBtn.type = 'button';
+            markerBtn.className = 'sre-marker ' + (marker.marker_type === 'main' ? 'main' : 'normal');
+            if (String(marker.id) === String(selectedMarkerId)) markerBtn.classList.add('selected');
+            markerBtn.style.left = (clampRatio(marker.x_ratio) * 100) + '%';
+            markerBtn.style.top = (clampRatio(marker.y_ratio) * 100) + '%';
+            markerBtn.title = markerName(marker);
+            markerBtn.innerHTML = '<span class="sre-marker-icon">' + markerIconSvg(marker) + '</span>';
+            markerBtn.addEventListener('pointerdown', function (event) {
+                beginMarkerDrag(event, marker, markerBtn);
+            });
+            markerBtn.addEventListener('click', function (event) {
+                event.stopPropagation();
+                if (dragState.suppressStageClick) {
+                    dragState.suppressStageClick = false;
+                    return;
+                }
+                onMarkerClick(marker);
+            });
+            markersLayerEl.appendChild(markerBtn);
+        });
+    }
+
+    function renderMapOverlay() {
+        if (!mapData) return;
+        renderMarkersOverlay();
+        renderRoutesOverlay();
+    }
+
     function renderMarkerPanel() {
         var selected = selectedMarker();
         var empty = document.getElementById('sre-selected-empty');
@@ -407,6 +541,95 @@
         document.getElementById('sre-marker-label').value = selected.label || '';
         document.getElementById('sre-marker-type').value = selected.marker_type || 'normal';
         setSelectedIconKey(markerIconKey(selected));
+    }
+
+    function upsertLocalRoute(updatedRoute) {
+        if (!updatedRoute || !updatedRoute.id) return;
+        for (var i = 0; i < routes.length; i += 1) {
+            if (String(routes[i].id) === String(updatedRoute.id)) {
+                routes[i] = updatedRoute;
+                return;
+            }
+        }
+        routes.push(updatedRoute);
+    }
+
+    function routeLivePayload(routeId) {
+        var colorInput = document.getElementById('sre-route-color-' + routeId);
+        var widthInput = document.getElementById('sre-route-width-' + routeId);
+        var distanceInput = document.getElementById('sre-route-distance-' + routeId);
+        var color = normalizeHexColor(colorInput ? colorInput.value : '', '#162338');
+        var lineWidth = clampLineWidth(widthInput ? widthInput.value : 3);
+        var distanceKm = normalizeDistanceKm(distanceInput ? distanceInput.value : null);
+        if (colorInput) colorInput.value = color;
+        if (widthInput) widthInput.value = String(lineWidth);
+        if (distanceInput) distanceInput.value = distanceKm === null ? '' : String(distanceKm);
+        return {
+            color: color,
+            line_width: lineWidth,
+            distance_km: distanceKm
+        };
+    }
+
+    function applyLocalRouteLiveValues(routeId, payload) {
+        var route = routeById(routeId);
+        if (!route) return;
+        route.color = payload.color;
+        route.line_width = payload.line_width;
+        route.distance_km = payload.distance_km;
+    }
+
+    async function persistRouteLiveValues(routeId) {
+        if (liveRouteSaveInFlight[routeId]) return;
+        var queuedPayload = liveRouteSaveQueue[routeId];
+        if (!queuedPayload) return;
+        liveRouteSaveQueue[routeId] = null;
+        liveRouteSaveInFlight[routeId] = true;
+        try {
+            var updated = await apiFetch('/api/sales-map-routes/' + encodeURIComponent(routeId), {
+                method: 'PATCH',
+                body: JSON.stringify(queuedPayload)
+            });
+            upsertLocalRoute(updated);
+            renderMapOverlay();
+        } catch (error) {
+            await loadMap();
+            setStatus((error && error.message) ? error.message : 'Failed to update route style', 'warn');
+            return;
+        } finally {
+            liveRouteSaveInFlight[routeId] = false;
+        }
+        if (liveRouteSaveQueue[routeId]) {
+            await persistRouteLiveValues(routeId);
+        }
+    }
+
+    function queueRouteLiveSave(routeId, payload) {
+        if (liveRouteSaveTimers[routeId]) {
+            clearTimeout(liveRouteSaveTimers[routeId]);
+        }
+        liveRouteSaveQueue[routeId] = payload;
+        liveRouteSaveTimers[routeId] = setTimeout(function () {
+            liveRouteSaveTimers[routeId] = null;
+            persistRouteLiveValues(routeId).catch(function (error) {
+                setStatus((error && error.message) ? error.message : 'Failed to save route style', 'warn');
+            });
+        }, 260);
+    }
+
+    function handleRouteLiveInput(routeId) {
+        var payload = routeLivePayload(routeId);
+        applyLocalRouteLiveValues(routeId, payload);
+        var swatchEl = document.getElementById('sre-route-swatch-' + routeId);
+        if (swatchEl) swatchEl.style.background = payload.color;
+        var widthChipEl = document.getElementById('sre-route-width-chip-' + routeId);
+        if (widthChipEl) widthChipEl.textContent = 'W ' + payload.line_width;
+        var distanceChipEl = document.getElementById('sre-route-distance-chip-' + routeId);
+        if (distanceChipEl) {
+            distanceChipEl.textContent = payload.distance_km === null ? 'No distance' : (payload.distance_km + ' km');
+        }
+        renderMapOverlay();
+        queueRouteLiveSave(routeId, payload);
     }
 
     function renderLists() {
@@ -439,52 +662,39 @@
                 var label = markerName(fromMarker) + ' -> ' + markerName(toMarker);
                 var color = routeColor(route);
                 var lineWidth = routeLineWidth(route);
+                var distanceKm = routeDistanceKm(route);
+                var distanceChip = distanceKm === null ? 'No distance' : (distanceKm + ' km');
                 return '<div class="sre-list-row sre-route-row">' +
                     '<div class="sre-route-top">' +
                     '<span class="sre-route-name">' + escapeHtml(label) + '</span>' +
-                    '<span class="sre-route-style"><span class="sre-route-swatch" style="background:' + escapeHtml(color) + ';"></span><span class="sre-chip">W ' + lineWidth + '</span></span>' +
+                    '<span class="sre-route-style"><span id="sre-route-swatch-' + route.id + '" class="sre-route-swatch" style="background:' + escapeHtml(color) + ';"></span><span id="sre-route-width-chip-' + route.id + '" class="sre-chip">W ' + lineWidth + '</span><span id="sre-route-distance-chip-' + route.id + '" class="sre-chip">' + escapeHtml(distanceChip) + '</span></span>' +
                     '</div>' +
                     '<div class="sre-route-controls">' +
-                    '<input type="color" id="sre-route-color-' + route.id + '" class="sre-route-color-input" value="' + escapeHtml(color) + '">' +
-                    '<input type="number" id="sre-route-width-' + route.id + '" class="sre-input sre-route-width-input" min="1" max="12" step="1" value="' + lineWidth + '">' +
-                    '<button type="button" class="btn btn-secondary btn-sm" data-route-style-id="' + route.id + '">Save</button>' +
+                    '<input type="color" id="sre-route-color-' + route.id + '" class="sre-route-color-input" data-route-live-id="' + route.id + '" value="' + escapeHtml(color) + '">' +
+                    '<input type="number" id="sre-route-width-' + route.id + '" class="sre-input sre-route-width-input" data-route-live-id="' + route.id + '" min="1" max="12" step="1" value="' + lineWidth + '">' +
+                    '<input type="number" id="sre-route-distance-' + route.id + '" class="sre-input sre-route-distance-input" data-route-live-id="' + route.id + '" min="0" step="0.01" placeholder="km" value="' + (distanceKm === null ? '' : escapeHtml(String(distanceKm))) + '">' +
                     '<button type="button" class="btn btn-danger btn-sm" data-route-id="' + route.id + '">Delete</button>' +
                     '</div>' +
                     '</div>';
             }).join('');
-            routesList.querySelectorAll('[data-route-style-id]').forEach(function (btn) {
-                btn.addEventListener('click', async function () {
-                    var routeId = btn.dataset.routeStyleId;
-                    var colorInput = document.getElementById('sre-route-color-' + routeId);
-                    var widthInput = document.getElementById('sre-route-width-' + routeId);
-                    var color = normalizeHexColor(colorInput ? colorInput.value : '', '#162338');
-                    var lineWidth = clampLineWidth(widthInput ? widthInput.value : 3);
-                    if (colorInput) colorInput.value = color;
-                    if (widthInput) widthInput.value = String(lineWidth);
-                    btn.disabled = true;
-                    try {
-                        await apiFetch('/api/sales-map-routes/' + encodeURIComponent(routeId), {
-                            method: 'PATCH',
-                            body: JSON.stringify({
-                                color: color,
-                                line_width: lineWidth
-                            })
-                        });
-                        await loadMap();
-                        setStatus('Route style updated.', 'ok');
-                    } catch (error) {
-                        setStatus((error && error.message) ? error.message : 'Failed to update route style', 'warn');
-                    } finally {
-                        btn.disabled = false;
-                    }
-                });
+            routesList.querySelectorAll('[data-route-live-id]').forEach(function (input) {
+                var routeId = input.dataset.routeLiveId;
+                input.addEventListener('input', function () { handleRouteLiveInput(routeId); });
+                input.addEventListener('change', function () { handleRouteLiveInput(routeId); });
             });
             routesList.querySelectorAll('[data-route-id]').forEach(function (btn) {
                 btn.addEventListener('click', async function () {
                     if (!confirm('Delete this route?')) return;
                     btn.disabled = true;
+                    var routeId = btn.dataset.routeId;
+                    if (liveRouteSaveTimers[routeId]) {
+                        clearTimeout(liveRouteSaveTimers[routeId]);
+                        liveRouteSaveTimers[routeId] = null;
+                    }
+                    liveRouteSaveQueue[routeId] = null;
+                    liveRouteSaveInFlight[routeId] = false;
                     try {
-                        await apiFetch('/api/sales-map-routes/' + encodeURIComponent(btn.dataset.routeId), { method: 'DELETE' });
+                        await apiFetch('/api/sales-map-routes/' + encodeURIComponent(routeId), { method: 'DELETE' });
                         await loadMap();
                         setStatus('Route deleted.', 'ok');
                     } catch (error) {
@@ -531,14 +741,18 @@
         await loadMap();
     }
 
-    async function moveSelectedMarker(xRatio, yRatio) {
-        var marker = selectedMarker();
-        if (!marker) return;
-        await apiFetch('/api/sales-map-markers/' + encodeURIComponent(marker.id), {
+    async function moveMarkerById(markerId, xRatio, yRatio) {
+        await apiFetch('/api/sales-map-markers/' + encodeURIComponent(markerId), {
             method: 'PATCH',
             body: JSON.stringify({ x_ratio: xRatio, y_ratio: yRatio })
         });
         await loadMap();
+    }
+
+    async function moveSelectedMarker(xRatio, yRatio) {
+        var marker = selectedMarker();
+        if (!marker) return;
+        await moveMarkerById(marker.id, xRatio, yRatio);
     }
 
     async function saveSelectedMarker() {
@@ -583,7 +797,8 @@
                 to_marker_id: endMarker.id,
                 path_points: points,
                 color: routeStyle.color,
-                line_width: routeStyle.line_width
+                line_width: routeStyle.line_width,
+                distance_km: routeStyle.distance_km
             })
         });
         routeDraft.startMarkerId = null;
@@ -612,6 +827,10 @@
 
     async function onStageClick(event) {
         if (!mapData) return;
+        if (dragState.suppressStageClick) {
+            dragState.suppressStageClick = false;
+            return;
+        }
         var ratios = stageRatiosFromEvent(event);
         if (!ratios) return;
         try {
@@ -674,16 +893,27 @@
 
         var routeColorInput = document.getElementById('sre-route-color');
         var routeWidthInput = document.getElementById('sre-route-width');
+        var routeDistanceInput = document.getElementById('sre-route-distance');
         if (routeColorInput) {
-            routeColorInput.addEventListener('change', function () {
+            var onRouteColorChange = function () {
                 routeColorInput.value = normalizeHexColor(routeColorInput.value, '#162338');
                 if (mode === 'draw_route' && routeDraft.startMarkerId) renderMapOverlay();
-            });
+            };
+            routeColorInput.addEventListener('input', onRouteColorChange);
+            routeColorInput.addEventListener('change', onRouteColorChange);
         }
         if (routeWidthInput) {
-            routeWidthInput.addEventListener('change', function () {
+            var onRouteWidthChange = function () {
                 routeWidthInput.value = String(clampLineWidth(routeWidthInput.value));
                 if (mode === 'draw_route' && routeDraft.startMarkerId) renderMapOverlay();
+            };
+            routeWidthInput.addEventListener('input', onRouteWidthChange);
+            routeWidthInput.addEventListener('change', onRouteWidthChange);
+        }
+        if (routeDistanceInput) {
+            routeDistanceInput.addEventListener('change', function () {
+                var normalized = normalizeDistanceKm(routeDistanceInput.value);
+                routeDistanceInput.value = normalized === null ? '' : String(normalized);
             });
         }
 
@@ -703,6 +933,7 @@
                 return;
             }
             setMode('move_marker');
+            setStatus('Drag any pointer on the map to move it. Routes update live while dragging.', 'ok');
         });
 
         var markerTypeSelect = document.getElementById('sre-marker-type');

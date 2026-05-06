@@ -23,6 +23,10 @@
             <img id="srv-image" class="srv-image" src="{{ sales_map.image_url or '' }}" alt="{{ sales_map.name or 'Route map' }}">
             <svg id="srv-routes-svg" class="srv-routes-svg" viewBox="0 0 1 1" preserveAspectRatio="none"></svg>
             <div id="srv-markers-layer" class="srv-markers-layer"></div>
+            <div id="srv-route-modal" class="srv-route-modal" hidden>
+                <div id="srv-route-modal-title" class="srv-route-modal-title"></div>
+                <div id="srv-route-modal-distance" class="srv-route-modal-distance"></div>
+            </div>
         </div>
 
         <div class="srv-status" id="srv-status">Click a normal pointer to view its route.</div>
@@ -40,6 +44,9 @@
     var markersLayer = document.getElementById('srv-markers-layer');
     var routesSvg = document.getElementById('srv-routes-svg');
     var statusEl = document.getElementById('srv-status');
+    var routeModalEl = document.getElementById('srv-route-modal');
+    var routeModalTitleEl = document.getElementById('srv-route-modal-title');
+    var routeModalDistanceEl = document.getElementById('srv-route-modal-distance');
     var activeMarkerId = null;
     var activeAnimationFrame = null;
 
@@ -76,6 +83,32 @@
 
     function routeStrokeWidthSvg(lineWidth) {
         return String(clampLineWidth(lineWidth) * 0.002);
+    }
+
+    function normalizeDistanceKm(value) {
+        if (value === null || value === undefined) return null;
+        var raw = String(value).trim();
+        if (!raw) return null;
+        var num = Number(raw);
+        if (!Number.isFinite(num) || num < 0) return null;
+        return Math.round(num * 1000) / 1000;
+    }
+
+    function routeDistanceKm(route) {
+        return normalizeDistanceKm(route && route.distance_km);
+    }
+
+    function formatDistanceKm(distanceKm) {
+        var distance = normalizeDistanceKm(distanceKm);
+        if (distance === null) return 'Distance not added';
+        return distance + ' km';
+    }
+
+    function showRouteModal(fromMarker, toMarker, distanceKm) {
+        if (!routeModalEl || !routeModalTitleEl || !routeModalDistanceEl) return;
+        routeModalTitleEl.textContent = markerLabel(fromMarker) + ' -> ' + markerLabel(toMarker);
+        routeModalDistanceEl.textContent = formatDistanceKm(distanceKm);
+        routeModalEl.hidden = false;
     }
 
     function markerById(markerId) {
@@ -233,9 +266,11 @@
         var routeMatch = findRoute(mainMarker, targetMarker);
         var points;
         var style = { color: '#162338', line_width: 3 };
+        var distanceKm = null;
         if (routeMatch) {
             points = normalizeRoutePoints(routeMatch.route, mainMarker, targetMarker, routeMatch.reverse);
             style = { color: routeColor(routeMatch.route), line_width: routeLineWidth(routeMatch.route) };
+            distanceKm = routeDistanceKm(routeMatch.route);
             statusEl.textContent = 'Showing route: ' + markerLabel(mainMarker) + ' -> ' + markerLabel(targetMarker);
         } else {
             points = [
@@ -244,6 +279,7 @@
             ];
             statusEl.textContent = 'Direct route shown (custom route not configured).';
         }
+        showRouteModal(mainMarker, targetMarker, distanceKm);
         animateRoute(points, style);
     }
 

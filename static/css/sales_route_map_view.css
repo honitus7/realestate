@@ -49,6 +49,36 @@ body {
     box-shadow: none;
 }
 
+.srv-route-modal {
+    position: absolute;
+    left: 50%;
+    bottom: 0.8rem;
+    transform: translateX(-50%);
+    z-index: 4;
+    min-width: 220px;
+    max-width: calc(100% - 1rem);
+    padding: 0.5rem 0.65rem;
+    border-radius: var(--radius-sm);
+    border: 1px solid rgba(255, 255, 255, 0.35);
+    background: rgba(15, 23, 42, 0.82);
+    color: #fff;
+    box-shadow: 0 8px 26px rgba(0, 0, 0, 0.28);
+    backdrop-filter: blur(4px);
+    pointer-events: none;
+}
+
+.srv-route-modal-title {
+    font-size: 0.8rem;
+    font-weight: 700;
+    line-height: 1.2;
+}
+
+.srv-route-modal-distance {
+    margin-top: 0.18rem;
+    font-size: 0.74rem;
+    color: rgba(255, 255, 255, 0.88);
+}
+
 .srv-image {
     display: block;
     width: 100%;

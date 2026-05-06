@@ -224,7 +224,7 @@
 
 .sre-field-grid {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 0.45rem;
     margin-bottom: 0.55rem;
 }
@@ -440,7 +440,7 @@
 
 .sre-route-controls {
     display: grid;
-    grid-template-columns: auto 70px auto auto;
+    grid-template-columns: 44px 70px 88px auto;
     gap: 0.35rem;
     align-items: center;
 }
@@ -456,6 +456,11 @@
 }
 
 .sre-route-width-input {
+    padding: 0.38rem 0.44rem;
+    font-size: 0.76rem;
+}
+
+.sre-route-distance-input {
     padding: 0.38rem 0.44rem;
     font-size: 0.76rem;
 }
@@ -484,6 +489,6 @@
     }
 
     .sre-route-controls {
-        grid-template-columns: 44px 62px 1fr 1fr;
+        grid-template-columns: 44px 62px 74px 1fr;
     }
 }
