@@ -168,6 +168,7 @@ create table if not exists public.plot_markers (
   image_filename text default null,
   voiceover_filename text,
   linked_panorama_id bigint references public.panoramas(id) on delete set null,
+  link_mode text not null default 'panorama' check (link_mode in ('panorama', 'full_view')),
   longitude double precision not null,
   latitude double precision not null,
   rotation_x double precision default 0,

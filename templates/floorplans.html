@@ -11,6 +11,15 @@
     {% include 'components/sidebar.html' %}
 
     <div class="floorplans-main">
+        <div class="fp-global-toolbar">
+            <div class="fp-global-filter">
+                <label for="fp-global-workspace-filter">Select Workspace</label>
+                <select id="fp-global-workspace-filter" class="srm-select">
+                    <option value="">All projects</option>
+                </select>
+            </div>
+        </div>
+
         <!-- Subtabs -->
         <div class="fp-subtabs">
             <button class="fp-subtab active" data-tab="daynight" id="subtab-daynight">Day/Night</button>
@@ -178,7 +187,7 @@
                 <button class="btn btn-primary" id="srm-new-btn">New Route Map</button>
             </div>
 
-            <div class="srm-toolbar">
+            <div class="srm-toolbar" style="display:none;">
                 <label for="srm-workspace-filter">Project</label>
                 <select id="srm-workspace-filter" class="srm-select">
                     <option value="">All projects</option>
@@ -201,7 +210,7 @@
                 <button class="btn btn-primary" id="sf3-new-btn">New 360 View</button>
             </div>
 
-            <div class="srm-toolbar">
+            <div class="srm-toolbar" style="display:none;">
                 <label for="sf3-workspace-filter">Project</label>
                 <select id="sf3-workspace-filter" class="srm-select">
                     <option value="">All projects</option>
@@ -423,6 +432,12 @@
                 <label class="form-label">Name</label>
                 <input type="text" class="form-input" id="ev-name" maxlength="200" placeholder="e.g., Sector A" value="Earth View">
             </div>
+            <div class="form-group" style="margin-bottom:1rem;">
+                <label class="form-label">Project</label>
+                <select class="form-input" id="ev-workspace">
+                    <option value="">No project</option>
+                </select>
+            </div>
             <div id="ev-create-error" class="msg error" style="display:none; margin-bottom:1rem;"></div>
             <div class="modal-actions">
                 <button class="btn btn-secondary" id="ev-modal-cancel">Cancel</button>
@@ -591,7 +606,7 @@
     <!-- Gallery Rename Modal -->
     <div class="modal-backdrop" id="gal-rename-modal">
         <div class="modal" style="max-width:440px;">
-            <div class="modal-title" style="margin-bottom:1rem;">Rename Item</div>
+            <div class="modal-title" id="gal-rename-title" style="margin-bottom:1rem;">Rename Item</div>
             <div class="form-group" style="margin-bottom:1rem;">
                 <input type="text" class="form-input" id="gal-rename-input" placeholder="Name">
             </div>
@@ -651,10 +666,15 @@
     var initialSalesTab = resolveInitialSalesTab();
     var pendingAuthLoads = Object.create(null);
     var salesTabManuallySelected = false;
+    var salesGlobalWorkspaces = [];
+    var salesWorkspaceNameMap = Object.create(null);
+    var salesGlobalWorkspaceId = resolveInitialWorkspaceFilter();
+    var salesGlobalSearchText = '';
 
     // Wait for sidebar auth then start
     window.sidebarReady.then(function(ctx) {
         accessToken = ctx.accessToken;
+        bindGlobalFilters();
         loadWorkspacesForModal();
         if (!salesTabManuallySelected) {
             activateSalesTab(initialSalesTab);
@@ -701,13 +721,131 @@
         return [];
     }
 
+    function resolveInitialWorkspaceFilter() {
+        var qs = new URLSearchParams(window.location.search || '');
+        return (qs.get('workspace_id') || qs.get('workspace') || '').trim();
+    }
+
+    function buildWorkspaceNameMap(workspaces) {
+        salesWorkspaceNameMap = Object.create(null);
+        (workspaces || []).forEach(function(ws) {
+            var id = String(ws && ws.id ? ws.id : '').trim();
+            if (!id) return;
+            salesWorkspaceNameMap[id] = ws.name || 'Project';
+        });
+    }
+
+    function workspaceNameById(workspaceId) {
+        var id = String(workspaceId || '').trim();
+        if (!id) return '';
+        return salesWorkspaceNameMap[id] || '';
+    }
+
+    function bindGlobalFilters() {
+        var workspaceSel = document.getElementById('fp-global-workspace-filter');
+
+        if (workspaceSel) {
+            workspaceSel.value = salesGlobalWorkspaceId || '';
+            workspaceSel.addEventListener('change', function() {
+                salesGlobalWorkspaceId = workspaceSel.value || '';
+                applyGlobalFilters();
+            });
+        }
+    }
+
+    function renderGlobalWorkspaceOptions() {
+        var sel = document.getElementById('fp-global-workspace-filter');
+        if (!sel) return;
+        sel.innerHTML = '<option value="">All projects</option>';
+        salesGlobalWorkspaces.forEach(function(ws) {
+            var opt = document.createElement('option');
+            opt.value = String(ws.id || '');
+            opt.textContent = ws.name || 'Project';
+            sel.appendChild(opt);
+        });
+        if (salesGlobalWorkspaceId && !workspaceNameById(salesGlobalWorkspaceId)) {
+            salesGlobalWorkspaceId = '';
+        }
+        sel.value = salesGlobalWorkspaceId || '';
+    }
+
+    function syncGlobalWorkspaceToLocalFilters() {
+        srmActiveWorkspaceId = salesGlobalWorkspaceId || '';
+        sf3ActiveWorkspaceId = salesGlobalWorkspaceId || '';
+        var srmFilter = document.getElementById('srm-workspace-filter');
+        var sf3Filter = document.getElementById('sf3-workspace-filter');
+        if (srmFilter) srmFilter.value = srmActiveWorkspaceId || '';
+        if (sf3Filter) sf3Filter.value = sf3ActiveWorkspaceId || '';
+    }
+
+    function updateSalesToolsUrlState() {
+        var qs = new URLSearchParams(window.location.search || '');
+        if (salesGlobalWorkspaceId) qs.set('workspace_id', salesGlobalWorkspaceId);
+        else qs.delete('workspace_id');
+        qs.delete('q');
+        qs.delete('search');
+        var nextQs = qs.toString();
+        var nextUrl = nextQs ? ('/salestools?' + nextQs) : '/salestools';
+        window.history.replaceState({}, '', nextUrl);
+    }
+
+    function applyGlobalFilters() {
+        syncGlobalWorkspaceToLocalFilters();
+        updateSalesToolsUrlState();
+        refreshDaynightEmbedFilters();
+        if (fpLoaded && !currentCatalogue) loadCatalogues();
+        if (bmLoaded) loadBuildingMaps();
+        if (evLoaded) loadEarthViews();
+        if (ppLoaded && !ppManagePlanId) loadProjectPlans();
+        if (srmLoaded) loadSrmMaps();
+        if (sf3Loaded) loadSf3Views();
+        if (galLoaded && !currentGallery) loadGalleries();
+    }
+
+    function globalWorkspaceMatches(itemWorkspaceId) {
+        if (!salesGlobalWorkspaceId) return true;
+        if (itemWorkspaceId === undefined) return true;
+        if (itemWorkspaceId === null || itemWorkspaceId === '') return false;
+        return String(itemWorkspaceId) === String(salesGlobalWorkspaceId);
+    }
+
+    function globalSearchMatches(values) {
+        var term = (salesGlobalSearchText || '').trim().toLowerCase();
+        if (!term) return true;
+        if (!Array.isArray(values)) values = [values];
+        for (var i = 0; i < values.length; i++) {
+            var raw = values[i];
+            if (raw === null || raw === undefined) continue;
+            if (String(raw).toLowerCase().indexOf(term) >= 0) return true;
+        }
+        return false;
+    }
+
+    function loadSalesGlobalWorkspaces() {
+        if (waitForAuthAndRetry('global-workspaces', loadSalesGlobalWorkspaces)) return Promise.resolve([]);
+        return apiJson('/api/workspaces', { headers: authHeaders() })
+            .then(function(data) {
+                salesGlobalWorkspaces = normalizeWorkspaceList(data);
+                buildWorkspaceNameMap(salesGlobalWorkspaces);
+                renderGlobalWorkspaceOptions();
+                return salesGlobalWorkspaces;
+            })
+            .catch(function() {
+                salesGlobalWorkspaces = [];
+                buildWorkspaceNameMap([]);
+                renderGlobalWorkspaceOptions();
+                return [];
+            });
+    }
+
     // ------------------------------------------------------------------
     // Catalogue list
     // ------------------------------------------------------------------
 
     function loadCatalogues() {
         if (waitForAuthAndRetry('catalogues', loadCatalogues)) return;
-        apiJson('/api/floorplans/catalogues', { headers: authHeaders() })
+        var query = salesGlobalWorkspaceId ? ('?workspace_id=' + encodeURIComponent(salesGlobalWorkspaceId)) : '';
+        apiJson('/api/floorplans/catalogues' + query, { headers: authHeaders() })
             .then(function(data) {
                 catalogues = data;
                 fpLoaded = true;
@@ -724,15 +862,19 @@
         var loading = document.getElementById('fp-loading');
         var grid = document.getElementById('fp-grid');
         var empty = document.getElementById('fp-empty');
+        var visibleCatalogues = catalogues.filter(function(c) {
+            return globalWorkspaceMatches(c && c.workspace_id) &&
+                globalSearchMatches([c && c.name, (c && c.item_names ? c.item_names.join(' ') : '')]);
+        });
         if (loading) loading.style.display = 'none';
-        if (!catalogues.length) {
+        if (!visibleCatalogues.length) {
             if (grid) grid.style.display = 'none';
             if (empty) empty.style.display = '';
             return;
         }
         if (empty) empty.style.display = 'none';
         if (grid) grid.style.display = '';
-        grid.innerHTML = catalogues.map(function(c) {
+        grid.innerHTML = visibleCatalogues.map(function(c) {
             var itemNames = c.item_names || [];
             var chipsHtml = '';
             if (itemNames.length) {
@@ -811,12 +953,12 @@
 
     function loadWorkspacesForModal() {
         if (waitForAuthAndRetry('workspace-options', loadWorkspacesForModal)) return;
-        apiJson('/api/workspaces', { headers: authHeaders() })
-            .then(function(data) {
-                var workspaces = normalizeWorkspaceList(data);
+        return loadSalesGlobalWorkspaces()
+            .then(function(workspaces) {
                 var selectors = [
                     document.getElementById('fp-cat-workspace'),
                     document.getElementById('bm-workspace'),
+                    document.getElementById('ev-workspace'),
                     document.getElementById('pp-workspace'),
                     document.getElementById('gal-workspace')
                 ].filter(Boolean);
@@ -826,28 +968,37 @@
                     selectors.forEach(function(sel) {
                         sel.innerHTML = '<option value="">No projects found</option>';
                     });
+                    renderSrmWorkspaceOptions();
+                    renderSf3WorkspaceOptions();
                     return;
                 }
                 var optionsHtml = workspaces.map(function(w) {
                     return '<option value="' + w.id + '">' + (w.name || 'Project') + '</option>';
                 }).join('');
                 selectors.forEach(function(sel) {
-                    sel.innerHTML = optionsHtml;
+                    var allowEmpty = ['bm-workspace', 'ev-workspace', 'pp-workspace', 'gal-workspace'].indexOf(sel.id) >= 0;
+                    sel.innerHTML = (allowEmpty ? '<option value="">No project</option>' : '') + optionsHtml;
                 });
                 workspaceOptionsLoaded = true;
+                renderSrmWorkspaceOptions();
+                renderSf3WorkspaceOptions();
             })
             .catch(function() {
                 workspaceOptionsLoaded = false;
-                ['fp-cat-workspace', 'bm-workspace', 'pp-workspace', 'gal-workspace'].forEach(function(id) {
+                ['fp-cat-workspace', 'bm-workspace', 'ev-workspace', 'pp-workspace', 'gal-workspace'].forEach(function(id) {
                     var sel = document.getElementById(id);
                     if (sel) sel.innerHTML = '<option value="">Failed to load projects</option>';
                 });
+                renderSrmWorkspaceOptions();
+                renderSf3WorkspaceOptions();
             });
     }
 
     document.getElementById('new-catalogue-btn').addEventListener('click', function() {
         showModal('fp-create-modal');
         document.getElementById('fp-create-error').style.display = 'none';
+        var sel = document.getElementById('fp-cat-workspace');
+        if (sel && salesGlobalWorkspaceId) sel.value = salesGlobalWorkspaceId;
     });
     document.getElementById('fp-modal-close').addEventListener('click', function() { hideModal('fp-create-modal'); });
     document.getElementById('fp-modal-cancel').addEventListener('click', function() { hideModal('fp-create-modal'); });
@@ -1298,11 +1449,30 @@
     }
 
     var daynightEmbedLoaded = false;
+    function buildDaynightEmbedUrl() {
+        var qs = new URLSearchParams();
+        qs.set('embedded', '1');
+        if (salesGlobalWorkspaceId) qs.set('workspace_id', salesGlobalWorkspaceId);
+        return '/daynight?' + qs.toString();
+    }
+
+    function refreshDaynightEmbedFilters() {
+        var frame = document.getElementById('fp-daynight-frame');
+        if (!frame || !daynightEmbedLoaded) return;
+        var nextSrc = buildDaynightEmbedUrl();
+        if (frame.getAttribute('src') !== nextSrc) {
+            frame.src = nextSrc;
+        }
+    }
+
     function ensureDaynightEmbedLoaded() {
-        if (daynightEmbedLoaded) return;
         var frame = document.getElementById('fp-daynight-frame');
         if (!frame) return;
-        frame.src = '/daynight?embedded=1';
+        if (daynightEmbedLoaded) {
+            refreshDaynightEmbedFilters();
+            return;
+        }
+        frame.src = buildDaynightEmbedUrl();
         daynightEmbedLoaded = true;
     }
 
@@ -1315,7 +1485,7 @@
     var srmPendingAuthLoad = false;
     var srmMaps = [];
     var srmWorkspaces = [];
-    var srmActiveWorkspaceId = '';
+    var srmActiveWorkspaceId = salesGlobalWorkspaceId || '';
 
     function loadSalesRouteMaps() {
         if (!accessToken) {
@@ -1387,10 +1557,11 @@
     }
 
     function loadSrmWorkspaces() {
-        return apiJson('/api/workspaces', { headers: authHeaders() })
-            .then(function(data) {
-                srmWorkspaces = normalizeWorkspaceList(data);
+        return loadSalesGlobalWorkspaces()
+            .then(function(workspaces) {
+                srmWorkspaces = Array.isArray(workspaces) ? workspaces.slice() : [];
                 renderSrmWorkspaceOptions();
+                syncGlobalWorkspaceToLocalFilters();
             })
             .catch(function() {
                 srmWorkspaces = [];
@@ -1441,14 +1612,18 @@
     function renderSrmMaps() {
         var grid = document.getElementById('srm-grid');
         var empty = document.getElementById('srm-empty');
+        var visibleMaps = srmMaps.filter(function(mapItem) {
+            return globalWorkspaceMatches(mapItem && mapItem.workspace_id) &&
+                globalSearchMatches([mapItem && mapItem.name]);
+        });
         if (!grid || !empty) return;
-        if (!srmMaps.length) {
+        if (!visibleMaps.length) {
             grid.innerHTML = '';
             empty.style.display = '';
             return;
         }
         empty.style.display = 'none';
-        grid.innerHTML = srmMaps.map(function(mapItem) {
+        grid.innerHTML = visibleMaps.map(function(mapItem) {
             var badge = mapItem.has_main_marker
                 ? '<span class="srm-badge ok">Main pointer set</span>'
                 : '<span class="srm-badge warn">Main pointer missing</span>';
@@ -1602,7 +1777,7 @@
     var sf3PendingAuthLoad = false;
     var sf3Views = [];
     var sf3Workspaces = [];
-    var sf3ActiveWorkspaceId = '';
+    var sf3ActiveWorkspaceId = salesGlobalWorkspaceId || '';
 
     function loadSalesFlat360Views() {
         if (!accessToken) {
@@ -1674,10 +1849,11 @@
     }
 
     function loadSf3Workspaces() {
-        return apiJson('/api/workspaces', { headers: authHeaders() })
-            .then(function(data) {
-                sf3Workspaces = normalizeWorkspaceList(data);
+        return loadSalesGlobalWorkspaces()
+            .then(function(workspaces) {
+                sf3Workspaces = Array.isArray(workspaces) ? workspaces.slice() : [];
                 renderSf3WorkspaceOptions();
+                syncGlobalWorkspaceToLocalFilters();
             })
             .catch(function() {
                 sf3Workspaces = [];
@@ -1728,14 +1904,18 @@
     function renderSf3Views() {
         var grid = document.getElementById('sf3-grid');
         var empty = document.getElementById('sf3-empty');
+        var visibleViews = sf3Views.filter(function(item) {
+            return globalWorkspaceMatches(item && item.workspace_id) &&
+                globalSearchMatches([item && item.name]);
+        });
         if (!grid || !empty) return;
-        if (!sf3Views.length) {
+        if (!visibleViews.length) {
             grid.innerHTML = '';
             empty.style.display = '';
             return;
         }
         empty.style.display = 'none';
-        grid.innerHTML = sf3Views.map(function(item) {
+        grid.innerHTML = visibleViews.map(function(item) {
             var preview = item.image_url
                 ? '<img src="' + esc(item.image_url) + '" alt="' + esc(item.name) + '" class="srm-thumb">'
                 : '<div class="srm-thumb srm-thumb-empty">No image</div>';
@@ -1885,7 +2065,8 @@
 
     function loadBuildingMaps() {
         if (waitForAuthAndRetry('building-maps', loadBuildingMaps)) return;
-        fetch('/api/building-maps', { headers: authHeaders() })
+        var query = salesGlobalWorkspaceId ? ('?workspace_id=' + encodeURIComponent(salesGlobalWorkspaceId)) : '';
+        fetch('/api/building-maps' + query, { headers: authHeaders() })
             .then(function(r) {
                 if (!r.ok) throw new Error('Failed to load building maps');
                 return r.json();
@@ -1906,15 +2087,20 @@
         var loading = document.getElementById('bm-loading');
         var grid = document.getElementById('bm-grid');
         var empty = document.getElementById('bm-empty');
+        var visibleMaps = buildingMaps.filter(function(m) {
+            var workspaceName = workspaceNameById(m && m.workspace_id);
+            return globalWorkspaceMatches(m && m.workspace_id) &&
+                globalSearchMatches([m && m.name, m && m.catalogue_name, workspaceName]);
+        });
         if (loading) loading.style.display = 'none';
-        if (!buildingMaps.length) {
+        if (!visibleMaps.length) {
             if (grid) grid.style.display = 'none';
             if (empty) empty.style.display = '';
             return;
         }
         if (empty) empty.style.display = 'none';
         if (grid) grid.style.display = '';
-        grid.innerHTML = buildingMaps.map(function(m) {
+        grid.innerHTML = visibleMaps.map(function(m) {
             var imgUrl = m.image_url || '';
             var catChip = m.catalogue_name
                 ? '<span class="fp-card-chip">' + esc(m.catalogue_name) + '</span>'
@@ -2022,6 +2208,7 @@
         bmClearPreview();
         populateBmCatalogueSelect();
         document.getElementById('bm-catalogue').value = '';
+        if (salesGlobalWorkspaceId) document.getElementById('bm-workspace').value = salesGlobalWorkspaceId;
         document.getElementById('bm-create-error').style.display = 'none';
         document.getElementById('bm-upload-progress').style.display = 'none';
         showModal('bm-create-modal');
@@ -2101,7 +2288,8 @@
 
     function loadEarthViews() {
         if (waitForAuthAndRetry('earth-views', loadEarthViews)) return;
-        fetch('/api/earth-views', { headers: authHeaders() })
+        var query = salesGlobalWorkspaceId ? ('?workspace_id=' + encodeURIComponent(salesGlobalWorkspaceId)) : '';
+        fetch('/api/earth-views' + query, { headers: authHeaders() })
             .then(function(r) {
                 if (!r.ok) throw new Error('Failed to load earth views');
                 return r.json();
@@ -2122,15 +2310,20 @@
         var loading = document.getElementById('ev-loading');
         var grid = document.getElementById('ev-grid');
         var empty = document.getElementById('ev-empty');
+        var visibleViews = earthViews.filter(function(v) {
+            var workspaceName = workspaceNameById(v && v.workspace_id);
+            return globalWorkspaceMatches(v && v.workspace_id) &&
+                globalSearchMatches([v && v.name, workspaceName]);
+        });
         if (loading) loading.style.display = 'none';
-        if (!earthViews.length) {
+        if (!visibleViews.length) {
             if (grid) grid.style.display = 'none';
             if (empty) empty.style.display = '';
             return;
         }
         if (empty) empty.style.display = 'none';
         if (grid) grid.style.display = '';
-        grid.innerHTML = earthViews.map(function(v) {
+        grid.innerHTML = visibleViews.map(function(v) {
             var shareUrl = v.share_url || (location.origin + '/earth-view/view/' + (v.share_token || ''));
             return '<div class="fp-card" data-id="' + v.id + '">' +
                 '<div class="fp-card-header">' +
@@ -2187,6 +2380,7 @@
 
     document.getElementById('new-ev-btn').addEventListener('click', function() {
         document.getElementById('ev-name').value = 'Earth View';
+        if (salesGlobalWorkspaceId) document.getElementById('ev-workspace').value = salesGlobalWorkspaceId;
         document.getElementById('ev-create-error').style.display = 'none';
         showModal('ev-create-modal');
     });
@@ -2195,13 +2389,20 @@
 
     document.getElementById('ev-modal-create').addEventListener('click', function() {
         var name = document.getElementById('ev-name').value.trim() || 'Earth View';
+        var workspaceId = (document.getElementById('ev-workspace').value || '').trim();
         var btn = this;
         btn.disabled = true;
         document.getElementById('ev-create-error').style.display = 'none';
         fetch('/api/earth-views', {
             method: 'POST',
             headers: Object.assign({ 'Content-Type': 'application/json' }, authHeaders()),
-            body: JSON.stringify({ name: name, center_lng: 0, center_lat: 20, zoom: 3 })
+            body: JSON.stringify({
+                name: name,
+                center_lng: 0,
+                center_lat: 20,
+                zoom: 3,
+                workspace_id: workspaceId || null
+            })
         })
         .then(function(r) { return r.json().then(function(d) { return { ok: r.ok, data: d }; }); })
         .then(function(res) {
@@ -2241,7 +2442,8 @@
 
     function loadProjectPlans() {
         if (waitForAuthAndRetry('project-plans', loadProjectPlans)) return;
-        fetch('/api/project-plans', { headers: authHeaders() })
+        var query = salesGlobalWorkspaceId ? ('?workspace_id=' + encodeURIComponent(salesGlobalWorkspaceId)) : '';
+        fetch('/api/project-plans' + query, { headers: authHeaders() })
             .then(function(r) {
                 if (!r.ok) throw new Error('Failed to load project plans');
                 return r.json();
@@ -2263,16 +2465,21 @@
         var grid = document.getElementById('pp-grid');
         var empty = document.getElementById('pp-empty');
         var manage = document.getElementById('pp-manage');
+        var visiblePlans = projectPlans.filter(function(p) {
+            var workspaceName = workspaceNameById(p && p.workspace_id);
+            return globalWorkspaceMatches(p && p.workspace_id) &&
+                globalSearchMatches([p && p.name, (p && p.map_names ? p.map_names.join(' ') : ''), workspaceName]);
+        });
         if (loading) loading.style.display = 'none';
         manage.style.display = 'none';
-        if (!projectPlans.length) {
+        if (!visiblePlans.length) {
             if (grid) grid.style.display = 'none';
             if (empty) empty.style.display = '';
             return;
         }
         if (empty) empty.style.display = 'none';
         if (grid) grid.style.display = '';
-        grid.innerHTML = projectPlans.map(function(p) {
+        grid.innerHTML = visiblePlans.map(function(p) {
             var shareUrl = p.share_url || (location.origin + '/project-plan/view/' + (p.share_token || ''));
             var mapNames = p.map_names || [];
             var chipsHtml = '';
@@ -2342,6 +2549,7 @@
     // Create project plan
     document.getElementById('new-pp-btn').addEventListener('click', function() {
         document.getElementById('pp-name').value = 'Project Plan';
+        if (salesGlobalWorkspaceId) document.getElementById('pp-workspace').value = salesGlobalWorkspaceId;
         document.getElementById('pp-create-error').style.display = 'none';
         showModal('pp-create-modal');
     });
@@ -2528,7 +2736,8 @@
 
     function loadGalleries() {
         if (waitForAuthAndRetry('galleries', loadGalleries)) return;
-        fetch('/api/galleries', { headers: authHeaders() })
+        var query = salesGlobalWorkspaceId ? ('?workspace_id=' + encodeURIComponent(salesGlobalWorkspaceId)) : '';
+        fetch('/api/galleries' + query, { headers: authHeaders() })
             .then(function(r) {
                 if (!r.ok) throw new Error('Failed to load galleries');
                 return r.json();
@@ -2549,15 +2758,20 @@
         var loading = document.getElementById('gal-loading');
         var grid = document.getElementById('gal-grid');
         var empty = document.getElementById('gal-empty');
+        var visibleGalleries = galleries.filter(function(g) {
+            var workspaceName = workspaceNameById(g && g.workspace_id);
+            return globalWorkspaceMatches(g && g.workspace_id) &&
+                globalSearchMatches([g && g.name, (g && g.item_names ? g.item_names.join(' ') : ''), workspaceName]);
+        });
         if (loading) loading.style.display = 'none';
-        if (!galleries.length) {
+        if (!visibleGalleries.length) {
             if (grid) grid.style.display = 'none';
             if (empty) empty.style.display = '';
             return;
         }
         if (empty) empty.style.display = 'none';
         if (grid) grid.style.display = '';
-        grid.innerHTML = galleries.map(function(g) {
+        grid.innerHTML = visibleGalleries.map(function(g) {
             var itemNames = g.item_names || [];
             var chipsHtml = '';
             if (itemNames.length) {
@@ -2594,6 +2808,7 @@
                     '</div>' +
                     '<div class="fp-card-actions">' +
                         '<button class="btn btn-secondary gal-manage-btn" data-id="' + g.id + '">Manage</button>' +
+                        '<button class="btn btn-secondary gal-rename-btn" data-id="' + g.id + '" data-name="' + esc(g.name) + '">Rename</button>' +
                         '<button class="btn btn-danger gal-del-btn" data-id="' + g.id + '" data-name="' + esc(g.name) + '">Delete</button>' +
                     '</div>' +
                 '</div>' +
@@ -2615,6 +2830,12 @@
                 openGallery(btn.dataset.id);
             });
         });
+        grid.querySelectorAll('.gal-rename-btn').forEach(function(btn) {
+            btn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                galOpenRename(btn.dataset.id, btn.dataset.name, 'gallery');
+            });
+        });
         grid.querySelectorAll('.gal-del-btn').forEach(function(btn) {
             btn.addEventListener('click', function(e) {
                 e.stopPropagation();
@@ -2628,6 +2849,7 @@
     // Create gallery
     document.getElementById('new-gal-btn').addEventListener('click', function() {
         document.getElementById('gal-name').value = 'Gallery';
+        if (salesGlobalWorkspaceId) document.getElementById('gal-workspace').value = salesGlobalWorkspaceId;
         document.getElementById('gal-create-error').style.display = 'none';
         showModal('gal-create-modal');
     });
@@ -2762,7 +2984,7 @@
         }).join('');
 
         list.querySelectorAll('.fp-item-btn.rename').forEach(function(btn) {
-            btn.addEventListener('click', function() { galOpenRename(btn.dataset.id, btn.dataset.name); });
+            btn.addEventListener('click', function() { galOpenRename(btn.dataset.id, btn.dataset.name, 'item'); });
         });
         list.querySelectorAll('.fp-item-btn.delete').forEach(function(btn) {
             btn.addEventListener('click', function() {
@@ -3083,27 +3305,58 @@
 
     // Rename
     var galRenameTarget = null;
-    function galOpenRename(id, name) {
+    var galRenameTargetType = 'item';
+    function galOpenRename(id, name, type) {
         galRenameTarget = id;
+        galRenameTargetType = type || 'item';
+        document.getElementById('gal-rename-title').textContent =
+            galRenameTargetType === 'gallery' ? 'Rename Gallery' : 'Rename Item';
         document.getElementById('gal-rename-input').value = name;
         showModal('gal-rename-modal');
     }
-    document.getElementById('gal-rename-cancel').addEventListener('click', function() { hideModal('gal-rename-modal'); });
+    document.getElementById('gal-rename-cancel').addEventListener('click', function() {
+        hideModal('gal-rename-modal');
+        galRenameTarget = null;
+    });
     document.getElementById('gal-rename-confirm').addEventListener('click', function() {
         if (!galRenameTarget) return;
+        var targetId = galRenameTarget;
+        var targetType = galRenameTargetType;
         var newName = document.getElementById('gal-rename-input').value.trim();
         if (!newName) return;
         var btn = this;
         btn.disabled = true;
-        fetch('/api/gallery-items/' + galRenameTarget, {
+        var endpoint = targetType === 'gallery'
+            ? ('/api/galleries/' + targetId)
+            : ('/api/gallery-items/' + targetId);
+        fetch(endpoint, {
             method: 'PATCH',
             headers: Object.assign({ 'Content-Type': 'application/json' }, authHeaders()),
             body: JSON.stringify({ name: newName })
-        }).then(function() {
+        }).then(function(r) {
+            if (!r.ok) {
+                return r.json().then(function(payload) {
+                    throw new Error((payload && payload.error) || 'Failed to rename');
+                }, function() {
+                    throw new Error('Failed to rename');
+                });
+            }
             btn.disabled = false;
             hideModal('gal-rename-modal');
-            loadGalItems();
-        }).catch(function() { btn.disabled = false; });
+            galRenameTarget = null;
+            if (targetType === 'gallery') {
+                if (currentGallery && String(currentGallery.id) === String(targetId)) {
+                    currentGallery.name = newName;
+                    document.getElementById('gal-detail-title').textContent = newName;
+                }
+                loadGalleries();
+            } else {
+                loadGalItems();
+            }
+        }).catch(function(err) {
+            btn.disabled = false;
+            if (err && err.message) alert(err.message);
+        });
     });
 })();
 </script>

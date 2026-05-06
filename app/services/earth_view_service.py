@@ -9,7 +9,7 @@ def _generate_share_token():
     return uuid.uuid4().hex[:12]
 
 
-def create_earth_view(sb, user_id, org_id, name, center_lng=0, center_lat=20, zoom=3):
+def create_earth_view(sb, user_id, org_id, name, center_lng=0, center_lat=20, zoom=3, workspace_id=None):
     token = _generate_share_token()
     row = {
         'user_id': str(user_id),
@@ -21,7 +21,18 @@ def create_earth_view(sb, user_id, org_id, name, center_lng=0, center_lat=20, zo
     }
     if org_id:
         row['org_id'] = str(org_id)
-    resp = sb.table('earth_views').insert(row).execute()
+    if workspace_id:
+        row['workspace_id'] = str(workspace_id)
+    try:
+        resp = sb.table('earth_views').insert(row).execute()
+    except Exception as e:
+        # Backward compatibility for deployments without workspace_id on earth_views.
+        msg = str(e).lower()
+        if 'workspace_id' in row and 'workspace_id' in msg and ('column' in msg or 'does not exist' in msg):
+            row.pop('workspace_id', None)
+            resp = sb.table('earth_views').insert(row).execute()
+        else:
+            raise
     data = resp.data
     return data[0] if data else None
 
@@ -38,25 +49,50 @@ def get_earth_view_by_token(sb, token):
     return data[0] if data else None
 
 
-def list_earth_views(sb, user_id):
-    resp = (
+def list_earth_views(sb, user_id, workspace_id=None):
+    q = (
         sb.table('earth_views')
         .select('*')
         .eq('user_id', str(user_id))
-        .order('created_at', desc=True)
-        .execute()
     )
+    if workspace_id is not None:
+        q = q.eq('workspace_id', str(workspace_id))
+    try:
+        resp = q.order('created_at', desc=True).execute()
+    except Exception as e:
+        # Backward compatibility for deployments without workspace_id on earth_views.
+        msg = str(e).lower()
+        if workspace_id is not None and 'workspace_id' in msg and ('column' in msg or 'does not exist' in msg):
+            resp = (
+                sb.table('earth_views')
+                .select('*')
+                .eq('user_id', str(user_id))
+                .order('created_at', desc=True)
+                .execute()
+            )
+        else:
+            raise
     return resp.data or []
 
 
 def update_earth_view(sb, view_id, **fields):
     clean = {}
     for key, value in fields.items():
-        if key in ('name', 'center_lng', 'center_lat', 'zoom'):
+        if key in ('name', 'center_lng', 'center_lat', 'zoom', 'workspace_id'):
             clean[key] = value
     if not clean:
         return None
-    resp = sb.table('earth_views').update(clean).eq('id', str(view_id)).execute()
+    try:
+        resp = sb.table('earth_views').update(clean).eq('id', str(view_id)).execute()
+    except Exception as e:
+        msg = str(e).lower()
+        if 'workspace_id' in clean and 'workspace_id' in msg and ('column' in msg or 'does not exist' in msg):
+            clean.pop('workspace_id', None)
+            if not clean:
+                return get_earth_view(sb, view_id)
+            resp = sb.table('earth_views').update(clean).eq('id', str(view_id)).execute()
+        else:
+            raise
     data = resp.data
     return data[0] if data else None
 

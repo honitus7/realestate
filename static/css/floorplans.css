@@ -68,6 +68,37 @@
     border-bottom-color: var(--color-text);
 }
 
+.fp-global-toolbar {
+    display: grid;
+    grid-template-columns: minmax(170px, 240px);
+    gap: 0.75rem;
+    margin-bottom: 0.9rem;
+}
+
+.fp-global-filter,
+.fp-global-search-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+}
+
+.fp-global-filter .srm-select {
+    max-width: 220px;
+    min-height: 34px;
+    padding: 0.42rem 0.55rem;
+    font-size: 0.82rem;
+    line-height: 1.2;
+}
+
+.fp-global-filter label,
+.fp-global-search-wrap label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--color-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
 .fp-daynight-embed-shell {
     border: 1px solid var(--color-border);
     border-radius: var(--radius);
@@ -617,6 +648,14 @@
 @media (max-width: 768px) {
     .floorplans-main {
         padding: 1rem;
+    }
+
+    .fp-global-toolbar {
+        grid-template-columns: 1fr;
+    }
+
+    .fp-global-filter .srm-select {
+        max-width: 100%;
     }
 
     .fp-grid {

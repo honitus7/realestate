@@ -1402,6 +1402,57 @@
             }
         }
 
+        function normalizeMarkerLinkMode(value) {
+            const mode = String(value || '').trim().toLowerCase();
+            return mode === MARKER_LINK_MODE_FULL_VIEW ? MARKER_LINK_MODE_FULL_VIEW : MARKER_LINK_MODE_PANORAMA;
+        }
+
+        async function goToWorkspaceFullViewByPanorama(targetPanoramaId) {
+            const id = normalizePanoramaId(targetPanoramaId);
+            if (!id) return false;
+
+            let workspaceId = null;
+            if (WORKSPACE_ID != null && getWorkspacePanoramaById(id)) {
+                workspaceId = String(WORKSPACE_ID);
+            }
+            if (!workspaceId) {
+                let meta = getPanoramaMeta(id);
+                if (!meta) meta = await ensurePanoramaMeta(id);
+                if (meta && meta.workspace_id != null) {
+                    workspaceId = String(meta.workspace_id).trim();
+                }
+            }
+            if (!workspaceId) return false;
+
+            playTransitionSound();
+            stopAutoRotate();
+            pushNavStack(`${window.location.pathname}${window.location.search || ''}`);
+            window.location.href = '/customer/full-view/' + encodeURIComponent(workspaceId);
+            return true;
+        }
+
+        function openMarkerLink(linkedPanoramaId, linkMode) {
+            const mode = normalizeMarkerLinkMode(linkMode);
+            if (mode === MARKER_LINK_MODE_FULL_VIEW) {
+                var fallbackId = normalizePanoramaId(linkedPanoramaId);
+                if (!fallbackId || isPanoramaHidden(fallbackId)) {
+                    fallbackId = normalizePanoramaId(getCurrentPanoramaId());
+                }
+                if (!fallbackId) return Promise.resolve(false);
+                return goToWorkspaceFullViewByPanorama(fallbackId).then((opened) => {
+                    if (!opened) goToPanorama(fallbackId);
+                    return true;
+                }).catch(() => {
+                    goToPanorama(fallbackId);
+                    return true;
+                });
+            }
+            const id = normalizePanoramaId(linkedPanoramaId);
+            if (!id || isPanoramaHidden(id)) return Promise.resolve(false);
+            goToPanorama(id);
+            return Promise.resolve(true);
+        }
+
         async function buildPanoramaMenuEntriesAsync() {
             const currentId = IN_WORKSPACE ? String(currentFullViewPanoramaId) : String(PANORAMA_ID);
             const map = new Map();
@@ -1796,6 +1847,8 @@
         const PHOTO_MARKER_STYLE = 'photo';
         const DEFAULT_MARKER_ICON = 'mdi:map-marker-radius';
         const DEFAULT_MARKER_COLOR = '#4ade80';
+        const MARKER_LINK_MODE_PANORAMA = 'panorama';
+        const MARKER_LINK_MODE_FULL_VIEW = 'full_view';
         const MARKER_STYLE_VALUES = Object.freeze([
             'super', 'navigator', 'photo', 'glass', 'neon', 'orb', 'pin', 'crystal', 'ring', 'chip', 'beacon', 'gem', 'retro', 'comet', 'minimal'
         ]);
@@ -2488,9 +2541,8 @@
                 if (this.dom.enterBtn) {
                     this.dom.enterBtn.addEventListener('click', () => {
                         const targetId = this.dom.enterBtn && this.dom.enterBtn.dataset ? this.dom.enterBtn.dataset.panoramaId : null;
-                        if (targetId) {
-                            goToPanorama(targetId);
-                        }
+                        const linkMode = this.dom.enterBtn && this.dom.enterBtn.dataset ? this.dom.enterBtn.dataset.linkMode : MARKER_LINK_MODE_PANORAMA;
+                        openMarkerLink(targetId || getCurrentPanoramaId(), linkMode);
                     });
                 }
                 if (this.dom.modal) {
@@ -2607,6 +2659,7 @@
                     marker_style: this.normalizeMarkerStyle(row.marker_style),
                     marker_icon: this.normalizeMarkerIcon(row.marker_icon),
                     marker_color: this.normalizeMarkerColor(row.marker_color),
+                    link_mode: normalizeMarkerLinkMode(row.link_mode),
                     linked_panorama_id: Number.isFinite(parsedLinked) ? parsedLinked : null,
                     longitude: Number(row.longitude || 0),
                     latitude: Number(row.latitude || 0),
@@ -2785,11 +2838,18 @@
                 if (!markerData || markerData.markerType !== 'poi') return false;
                 const markerId = String(markerData.markerId);
                 const selected = this.markerMap.get(markerId);
+                if (selected && normalizeMarkerLinkMode(selected.link_mode) === MARKER_LINK_MODE_FULL_VIEW) {
+                    try { this.closeReadonly(); } catch (e) { }
+                    try { if (isMarkerPhotoLightboxVisible()) closeMarkerPhotoLightbox(); } catch (e) { }
+                    this.focus(markerId, false);
+                    openMarkerLink(selected.linked_panorama_id, selected.link_mode);
+                    return true;
+                }
                 if (selected && selected.linked_panorama_id && !isPanoramaHidden(selected.linked_panorama_id)) {
                     try { this.closeReadonly(); } catch (e) { }
                     try { if (isMarkerPhotoLightboxVisible()) closeMarkerPhotoLightbox(); } catch (e) { }
                     this.focus(markerId, false);
-                    goToPanorama(selected.linked_panorama_id);
+                    openMarkerLink(selected.linked_panorama_id, selected.link_mode);
                     return true;
                 }
                 if (selected && this.isPhotoMarkerStyle(selected.marker_style) && !selected.linked_panorama_id) {
@@ -2841,12 +2901,24 @@
                 }
                 if (this.dom.enterBtn) {
                     const linkId = marker.linked_panorama_id;
-                    if (linkId && !isPanoramaHidden(linkId)) {
+                    const linkMode = normalizeMarkerLinkMode(marker.link_mode);
+                    const hasLinkedPanorama = !!(linkId && !isPanoramaHidden(linkId));
+                    if (linkMode === MARKER_LINK_MODE_FULL_VIEW) {
+                        const fallbackId = hasLinkedPanorama ? String(linkId) : String(getCurrentPanoramaId() || '');
+                        this.dom.enterBtn.style.display = '';
+                        this.dom.enterBtn.dataset.panoramaId = fallbackId;
+                        this.dom.enterBtn.dataset.linkMode = linkMode;
+                        this.dom.enterBtn.textContent = 'Open Full View';
+                    } else if (hasLinkedPanorama) {
                         this.dom.enterBtn.style.display = '';
                         this.dom.enterBtn.dataset.panoramaId = String(linkId);
+                        this.dom.enterBtn.dataset.linkMode = linkMode;
+                        this.dom.enterBtn.textContent = 'Enter Panorama';
                     } else {
                         this.dom.enterBtn.style.display = 'none';
                         if (this.dom.enterBtn.dataset) delete this.dom.enterBtn.dataset.panoramaId;
+                        if (this.dom.enterBtn.dataset) delete this.dom.enterBtn.dataset.linkMode;
+                        this.dom.enterBtn.textContent = 'Enter Panorama';
                     }
                 }
                 if (this.dom.voiceoverWrap) {
@@ -2897,6 +2969,8 @@
                 if (this.dom.enterBtn) {
                     this.dom.enterBtn.style.display = 'none';
                     if (this.dom.enterBtn.dataset) delete this.dom.enterBtn.dataset.panoramaId;
+                    if (this.dom.enterBtn.dataset) delete this.dom.enterBtn.dataset.linkMode;
+                    this.dom.enterBtn.textContent = 'Enter Panorama';
                 }
                 if (this.voiceoverAudio) {
                     this.voiceoverAudio.pause();
@@ -4476,6 +4550,16 @@
             return String(name || '').trim().toLowerCase() === 'home';
         }
 
+        function isPanoramaPageForSidebar() {
+            try {
+                if (typeof CURRENT_PANORAMA_IS_360 !== 'undefined') return true;
+                if (typeof PANORAMA_ID !== 'undefined') return true;
+                return false;
+            } catch (e) {
+                return false;
+            }
+        }
+
         function updateFvSidebarVisibilityForActiveBtn() {
             if (!sidebar) {
                 document.body.classList.remove('fv-home-active');
@@ -4485,12 +4569,15 @@
                 }
                 return;
             }
-            var hide = isHomeTabName(tabDisplayName(activeBtn));
+            var hideForHome = isHomeTabName(tabDisplayName(activeBtn));
+            var hideForPanorama = isPanoramaPageForSidebar();
+            var hide = hideForHome || hideForPanorama;
             sidebar.classList.toggle('fv-sidebar--hidden', hide);
-            document.body.classList.toggle('fv-home-active', hide);
+            document.body.classList.toggle('fv-home-active', hideForHome && !hideForPanorama);
             if (navFabFv) {
-                navFabFv.hidden = !hide;
-                navFabFv.style.display = hide ? 'flex' : 'none';
+                var showRevealFab = hideForHome && !hideForPanorama;
+                navFabFv.hidden = !showRevealFab;
+                navFabFv.style.display = showRevealFab ? 'flex' : 'none';
             }
         }
 
@@ -4706,6 +4793,7 @@
         if (navFabFv) {
             navFabFv.innerHTML = '<iconify-icon icon="ph:list"></iconify-icon>';
             navFabFv.addEventListener('click', function () {
+                if (isPanoramaPageForSidebar()) return;
                 if (sidebar) sidebar.classList.remove('fv-sidebar--hidden');
                 document.body.classList.remove('fv-home-active');
                 navFabFv.hidden = true;

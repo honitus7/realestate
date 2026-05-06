@@ -1165,6 +1165,8 @@ def register_routes(app):
         org_name, org_slug = get_org_name_and_slug_for_panorama(sb, panorama)
         workspace_panoramas = []
         customer_view_config = {}
+        full_view_panorama_ids = []
+        full_view_panorama_tab_map = {}
         workspace_id = (panorama or {}).get('workspace_id')
         if workspace_id:
             try:
@@ -1178,9 +1180,46 @@ def register_routes(app):
                         'is_360': bool(p.get('is_360')),
                     })
                 customer_view_config = ws_get_customer_config(sb, workspace_id) or {}
+                try:
+                    fv_cfg = fv_get_config(sb, workspace_id) or {}
+                    fv_config_id = str((fv_cfg or {}).get('id') or '').strip()
+                    tabs = fv_list_tabs(sb, fv_config_id) if fv_config_id else []
+                    seen_fv_refs = set()
+                    for tab in (tabs or []):
+                        if not isinstance(tab, dict):
+                            continue
+                        raw_ref = tab.get('ref_panorama_id')
+                        if raw_ref in (None, '', 'null'):
+                            continue
+                        try:
+                            ref_panorama_id = int(raw_ref)
+                        except Exception:
+                            continue
+                        ref_key = str(ref_panorama_id)
+                        if ref_key not in seen_fv_refs:
+                            full_view_panorama_ids.append(ref_panorama_id)
+                            seen_fv_refs.add(ref_key)
+                        tab_name = str(tab.get('name') or '').strip()
+                        if tab_name:
+                            tab_names = full_view_panorama_tab_map.setdefault(ref_key, [])
+                            if tab_name not in tab_names:
+                                tab_names.append(tab_name)
+                except Exception:
+                    pass
             except Exception:
                 pass
-        return render_template('admin_3d.html', panorama=panorama, org_name=org_name, org_slug=org_slug, workspace_id=workspace_id, workspace_panoramas=workspace_panoramas, customer_view_config=customer_view_config, **auth_ctx())
+        return render_template(
+            'admin_3d.html',
+            panorama=panorama,
+            org_name=org_name,
+            org_slug=org_slug,
+            workspace_id=workspace_id,
+            workspace_panoramas=workspace_panoramas,
+            customer_view_config=customer_view_config,
+            full_view_panorama_ids=full_view_panorama_ids,
+            full_view_panorama_tab_map=full_view_panorama_tab_map,
+            **auth_ctx(),
+        )
 
     @app.route('/client/3d/<int:panorama_id>')
     def client_3d(panorama_id):
@@ -1517,10 +1556,12 @@ def register_routes(app):
             return jsonify({'error': 'Panorama not found'}), 404
         style_columns_supported = True
         link_columns_supported = True
+        link_mode_columns_supported = True
         image_columns_supported = True
         base_cols = ['id', 'plot_id', 'name', 'description', 'longitude', 'latitude', 'status', 'created_at']
         style_cols = ['marker_style', 'marker_icon', 'marker_color', 'rotation_x', 'rotation_y', 'rotation_z']
         link_cols = ['linked_panorama_id']
+        link_mode_cols = ['link_mode']
         voiceover_columns_supported = True
 
         def build_columns():
@@ -1531,6 +1572,8 @@ def register_routes(app):
                 cols.append('voiceover_filename')
             if link_columns_supported:
                 cols.extend(link_cols)
+            if link_mode_columns_supported:
+                cols.extend(link_mode_cols)
             if style_columns_supported:
                 cols.extend(style_cols)
             return ', '.join(cols)
@@ -1542,6 +1585,10 @@ def register_routes(app):
         def is_link_column_error(err):
             msg = str(err).lower()
             return 'linked_panorama_id' in msg or 'linked panorama' in msg
+
+        def is_link_mode_column_error(err):
+            msg = str(err).lower()
+            return 'link_mode' in msg and ('does not exist' in msg or 'column' in msg)
 
         def is_image_column_error(err):
             msg = str(err).lower()
@@ -1587,6 +1634,9 @@ def register_routes(app):
                     changed = True
                 if link_columns_supported and is_link_column_error(e):
                     link_columns_supported = False
+                    changed = True
+                if link_mode_columns_supported and is_link_mode_column_error(e):
+                    link_mode_columns_supported = False
                     changed = True
                 if image_columns_supported and is_image_column_error(e):
                     image_columns_supported = False
@@ -8283,7 +8333,8 @@ h1 {{ margin:0 0 8px; font-size:22px; }}
         sb = get_supabase()
         if not sb:
             return jsonify({'error': 'Database not configured'}), 503
-        views = ev_list(sb, user_id)
+        workspace_id = str(request.args.get('workspace_id') or '').strip() or None
+        views = ev_list(sb, user_id, workspace_id=workspace_id)
         base = (request.url_root or '').rstrip('/')
         for view in views:
             view['share_url'] = f"{base}/earth-view/view/{view.get('share_token', '')}"
@@ -8299,7 +8350,14 @@ h1 {{ margin:0 0 8px; font-size:22px; }}
             return jsonify({'error': 'Database not configured'}), 503
         data = request.get_json(silent=True) or {}
         name = str(data.get('name') or 'Earth View').strip() or 'Earth View'
-        existing = ev_list(sb, user_id)
+        workspace_id = str(data.get('workspace_id') or '').strip() or None
+        if workspace_id:
+            workspace = get_workspace_by_id(sb, workspace_id)
+            if not workspace:
+                return jsonify({'error': 'Project not found'}), 404
+            if not can_manage_workspace(sb, workspace, user_id, role):
+                return jsonify({'error': 'Forbidden'}), 403
+        existing = ev_list(sb, user_id, workspace_id=workspace_id)
         if any(v.get('name', '').strip().lower() == name.lower() for v in existing):
             return jsonify({'error': f'An earth view named "{name}" already exists'}), 409
         center_lng = data.get('center_lng', 0)
@@ -8307,7 +8365,7 @@ h1 {{ margin:0 0 8px; font-size:22px; }}
         zoom = data.get('zoom', 3)
         profile = get_profile(sb, user_id)
         org_id = profile.get('org_id') if profile else None
-        view = ev_create(sb, user_id, org_id, name, center_lng, center_lat, zoom)
+        view = ev_create(sb, user_id, org_id, name, center_lng, center_lat, zoom, workspace_id=workspace_id)
         if not view:
             return jsonify({'error': 'Failed to create earth view'}), 500
         base = (request.url_root or '').rstrip('/')

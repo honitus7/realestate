@@ -1329,7 +1329,14 @@
                 <select id="marker-linked-panorama" class="marker-form-select">
                     <option value="">None</option>
                 </select>
-                <div class="marker-form-helper">Optional. Customers can click "Enter Panorama" on this marker to open the linked view.</div>
+                <div class="marker-form-helper">Optional. For Full View action, this can be left empty and the marker will open the current workspace Full View.</div>
+            </div>
+            <div class="marker-form-row">
+                <label class="marker-form-label" for="marker-link-mode">Marker Link Action</label>
+                <select id="marker-link-mode" class="marker-form-select">
+                    <option value="panorama">Open linked panorama</option>
+                    <option value="full_view">Open linked panorama workspace Full View (first tab)</option>
+                </select>
             </div>
             <div class="marker-form-row">
                 <label class="marker-form-label" for="marker-type-select">Marker Type</label>
@@ -1392,6 +1399,12 @@
         const DEFAULT_MARKER_COLOR = '#4ade80';
         const DEFAULT_MARKER_STYLE = 'glass';
         const DEFAULT_MARKER_ICON = 'mdi:map-marker-radius';
+        const MARKER_LINK_MODE_PANORAMA = 'panorama';
+        const MARKER_LINK_MODE_FULL_VIEW = 'full_view';
+        const MARKER_LINK_MODE_VALUES = Object.freeze([
+            MARKER_LINK_MODE_PANORAMA,
+            MARKER_LINK_MODE_FULL_VIEW
+        ]);
         const MARKER_STYLE_OPTIONS = Object.freeze([
             { value: 'glass', label: 'Glass Pin' },
             { value: 'photo', label: 'Photo Circle' },
@@ -1483,6 +1496,11 @@
         function normalizeMarkerIcon(value) {
             const icon = String(value || '').trim();
             return icon ? icon : DEFAULT_MARKER_ICON;
+        }
+
+        function normalizeMarkerLinkMode(value) {
+            const mode = String(value || '').trim().toLowerCase();
+            return MARKER_LINK_MODE_VALUES.includes(mode) ? mode : MARKER_LINK_MODE_PANORAMA;
         }
 
         // ── Tools Dropdown ──
@@ -2305,6 +2323,7 @@
                 this.isSaving = false;
                 this.styleColumnsSupported = true;
                 this.linkColumnsSupported = true;
+                this.linkModeColumnSupported = true;
                 this.imageColumnsSupported = true;
                 this.voiceoverColumnsSupported = true;
                 this.dragState = null;
@@ -2338,6 +2357,7 @@
                     descriptionInput: document.getElementById('marker-description'),
                     mediaPreview: document.getElementById('marker-media-preview'),
                     linkedPanoramaSelect: document.getElementById('marker-linked-panorama'),
+                    linkModeSelect: document.getElementById('marker-link-mode'),
                     markerTypeSelect: document.getElementById('marker-type-select'),
                     markerStyleSelect: document.getElementById('marker-style-select'),
                     markerIconInput: document.getElementById('marker-icon'),
@@ -2516,6 +2536,7 @@
                 if (this.dom.descriptionInput) this.dom.descriptionInput.value = '';
                 this.updateMediaPreviewFromDescription('');
                 if (this.dom.linkedPanoramaSelect) this.dom.linkedPanoramaSelect.value = '';
+                if (this.dom.linkModeSelect) this.dom.linkModeSelect.value = MARKER_LINK_MODE_PANORAMA;
                 if (this.dom.markerTypeSelect) this.dom.markerTypeSelect.value = '';
                 if (this.dom.markerStyleSelect) this.dom.markerStyleSelect.value = DEFAULT_MARKER_STYLE;
                 if (this.dom.markerIconInput) this.dom.markerIconInput.value = DEFAULT_MARKER_ICON;
@@ -2546,6 +2567,7 @@
                 if (this.dom.descriptionInput) this.dom.descriptionInput.value = marker.description || '';
                 this.updateMediaPreviewFromDescription(marker.description || '');
                 if (this.dom.linkedPanoramaSelect) this.dom.linkedPanoramaSelect.value = marker.linked_panorama_id || '';
+                if (this.dom.linkModeSelect) this.dom.linkModeSelect.value = normalizeMarkerLinkMode(marker.link_mode);
                 if (this.dom.colorInput) this.dom.colorInput.value = normalizeMarkerColorHex(marker.marker_color);
                 if (this.dom.markerTypeSelect) {
                     const persistedStyle = normalizeMarkerStyle(marker.marker_style);
@@ -2617,13 +2639,14 @@
                         const rawLink = String(this.dom.linkedPanoramaSelect.value || '').trim();
                         if (rawLink) { const parsed = Number(rawLink); linkedPanoramaId = Number.isFinite(parsed) ? parsed : null; }
                     }
-
+                    const linkMode = normalizeMarkerLinkMode(this.dom.linkModeSelect ? this.dom.linkModeSelect.value : MARKER_LINK_MODE_PANORAMA);
                     const payload = {
                         plot_id: this.plotId,
                         name, description,
                         marker_style: markerStyle,
                         marker_icon: markerIcon,
                         marker_color: markerColor,
+                        link_mode: linkMode,
                         linked_panorama_id: linkedPanoramaId,
                         longitude: Number(this.pendingCoordinates.longitude),
                         latitude: Number(this.pendingCoordinates.latitude)
@@ -2683,11 +2706,13 @@
                 const cols = [...baseCols];
                 if (this.styleColumnsSupported) { payload.marker_style = data.marker_style || DEFAULT_MARKER_STYLE; payload.marker_icon = data.marker_icon || DEFAULT_MARKER_ICON; payload.marker_color = data.marker_color || DEFAULT_MARKER_COLOR; cols.push('marker_style', 'marker_icon', 'marker_color'); }
                 if (this.linkColumnsSupported) { payload.linked_panorama_id = data.linked_panorama_id || null; cols.push('linked_panorama_id'); }
+                if (this.linkModeColumnSupported) { payload.link_mode = normalizeMarkerLinkMode(data.link_mode); cols.push('link_mode'); }
                 if (this.imageColumnsSupported) cols.push('image_filename');
 
                 let result = await supabase.from('plot_markers').update(payload).eq('id', id).select(cols.join(', ')).limit(1);
-                if (result.error && this.isStyleColumnError(result.error)) { this.styleColumnsSupported = false; delete payload.marker_color; delete payload.marker_style; delete payload.marker_icon; const c2 = baseCols.slice(); if (this.linkColumnsSupported) c2.push('linked_panorama_id'); if (this.imageColumnsSupported) c2.push('image_filename'); result = await supabase.from('plot_markers').update(payload).eq('id', id).select(c2.join(', ')).limit(1); }
+                if (result.error && this.isStyleColumnError(result.error)) { this.styleColumnsSupported = false; delete payload.marker_color; delete payload.marker_style; delete payload.marker_icon; const c2 = baseCols.slice(); if (this.linkColumnsSupported) c2.push('linked_panorama_id'); if (this.linkModeColumnSupported) c2.push('link_mode'); if (this.imageColumnsSupported) c2.push('image_filename'); result = await supabase.from('plot_markers').update(payload).eq('id', id).select(c2.join(', ')).limit(1); }
                 if (result.error && this.isLinkColumnError(result.error)) { this.linkColumnsSupported = false; delete payload.linked_panorama_id; result = await supabase.from('plot_markers').update(payload).eq('id', id).select(baseCols.join(', ')).limit(1); }
+                if (result.error && this.isLinkModeColumnError(result.error)) { this.linkModeColumnSupported = false; delete payload.link_mode; const c2 = baseCols.slice(); if (this.styleColumnsSupported) c2.push('marker_style', 'marker_icon', 'marker_color'); if (this.linkColumnsSupported) c2.push('linked_panorama_id'); if (this.imageColumnsSupported) c2.push('image_filename'); result = await supabase.from('plot_markers').update(payload).eq('id', id).select(c2.join(', ')).limit(1); }
 
                 const { data: rows, error } = result;
                 if (error) throw error;
@@ -2721,11 +2746,13 @@
                 const cols = [...baseCols];
                 if (this.styleColumnsSupported) { payload.marker_style = data.marker_style || DEFAULT_MARKER_STYLE; payload.marker_icon = data.marker_icon || DEFAULT_MARKER_ICON; payload.marker_color = data.marker_color || DEFAULT_MARKER_COLOR; cols.push('marker_style', 'marker_icon', 'marker_color'); }
                 if (this.linkColumnsSupported) { payload.linked_panorama_id = data.linked_panorama_id || null; cols.push('linked_panorama_id'); }
+                if (this.linkModeColumnSupported) { payload.link_mode = normalizeMarkerLinkMode(data.link_mode); cols.push('link_mode'); }
                 if (this.imageColumnsSupported) cols.push('image_filename');
 
                 let result = await supabase.from('plot_markers').insert(payload).select(cols.join(', ')).limit(1);
-                if (result.error && this.isStyleColumnError(result.error)) { this.styleColumnsSupported = false; delete payload.marker_color; delete payload.marker_style; delete payload.marker_icon; const c2 = baseCols.slice(); if (this.linkColumnsSupported) c2.push('linked_panorama_id'); if (this.imageColumnsSupported) c2.push('image_filename'); result = await supabase.from('plot_markers').insert(payload).select(c2.join(', ')).limit(1); }
+                if (result.error && this.isStyleColumnError(result.error)) { this.styleColumnsSupported = false; delete payload.marker_color; delete payload.marker_style; delete payload.marker_icon; const c2 = baseCols.slice(); if (this.linkColumnsSupported) c2.push('linked_panorama_id'); if (this.linkModeColumnSupported) c2.push('link_mode'); if (this.imageColumnsSupported) c2.push('image_filename'); result = await supabase.from('plot_markers').insert(payload).select(c2.join(', ')).limit(1); }
                 if (result.error && this.isLinkColumnError(result.error)) { this.linkColumnsSupported = false; delete payload.linked_panorama_id; result = await supabase.from('plot_markers').insert(payload).select(baseCols.join(', ')).limit(1); }
+                if (result.error && this.isLinkModeColumnError(result.error)) { this.linkModeColumnSupported = false; delete payload.link_mode; const c2 = baseCols.slice(); if (this.styleColumnsSupported) c2.push('marker_style', 'marker_icon', 'marker_color'); if (this.linkColumnsSupported) c2.push('linked_panorama_id'); if (this.imageColumnsSupported) c2.push('image_filename'); result = await supabase.from('plot_markers').insert(payload).select(c2.join(', ')).limit(1); }
 
                 const { data: rows, error } = result;
                 if (error) throw error;
@@ -2739,11 +2766,13 @@
                 const cols = [...baseCols];
                 if (this.styleColumnsSupported) cols.push('marker_style', 'marker_icon', 'marker_color');
                 if (this.linkColumnsSupported) cols.push('linked_panorama_id');
+                if (this.linkModeColumnSupported) cols.push('link_mode');
 
                 let result = await supabase.from('plot_markers').select(cols.join(', ')).eq('plot_id', String(plot_id)).order('created_at', { ascending: true });
                 if (result.error) {
-                    if (this.isStyleColumnError(result.error)) { this.styleColumnsSupported = false; const c2 = baseCols.slice(); if (this.linkColumnsSupported) c2.push('linked_panorama_id'); result = await supabase.from('plot_markers').select(c2.join(', ')).eq('plot_id', String(plot_id)).order('created_at', { ascending: true }); }
+                    if (this.isStyleColumnError(result.error)) { this.styleColumnsSupported = false; const c2 = baseCols.slice(); if (this.linkColumnsSupported) c2.push('linked_panorama_id'); if (this.linkModeColumnSupported) c2.push('link_mode'); result = await supabase.from('plot_markers').select(c2.join(', ')).eq('plot_id', String(plot_id)).order('created_at', { ascending: true }); }
                     if (result.error && this.isLinkColumnError(result.error)) { this.linkColumnsSupported = false; result = await supabase.from('plot_markers').select(baseCols.join(', ')).eq('plot_id', String(plot_id)).order('created_at', { ascending: true }); }
+                    if (result.error && this.isLinkModeColumnError(result.error)) { this.linkModeColumnSupported = false; const c2 = baseCols.slice(); if (this.styleColumnsSupported) c2.push('marker_style', 'marker_icon', 'marker_color'); if (this.linkColumnsSupported) c2.push('linked_panorama_id'); result = await supabase.from('plot_markers').select(c2.join(', ')).eq('plot_id', String(plot_id)).order('created_at', { ascending: true }); }
                     if (result.error && this.isImageColumnError(result.error)) { this.imageColumnsSupported = false; const c2 = baseCols.filter(c => c !== 'image_filename'); result = await supabase.from('plot_markers').select(c2.join(', ')).eq('plot_id', String(plot_id)).order('created_at', { ascending: true }); }
                     if (result.error && this.isVoiceoverColumnError(result.error)) { this.voiceoverColumnsSupported = false; const c2 = baseCols.filter(c => c !== 'voiceover_filename'); result = await supabase.from('plot_markers').select(c2.join(', ')).eq('plot_id', String(plot_id)).order('created_at', { ascending: true }); }
                 }
@@ -2808,6 +2837,7 @@
                     marker_style: normalizeMarkerStyle(row.marker_style),
                     marker_icon: normalizeMarkerIcon(row.marker_icon),
                     marker_color: normalizeMarkerColorHex(row.marker_color),
+                    link_mode: normalizeMarkerLinkMode(row.link_mode),
                     linked_panorama_id: Number.isFinite(linkedPanoramaId) ? linkedPanoramaId : null,
                     longitude: Number(row.longitude || 0),
                     latitude: Number(row.latitude || 0),
@@ -3056,6 +3086,7 @@
 
             isStyleColumnError(err) { const m = String(err && err.message || '').toLowerCase(); return (m.includes('marker_style') || m.includes('marker_icon') || m.includes('marker_color')) && (m.includes('does not exist') || m.includes('column')); }
             isLinkColumnError(err) { const m = String(err && err.message || '').toLowerCase(); return m.includes('linked_panorama_id') && (m.includes('does not exist') || m.includes('column')); }
+            isLinkModeColumnError(err) { const m = String(err && err.message || '').toLowerCase(); return m.includes('link_mode') && (m.includes('does not exist') || m.includes('column')); }
             isImageColumnError(err) { const m = String(err && err.message || '').toLowerCase(); return m.includes('image_filename') && (m.includes('does not exist') || m.includes('column')); }
             isVoiceoverColumnError(err) { const m = String(err && err.message || '').toLowerCase(); return m.includes('voiceover_filename') && (m.includes('does not exist') || m.includes('column')); }
         }

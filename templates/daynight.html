@@ -133,6 +133,14 @@
     var videoFile = null;
     var deleteTargetId = null;
     var uploadTargetProjectId = null;
+    var activeWorkspaceFilter = '';
+    var activeSearchText = '';
+
+    (function readEmbeddedFilters() {
+        var qs = new URLSearchParams(window.location.search || '');
+        activeWorkspaceFilter = (qs.get('workspace_id') || '').trim();
+        activeSearchText = (qs.get('q') || '').trim().toLowerCase();
+    })();
 
     function authHeaders() {
         return { 'Authorization': 'Bearer ' + window._accessToken };
@@ -370,6 +378,7 @@
         document.getElementById('dn-name').value = '';
         document.getElementById('dn-name').disabled = false;
         document.getElementById('dn-workspace').disabled = false;
+        if (activeWorkspaceFilter) document.getElementById('dn-workspace').value = activeWorkspaceFilter;
         setSelectedMediaType('image', false);
         document.getElementById('dn-create-modal').classList.add('visible');
     }
@@ -485,6 +494,9 @@
             sel.innerHTML = workspaces.map(function(w) {
                 return '<option value="' + escAttr(String(w.id || '')) + '">' + escHtml(w.name || 'Project') + '</option>';
             }).join('');
+            if (activeWorkspaceFilter) {
+                sel.value = activeWorkspaceFilter;
+            }
             if (projects.length) renderProjects();
         } catch (err) {
             var sel = document.getElementById('dn-workspace');
@@ -500,8 +512,14 @@
             loading.textContent = 'Loading...';
         }
         try {
-            var data = await apiJson('/api/daynight', { headers: authHeaders() });
+            var query = activeWorkspaceFilter ? ('?workspace_id=' + encodeURIComponent(activeWorkspaceFilter)) : '';
+            var data = await apiJson('/api/daynight' + query, { headers: authHeaders() });
             projects = Array.isArray(data) ? data : [];
+            if (activeSearchText) {
+                projects = projects.filter(function(p) {
+                    return String(p && p.name ? p.name : '').toLowerCase().indexOf(activeSearchText) >= 0;
+                });
+            }
             renderProjects();
         } catch (err) {
             projects = [];
