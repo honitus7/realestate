@@ -1,5 +1,5 @@
 -- Migration: Add Clients and Client Members tables
--- Run this in Supabase Dashboard → SQL Editor → New query
+-- Run this in Supabase Plotted Development → SQL Editor → New query
 
 -- 1) User Invites (formalizes existing usage)
 create table if not exists public.user_invites (

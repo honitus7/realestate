@@ -1,7 +1,7 @@
 -- ============================================================
 -- Migration: Add Customer Portal fields to panoramas
 -- ============================================================
--- Run in Supabase Dashboard → SQL Editor → New query
+-- Run in Supabase Plotted Development → SQL Editor → New query
 -- Adds fields needed for the customer-facing project portal:
 --   location, coordinates, RERA, launch date, builder, amenities, etc.
 

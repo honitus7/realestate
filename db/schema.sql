@@ -1,7 +1,7 @@
 -- ============================================================
 -- PropMark - Full database DDL (Supabase/Postgres)
 -- ============================================================
--- Run in Supabase Dashboard → SQL Editor → New query
+-- Run in Supabase Plotted Development → SQL Editor → New query
 -- Single file: all tables, indexes, trigger. No ALTERs.
 
 -- 0) Organizations (multi-tenant)
