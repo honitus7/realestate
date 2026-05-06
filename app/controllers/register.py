@@ -6935,7 +6935,12 @@ h1 {{ margin:0 0 8px; font-size:22px; }}
 
     @app.route('/salestools')
     def sales_tools_page():
-        return render_template('floorplans.html', **auth_ctx())
+        return render_template(
+            'floorplans.html',
+            max_gallery_read_bytes=MAX_GALLERY_READ_BYTES,
+            max_upload_bytes=current_app.config.get('MAX_CONTENT_LENGTH') or 0,
+            **auth_ctx()
+        )
 
     @app.route('/floorplans')
     def floorplans_page():
@@ -8879,7 +8884,8 @@ h1 {{ margin:0 0 8px; font-size:22px; }}
             return jsonify({'error': f'Invalid file type. Allowed: {", ".join(ALLOWED_GALLERY_IMAGE_EXT | ALLOWED_GALLERY_VIDEO_EXT)}'}), 400
         raw_bytes = f.read()
         if not raw_bytes or len(raw_bytes) > MAX_GALLERY_READ_BYTES:
-            return jsonify({'error': 'File too large (max 100MB)'}), 400
+            max_mb = max(1, int(MAX_GALLERY_READ_BYTES / (1024 * 1024)))
+            return jsonify({'error': f'File too large (max {max_mb}MB)'}), 413
         try:
             if is_image:
                 processed, w, h = compress_gallery_image(raw_bytes)
@@ -8898,6 +8904,11 @@ h1 {{ margin:0 0 8px; font-size:22px; }}
             msg = str(e) or 'Upload failed'
             code = 503 if 'not configured' in msg.lower() else 502
             return jsonify({'error': msg}), code
+        except Exception as e:
+            current_app.logger.exception('Gallery upload failed unexpectedly: %s', e)
+            return jsonify({
+                'error': 'Upload failed while processing or storing the file. Please retry. If this keeps happening, try a smaller file.'
+            }), 500
 
         if is_image:
             if raw_is_360 is not None and str(raw_is_360).strip() != '':

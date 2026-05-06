@@ -1124,7 +1124,12 @@ def upload_gallery_to_s3(filename, raw_bytes, content_type='image/jpeg'):
                 'Set SUPABASE_SSL_VERIFY=false for local dev behind a proxy, or SUPABASE_S3_CA_BUNDLE '
                 'to a PEM file with your corporate root CA, then restart the app.'
             ) from None
-        raise
+        msg = (str(e) or '').lower()
+        if 'timed out' in msg or 'timeout' in msg:
+            raise RuntimeError('Storage upload timed out. Please retry; for videos, try a smaller file if possible.') from None
+        if 'connection' in msg or 'endpoint' in msg or 'temporar' in msg or 'unavailable' in msg:
+            raise RuntimeError('Storage upload connection failed. Please check network/storage availability and retry.') from None
+        raise RuntimeError(f'Storage upload failed: {str(e) or "unknown error"}') from None
 
 
 def get_gallery_s3_url(filename):
