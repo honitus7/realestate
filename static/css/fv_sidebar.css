@@ -112,8 +112,10 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    color: currentColor;
+    color: var(--fv-menu-icon-color, currentColor);
     opacity: 0.94;
+    transform: translate(var(--fv-tab-icon-offset-x, 0px), var(--fv-tab-icon-offset-y, 0px));
+    transition: transform 0.18s ease, color 0.18s ease;
 }
 
 .fv-sidebar-icon iconify-icon {
@@ -124,8 +126,16 @@
     display: block;
 }
 
+.fv-sidebar-icon img {
+    width: var(--fv-menu-icon-size, 22px);
+    height: var(--fv-menu-icon-size, 22px);
+    object-fit: contain;
+    display: block;
+    filter: var(--fv-menu-icon-image-filter, none);
+}
+
 .fv-sidebar-btn--active .fv-sidebar-icon {
-    color: currentColor;
+    color: var(--fv-menu-icon-active-color, var(--fv-menu-icon-color, currentColor));
     opacity: 1;
 }
 

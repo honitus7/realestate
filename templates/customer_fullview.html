@@ -230,6 +230,7 @@
     {% if fv_config and fv_config.get('tabs') and (is_editor or fv_config.get('is_active')) %}
     <nav class="fv-sidebar" id="fv-sidebar" aria-label="Full View Navigation">
         {% for tab in fv_config.get('tabs', []) %}
+        {% set tab_content = tab.content_data or {} %}
         <button class="fv-sidebar-btn" type="button"
                 data-tab-type="{{ tab.tab_type }}"
                 data-ref-panorama="{{ tab.ref_panorama_id or '' }}"
@@ -241,7 +242,13 @@
                 data-ref-salesflat360="{{ tab.ref_sales_flat360_id or '' }}"
                 data-content='{{ (tab.content_data or {}) | tojson }}'
                 title="{{ tab.name }}">
-            <span class="fv-sidebar-icon"><iconify-icon icon="{{ tab.icon }}"></iconify-icon></span>
+            <span class="fv-sidebar-icon" style="--fv-tab-icon-offset-x: {{ tab_content.get('icon_offset_x_px', tab_content.get('icon_offset_x', 0)) }}px; --fv-tab-icon-offset-y: {{ tab_content.get('icon_offset_y_px', tab_content.get('icon_offset_y', 0)) }}px;">
+                {% if tab_content.get('icon_mode') == 'upload' and tab_content.get('icon_upload_url') %}
+                <img src="{{ tab_content.get('icon_upload_url') }}" alt="" class="fv-sidebar-custom-icon">
+                {% else %}
+                <iconify-icon icon="{{ tab.icon }}"></iconify-icon>
+                {% endif %}
+            </span>
             <span class="fv-sidebar-label">{{ tab.name }}</span>
         </button>
         {% endfor %}
@@ -322,6 +329,13 @@
                     <div class="fv-style-field">
                         <label class="fv-style-label" for="fv-style-menu-active-text">Active Text</label>
                         <input id="fv-style-menu-active-text" class="fv-style-input" type="color">
+                    </div>
+                    <div class="fv-style-field">
+                        <label class="fv-style-label" for="fv-style-menu-white-icons">Icon Color</label>
+                        <select id="fv-style-menu-white-icons" class="fv-style-select">
+                            <option value="0">Follow Text</option>
+                            <option value="1">Always White</option>
+                        </select>
                     </div>
                     <div class="fv-style-field">
                         <label class="fv-style-label" for="fv-style-menu-width">Menu Width <span class="fv-style-val" id="fv-style-menu-width-val"></span></label>
@@ -583,6 +597,7 @@
             text: '#e9f1fb',
             active_bg: '#cfd5df',
             active_text: '#26344f',
+            icon_white: false,
             width: 92,
             max_height_vh: 98,
             icon_size_px: 22,
@@ -983,6 +998,16 @@
         return n;
     }
 
+    function coerceBool(value, fallback) {
+        if (typeof value === 'boolean') return value;
+        if (typeof value === 'number') return value !== 0;
+        var raw = String(value == null ? '' : value).trim().toLowerCase();
+        if (!raw) return fallback;
+        if (raw === '1' || raw === 'true' || raw === 'yes' || raw === 'on') return true;
+        if (raw === '0' || raw === 'false' || raw === 'no' || raw === 'off') return false;
+        return fallback;
+    }
+
     function sanitizeHex(value, fallback) {
         var s = String(value || '').trim();
         if (/^#[0-9a-fA-F]{6}$/.test(s)) return s.toLowerCase();
@@ -1058,6 +1083,7 @@
         merged.sidebar.text = sanitizeHex(merged.sidebar.text, DEFAULT_STYLE.sidebar.text);
         merged.sidebar.active_bg = sanitizeHex(merged.sidebar.active_bg, DEFAULT_STYLE.sidebar.active_bg);
         merged.sidebar.active_text = sanitizeHex(merged.sidebar.active_text, DEFAULT_STYLE.sidebar.active_text);
+        merged.sidebar.icon_white = coerceBool(merged.sidebar.icon_white, DEFAULT_STYLE.sidebar.icon_white);
         merged.sidebar.width = clampInt(merged.sidebar.width, 72, 180, DEFAULT_STYLE.sidebar.width);
         merged.sidebar.max_height_vh = clampInt(merged.sidebar.max_height_vh, 30, 100, DEFAULT_STYLE.sidebar.max_height_vh);
         merged.sidebar.icon_size_px = clampInt(merged.sidebar.icon_size_px, 12, 40, DEFAULT_STYLE.sidebar.icon_size_px);
@@ -1093,6 +1119,9 @@
         setCssVar('--fv-menu-text', s.sidebar.text);
         setCssVar('--fv-menu-active-bg', s.sidebar.active_bg);
         setCssVar('--fv-menu-active-text', s.sidebar.active_text);
+        setCssVar('--fv-menu-icon-color', s.sidebar.icon_white ? '#ffffff' : 'currentColor');
+        setCssVar('--fv-menu-icon-active-color', s.sidebar.icon_white ? '#ffffff' : 'currentColor');
+        setCssVar('--fv-menu-icon-image-filter', s.sidebar.icon_white ? 'brightness(0) invert(1)' : 'none');
         setCssVar('--fv-menu-width', s.sidebar.width + 'px');
         setCssVar('--fv-menu-max-height', s.sidebar.max_height_vh + 'vh');
         setCssVar('--fv-menu-icon-size', s.sidebar.icon_size_px + 'px');
@@ -1651,6 +1680,7 @@
         set('fv-style-menu-text', s.sidebar.text);
         set('fv-style-menu-active-bg', s.sidebar.active_bg);
         set('fv-style-menu-active-text', s.sidebar.active_text);
+        set('fv-style-menu-white-icons', s.sidebar.icon_white ? '1' : '0');
         set('fv-style-menu-width', s.sidebar.width);
         set('fv-style-menu-height', s.sidebar.max_height_vh);
         set('fv-style-menu-icon-size', s.sidebar.icon_size_px);
@@ -1787,6 +1817,7 @@
         bindColor('fv-style-gallery-modal-active-bg', function (v) { styleState.modal_gallery.item_active_bg = v; });
         bindColor('fv-style-gallery-modal-active-border', function (v) { styleState.modal_gallery.item_active_border = v; });
         bindSelect('fv-style-menu-font', function (v) { styleState.sidebar.font_family = v; });
+        bindSelect('fv-style-menu-white-icons', function (v) { styleState.sidebar.icon_white = v === '1'; });
         bindSelect('fv-style-modal-title-font', function (v) { styleState.modal_floorplan.title_font_family = v; });
         bindSelect('fv-style-modal-item-font', function (v) { styleState.modal_floorplan.item_font_family = v; });
         bindSelect('fv-style-gallery-modal-title-font', function (v) { styleState.modal_gallery.title_font_family = v; });

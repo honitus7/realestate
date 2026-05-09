@@ -338,6 +338,7 @@
     {% if not embed_mode and fv_config and fv_config.get('is_active') and fv_config.get('tabs') %}
     <nav class="fv-sidebar" id="fv-sidebar" aria-label="Full View Navigation">
         {% for tab in fv_config.get('tabs', []) %}
+        {% set tab_content = tab.content_data or {} %}
         <button class="fv-sidebar-btn" type="button"
                 data-tab-type="{{ tab.tab_type }}"
                 data-ref-panorama="{{ tab.ref_panorama_id or '' }}"
@@ -349,7 +350,13 @@
                 data-ref-salesflat360="{{ tab.ref_sales_flat360_id or '' }}"
                 data-content='{{ (tab.content_data or {}) | tojson }}'
                 title="{{ tab.name }}">
-            <span class="fv-sidebar-icon"><iconify-icon icon="{{ tab.icon }}"></iconify-icon></span>
+            <span class="fv-sidebar-icon" style="--fv-tab-icon-offset-x: {{ tab_content.get('icon_offset_x_px', tab_content.get('icon_offset_x', 0)) }}px; --fv-tab-icon-offset-y: {{ tab_content.get('icon_offset_y_px', tab_content.get('icon_offset_y', 0)) }}px;">
+                {% if tab_content.get('icon_mode') == 'upload' and tab_content.get('icon_upload_url') %}
+                <img src="{{ tab_content.get('icon_upload_url') }}" alt="" class="fv-sidebar-custom-icon">
+                {% else %}
+                <iconify-icon icon="{{ tab.icon }}"></iconify-icon>
+                {% endif %}
+            </span>
             <span class="fv-sidebar-label">{{ tab.name }}</span>
         </button>
         {% endfor %}
@@ -4502,6 +4509,31 @@
             });
         }
 
+        function normalizeFvSidebarIconData(raw) {
+            var data = (raw && typeof raw === 'object' && !Array.isArray(raw)) ? raw : {};
+            var uploadUrl = String(data.icon_upload_url || '').trim();
+            function clampOffset(value) {
+                var n = parseInt(value, 10);
+                if (Number.isNaN(n)) return 0;
+                return Math.max(-22, Math.min(22, n));
+            }
+            return {
+                mode: uploadUrl && data.icon_mode === 'upload' ? 'upload' : 'iconify',
+                uploadUrl: uploadUrl,
+                offsetX: clampOffset(data.icon_offset_x_px != null ? data.icon_offset_x_px : data.icon_offset_x),
+                offsetY: clampOffset(data.icon_offset_y_px != null ? data.icon_offset_y_px : data.icon_offset_y),
+            };
+        }
+
+        function buildFvSidebarIconHtml(icon, contentData) {
+            var meta = normalizeFvSidebarIconData(contentData);
+            var style = ' style="--fv-tab-icon-offset-x:' + escAttr(meta.offsetX + 'px') + ';--fv-tab-icon-offset-y:' + escAttr(meta.offsetY + 'px') + ';"';
+            if (meta.mode === 'upload' && meta.uploadUrl) {
+                return '<span class="fv-sidebar-icon"' + style + '><img src="' + escAttr(meta.uploadUrl) + '" alt="" class="fv-sidebar-custom-icon"></span>';
+            }
+            return '<span class="fv-sidebar-icon"' + style + '><iconify-icon icon="' + escAttr(icon || 'ph:house') + '"></iconify-icon></span>';
+        }
+
         function ensureSidebarFromTabs(tabs) {
             if (!Array.isArray(tabs) || !tabs.length) return null;
             if (!sidebar) {
@@ -4525,7 +4557,7 @@
                     ' data-ref-salesflat360="' + escAttr(tab.ref_sales_flat360_id || '') + '"' +
                     ' data-content="' + escAttr(contentJson) + '"' +
                     ' title="' + escAttr(tab.name || '') + '">' +
-                    '<span class="fv-sidebar-icon"><iconify-icon icon="' + escAttr(tab.icon || 'ph:house') + '"></iconify-icon></span>' +
+                    buildFvSidebarIconHtml(tab.icon || 'ph:house', tab.content_data || {}) +
                     '<span class="fv-sidebar-label">' + escHtml(tab.name || 'Tab') + '</span>' +
                     '</button>';
             }).join('');

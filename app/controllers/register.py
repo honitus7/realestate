@@ -10470,6 +10470,58 @@ h1 {{ margin:0 0 8px; font-size:22px; }}
         fv_delete_config(sb, config_id)
         return jsonify({'success': True})
 
+    @app.route('/api/full-view/icon-upload', methods=['POST'])
+    @require_admin
+    def api_fv_upload_icon(user_id, role):
+        file_storage = request.files.get('file')
+        if not file_storage or not getattr(file_storage, 'filename', ''):
+            return jsonify({'error': 'Icon file is required'}), 400
+
+        original_name = secure_filename(file_storage.filename or '')
+        ext = os.path.splitext(original_name)[1].lower()
+        allowed_types = {
+            '.png': 'image/png',
+            '.webp': 'image/webp',
+        }
+        if ext not in allowed_types:
+            return jsonify({'error': 'Only transparent PNG or WebP icons are supported'}), 400
+
+        try:
+            width, height = probe_image_dimensions(file_storage.stream)
+        except Exception:
+            return jsonify({'error': 'Uploaded file is not a valid image'}), 400
+        if not width or not height:
+            return jsonify({'error': 'Uploaded file is not a valid image'}), 400
+
+        max_bytes = 5 * 1024 * 1024
+        try:
+            raw = read_uploaded_file_bytes(file_storage, max_bytes)
+        except ValueError:
+            return jsonify({'error': 'Icon file is too large. Max size is 5 MB'}), 413
+        if not raw:
+            return jsonify({'error': 'Uploaded icon is empty'}), 400
+
+        workspace_hint = secure_filename((request.form.get('workspace_id') or '').strip())[:40]
+        prefix = f'fv_icon_{workspace_hint}_' if workspace_hint else 'fv_icon_'
+        filename = f"{prefix}{uuid.uuid4().hex}{ext}"
+
+        try:
+            if use_s3():
+                upload_panorama_to_s3(filename, raw, allowed_types[ext])
+            else:
+                local_path = os.path.join(current_app.config['UPLOAD_FOLDER'], filename)
+                with open(local_path, 'wb') as f:
+                    f.write(raw)
+        except Exception as e:
+            return jsonify({'error': str(e)}), 500
+
+        return jsonify({
+            'filename': filename,
+            'url': '/uploads/' + filename,
+            'width': int(width),
+            'height': int(height),
+        }), 201
+
     @app.route('/api/full-view/tabs', methods=['POST'])
     @require_admin
     def api_fv_create_tab(user_id, role):

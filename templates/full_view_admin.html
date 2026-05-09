@@ -124,10 +124,35 @@
                 <label class="fv-label">Icon</label>
                 <div class="fv-icon-preview-row">
                     <div class="fv-icon-preview" id="fv-icon-preview">
-                        <iconify-icon id="fv-icon-preview-icon" icon="ph:house"></iconify-icon>
+                        <div class="fv-icon-preview-media" id="fv-icon-preview-media">
+                            <iconify-icon icon="ph:house"></iconify-icon>
+                        </div>
                     </div>
                     <button class="btn btn-secondary btn-sm" id="fv-pick-icon-btn" type="button">Choose Icon</button>
+                    <button class="btn btn-secondary btn-sm" id="fv-upload-icon-btn" type="button">Upload Icon</button>
                     <input type="hidden" id="fv-icon-value" value="ph:house">
+                    <input type="hidden" id="fv-icon-mode" value="iconify">
+                    <input type="hidden" id="fv-icon-upload-url" value="">
+                    <input type="hidden" id="fv-icon-offset-x" value="0">
+                    <input type="hidden" id="fv-icon-offset-y" value="0">
+                    <input type="file" id="fv-upload-icon-input" accept=".png,.webp,image/png,image/webp" hidden>
+                </div>
+                <span class="fv-hint" id="fv-icon-upload-status">Choose from the icon library, paste any Iconify ID in search, or upload a transparent PNG/WebP icon.</span>
+            </div>
+
+            <div class="fv-field">
+                <label class="fv-label">Sidebar Button Preview</label>
+                <div class="fv-sidebar-preview-card" id="fv-sidebar-preview-card">
+                    <div class="fv-sidebar-preview-icon-shell" id="fv-sidebar-preview-icon-shell" title="Drag to align icon">
+                        <div class="fv-sidebar-preview-icon" id="fv-sidebar-preview-icon">
+                            <iconify-icon icon="ph:house"></iconify-icon>
+                        </div>
+                    </div>
+                    <div class="fv-sidebar-preview-label" id="fv-sidebar-preview-label">Tab Label</div>
+                </div>
+                <div class="fv-icon-align-row">
+                    <span class="fv-hint" id="fv-icon-align-status">Drag the icon to align it inside the sidebar button.</span>
+                    <button class="btn btn-secondary btn-sm" id="fv-icon-align-reset" type="button">Reset Position</button>
                 </div>
             </div>
 
@@ -231,6 +256,7 @@
         <button class="modal-close" id="fv-icon-picker-close" type="button" aria-label="Close"><iconify-icon icon="ph:x"></iconify-icon></button>
         <div class="modal-title">Choose Icon</div>
         <input class="fv-input" type="search" id="fv-icon-search" placeholder="Search icons…" style="margin-bottom:1rem;">
+        <div class="fv-hint fv-icon-picker-hint">Search the curated list or paste any Iconify ID like `mdi:bed-queen-outline` or `tabler:camera`.</div>
         <div class="fv-icon-grid" id="fv-icon-grid"></div>
     </div>
 </div>
@@ -406,17 +432,18 @@ function setInlineStatus(id, message, kind) {
 /* ------------------------------------------------------------------ */
 /*  Auth                                                               */
 /* ------------------------------------------------------------------ */
-function authHeaders() {
+function authHeaders(includeJsonContentType) {
+    const withJson = includeJsonContentType !== false;
     if (window.pmApi && typeof window.pmApi.getAuthHeaders === 'function') {
         return window.pmApi.getAuthHeaders({
-            headers: { 'Content-Type': 'application/json' },
+            headers: withJson ? { 'Content-Type': 'application/json' } : {},
             waitAttempts: 8,
             waitDelayMs: 140
         });
     }
-    if (!window._supabase) return Promise.resolve({ 'Content-Type': 'application/json' });
+    if (!window._supabase) return Promise.resolve(withJson ? { 'Content-Type': 'application/json' } : {});
     return window._supabase.auth.getSession().then(function (r) {
-        var h = { 'Content-Type': 'application/json' };
+        var h = withJson ? { 'Content-Type': 'application/json' } : {};
         if (r.data.session && r.data.session.access_token) h.Authorization = 'Bearer ' + r.data.session.access_token;
         return h;
     });
@@ -460,7 +487,9 @@ async function apiDelete(url) {
 async function init() {
     await loadWorkspaces();
     bindEvents();
-    buildIconGrid(ICON_CATALOG);
+    buildIconGrid(getFilteredIconCatalog(''));
+    refreshDialogIconPreview();
+    refreshSidebarButtonPreview();
 }
 
 /* ------------------------------------------------------------------ */
@@ -705,7 +734,7 @@ function renderTabs() {
         row.draggable = true;
         row.innerHTML = `
             <span class="fv-row-drag" title="Drag to reorder"><iconify-icon icon="ph:dots-six-vertical-bold"></iconify-icon></span>
-            <span class="fv-row-icon"><iconify-icon icon="${escHtml(tab.icon)}"></iconify-icon></span>
+            <span class="fv-row-icon">${buildTabIconHtml(tab.icon, tab.content_data)}</span>
             <span class="fv-row-name">${escHtml(tab.name)}</span>
             <span class="fv-row-type">${typeLabel(tab.tab_type)}</span>
             <div class="fv-row-actions">
@@ -749,6 +778,158 @@ function normalizeTabType(t) {
 
 function escHtml(s) {
     return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function escAttr(s) {
+    return escHtml(s);
+}
+
+const ICON_OFFSET_LIMIT = 22;
+let iconPreviewDrag = null;
+
+function normalizeTabContentData(raw) {
+    return (raw && typeof raw === 'object' && !Array.isArray(raw)) ? raw : {};
+}
+
+function clampIconOffset(value) {
+    var n = parseInt(value, 10);
+    if (Number.isNaN(n)) return 0;
+    return Math.max(-ICON_OFFSET_LIMIT, Math.min(ICON_OFFSET_LIMIT, n));
+}
+
+function getIconMetaFromContent(contentData) {
+    var data = normalizeTabContentData(contentData);
+    var uploadUrl = String(data.icon_upload_url || '').trim();
+    return {
+        mode: uploadUrl && data.icon_mode === 'upload' ? 'upload' : 'iconify',
+        uploadUrl: uploadUrl,
+        offsetX: clampIconOffset(data.icon_offset_x_px != null ? data.icon_offset_x_px : data.icon_offset_x),
+        offsetY: clampIconOffset(data.icon_offset_y_px != null ? data.icon_offset_y_px : data.icon_offset_y),
+    };
+}
+
+function buildTabIconHtml(icon, contentData) {
+    var meta = getIconMetaFromContent(contentData);
+    if (meta.mode === 'upload' && meta.uploadUrl) {
+        return '<img src="' + escAttr(meta.uploadUrl) + '" alt="">';
+    }
+    return '<iconify-icon icon="' + escAttr(icon || 'ph:house') + '"></iconify-icon>';
+}
+
+function renderIconIntoHost(host, icon, mode, uploadUrl) {
+    if (!host) return;
+    host.innerHTML = '';
+    if (mode === 'upload' && uploadUrl) {
+        var img = document.createElement('img');
+        img.src = uploadUrl;
+        img.alt = '';
+        host.appendChild(img);
+        return;
+    }
+    var iconEl = document.createElement('iconify-icon');
+    iconEl.setAttribute('icon', icon || 'ph:house');
+    host.appendChild(iconEl);
+}
+
+function getDialogIconState() {
+    return {
+        icon: String((document.getElementById('fv-icon-value') || {}).value || 'ph:house').trim() || 'ph:house',
+        mode: String((document.getElementById('fv-icon-mode') || {}).value || 'iconify').trim() === 'upload' ? 'upload' : 'iconify',
+        uploadUrl: String((document.getElementById('fv-icon-upload-url') || {}).value || '').trim(),
+        offsetX: clampIconOffset((document.getElementById('fv-icon-offset-x') || {}).value),
+        offsetY: clampIconOffset((document.getElementById('fv-icon-offset-y') || {}).value),
+    };
+}
+
+function setDialogIconState(patch) {
+    var next = Object.assign({}, getDialogIconState(), patch || {});
+    next.icon = String(next.icon || 'ph:house').trim() || 'ph:house';
+    next.mode = next.mode === 'upload' && next.uploadUrl ? 'upload' : 'iconify';
+    next.uploadUrl = String(next.uploadUrl || '').trim();
+    next.offsetX = clampIconOffset(next.offsetX);
+    next.offsetY = clampIconOffset(next.offsetY);
+
+    document.getElementById('fv-icon-value').value = next.icon;
+    document.getElementById('fv-icon-mode').value = next.mode;
+    document.getElementById('fv-icon-upload-url').value = next.uploadUrl;
+    document.getElementById('fv-icon-offset-x').value = String(next.offsetX);
+    document.getElementById('fv-icon-offset-y').value = String(next.offsetY);
+
+    refreshDialogIconPreview();
+    refreshSidebarButtonPreview();
+}
+
+function refreshDialogIconPreview() {
+    var state = getDialogIconState();
+    renderIconIntoHost(document.getElementById('fv-icon-preview-media'), state.icon, state.mode, state.uploadUrl);
+    var statusEl = document.getElementById('fv-icon-upload-status');
+    if (!statusEl) return;
+    if (state.mode === 'upload' && state.uploadUrl) {
+        statusEl.textContent = 'Uploaded custom icon selected. Choose another icon or upload a new one any time.';
+        return;
+    }
+    statusEl.textContent = 'Choose from the icon library, paste any Iconify ID in search, or upload a transparent PNG/WebP icon.';
+}
+
+function refreshSidebarButtonPreview() {
+    var state = getDialogIconState();
+    var previewIcon = document.getElementById('fv-sidebar-preview-icon');
+    if (previewIcon) {
+        previewIcon.style.setProperty('--fv-preview-icon-offset-x', state.offsetX + 'px');
+        previewIcon.style.setProperty('--fv-preview-icon-offset-y', state.offsetY + 'px');
+        renderIconIntoHost(previewIcon, state.icon, state.mode, state.uploadUrl);
+    }
+    var labelEl = document.getElementById('fv-sidebar-preview-label');
+    if (labelEl) {
+        var rawName = String((document.getElementById('fv-tab-name') || {}).value || '').trim();
+        labelEl.textContent = rawName || 'Tab Label';
+    }
+    var alignStatus = document.getElementById('fv-icon-align-status');
+    if (alignStatus) {
+        alignStatus.textContent = 'Drag the icon to align it inside the sidebar button. X: ' + state.offsetX + 'px, Y: ' + state.offsetY + 'px.';
+    }
+}
+
+function bindSidebarPreviewDrag() {
+    var shell = document.getElementById('fv-sidebar-preview-icon-shell');
+    if (!shell || shell.dataset.dragBound === '1') return;
+    shell.dataset.dragBound = '1';
+
+    shell.addEventListener('pointerdown', function (evt) {
+        if (evt.button != null && evt.button !== 0) return;
+        evt.preventDefault();
+        var state = getDialogIconState();
+        iconPreviewDrag = {
+            pointerId: evt.pointerId,
+            startX: evt.clientX,
+            startY: evt.clientY,
+            baseX: state.offsetX,
+            baseY: state.offsetY,
+        };
+        shell.classList.add('is-dragging');
+        if (typeof shell.setPointerCapture === 'function') {
+            try { shell.setPointerCapture(evt.pointerId); } catch (e) { }
+        }
+    });
+
+    shell.addEventListener('pointermove', function (evt) {
+        if (!iconPreviewDrag || iconPreviewDrag.pointerId !== evt.pointerId) return;
+        evt.preventDefault();
+        setDialogIconState({
+            offsetX: iconPreviewDrag.baseX + Math.round(evt.clientX - iconPreviewDrag.startX),
+            offsetY: iconPreviewDrag.baseY + Math.round(evt.clientY - iconPreviewDrag.startY),
+        });
+    });
+
+    function endDrag(evt) {
+        if (!iconPreviewDrag || (evt.pointerId != null && iconPreviewDrag.pointerId !== evt.pointerId)) return;
+        iconPreviewDrag = null;
+        shell.classList.remove('is-dragging');
+    }
+
+    shell.addEventListener('pointerup', endDrag);
+    shell.addEventListener('pointercancel', endDrag);
+    shell.addEventListener('lostpointercapture', endDrag);
 }
 
 /* ------------------------------------------------------------------ */
@@ -862,12 +1043,19 @@ async function openTabDialog(tab) {
     const name = tab ? tab.name : '';
     const type = normalizeTabType(tab ? tab.tab_type : '360_pano');
     const visible = tab ? tab.is_visible : true;
+    const contentData = normalizeTabContentData(tab ? tab.content_data : null);
+    const iconMeta = getIconMetaFromContent(contentData);
 
-    document.getElementById('fv-icon-value').value = icon;
-    document.getElementById('fv-icon-preview-icon').setAttribute('icon', icon);
     document.getElementById('fv-tab-name').value = name;
     document.getElementById('fv-tab-type').value = type;
     document.getElementById('fv-tab-visible').checked = visible;
+    setDialogIconState({
+        icon: icon,
+        mode: iconMeta.mode,
+        uploadUrl: iconMeta.uploadUrl,
+        offsetX: iconMeta.offsetX,
+        offsetY: iconMeta.offsetY,
+    });
 
     // Populate content selects
     populateSelect('fv-ref-panorama', workspacePanoramas, 'id', 'name');
@@ -886,13 +1074,14 @@ async function openTabDialog(tab) {
         if (tab.ref_project_plan_id) document.getElementById('fv-ref-projectplan').value = tab.ref_project_plan_id;
         if (tab.ref_sales_map_id) document.getElementById('fv-ref-salesmap').value = tab.ref_sales_map_id;
         if (tab.ref_sales_flat360_id) document.getElementById('fv-ref-salesflat360').value = tab.ref_sales_flat360_id;
-        const url = (tab.content_data || {}).url || '';
+        const url = contentData.url || '';
         document.getElementById('fv-ref-url').value = url;
     } else {
         document.getElementById('fv-ref-url').value = '';
     }
 
     updateTypeFields(type);
+    refreshSidebarButtonPreview();
     document.getElementById('fv-tab-dialog-backdrop').classList.add('visible');
 }
 
@@ -957,13 +1146,22 @@ async function ensureCurrentConfigId() {
 }
 
 async function saveTab() {
-    const icon     = document.getElementById('fv-icon-value').value || 'ph:house';
-    let name       = document.getElementById('fv-tab-name').value.trim();
-    const type     = normalizeTabType(document.getElementById('fv-tab-type').value);
-    const visible  = document.getElementById('fv-tab-visible').checked;
+    const iconState = getDialogIconState();
+    const icon = iconState.icon || 'ph:house';
+    let name = document.getElementById('fv-tab-name').value.trim();
+    const type = normalizeTabType(document.getElementById('fv-tab-type').value);
+    const visible = document.getElementById('fv-tab-visible').checked;
 
     if (!name) name = fallbackTabName(type);
     if (!name) { alert('Please enter a label.'); return; }
+
+    const contentData = {};
+    if (iconState.mode === 'upload' && iconState.uploadUrl) {
+        contentData.icon_mode = 'upload';
+        contentData.icon_upload_url = iconState.uploadUrl;
+    }
+    if (iconState.offsetX) contentData.icon_offset_x_px = iconState.offsetX;
+    if (iconState.offsetY) contentData.icon_offset_y_px = iconState.offsetY;
 
     const body = {
         icon, name, tab_type: type, is_visible: visible,
@@ -974,7 +1172,7 @@ async function saveTab() {
         ref_project_plan_id: null,
         ref_sales_map_id:   null,
         ref_sales_flat360_id: null,
-        content_data: {},
+        content_data: contentData,
     };
 
     if (type === '360_pano') {
@@ -1015,7 +1213,7 @@ async function saveTab() {
     if (['location', 'brochure', 'custom', 'video'].includes(type)) {
         var urlValue = document.getElementById('fv-ref-url').value.trim();
         if (!urlValue) { alert('Please enter a URL.'); return; }
-        body.content_data = { url: urlValue };
+        body.content_data.url = urlValue;
     }
 
     try {
@@ -1040,6 +1238,18 @@ async function saveTab() {
 /* ------------------------------------------------------------------ */
 /*  Icon picker                                                        */
 /* ------------------------------------------------------------------ */
+function getFilteredIconCatalog(rawQuery) {
+    var query = String(rawQuery || '').trim();
+    var normalized = query.toLowerCase();
+    var filtered = normalized ? ICON_CATALOG.filter(function (item) {
+        return item.label.toLowerCase().includes(normalized) || item.icon.toLowerCase().includes(normalized);
+    }) : ICON_CATALOG.slice();
+    if (query && query.indexOf(':') > 0 && !filtered.some(function (item) { return item.icon === normalized; })) {
+        filtered.unshift({ icon: normalized, label: 'Use ' + query });
+    }
+    return filtered;
+}
+
 function buildIconGrid(icons) {
     const grid = document.getElementById('fv-icon-grid');
     grid.innerHTML = '';
@@ -1049,16 +1259,43 @@ function buildIconGrid(icons) {
         cell.className = 'fv-icon-cell';
         cell.dataset.icon = icon;
         cell.title = label;
-        cell.innerHTML = `<iconify-icon icon="${icon}"></iconify-icon><span>${label}</span>`;
+        const iconNode = document.createElement('iconify-icon');
+        iconNode.setAttribute('icon', icon);
+        const labelNode = document.createElement('span');
+        labelNode.textContent = label;
+        cell.appendChild(iconNode);
+        cell.appendChild(labelNode);
         cell.addEventListener('click', () => selectIcon(icon));
         grid.appendChild(cell);
     });
 }
 
 function selectIcon(icon) {
-    document.getElementById('fv-icon-value').value = icon;
-    document.getElementById('fv-icon-preview-icon').setAttribute('icon', icon);
+    setDialogIconState({
+        icon: icon,
+        mode: 'iconify',
+        uploadUrl: '',
+    });
     document.getElementById('fv-icon-picker-backdrop').classList.remove('visible');
+}
+
+async function uploadFullViewIcon(file) {
+    var headers = await authHeaders(false);
+    var formData = new FormData();
+    formData.append('file', file);
+    if (currentWorkspaceId) formData.append('workspace_id', currentWorkspaceId);
+    var res = await fetch('/api/full-view/icon-upload', {
+        method: 'POST',
+        headers: headers,
+        body: formData,
+    });
+    var text = await res.text().catch(function () { return ''; });
+    var payload = null;
+    try { payload = text ? JSON.parse(text) : null; } catch (e) { payload = null; }
+    if (!res.ok) {
+        throw new Error((payload && payload.error) || text || res.statusText || 'Icon upload failed');
+    }
+    return payload || {};
 }
 
 /* ------------------------------------------------------------------ */
@@ -1129,6 +1366,11 @@ function bindEvents() {
     document.getElementById('fv-dialog-close').addEventListener('click', closeTabDialog);
     document.getElementById('fv-dialog-cancel').addEventListener('click', closeTabDialog);
     document.getElementById('fv-dialog-save').addEventListener('click', saveTab);
+    document.getElementById('fv-tab-name').addEventListener('input', refreshSidebarButtonPreview);
+    document.getElementById('fv-icon-align-reset').addEventListener('click', function () {
+        setDialogIconState({ offsetX: 0, offsetY: 0 });
+    });
+    bindSidebarPreviewDrag();
 
     // Type change → show/hide refs
     document.getElementById('fv-tab-type').addEventListener('change', function () {
@@ -1137,17 +1379,44 @@ function bindEvents() {
 
     // Icon picker trigger
     document.getElementById('fv-pick-icon-btn').addEventListener('click', () => {
+        var searchEl = document.getElementById('fv-icon-search');
+        if (searchEl) {
+            searchEl.value = '';
+            buildIconGrid(getFilteredIconCatalog(''));
+        }
         document.getElementById('fv-icon-picker-backdrop').classList.add('visible');
     });
     document.getElementById('fv-icon-picker-close').addEventListener('click', () => {
         document.getElementById('fv-icon-picker-backdrop').classList.remove('visible');
     });
 
+    const uploadInput = document.getElementById('fv-upload-icon-input');
+    document.getElementById('fv-upload-icon-btn').addEventListener('click', function () {
+        if (uploadInput) uploadInput.click();
+    });
+    if (uploadInput) {
+        uploadInput.addEventListener('change', async function () {
+            const file = this.files && this.files[0] ? this.files[0] : null;
+            if (!file) return;
+            const statusEl = document.getElementById('fv-icon-upload-status');
+            if (statusEl) statusEl.textContent = 'Uploading icon...';
+            try {
+                const result = await uploadFullViewIcon(file);
+                setDialogIconState({
+                    mode: 'upload',
+                    uploadUrl: String((result && result.url) || '').trim(),
+                });
+            } catch (e) {
+                if (statusEl) statusEl.textContent = String((e && e.message) || 'Icon upload failed');
+            } finally {
+                this.value = '';
+            }
+        });
+    }
+
     // Icon search
     document.getElementById('fv-icon-search').addEventListener('input', function () {
-        const q = this.value.toLowerCase();
-        const filtered = q ? ICON_CATALOG.filter(i => i.label.toLowerCase().includes(q) || i.icon.includes(q)) : ICON_CATALOG;
-        buildIconGrid(filtered);
+        buildIconGrid(getFilteredIconCatalog(this.value));
     });
 
     // Close dialogs on backdrop click
