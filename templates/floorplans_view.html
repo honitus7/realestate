@@ -57,7 +57,11 @@
     var INITIAL_STYLE = {{ (fv_style or {}) | tojson }};
     var DEFAULT_MODAL = {
         bg: '#1e1e1e',
+        bg_opacity_pct: 82,
+        backdrop_blur_px: 18,
         border: '#d6dee6',
+        glow_color: '#a4c1ea',
+        glow_opacity_pct: 34,
         title_text: '#ffffff',
         item_text: '#f2f6ff',
         item_active_bg: '#3e567f',
@@ -116,7 +120,11 @@
         }
         return {
             bg: sanitizeHex(modal.bg, DEFAULT_MODAL.bg),
+            bg_opacity_pct: clampInt(modal.bg_opacity_pct, 0, 100, DEFAULT_MODAL.bg_opacity_pct),
+            backdrop_blur_px: clampInt(modal.backdrop_blur_px, 0, 40, DEFAULT_MODAL.backdrop_blur_px),
             border: sanitizeHex(modal.border, DEFAULT_MODAL.border),
+            glow_color: sanitizeHex(modal.glow_color, modal.item_active_border || DEFAULT_MODAL.glow_color),
+            glow_opacity_pct: clampInt(modal.glow_opacity_pct, 0, 100, DEFAULT_MODAL.glow_opacity_pct),
             title_text: sanitizeHex(modal.title_text, DEFAULT_MODAL.title_text),
             item_text: sanitizeHex(modal.item_text, DEFAULT_MODAL.item_text),
             item_active_bg: sanitizeHex(modal.item_active_bg, DEFAULT_MODAL.item_active_bg),
@@ -124,7 +132,7 @@
             width: clampInt(modal.width, 220, 2200, DEFAULT_MODAL.width),
             max_height_vh: clampInt(modal.max_height_vh, 20, 100, DEFAULT_MODAL.max_height_vh),
             right_offset: clampInt(modal.right_offset, 0, 280, DEFAULT_MODAL.right_offset),
-            bottom_offset: clampInt(modal.bottom_offset, 0, 120, DEFAULT_MODAL.bottom_offset),
+            bottom_offset: clampInt(modal.bottom_offset, 0, 240, DEFAULT_MODAL.bottom_offset),
             title_font_family: sanitizeFontFamily(modal.title_font_family, DEFAULT_MODAL.title_font_family),
             item_font_family: sanitizeFontFamily(modal.item_font_family, DEFAULT_MODAL.item_font_family),
             title_font_size_px: clampInt(modal.title_font_size_px, 11, 24, DEFAULT_MODAL.title_font_size_px),
@@ -138,8 +146,14 @@
 
     function applyModalStyle(raw) {
         var m = normalizeModalStyle(raw);
-        setCssVar('--fv-modal-bg', hexToRgba(m.bg, 0.82));
-        setCssVar('--fv-modal-border', hexToRgba(m.border, 0.38));
+        var bgAlpha = m.bg_opacity_pct / 100;
+        var borderAlpha = Math.min(0.38, Math.max(0.10, 0.10 + (bgAlpha * 0.28)));
+        var shadowAlpha = Math.min(0.35, Math.max(0.08, 0.06 + (bgAlpha * 0.29)));
+        setCssVar('--fv-modal-bg', hexToRgba(m.bg, bgAlpha));
+        setCssVar('--fv-modal-border', hexToRgba(m.border, borderAlpha));
+        setCssVar('--fv-modal-backdrop-blur', m.backdrop_blur_px + 'px');
+        setCssVar('--fv-modal-glow', hexToRgba(m.glow_color, m.glow_opacity_pct / 100));
+        setCssVar('--fv-modal-shadow', 'rgba(0, 0, 0, ' + shadowAlpha.toFixed(3) + ')');
         setCssVar('--fv-modal-title', m.title_text);
         setCssVar('--fv-modal-item-text', hexToRgba(m.item_text, 0.9));
         setCssVar('--fv-modal-item-active-bg', hexToRgba(m.item_active_bg, 0.35));

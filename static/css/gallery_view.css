@@ -80,13 +80,15 @@
 /* -- Zoom controls -- */
 .gv-zoom-controls {
     position: fixed; top: 1rem; right: 1rem; z-index: 20;
-    display: flex; gap: 0.25rem;
-    background: rgba(255,255,255,0.1);
+    display: none; gap: 0.25rem;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255,255,255,0.05);
     backdrop-filter: blur(18px) saturate(160%);
     -webkit-backdrop-filter: blur(18px) saturate(160%);
-    border: 1px solid rgba(255,255,255,0.1);
-    border-radius: 12px; padding: 0.3rem 0.35rem;
-    box-shadow: 0 2px 12px rgba(0,0,0,0.3);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 14px; padding: 0.28rem;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.22);
 }
 
 .gv-zoom-btn {
@@ -103,19 +105,20 @@
 }
 
 .gv-mode-btn {
-    height: 34px;
-    min-width: 44px;
-    padding: 0 0.62rem;
+    width: 40px;
+    height: 40px;
+    min-width: 40px;
+    padding: 0;
     border-radius: 8px;
     background: transparent;
     border: 1px solid transparent;
     color: rgba(255,255,255,0.72);
-    font-size: 0.72rem;
-    font-weight: 700;
-    letter-spacing: 0.01em;
     cursor: pointer;
     transition: background 0.18s, color 0.18s, border-color 0.18s;
     font-family: var(--font-body, 'Syne', sans-serif);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .gv-mode-btn:hover {
@@ -134,6 +137,36 @@
     cursor: not-allowed;
 }
 
+.gv-autoplay-btn {
+    color: rgba(255,255,255,0.84);
+}
+
+.gv-autoplay-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+}
+
+.gv-autoplay-icon svg {
+    width: 100%;
+    height: 100%;
+    display: block;
+}
+
+.gv-autoplay-icon-play {
+    display: none;
+}
+
+.gv-autoplay-btn.is-paused .gv-autoplay-icon-pause {
+    display: none;
+}
+
+.gv-autoplay-btn.is-paused .gv-autoplay-icon-play {
+    display: inline-flex;
+}
+
 /* -- Selector panel (bottom-right) -- */
 .gv-panel {
     position: fixed; bottom: var(--fv-modal-bottom, 1.5rem); right: var(--fv-modal-right, 7rem); z-index: 20;
@@ -141,11 +174,13 @@
     height: min(var(--fv-modal-height, var(--fv-modal-max-height, 72vh)), max(0px, calc(100vh - var(--fv-modal-bottom, 0px))));
     max-height: min(var(--fv-modal-height, var(--fv-modal-max-height, 72vh)), max(0px, calc(100vh - var(--fv-modal-bottom, 0px))));
     background: var(--fv-modal-bg, rgba(30,30,30,0.8));
-    backdrop-filter: blur(18px) saturate(160%);
-    -webkit-backdrop-filter: blur(18px) saturate(160%);
+    backdrop-filter: blur(var(--fv-modal-backdrop-blur, 18px)) saturate(160%);
+    -webkit-backdrop-filter: blur(var(--fv-modal-backdrop-blur, 18px)) saturate(160%);
     border: 1px solid var(--fv-modal-border, rgba(255,255,255,0.08));
     border-radius: 14px;
-    box-shadow: 0 4px 18px rgba(0,0,0,0.35);
+    box-shadow:
+        0 4px 18px var(--fv-modal-shadow, rgba(0,0,0,0.35)),
+        0 0 28px var(--fv-modal-glow, rgba(164,193,234,0));
     display: flex; flex-direction: column;
     overflow: hidden; pointer-events: auto;
 }

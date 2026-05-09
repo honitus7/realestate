@@ -36,11 +36,19 @@
 
         <!-- Zoom controls -->
         <div class="gv-zoom-controls">
-            <button class="gv-mode-btn active" id="gv-mode-fit" title="Fit to page">Fit</button>
-            <button class="gv-mode-btn" id="gv-mode-fill" title="Fill page">Fill</button>
-            <button class="gv-zoom-btn" id="gv-zoom-in" title="Zoom in">+</button>
-            <button class="gv-zoom-btn" id="gv-zoom-out" title="Zoom out">&minus;</button>
-            <button class="gv-zoom-btn" id="gv-zoom-reset" title="Reset" style="font-size:0.72rem;">&#8634;</button>
+            <button class="gv-mode-btn gv-autoplay-btn" id="gv-autoplay-toggle" type="button" title="Pause autoplay" aria-label="Pause autoplay" style="display:none;">
+                <span class="gv-autoplay-icon gv-autoplay-icon-pause" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="currentColor" focusable="false">
+                        <rect x="6" y="5" width="4" height="14" rx="1.4"></rect>
+                        <rect x="14" y="5" width="4" height="14" rx="1.4"></rect>
+                    </svg>
+                </span>
+                <span class="gv-autoplay-icon gv-autoplay-icon-play" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="currentColor" focusable="false">
+                        <path d="M8 5.5v13a1 1 0 0 0 1.53.85l10-6.5a1 1 0 0 0 0-1.7l-10-6.5A1 1 0 0 0 8 5.5z"></path>
+                    </svg>
+                </span>
+            </button>
         </div>
 
         <div class="gv-watermark">{{ gallery.name or 'PropMark' }}</div>
@@ -92,7 +100,11 @@
     var INITIAL_STYLE = {{ (fv_style or {}) | tojson }};
     var DEFAULT_MODAL = {
         bg: '#1e1e1e',
+        bg_opacity_pct: 82,
+        backdrop_blur_px: 18,
         border: '#d6dee6',
+        glow_color: '#a4c1ea',
+        glow_opacity_pct: 34,
         title_text: '#ffffff',
         item_text: '#f2f6ff',
         item_active_bg: '#3e567f',
@@ -151,7 +163,11 @@
         }
         return {
             bg: sanitizeHex(modal.bg, DEFAULT_MODAL.bg),
+            bg_opacity_pct: clampInt(modal.bg_opacity_pct, 0, 100, DEFAULT_MODAL.bg_opacity_pct),
+            backdrop_blur_px: clampInt(modal.backdrop_blur_px, 0, 40, DEFAULT_MODAL.backdrop_blur_px),
             border: sanitizeHex(modal.border, DEFAULT_MODAL.border),
+            glow_color: sanitizeHex(modal.glow_color, modal.item_active_border || DEFAULT_MODAL.glow_color),
+            glow_opacity_pct: clampInt(modal.glow_opacity_pct, 0, 100, DEFAULT_MODAL.glow_opacity_pct),
             title_text: sanitizeHex(modal.title_text, DEFAULT_MODAL.title_text),
             item_text: sanitizeHex(modal.item_text, DEFAULT_MODAL.item_text),
             item_active_bg: sanitizeHex(modal.item_active_bg, DEFAULT_MODAL.item_active_bg),
@@ -159,7 +175,7 @@
             width: clampInt(modal.width, 220, 2200, DEFAULT_MODAL.width),
             max_height_vh: clampInt(modal.max_height_vh, 20, 100, DEFAULT_MODAL.max_height_vh),
             right_offset: clampInt(modal.right_offset, 0, 280, DEFAULT_MODAL.right_offset),
-            bottom_offset: clampInt(modal.bottom_offset, 0, 120, DEFAULT_MODAL.bottom_offset),
+            bottom_offset: clampInt(modal.bottom_offset, 0, 240, DEFAULT_MODAL.bottom_offset),
             title_font_family: sanitizeFontFamily(modal.title_font_family, DEFAULT_MODAL.title_font_family),
             item_font_family: sanitizeFontFamily(modal.item_font_family, DEFAULT_MODAL.item_font_family),
             title_font_size_px: clampInt(modal.title_font_size_px, 11, 24, DEFAULT_MODAL.title_font_size_px),
@@ -173,8 +189,14 @@
 
     function applyModalStyle(raw) {
         var m = normalizeModalStyle(raw);
-        setCssVar('--fv-modal-bg', hexToRgba(m.bg, 0.82));
-        setCssVar('--fv-modal-border', hexToRgba(m.border, 0.38));
+        var bgAlpha = m.bg_opacity_pct / 100;
+        var borderAlpha = Math.min(0.38, Math.max(0.10, 0.10 + (bgAlpha * 0.28)));
+        var shadowAlpha = Math.min(0.35, Math.max(0.08, 0.06 + (bgAlpha * 0.29)));
+        setCssVar('--fv-modal-bg', hexToRgba(m.bg, bgAlpha));
+        setCssVar('--fv-modal-border', hexToRgba(m.border, borderAlpha));
+        setCssVar('--fv-modal-backdrop-blur', m.backdrop_blur_px + 'px');
+        setCssVar('--fv-modal-glow', hexToRgba(m.glow_color, m.glow_opacity_pct / 100));
+        setCssVar('--fv-modal-shadow', 'rgba(0, 0, 0, ' + shadowAlpha.toFixed(3) + ')');
         setCssVar('--fv-modal-title', m.title_text);
         setCssVar('--fv-modal-item-text', hexToRgba(m.item_text, 0.9));
         setCssVar('--fv-modal-item-active-bg', hexToRgba(m.item_active_bg, 0.35));
@@ -197,6 +219,21 @@
         var data = evt.data || {};
         if (data.type === 'fv-style-preview' && data.style && typeof data.style === 'object') {
             applyModalStyle(data.style);
+            return;
+        }
+        if (data.type === 'fv-gallery-autoplay-query') {
+            syncAutoRotateToggleUi();
+            return;
+        }
+        if (data.type === 'fv-gallery-autoplay-control') {
+            var action = String(data.action || 'toggle').trim().toLowerCase();
+            if (action === 'pause') {
+                setAutoRotatePaused(true);
+            } else if (action === 'play') {
+                setAutoRotatePaused(false);
+            } else {
+                setAutoRotatePaused(!autoRotateManuallyPaused);
+            }
         }
     });
 
@@ -222,11 +259,15 @@
     var isDragging = false, dragStartX, dragStartY, startPanX, startPanY;
     var itemLoadToken = 0;
     var psvViewer = null;
+    var AUTO_ROTATE_BOOT_DELAY_MS = 1200;
+    var AUTO_ROTATE_RESUME_DELAY_MS = 4200;
+    var autoRotateResumeTimer = null;
+    var autoRotateManuallyPaused = false;
     var singleItem = ITEMS.length <= 1;
     var pageEl = document.getElementById('gv-page');
-    var modeFitBtn = document.getElementById('gv-mode-fit');
-    var modeFillBtn = document.getElementById('gv-mode-fill');
-    var viewMode = 'fit';
+    var controlsEl = document.querySelector('.gv-zoom-controls');
+    var autoRotateToggleBtn = document.getElementById('gv-autoplay-toggle');
+    var isEmbeddedView = window.parent && window.parent !== window;
 
     // Preload images
     ITEMS.forEach(function(item) {
@@ -244,11 +285,28 @@
         showItem(0, false);
     }
 
-    (function initViewMode() {
-        var saved = '';
-        try { saved = localStorage.getItem('gallery_view_mode') || ''; } catch (e) {}
-        setViewMode(saved === 'fill' ? 'fill' : 'fit');
-    })();
+    function notifyParentAutoplayState() {
+        if (!isEmbeddedView || !window.parent) return;
+        window.parent.postMessage({
+            type: 'fv-gallery-autoplay-state',
+            available: isEquirectActive() && supportsPsv(),
+            paused: Boolean(autoRotateManuallyPaused)
+        }, window.location.origin);
+    }
+
+    function setAutoRotatePaused(paused) {
+        autoRotateManuallyPaused = !!paused;
+        if (!isEquirectActive()) {
+            syncAutoRotateToggleUi();
+            return;
+        }
+        if (autoRotateManuallyPaused) {
+            stopAutoRotate();
+        } else {
+            scheduleAutoRotateResume(0);
+        }
+        syncAutoRotateToggleUi();
+    }
 
     function supportsPsv() {
         return !!(window.PhotoSphereViewer && window.PhotoSphereViewer.Viewer && psvEl);
@@ -258,10 +316,72 @@
         return pageEl.classList.contains('gv-active-equirect');
     }
 
+    function clearAutoRotateResumeTimer() {
+        if (!autoRotateResumeTimer) return;
+        clearTimeout(autoRotateResumeTimer);
+        autoRotateResumeTimer = null;
+    }
+
+    function stopAutoRotate() {
+        clearAutoRotateResumeTimer();
+        if (!psvViewer || typeof psvViewer.stopAutorotate !== 'function') return;
+        if (typeof psvViewer.isAutorotateEnabled === 'function' && !psvViewer.isAutorotateEnabled()) return;
+        try { psvViewer.stopAutorotate(); } catch (e) {}
+    }
+
+    function startAutoRotate() {
+        if (!psvViewer || typeof psvViewer.startAutorotate !== 'function') return;
+        if (typeof psvViewer.isAutorotateEnabled === 'function' && psvViewer.isAutorotateEnabled()) return;
+        try { psvViewer.startAutorotate(); } catch (e) {}
+    }
+
+    function scheduleAutoRotateResume(delayMs) {
+        if (!isEquirectActive()) return;
+        if (autoRotateManuallyPaused) return;
+        if (!psvViewer || typeof psvViewer.startAutorotate !== 'function') return;
+        clearAutoRotateResumeTimer();
+        autoRotateResumeTimer = setTimeout(function() {
+            autoRotateResumeTimer = null;
+            if (!isEquirectActive() || autoRotateManuallyPaused) return;
+            startAutoRotate();
+        }, typeof delayMs === 'number' ? delayMs : AUTO_ROTATE_RESUME_DELAY_MS);
+    }
+
+    function pauseAutoRotateForInteraction() {
+        if (!isEquirectActive()) return;
+        stopAutoRotate();
+        scheduleAutoRotateResume(AUTO_ROTATE_RESUME_DELAY_MS);
+    }
+
+    function syncAutoRotateToggleUi() {
+        if (!autoRotateToggleBtn) return;
+        var show = isEquirectActive() && supportsPsv();
+        if (controlsEl) controlsEl.style.display = (show && !isEmbeddedView) ? 'flex' : 'none';
+        autoRotateToggleBtn.style.display = (show && !isEmbeddedView) ? '' : 'none';
+        var paused = Boolean(autoRotateManuallyPaused);
+        autoRotateToggleBtn.classList.toggle('is-paused', paused);
+        var label = paused ? 'Play autoplay' : 'Pause autoplay';
+        autoRotateToggleBtn.title = label;
+        autoRotateToggleBtn.setAttribute('aria-label', label);
+        notifyParentAutoplayState();
+    }
+
+    function syncAutoRotateAfterMediaChange(delayMs) {
+        if (!isEquirectActive()) {
+            stopAutoRotate();
+            syncAutoRotateToggleUi();
+            return;
+        }
+        if (autoRotateManuallyPaused) {
+            stopAutoRotate();
+        } else {
+            scheduleAutoRotateResume(typeof delayMs === 'number' ? delayMs : AUTO_ROTATE_BOOT_DELAY_MS);
+        }
+        syncAutoRotateToggleUi();
+    }
+
     function syncControlsForMedia() {
-        var disableFitFill = isEquirectActive();
-        if (modeFitBtn) modeFitBtn.disabled = disableFitFill;
-        if (modeFillBtn) modeFillBtn.disabled = disableFitFill;
+        syncAutoRotateToggleUi();
     }
 
     function resolveEquirectangular(item) {
@@ -278,6 +398,7 @@
     }
 
     function destroyPsvViewer() {
+        clearAutoRotateResumeTimer();
         if (!psvViewer) return;
         try { psvViewer.destroy(); } catch (e) {}
         psvViewer = null;
@@ -302,6 +423,7 @@
             imgEl.classList.add('loaded');
         };
         if (unmuteBtn) unmuteBtn.style.display = 'none';
+        syncAutoRotateAfterMediaChange();
         syncControlsForMedia();
     }
 
@@ -333,6 +455,7 @@
         } else if (unmuteBtn) {
             unmuteBtn.style.display = 'none';
         }
+        syncAutoRotateAfterMediaChange();
         syncControlsForMedia();
     }
 
@@ -372,6 +495,7 @@
         if (psvViewer && typeof psvViewer.setPanorama === 'function') {
             psvViewer.setPanorama(item.url, { showLoader: false, transition: 900 }).then(function() {
                 if (typeof psvViewer.resize === 'function') psvViewer.resize();
+                syncAutoRotateAfterMediaChange(AUTO_ROTATE_BOOT_DELAY_MS);
             }).catch(function() {
                 showImageItem(item);
             });
@@ -379,7 +503,14 @@
             destroyPsvViewer();
             try {
                 psvViewer = new PhotoSphereViewer.Viewer(options);
-                if (typeof psvViewer.resize === 'function') psvViewer.resize();
+                if (psvViewer && typeof psvViewer.on === 'function') {
+                    psvViewer.on('ready', function() {
+                        if (typeof psvViewer.resize === 'function') psvViewer.resize();
+                        syncAutoRotateAfterMediaChange(AUTO_ROTATE_BOOT_DELAY_MS);
+                    });
+                } else {
+                    syncAutoRotateAfterMediaChange(AUTO_ROTATE_BOOT_DELAY_MS);
+                }
             } catch (e) {
                 showImageItem(item);
                 return;
@@ -453,27 +584,6 @@
         }
     });
 
-    function setViewMode(mode) {
-        viewMode = mode === 'fill' ? 'fill' : 'fit';
-        pageEl.classList.toggle('gv-mode-fill', viewMode === 'fill');
-        pageEl.classList.toggle('gv-mode-fit', viewMode !== 'fill');
-        if (modeFitBtn) modeFitBtn.classList.toggle('active', viewMode !== 'fill');
-        if (modeFillBtn) modeFillBtn.classList.toggle('active', viewMode === 'fill');
-        try { localStorage.setItem('gallery_view_mode', viewMode); } catch (e) {}
-    }
-    if (modeFitBtn) {
-        modeFitBtn.addEventListener('click', function(e) {
-            e.stopPropagation();
-            setViewMode('fit');
-        });
-    }
-    if (modeFillBtn) {
-        modeFillBtn.addEventListener('click', function(e) {
-            e.stopPropagation();
-            setViewMode('fill');
-        });
-    }
-
     // Panel click handlers
     if (!singleItem) {
         document.querySelectorAll('.gv-panel-item').forEach(function(btn) {
@@ -519,27 +629,19 @@
         el.style.transform = 'translate(' + panX + 'px, ' + panY + 'px) scale(' + scale + ')';
     }
 
-    document.getElementById('gv-zoom-in').addEventListener('click', function() {
-        if (isEquirectActive() && psvViewer && typeof psvViewer.zoomIn === 'function') {
-            psvViewer.zoomIn();
-            return;
-        }
-        scale = Math.min(scale * 1.3, 5); applyTransform();
-    });
-    document.getElementById('gv-zoom-out').addEventListener('click', function() {
-        if (isEquirectActive() && psvViewer && typeof psvViewer.zoomOut === 'function') {
-            psvViewer.zoomOut();
-            return;
-        }
-        scale = Math.max(scale / 1.3, 0.5); applyTransform();
-    });
-    document.getElementById('gv-zoom-reset').addEventListener('click', function() {
-        if (isEquirectActive() && psvViewer && typeof psvViewer.zoom === 'function') {
-            psvViewer.zoom(0);
-            return;
-        }
-        resetTransform();
-    });
+    if (psvEl) {
+        ['pointerdown', 'wheel', 'touchstart'].forEach(function(eventName) {
+            psvEl.addEventListener(eventName, pauseAutoRotateForInteraction, { passive: true });
+        });
+    }
+
+    if (autoRotateToggleBtn) {
+        autoRotateToggleBtn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            if (!isEquirectActive()) return;
+            setAutoRotatePaused(!autoRotateManuallyPaused);
+        });
+    }
 
     var mediaArea = document.getElementById('gv-media-area');
 
@@ -626,6 +728,7 @@
     });
 
     window.addEventListener('beforeunload', destroyPsvViewer);
+    syncAutoRotateToggleUi();
 })();
 </script>
 </body>

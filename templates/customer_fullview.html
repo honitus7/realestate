@@ -16,11 +16,17 @@
     <style>
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
         html, body { width: 100%; height: 100%; overflow: hidden; background: #0c0e14; font-family: 'Syne', sans-serif; }
-        .cfv-header {
+        .cfv-header-shell {
             position: fixed;
             top: 14px;
             left: 14px;
             z-index: 200;
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            max-width: calc(100vw - 28px);
+        }
+        .cfv-header {
             display: flex;
             flex-direction: column;
             gap: 2px;
@@ -32,6 +38,51 @@
             border-radius: 12px;
             color: rgba(255,255,255,0.92);
             max-width: min(68vw, 620px);
+        }
+        .cfv-header-autoplay-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 42px;
+            height: 42px;
+            flex: 0 0 auto;
+            padding: 0;
+            background: rgba(12, 14, 20, 0.82);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 12px;
+            color: rgba(255,255,255,0.92);
+            box-shadow: 0 10px 24px rgba(0, 0, 0, 0.18);
+            cursor: pointer;
+        }
+        .cfv-header-autoplay-btn[hidden] {
+            display: none;
+        }
+        .cfv-header-autoplay-btn:hover {
+            background: rgba(18, 21, 30, 0.9);
+        }
+        .cfv-header-autoplay-icon {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 18px;
+            height: 18px;
+        }
+        .cfv-header-autoplay-icon svg {
+            width: 100%;
+            height: 100%;
+            display: block;
+            fill: currentColor;
+        }
+        .cfv-header-autoplay-icon-play {
+            display: none;
+        }
+        .cfv-header-autoplay-btn.is-paused .cfv-header-autoplay-icon-pause {
+            display: none;
+        }
+        .cfv-header-autoplay-btn.is-paused .cfv-header-autoplay-icon-play {
+            display: inline-flex;
         }
         .cfv-header-title {
             font-size: 0.9rem;
@@ -216,13 +267,32 @@
             .cfv-header {
                 max-width: calc(100vw - 24px);
             }
+            .cfv-header-shell {
+                max-width: calc(100vw - 20px);
+                gap: 8px;
+            }
         }
     </style>
 </head>
 <body>
-    <div class="cfv-header" id="cfv-header">
-        <div class="cfv-header-title" id="cfv-header-title">{{ workspace_name or 'Project' }}</div>
-        <div class="cfv-header-sub" id="cfv-header-sub">Full View</div>
+    <div class="cfv-header-shell">
+        <div class="cfv-header" id="cfv-header">
+            <div class="cfv-header-title" id="cfv-header-title">{{ workspace_name or 'Project' }}</div>
+            <div class="cfv-header-sub" id="cfv-header-sub">Full View</div>
+        </div>
+        <button type="button" class="cfv-header-autoplay-btn" id="cfv-header-autoplay-btn" aria-label="Pause autoplay" title="Pause autoplay" hidden>
+            <span class="cfv-header-autoplay-icon cfv-header-autoplay-icon-pause" aria-hidden="true">
+                <svg viewBox="0 0 24 24" focusable="false">
+                    <rect x="6" y="5" width="4" height="14" rx="1.4"></rect>
+                    <rect x="14" y="5" width="4" height="14" rx="1.4"></rect>
+                </svg>
+            </span>
+            <span class="cfv-header-autoplay-icon cfv-header-autoplay-icon-play" aria-hidden="true">
+                <svg viewBox="0 0 24 24" focusable="false">
+                    <path d="M8 5.5v13a1 1 0 0 0 1.53.85l10-6.5a1 1 0 0 0 0-1.7l-10-6.5A1 1 0 0 0 8 5.5z"></path>
+                </svg>
+            </span>
+        </button>
     </div>
 
     <div class="cfv-frame-host" id="cfv-frame-host" aria-live="polite"></div>
@@ -261,7 +331,7 @@
     <aside class="fv-style-editor" id="fv-style-editor">
         <div class="fv-style-editor-head">
             <div class="fv-style-editor-title">Full View Screen Editor</div>
-            <div class="fv-style-editor-sub">Sidebar theme, floor plan/gallery selection modal colors, and modal size are synced to customer full view.</div>
+            <div class="fv-style-editor-sub">Sidebar theme, plus floor plan and gallery panel colors, glow, transparency, blur, and size are synced to customer full view.</div>
         </div>
         <div class="fv-style-editor-body">
             <div class="fv-style-section">
@@ -376,8 +446,24 @@
                         <input id="fv-style-modal-bg" class="fv-style-input" type="color">
                     </div>
                     <div class="fv-style-field">
+                        <label class="fv-style-label" for="fv-style-modal-bg-opacity">Panel BG Opacity <span class="fv-style-val" id="fv-style-modal-bg-opacity-val"></span></label>
+                        <input id="fv-style-modal-bg-opacity" class="fv-style-input" type="range" min="0" max="100" step="1">
+                    </div>
+                    <div class="fv-style-field">
+                        <label class="fv-style-label" for="fv-style-modal-blur">Background Blur <span class="fv-style-val" id="fv-style-modal-blur-val"></span></label>
+                        <input id="fv-style-modal-blur" class="fv-style-input" type="range" min="0" max="40" step="1">
+                    </div>
+                    <div class="fv-style-field">
                         <label class="fv-style-label" for="fv-style-modal-border">Modal Border</label>
                         <input id="fv-style-modal-border" class="fv-style-input" type="color">
+                    </div>
+                    <div class="fv-style-field">
+                        <label class="fv-style-label" for="fv-style-modal-glow">Glow Color</label>
+                        <input id="fv-style-modal-glow" class="fv-style-input" type="color">
+                    </div>
+                    <div class="fv-style-field">
+                        <label class="fv-style-label" for="fv-style-modal-glow-opacity">Glow Opacity <span class="fv-style-val" id="fv-style-modal-glow-opacity-val"></span></label>
+                        <input id="fv-style-modal-glow-opacity" class="fv-style-input" type="range" min="0" max="100" step="1">
                     </div>
                     <div class="fv-style-field">
                         <label class="fv-style-label" for="fv-style-modal-title">Title Text</label>
@@ -409,7 +495,7 @@
                     </div>
                     <div class="fv-style-field">
                         <label class="fv-style-label" for="fv-style-modal-bottom">Bottom Offset <span class="fv-style-val" id="fv-style-modal-bottom-val"></span></label>
-                        <input id="fv-style-modal-bottom" class="fv-style-input" type="range" min="0" max="120" step="1">
+                        <input id="fv-style-modal-bottom" class="fv-style-input" type="range" min="0" max="240" step="1">
                     </div>
                     <div class="fv-style-field">
                         <label class="fv-style-label" for="fv-style-modal-title-font">Title Font</label>
@@ -454,8 +540,24 @@
                         <input id="fv-style-gallery-modal-bg" class="fv-style-input" type="color">
                     </div>
                     <div class="fv-style-field">
+                        <label class="fv-style-label" for="fv-style-gallery-modal-bg-opacity">Panel BG Opacity <span class="fv-style-val" id="fv-style-gallery-modal-bg-opacity-val"></span></label>
+                        <input id="fv-style-gallery-modal-bg-opacity" class="fv-style-input" type="range" min="0" max="100" step="1">
+                    </div>
+                    <div class="fv-style-field">
+                        <label class="fv-style-label" for="fv-style-gallery-modal-blur">Background Blur <span class="fv-style-val" id="fv-style-gallery-modal-blur-val"></span></label>
+                        <input id="fv-style-gallery-modal-blur" class="fv-style-input" type="range" min="0" max="40" step="1">
+                    </div>
+                    <div class="fv-style-field">
                         <label class="fv-style-label" for="fv-style-gallery-modal-border">Modal Border</label>
                         <input id="fv-style-gallery-modal-border" class="fv-style-input" type="color">
+                    </div>
+                    <div class="fv-style-field">
+                        <label class="fv-style-label" for="fv-style-gallery-modal-glow">Glow Color</label>
+                        <input id="fv-style-gallery-modal-glow" class="fv-style-input" type="color">
+                    </div>
+                    <div class="fv-style-field">
+                        <label class="fv-style-label" for="fv-style-gallery-modal-glow-opacity">Glow Opacity <span class="fv-style-val" id="fv-style-gallery-modal-glow-opacity-val"></span></label>
+                        <input id="fv-style-gallery-modal-glow-opacity" class="fv-style-input" type="range" min="0" max="100" step="1">
                     </div>
                     <div class="fv-style-field">
                         <label class="fv-style-label" for="fv-style-gallery-modal-title">Title Text</label>
@@ -487,7 +589,7 @@
                     </div>
                     <div class="fv-style-field">
                         <label class="fv-style-label" for="fv-style-gallery-modal-bottom">Bottom Offset <span class="fv-style-val" id="fv-style-gallery-modal-bottom-val"></span></label>
-                        <input id="fv-style-gallery-modal-bottom" class="fv-style-input" type="range" min="0" max="120" step="1">
+                        <input id="fv-style-gallery-modal-bottom" class="fv-style-input" type="range" min="0" max="240" step="1">
                     </div>
                     <div class="fv-style-field">
                         <label class="fv-style-label" for="fv-style-gallery-modal-title-font">Title Font</label>
@@ -552,6 +654,7 @@
     var sidebar = document.getElementById('fv-sidebar');
     var headerTitleEl = document.getElementById('cfv-header-title');
     var headerSubEl = document.getElementById('cfv-header-sub');
+    var headerAutoplayBtn = document.getElementById('cfv-header-autoplay-btn');
     var navFab = document.getElementById('fv-nav-reveal-fab');
     var activeBtn = null;
     var activeFrame = null;
@@ -561,6 +664,8 @@
     var preloadedFrameCount = 0;
     var DEBUG = true;
     var styleState = null;
+    var shellAutoplayAvailable = false;
+    var shellAutoplayPaused = false;
     var SHELL_BASE_PATH = (IS_EDITOR ? '/customer/full-view/edit/' : '/customer/full-view/') + encodeURIComponent(WS_ID || '');
     var PREFETCH_STATE_KEY = 'fv_shell_prefetch_v3::' + String(WS_ID || '');
     var PREFETCH_TTL_MS = 15 * 60 * 1000;
@@ -569,7 +674,11 @@
     function defaultModalStyle() {
         return {
             bg: '#1e1e1e',
+            bg_opacity_pct: 82,
+            backdrop_blur_px: 18,
             border: '#d6dee6',
+            glow_color: '#a4c1ea',
+            glow_opacity_pct: 34,
             title_text: '#ffffff',
             item_text: '#f2f6ff',
             item_active_bg: '#3e567f',
@@ -1053,7 +1162,11 @@
         var modal = (modalRaw && typeof modalRaw === 'object') ? modalRaw : {};
         return {
             bg: sanitizeHex(modal.bg, fallback.bg),
+            bg_opacity_pct: clampInt(modal.bg_opacity_pct, 0, 100, typeof fallback.bg_opacity_pct === 'number' ? fallback.bg_opacity_pct : 82),
+            backdrop_blur_px: clampInt(modal.backdrop_blur_px, 0, 40, typeof fallback.backdrop_blur_px === 'number' ? fallback.backdrop_blur_px : 18),
             border: sanitizeHex(modal.border, fallback.border),
+            glow_color: sanitizeHex(modal.glow_color, modal.item_active_border || fallback.glow_color || fallback.item_active_border || DEFAULT_STYLE.modal.glow_color),
+            glow_opacity_pct: clampInt(modal.glow_opacity_pct, 0, 100, typeof fallback.glow_opacity_pct === 'number' ? fallback.glow_opacity_pct : 34),
             title_text: sanitizeHex(modal.title_text, fallback.title_text),
             item_text: sanitizeHex(modal.item_text, fallback.item_text),
             item_active_bg: sanitizeHex(modal.item_active_bg, fallback.item_active_bg),
@@ -1061,7 +1174,7 @@
             width: clampInt(modal.width, 220, 2200, fallback.width),
             max_height_vh: clampInt(modal.max_height_vh, 20, 100, fallback.max_height_vh),
             right_offset: clampInt(modal.right_offset, 0, 280, fallback.right_offset),
-            bottom_offset: clampInt(modal.bottom_offset, 0, 120, fallback.bottom_offset),
+            bottom_offset: clampInt(modal.bottom_offset, 0, 240, fallback.bottom_offset),
             title_font_family: sanitizeFontFamily(modal.title_font_family, fallback.title_font_family),
             item_font_family: sanitizeFontFamily(modal.item_font_family, fallback.item_font_family),
             title_font_size_px: clampInt(modal.title_font_size_px, 11, 24, fallback.title_font_size_px),
@@ -1111,11 +1224,18 @@
         var menuMid = mixHexColor(s.sidebar.bg_start, s.sidebar.bg_end, 0.45);
         var menuBgAlpha = s.sidebar.bg_opacity_pct / 100;
         var menuGlowAlpha = s.sidebar.glow_opacity_pct / 100;
+        var menuBorderAlpha = Math.min(0.58, Math.max(0.12, 0.12 + (menuBgAlpha * 0.46)));
+        var menuShadowAlpha = Math.min(0.44, Math.max(0.10, 0.08 + (menuBgAlpha * 0.36)));
+        var menuInnerBorderAlpha = Math.min(0.05, Math.max(0.01, 0.01 + (menuBgAlpha * 0.04)));
+        var menuAccentAlpha = Math.min(1, Math.max(0.24, 0.22 + (menuGlowAlpha * 0.78)));
+        var menuAccentFadeAlpha = Math.min(0.28, Math.max(0.06, menuGlowAlpha * 0.24));
         setCssVar('--fv-menu-bg-start', hexToRgba(s.sidebar.bg_start, menuBgAlpha));
         setCssVar('--fv-menu-bg-mid', hexToRgba(menuMid, menuBgAlpha));
         setCssVar('--fv-menu-bg-end', hexToRgba(s.sidebar.bg_end, menuBgAlpha));
-        setCssVar('--fv-menu-border', hexToRgba(s.sidebar.border, 0.58));
+        setCssVar('--fv-menu-border', hexToRgba(s.sidebar.border, menuBorderAlpha));
         setCssVar('--fv-menu-accent', s.sidebar.accent);
+        setCssVar('--fv-menu-accent-bar', hexToRgba(s.sidebar.accent, menuAccentAlpha));
+        setCssVar('--fv-menu-accent-fade', hexToRgba(s.sidebar.accent, menuAccentFadeAlpha));
         setCssVar('--fv-menu-text', s.sidebar.text);
         setCssVar('--fv-menu-active-bg', s.sidebar.active_bg);
         setCssVar('--fv-menu-active-text', s.sidebar.active_text);
@@ -1127,6 +1247,8 @@
         setCssVar('--fv-menu-icon-size', s.sidebar.icon_size_px + 'px');
         setCssVar('--fv-menu-icon-box-size', clampInt(s.sidebar.icon_size_px + 4, 16, 52, 26) + 'px');
         setCssVar('--fv-menu-glow', hexToRgba(s.sidebar.accent, menuGlowAlpha));
+        setCssVar('--fv-menu-shadow', 'rgba(0, 0, 0, ' + menuShadowAlpha.toFixed(3) + ')');
+        setCssVar('--fv-menu-inner-border', 'rgba(255, 255, 255, ' + menuInnerBorderAlpha.toFixed(3) + ')');
         setCssVar('--fv-menu-font-family', "'" + s.sidebar.font_family + "', sans-serif");
         setCssVar('--fv-menu-font-size', s.sidebar.font_size_px + 'px');
         if (sidebar) {
@@ -1136,8 +1258,14 @@
             });
         }
 
-        setCssVar('--fv-modal-bg', hexToRgba(s.modal_floorplan.bg, 0.82));
-        setCssVar('--fv-modal-border', hexToRgba(s.modal_floorplan.border, 0.38));
+        var modalBgAlpha = s.modal_floorplan.bg_opacity_pct / 100;
+        var modalBorderAlpha = Math.min(0.38, Math.max(0.10, 0.10 + (modalBgAlpha * 0.28)));
+        var modalShadowAlpha = Math.min(0.35, Math.max(0.08, 0.06 + (modalBgAlpha * 0.29)));
+        setCssVar('--fv-modal-bg', hexToRgba(s.modal_floorplan.bg, modalBgAlpha));
+        setCssVar('--fv-modal-border', hexToRgba(s.modal_floorplan.border, modalBorderAlpha));
+        setCssVar('--fv-modal-backdrop-blur', s.modal_floorplan.backdrop_blur_px + 'px');
+        setCssVar('--fv-modal-glow', hexToRgba(s.modal_floorplan.glow_color, s.modal_floorplan.glow_opacity_pct / 100));
+        setCssVar('--fv-modal-shadow', 'rgba(0, 0, 0, ' + modalShadowAlpha.toFixed(3) + ')');
         setCssVar('--fv-modal-title', s.modal_floorplan.title_text);
         setCssVar('--fv-modal-item-text', hexToRgba(s.modal_floorplan.item_text, 0.9));
         setCssVar('--fv-modal-item-active-bg', hexToRgba(s.modal_floorplan.item_active_bg, 0.35));
@@ -1159,6 +1287,31 @@
             type: 'fv-style-preview',
             style: normalizeStyle(styleState)
         }, window.location.origin);
+    }
+
+    function syncHeaderAutoplayUi() {
+        if (!headerAutoplayBtn) return;
+        headerAutoplayBtn.hidden = !shellAutoplayAvailable;
+        headerAutoplayBtn.classList.toggle('is-paused', !!shellAutoplayPaused);
+        var label = shellAutoplayPaused ? 'Play autoplay' : 'Pause autoplay';
+        headerAutoplayBtn.title = label;
+        headerAutoplayBtn.setAttribute('aria-label', label);
+    }
+
+    function resetHeaderAutoplayUi() {
+        shellAutoplayAvailable = false;
+        shellAutoplayPaused = false;
+        syncHeaderAutoplayUi();
+    }
+
+    function postToActiveFrame(message) {
+        if (!activeFrame || !activeFrame.contentWindow) return false;
+        activeFrame.contentWindow.postMessage(message, window.location.origin);
+        return true;
+    }
+
+    function requestActiveFrameAutoplayState() {
+        postToActiveFrame({ type: 'fv-gallery-autoplay-query' });
     }
 
     function applyAndBroadcastStyle() {
@@ -1422,6 +1575,7 @@
                 fvLog('log', 'Iframe loaded', { src: frameEl.getAttribute('src') || '' });
                 markPrefetchedFrameKey(meta.key);
                 if (IS_EDITOR && activeFrame === frameEl) setTimeout(postStylePreview, 30);
+                if (activeFrame === frameEl) setTimeout(requestActiveFrameAutoplayState, 30);
             });
             frameEl.addEventListener('error', function () {
                 fvLog('error', 'Iframe error', { src: frameEl.getAttribute('src') || '' });
@@ -1441,12 +1595,14 @@
             var node = frameCache[key];
             if (node) node.classList.remove('cfv-tab-frame--active');
         });
+        resetHeaderAutoplayUi();
         if (!frameEl) {
             activeFrame = null;
             return;
         }
         frameEl.classList.add('cfv-tab-frame--active');
         activeFrame = frameEl;
+        setTimeout(requestActiveFrameAutoplayState, 30);
     }
 
     function activateTabFrame(meta) {
@@ -1578,6 +1734,23 @@
         }
     }
 
+    window.addEventListener('message', function (evt) {
+        if (evt.origin !== window.location.origin) return;
+        if (!activeFrame || evt.source !== activeFrame.contentWindow) return;
+        var data = evt.data || {};
+        if (data.type !== 'fv-gallery-autoplay-state') return;
+        shellAutoplayAvailable = !!data.available;
+        shellAutoplayPaused = !!data.paused;
+        syncHeaderAutoplayUi();
+    });
+
+    if (headerAutoplayBtn) {
+        headerAutoplayBtn.addEventListener('click', function () {
+            if (!shellAutoplayAvailable) return;
+            postToActiveFrame({ type: 'fv-gallery-autoplay-control', action: 'toggle' });
+        });
+    }
+
     if (sidebar) {
         sidebar.addEventListener('click', function (evt) {
             var btn = evt.target && evt.target.closest ? evt.target.closest('.fv-sidebar-btn') : null;
@@ -1687,7 +1860,11 @@
         set('fv-style-menu-font', s.sidebar.font_family);
         set('fv-style-menu-font-size', s.sidebar.font_size_px);
         set('fv-style-modal-bg', s.modal_floorplan.bg);
+        set('fv-style-modal-bg-opacity', s.modal_floorplan.bg_opacity_pct);
+        set('fv-style-modal-blur', s.modal_floorplan.backdrop_blur_px);
         set('fv-style-modal-border', s.modal_floorplan.border);
+        set('fv-style-modal-glow', s.modal_floorplan.glow_color);
+        set('fv-style-modal-glow-opacity', s.modal_floorplan.glow_opacity_pct);
         set('fv-style-modal-title', s.modal_floorplan.title_text);
         set('fv-style-modal-item', s.modal_floorplan.item_text);
         set('fv-style-modal-active-bg', s.modal_floorplan.item_active_bg);
@@ -1701,7 +1878,11 @@
         set('fv-style-modal-title-size', s.modal_floorplan.title_font_size_px);
         set('fv-style-modal-item-size', s.modal_floorplan.item_font_size_px);
         set('fv-style-gallery-modal-bg', s.modal_gallery.bg);
+        set('fv-style-gallery-modal-bg-opacity', s.modal_gallery.bg_opacity_pct);
+        set('fv-style-gallery-modal-blur', s.modal_gallery.backdrop_blur_px);
         set('fv-style-gallery-modal-border', s.modal_gallery.border);
+        set('fv-style-gallery-modal-glow', s.modal_gallery.glow_color);
+        set('fv-style-gallery-modal-glow-opacity', s.modal_gallery.glow_opacity_pct);
         set('fv-style-gallery-modal-title', s.modal_gallery.title_text);
         set('fv-style-gallery-modal-item', s.modal_gallery.item_text);
         set('fv-style-gallery-modal-active-bg', s.modal_gallery.item_active_bg);
@@ -1722,12 +1903,18 @@
             ['fv-style-menu-height-val', s.sidebar.max_height_vh + 'vh'],
             ['fv-style-menu-icon-size-val', s.sidebar.icon_size_px + 'px'],
             ['fv-style-menu-font-size-val', s.sidebar.font_size_px + 'px'],
+            ['fv-style-modal-bg-opacity-val', s.modal_floorplan.bg_opacity_pct + '%'],
+            ['fv-style-modal-blur-val', s.modal_floorplan.backdrop_blur_px + 'px'],
+            ['fv-style-modal-glow-opacity-val', s.modal_floorplan.glow_opacity_pct + '%'],
             ['fv-style-modal-width-val', s.modal_floorplan.width + 'px'],
             ['fv-style-modal-height-val', s.modal_floorplan.max_height_vh + 'vh'],
             ['fv-style-modal-right-val', s.modal_floorplan.right_offset + 'px'],
             ['fv-style-modal-bottom-val', s.modal_floorplan.bottom_offset + 'px'],
             ['fv-style-modal-title-size-val', s.modal_floorplan.title_font_size_px + 'px'],
             ['fv-style-modal-item-size-val', s.modal_floorplan.item_font_size_px + 'px'],
+            ['fv-style-gallery-modal-bg-opacity-val', s.modal_gallery.bg_opacity_pct + '%'],
+            ['fv-style-gallery-modal-blur-val', s.modal_gallery.backdrop_blur_px + 'px'],
+            ['fv-style-gallery-modal-glow-opacity-val', s.modal_gallery.glow_opacity_pct + '%'],
             ['fv-style-gallery-modal-width-val', s.modal_gallery.width + 'px'],
             ['fv-style-gallery-modal-height-val', s.modal_gallery.max_height_vh + 'vh'],
             ['fv-style-gallery-modal-right-val', s.modal_gallery.right_offset + 'px'],
@@ -1806,12 +1993,14 @@
         bindColor('fv-style-menu-active-text', function (v) { styleState.sidebar.active_text = v; });
         bindColor('fv-style-modal-bg', function (v) { styleState.modal_floorplan.bg = v; });
         bindColor('fv-style-modal-border', function (v) { styleState.modal_floorplan.border = v; });
+        bindColor('fv-style-modal-glow', function (v) { styleState.modal_floorplan.glow_color = v; });
         bindColor('fv-style-modal-title', function (v) { styleState.modal_floorplan.title_text = v; });
         bindColor('fv-style-modal-item', function (v) { styleState.modal_floorplan.item_text = v; });
         bindColor('fv-style-modal-active-bg', function (v) { styleState.modal_floorplan.item_active_bg = v; });
         bindColor('fv-style-modal-active-border', function (v) { styleState.modal_floorplan.item_active_border = v; });
         bindColor('fv-style-gallery-modal-bg', function (v) { styleState.modal_gallery.bg = v; });
         bindColor('fv-style-gallery-modal-border', function (v) { styleState.modal_gallery.border = v; });
+        bindColor('fv-style-gallery-modal-glow', function (v) { styleState.modal_gallery.glow_color = v; });
         bindColor('fv-style-gallery-modal-title', function (v) { styleState.modal_gallery.title_text = v; });
         bindColor('fv-style-gallery-modal-item', function (v) { styleState.modal_gallery.item_text = v; });
         bindColor('fv-style-gallery-modal-active-bg', function (v) { styleState.modal_gallery.item_active_bg = v; });
@@ -1829,12 +2018,18 @@
         bindRange('fv-style-menu-height', function (v) { styleState.sidebar.max_height_vh = v; }, 'fv-style-menu-height-val', 'vh');
         bindRange('fv-style-menu-icon-size', function (v) { styleState.sidebar.icon_size_px = v; }, 'fv-style-menu-icon-size-val', 'px');
         bindRange('fv-style-menu-font-size', function (v) { styleState.sidebar.font_size_px = v; }, 'fv-style-menu-font-size-val', 'px');
+        bindRange('fv-style-modal-bg-opacity', function (v) { styleState.modal_floorplan.bg_opacity_pct = v; }, 'fv-style-modal-bg-opacity-val', '%');
+        bindRange('fv-style-modal-blur', function (v) { styleState.modal_floorplan.backdrop_blur_px = v; }, 'fv-style-modal-blur-val', 'px');
+        bindRange('fv-style-modal-glow-opacity', function (v) { styleState.modal_floorplan.glow_opacity_pct = v; }, 'fv-style-modal-glow-opacity-val', '%');
         bindRange('fv-style-modal-width', function (v) { styleState.modal_floorplan.width = v; }, 'fv-style-modal-width-val', 'px');
         bindRange('fv-style-modal-height', function (v) { styleState.modal_floorplan.max_height_vh = v; }, 'fv-style-modal-height-val', 'vh');
         bindRange('fv-style-modal-right', function (v) { styleState.modal_floorplan.right_offset = v; }, 'fv-style-modal-right-val', 'px');
         bindRange('fv-style-modal-bottom', function (v) { styleState.modal_floorplan.bottom_offset = v; }, 'fv-style-modal-bottom-val', 'px');
         bindRange('fv-style-modal-title-size', function (v) { styleState.modal_floorplan.title_font_size_px = v; }, 'fv-style-modal-title-size-val', 'px');
         bindRange('fv-style-modal-item-size', function (v) { styleState.modal_floorplan.item_font_size_px = v; }, 'fv-style-modal-item-size-val', 'px');
+        bindRange('fv-style-gallery-modal-bg-opacity', function (v) { styleState.modal_gallery.bg_opacity_pct = v; }, 'fv-style-gallery-modal-bg-opacity-val', '%');
+        bindRange('fv-style-gallery-modal-blur', function (v) { styleState.modal_gallery.backdrop_blur_px = v; }, 'fv-style-gallery-modal-blur-val', 'px');
+        bindRange('fv-style-gallery-modal-glow-opacity', function (v) { styleState.modal_gallery.glow_opacity_pct = v; }, 'fv-style-gallery-modal-glow-opacity-val', '%');
         bindRange('fv-style-gallery-modal-width', function (v) { styleState.modal_gallery.width = v; }, 'fv-style-gallery-modal-width-val', 'px');
         bindRange('fv-style-gallery-modal-height', function (v) { styleState.modal_gallery.max_height_vh = v; }, 'fv-style-gallery-modal-height-val', 'vh');
         bindRange('fv-style-gallery-modal-right', function (v) { styleState.modal_gallery.right_offset = v; }, 'fv-style-gallery-modal-right-val', 'px');

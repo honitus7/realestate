@@ -30,13 +30,13 @@
         var(--fv-menu-bg-end, #162b51) 100%
     );
     border: 1px solid var(--fv-menu-border, rgba(119, 163, 207, 0.34));
-    border-left: 2px solid var(--fv-menu-accent, #3ec2ff);
+    border-left: 2px solid var(--fv-menu-accent-bar, var(--fv-menu-accent, #3ec2ff));
     border-radius: 10px;
 
     box-shadow:
         -8px 0 20px var(--fv-menu-glow, rgba(49, 196, 255, 0.28)),
-        0 10px 24px rgba(0, 0, 0, 0.44),
-        inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+        0 10px 24px var(--fv-menu-shadow, rgba(0, 0, 0, 0.44)),
+        inset 0 0 0 1px var(--fv-menu-inner-border, rgba(255, 255, 255, 0.05));
 
     scrollbar-width: thin;
     scrollbar-color: rgba(248, 251, 255, 0.96) rgba(16, 31, 56, 0.78);
@@ -52,8 +52,8 @@
     border-radius: 999px;
     background: linear-gradient(
         180deg,
-        var(--fv-menu-accent, rgba(90, 217, 255, 0.9)),
-        rgba(36, 160, 255, 0.2)
+        var(--fv-menu-accent-bar, rgba(90, 217, 255, 0.9)),
+        var(--fv-menu-accent-fade, rgba(36, 160, 255, 0.2))
     );
     pointer-events: none;
 }
