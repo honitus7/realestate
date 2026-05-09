@@ -1155,11 +1155,7 @@ body.panorama-nav-expanded .header-left {
 }
 
 body.is-2d .zoom-controls {
-    display: flex !important;
-    position: fixed;
-    right: 1rem;
-    bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
-    z-index: 14;
+    display: none !important;
 }
 
 .search-plot-input:focus {

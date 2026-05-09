@@ -11,8 +11,8 @@
     transform: translateY(-50%);
     z-index: 260;
 
-    width: var(--fv-menu-width, 92px);
-    max-height: calc(100vh - 18px);
+    width: max(var(--fv-menu-width, 92px), calc(var(--fv-menu-font-size, 9px) * 10.5));
+    max-height: min(var(--fv-menu-max-height, calc(100vh - 18px)), calc(100vh - 18px));
     padding: 7px 3px 7px 5px;
 
     display: flex;
@@ -21,6 +21,7 @@
 
     overflow-y: auto;
     overflow-x: hidden;
+    scrollbar-gutter: stable;
 
     background: linear-gradient(
         180deg,
@@ -129,7 +130,9 @@
 }
 
 .fv-sidebar-label {
-    max-width: 70px;
+    width: 100%;
+    max-width: 100%;
+    padding: 0 2px;
 
     font-family: var(--fv-menu-font-family, "Syne", sans-serif);
     font-size: var(--fv-menu-font-size, 0.54rem);
@@ -142,8 +145,9 @@
     white-space: normal;
     overflow: visible;
     text-overflow: clip;
-    overflow-wrap: anywhere;
-    word-break: keep-all;
+    overflow-wrap: normal;
+    word-break: normal;
+    hyphens: auto;
 }
 
 .fv-nav-reveal-fab {

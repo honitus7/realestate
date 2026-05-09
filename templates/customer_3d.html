@@ -3695,7 +3695,7 @@
         function set2dViewportVisible(visible) {
             if (imageContainer) imageContainer.hidden = !visible;
             if (psvContainer) psvContainer.hidden = visible;
-            if (zoomControls) zoomControls.hidden = !visible;
+            if (zoomControls) zoomControls.hidden = true;
             if (markerLayer) markerLayer.style.pointerEvents = visible ? 'auto' : 'none';
             document.body.classList.toggle('is-2d', Boolean(visible));
         }

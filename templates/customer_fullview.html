@@ -296,8 +296,16 @@
                         <input id="fv-style-menu-end" class="fv-style-input" type="color">
                     </div>
                     <div class="fv-style-field">
+                        <label class="fv-style-label" for="fv-style-menu-bg-opacity">Menu BG Opacity <span class="fv-style-val" id="fv-style-menu-bg-opacity-val"></span></label>
+                        <input id="fv-style-menu-bg-opacity" class="fv-style-input" type="range" min="0" max="100" step="1">
+                    </div>
+                    <div class="fv-style-field">
                         <label class="fv-style-label" for="fv-style-menu-accent">Accent Glow</label>
                         <input id="fv-style-menu-accent" class="fv-style-input" type="color">
+                    </div>
+                    <div class="fv-style-field">
+                        <label class="fv-style-label" for="fv-style-menu-glow-opacity">Glow Opacity <span class="fv-style-val" id="fv-style-menu-glow-opacity-val"></span></label>
+                        <input id="fv-style-menu-glow-opacity" class="fv-style-input" type="range" min="0" max="100" step="1">
                     </div>
                     <div class="fv-style-field">
                         <label class="fv-style-label" for="fv-style-menu-border">Menu Border</label>
@@ -318,6 +326,10 @@
                     <div class="fv-style-field">
                         <label class="fv-style-label" for="fv-style-menu-width">Menu Width <span class="fv-style-val" id="fv-style-menu-width-val"></span></label>
                         <input id="fv-style-menu-width" class="fv-style-input" type="range" min="72" max="180" step="1">
+                    </div>
+                    <div class="fv-style-field">
+                        <label class="fv-style-label" for="fv-style-menu-height">Menu Height <span class="fv-style-val" id="fv-style-menu-height-val"></span></label>
+                        <input id="fv-style-menu-height" class="fv-style-input" type="range" min="30" max="100" step="1">
                     </div>
                     <div class="fv-style-field">
                         <label class="fv-style-label" for="fv-style-menu-icon-size">Menu Icon Size <span class="fv-style-val" id="fv-style-menu-icon-size-val"></span></label>
@@ -564,12 +576,15 @@
         sidebar: {
             bg_start: '#253f69',
             bg_end: '#162b51',
+            bg_opacity_pct: 100,
             border: '#77a3cf',
             accent: '#3ec2ff',
+            glow_opacity_pct: 28,
             text: '#e9f1fb',
             active_bg: '#cfd5df',
             active_text: '#26344f',
             width: 92,
+            max_height_vh: 98,
             icon_size_px: 22,
             font_family: 'Syne',
             font_size_px: 9
@@ -1036,12 +1051,15 @@
 
         merged.sidebar.bg_start = sanitizeHex(merged.sidebar.bg_start, DEFAULT_STYLE.sidebar.bg_start);
         merged.sidebar.bg_end = sanitizeHex(merged.sidebar.bg_end, DEFAULT_STYLE.sidebar.bg_end);
+        merged.sidebar.bg_opacity_pct = clampInt(merged.sidebar.bg_opacity_pct, 0, 100, DEFAULT_STYLE.sidebar.bg_opacity_pct);
         merged.sidebar.border = sanitizeHex(merged.sidebar.border, DEFAULT_STYLE.sidebar.border);
         merged.sidebar.accent = sanitizeHex(merged.sidebar.accent, DEFAULT_STYLE.sidebar.accent);
+        merged.sidebar.glow_opacity_pct = clampInt(merged.sidebar.glow_opacity_pct, 0, 100, DEFAULT_STYLE.sidebar.glow_opacity_pct);
         merged.sidebar.text = sanitizeHex(merged.sidebar.text, DEFAULT_STYLE.sidebar.text);
         merged.sidebar.active_bg = sanitizeHex(merged.sidebar.active_bg, DEFAULT_STYLE.sidebar.active_bg);
         merged.sidebar.active_text = sanitizeHex(merged.sidebar.active_text, DEFAULT_STYLE.sidebar.active_text);
         merged.sidebar.width = clampInt(merged.sidebar.width, 72, 180, DEFAULT_STYLE.sidebar.width);
+        merged.sidebar.max_height_vh = clampInt(merged.sidebar.max_height_vh, 30, 100, DEFAULT_STYLE.sidebar.max_height_vh);
         merged.sidebar.icon_size_px = clampInt(merged.sidebar.icon_size_px, 12, 40, DEFAULT_STYLE.sidebar.icon_size_px);
         merged.sidebar.font_family = sanitizeFontFamily(merged.sidebar.font_family, DEFAULT_STYLE.sidebar.font_family);
         merged.sidebar.font_size_px = clampInt(merged.sidebar.font_size_px, 9, 18, DEFAULT_STYLE.sidebar.font_size_px);
@@ -1065,18 +1083,21 @@
     function applyStyleConfig(style) {
         var s = normalizeStyle(style);
         var menuMid = mixHexColor(s.sidebar.bg_start, s.sidebar.bg_end, 0.45);
-        setCssVar('--fv-menu-bg-start', s.sidebar.bg_start);
-        setCssVar('--fv-menu-bg-mid', menuMid);
-        setCssVar('--fv-menu-bg-end', s.sidebar.bg_end);
+        var menuBgAlpha = s.sidebar.bg_opacity_pct / 100;
+        var menuGlowAlpha = s.sidebar.glow_opacity_pct / 100;
+        setCssVar('--fv-menu-bg-start', hexToRgba(s.sidebar.bg_start, menuBgAlpha));
+        setCssVar('--fv-menu-bg-mid', hexToRgba(menuMid, menuBgAlpha));
+        setCssVar('--fv-menu-bg-end', hexToRgba(s.sidebar.bg_end, menuBgAlpha));
         setCssVar('--fv-menu-border', hexToRgba(s.sidebar.border, 0.58));
         setCssVar('--fv-menu-accent', s.sidebar.accent);
         setCssVar('--fv-menu-text', s.sidebar.text);
         setCssVar('--fv-menu-active-bg', s.sidebar.active_bg);
         setCssVar('--fv-menu-active-text', s.sidebar.active_text);
         setCssVar('--fv-menu-width', s.sidebar.width + 'px');
+        setCssVar('--fv-menu-max-height', s.sidebar.max_height_vh + 'vh');
         setCssVar('--fv-menu-icon-size', s.sidebar.icon_size_px + 'px');
         setCssVar('--fv-menu-icon-box-size', clampInt(s.sidebar.icon_size_px + 4, 16, 52, 26) + 'px');
-        setCssVar('--fv-menu-glow', hexToRgba(s.sidebar.accent, 0.28));
+        setCssVar('--fv-menu-glow', hexToRgba(s.sidebar.accent, menuGlowAlpha));
         setCssVar('--fv-menu-font-family', "'" + s.sidebar.font_family + "', sans-serif");
         setCssVar('--fv-menu-font-size', s.sidebar.font_size_px + 'px');
         if (sidebar) {
@@ -1623,12 +1644,15 @@
         set('fv-style-theme', s.menu_theme);
         set('fv-style-menu-start', s.sidebar.bg_start);
         set('fv-style-menu-end', s.sidebar.bg_end);
+        set('fv-style-menu-bg-opacity', s.sidebar.bg_opacity_pct);
         set('fv-style-menu-border', s.sidebar.border);
         set('fv-style-menu-accent', s.sidebar.accent);
+        set('fv-style-menu-glow-opacity', s.sidebar.glow_opacity_pct);
         set('fv-style-menu-text', s.sidebar.text);
         set('fv-style-menu-active-bg', s.sidebar.active_bg);
         set('fv-style-menu-active-text', s.sidebar.active_text);
         set('fv-style-menu-width', s.sidebar.width);
+        set('fv-style-menu-height', s.sidebar.max_height_vh);
         set('fv-style-menu-icon-size', s.sidebar.icon_size_px);
         set('fv-style-menu-font', s.sidebar.font_family);
         set('fv-style-menu-font-size', s.sidebar.font_size_px);
@@ -1662,7 +1686,10 @@
         set('fv-style-gallery-modal-item-size', s.modal_gallery.item_font_size_px);
 
         var mapVals = [
+            ['fv-style-menu-bg-opacity-val', s.sidebar.bg_opacity_pct + '%'],
+            ['fv-style-menu-glow-opacity-val', s.sidebar.glow_opacity_pct + '%'],
             ['fv-style-menu-width-val', s.sidebar.width + 'px'],
+            ['fv-style-menu-height-val', s.sidebar.max_height_vh + 'vh'],
             ['fv-style-menu-icon-size-val', s.sidebar.icon_size_px + 'px'],
             ['fv-style-menu-font-size-val', s.sidebar.font_size_px + 'px'],
             ['fv-style-modal-width-val', s.modal_floorplan.width + 'px'],
@@ -1765,7 +1792,10 @@
         bindSelect('fv-style-gallery-modal-title-font', function (v) { styleState.modal_gallery.title_font_family = v; });
         bindSelect('fv-style-gallery-modal-item-font', function (v) { styleState.modal_gallery.item_font_family = v; });
 
+        bindRange('fv-style-menu-bg-opacity', function (v) { styleState.sidebar.bg_opacity_pct = v; }, 'fv-style-menu-bg-opacity-val', '%');
+        bindRange('fv-style-menu-glow-opacity', function (v) { styleState.sidebar.glow_opacity_pct = v; }, 'fv-style-menu-glow-opacity-val', '%');
         bindRange('fv-style-menu-width', function (v) { styleState.sidebar.width = v; }, 'fv-style-menu-width-val', 'px');
+        bindRange('fv-style-menu-height', function (v) { styleState.sidebar.max_height_vh = v; }, 'fv-style-menu-height-val', 'vh');
         bindRange('fv-style-menu-icon-size', function (v) { styleState.sidebar.icon_size_px = v; }, 'fv-style-menu-icon-size-val', 'px');
         bindRange('fv-style-menu-font-size', function (v) { styleState.sidebar.font_size_px = v; }, 'fv-style-menu-font-size-val', 'px');
         bindRange('fv-style-modal-width', function (v) { styleState.modal_floorplan.width = v; }, 'fv-style-modal-width-val', 'px');
