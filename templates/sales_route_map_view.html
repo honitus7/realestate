@@ -15,284 +15,45 @@
         {% if not embed %}
         <header class="srv-header">
             <h1 class="srv-title">{{ sales_map.name or 'Sales Route Map' }}</h1>
-            <p class="srv-subtitle">Tap any pointer to animate the route from the main pointer.</p>
+            <p class="srv-subtitle">Tap any pointer to animate the route from the main pointer, or hover highway labels to preview independent routes.</p>
         </header>
         {% endif %}
 
         <div class="srv-stage" id="srv-stage">
             <img id="srv-image" class="srv-image" src="{{ sales_map.image_url or '' }}" alt="{{ sales_map.name or 'Route map' }}">
             <svg id="srv-routes-svg" class="srv-routes-svg" viewBox="0 0 1 1" preserveAspectRatio="none"></svg>
+            <svg id="srv-hover-routes-svg" class="srv-routes-svg srv-hover-routes-svg" viewBox="0 0 1 1" preserveAspectRatio="none"></svg>
             <div id="srv-markers-layer" class="srv-markers-layer"></div>
+            <div id="srv-hover-routes-layer" class="srv-hover-routes-layer"></div>
+
+            <div id="srv-type-filters" class="srv-type-filters" hidden></div>
+
             <div id="srv-route-modal" class="srv-route-modal" hidden>
-                <div id="srv-route-modal-title" class="srv-route-modal-title"></div>
-                <div id="srv-route-modal-distance" class="srv-route-modal-distance"></div>
+                <div class="srv-route-modal-media">
+                    <div id="srv-route-modal-icon" class="srv-route-modal-icon"></div>
+                </div>
+                <div class="srv-route-modal-content">
+                    <div id="srv-route-modal-eyebrow" class="srv-route-modal-eyebrow"></div>
+                    <div id="srv-route-modal-title" class="srv-route-modal-title"></div>
+                    <div class="srv-route-modal-meta">
+                        <div id="srv-route-modal-pointer-type" class="srv-route-modal-pointer-type"></div>
+                        <div id="srv-route-modal-distance" class="srv-route-modal-distance"></div>
+                    </div>
+                </div>
             </div>
         </div>
 
         <div class="srv-status" id="srv-status">Click a normal pointer to view its route.</div>
     </div>
 
-<script src="/static/js/sales_route_map_icons.js"></script>
 <script>
-(function () {
-    'use strict';
-
-    var MARKERS = {{ (markers or [])|tojson }};
-    var ROUTES = {{ (routes or [])|tojson }};
-    var iconLibrary = window.salesRouteMapIcons || null;
-
-    var markersLayer = document.getElementById('srv-markers-layer');
-    var routesSvg = document.getElementById('srv-routes-svg');
-    var statusEl = document.getElementById('srv-status');
-    var routeModalEl = document.getElementById('srv-route-modal');
-    var routeModalTitleEl = document.getElementById('srv-route-modal-title');
-    var routeModalDistanceEl = document.getElementById('srv-route-modal-distance');
-    var activeMarkerId = null;
-    var activeAnimationFrame = null;
-
-    function clampRatio(value) {
-        var num = Number(value);
-        if (!Number.isFinite(num)) return 0;
-        if (num < 0) return 0;
-        if (num > 1) return 1;
-        return num;
-    }
-
-    function clampLineWidth(value) {
-        var num = Number(value);
-        if (!Number.isFinite(num)) return 3;
-        return Math.max(1, Math.min(12, Math.round(num)));
-    }
-
-    function normalizeHexColor(value, fallback) {
-        var raw = String(value || '').trim();
-        if (/^#[0-9a-fA-F]{3}$/.test(raw)) {
-            return '#' + raw[1] + raw[1] + raw[2] + raw[2] + raw[3] + raw[3];
-        }
-        if (/^#[0-9a-fA-F]{6}$/.test(raw)) return raw.toLowerCase();
-        return fallback || '#162338';
-    }
-
-    function routeColor(route) {
-        return normalizeHexColor(route && route.color, '#162338');
-    }
-
-    function routeLineWidth(route) {
-        return clampLineWidth(route && route.line_width);
-    }
-
-    function routeStrokeWidthSvg(lineWidth) {
-        return String(clampLineWidth(lineWidth) * 0.002);
-    }
-
-    function normalizeDistanceKm(value) {
-        if (value === null || value === undefined) return null;
-        var raw = String(value).trim();
-        if (!raw) return null;
-        var num = Number(raw);
-        if (!Number.isFinite(num) || num < 0) return null;
-        return Math.round(num * 1000) / 1000;
-    }
-
-    function routeDistanceKm(route) {
-        return normalizeDistanceKm(route && route.distance_km);
-    }
-
-    function formatDistanceKm(distanceKm) {
-        var distance = normalizeDistanceKm(distanceKm);
-        if (distance === null) return 'Distance not added';
-        return distance + ' km';
-    }
-
-    function showRouteModal(fromMarker, toMarker, distanceKm) {
-        if (!routeModalEl || !routeModalTitleEl || !routeModalDistanceEl) return;
-        routeModalTitleEl.textContent = markerLabel(fromMarker) + ' -> ' + markerLabel(toMarker);
-        routeModalDistanceEl.textContent = formatDistanceKm(distanceKm);
-        routeModalEl.hidden = false;
-    }
-
-    function markerById(markerId) {
-        return MARKERS.find(function (marker) { return String(marker.id) === String(markerId); }) || null;
-    }
-
-    function markerLabel(marker) {
-        if (!marker) return '';
-        var label = String(marker.label || '').trim();
-        if (label) return label;
-        return marker.marker_type === 'main' ? 'Main Pointer' : 'Pointer';
-    }
-
-    function markerIconKey(marker) {
-        if (!marker) return iconLibrary ? iconLibrary.defaultForType('normal') : 'plot-pin';
-        var markerType = marker.marker_type || 'normal';
-        var raw = String(marker.icon_key || '').trim().toLowerCase();
-        if (!iconLibrary) return raw || (markerType === 'main' ? 'main-star' : 'plot-pin');
-        if (iconLibrary.isAllowed(raw)) return raw;
-        return iconLibrary.defaultForType(markerType);
-    }
-
-    function markerIconSvg(marker) {
-        var markerType = marker && marker.marker_type ? marker.marker_type : 'normal';
-        var key = markerIconKey(marker);
-        if (iconLibrary && typeof iconLibrary.renderSvg === 'function') {
-            return iconLibrary.renderSvg(key, markerType);
-        }
-        return '';
-    }
-
-    function getMainMarker() {
-        return MARKERS.find(function (marker) { return marker.marker_type === 'main'; }) || null;
-    }
-
-    function normalizeRoutePoints(route, startMarker, endMarker, reverse) {
-        var points = Array.isArray(route.path_points) ? route.path_points.filter(function (point) {
-            return point && Number.isFinite(Number(point.x)) && Number.isFinite(Number(point.y));
-        }).map(function (point) {
-            return { x: clampRatio(point.x), y: clampRatio(point.y) };
-        }) : [];
-        if (reverse) points.reverse();
-        if (!points.length) {
-            return [
-                { x: clampRatio(startMarker.x_ratio), y: clampRatio(startMarker.y_ratio) },
-                { x: clampRatio(endMarker.x_ratio), y: clampRatio(endMarker.y_ratio) }
-            ];
-        }
-        points[0] = { x: clampRatio(startMarker.x_ratio), y: clampRatio(startMarker.y_ratio) };
-        points[points.length - 1] = { x: clampRatio(endMarker.x_ratio), y: clampRatio(endMarker.y_ratio) };
-        return points;
-    }
-
-    function findRoute(mainMarker, targetMarker) {
-        var direct = ROUTES.find(function (route) {
-            return String(route.from_marker_id) === String(mainMarker.id) &&
-                   String(route.to_marker_id) === String(targetMarker.id);
-        });
-        if (direct) return { route: direct, reverse: false };
-        var reverse = ROUTES.find(function (route) {
-            return String(route.from_marker_id) === String(targetMarker.id) &&
-                   String(route.to_marker_id) === String(mainMarker.id);
-        });
-        if (reverse) return { route: reverse, reverse: true };
-        return null;
-    }
-
-    function clearRouteLayer() {
-        routesSvg.innerHTML = '';
-        if (activeAnimationFrame) {
-            cancelAnimationFrame(activeAnimationFrame);
-            activeAnimationFrame = null;
-        }
-    }
-
-    function markerClass(marker) {
-        var classes = ['srv-marker', marker.marker_type === 'main' ? 'main' : 'normal'];
-        if (String(marker.id) === String(activeMarkerId)) classes.push('active');
-        return classes.join(' ');
-    }
-
-    function renderMarkers() {
-        markersLayer.innerHTML = '';
-        MARKERS.forEach(function (marker) {
-            var button = document.createElement('button');
-            button.type = 'button';
-            button.className = markerClass(marker);
-            button.style.left = (clampRatio(marker.x_ratio) * 100) + '%';
-            button.style.top = (clampRatio(marker.y_ratio) * 100) + '%';
-            button.title = markerLabel(marker);
-            button.innerHTML = '<span class="srv-marker-icon">' + markerIconSvg(marker) + '</span>';
-            button.addEventListener('click', function () {
-                handleMarkerClick(marker);
-            });
-            markersLayer.appendChild(button);
-        });
-    }
-
-    function pointsToSvg(points) {
-        return points.map(function (point) { return point.x + ',' + point.y; }).join(' ');
-    }
-
-    function animateRoute(points, style) {
-        clearRouteLayer();
-        var strokeColor = normalizeHexColor(style && style.color, '#162338');
-        var strokeWidth = routeStrokeWidthSvg(style && style.line_width);
-
-        var polyline = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
-        polyline.setAttribute('class', 'srv-path');
-        polyline.setAttribute('points', pointsToSvg(points));
-        polyline.style.stroke = strokeColor;
-        polyline.style.strokeWidth = strokeWidth;
-        routesSvg.appendChild(polyline);
-
-        var length = polyline.getTotalLength();
-        polyline.style.strokeDasharray = String(length);
-        polyline.style.strokeDashoffset = String(length);
-        polyline.getBoundingClientRect();
-        polyline.style.transition = 'stroke-dashoffset 900ms ease';
-        polyline.style.strokeDashoffset = '0';
-
-        var dot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-        dot.setAttribute('class', 'srv-dot');
-        dot.setAttribute('r', '0.01');
-        dot.style.fill = strokeColor;
-        routesSvg.appendChild(dot);
-
-        var startedAt = null;
-        var duration = 900;
-        function tick(timestamp) {
-            if (!startedAt) startedAt = timestamp;
-            var progress = Math.min(1, (timestamp - startedAt) / duration);
-            var point = polyline.getPointAtLength(length * progress);
-            dot.setAttribute('cx', point.x);
-            dot.setAttribute('cy', point.y);
-            if (progress < 1) {
-                activeAnimationFrame = requestAnimationFrame(tick);
-            } else {
-                activeAnimationFrame = null;
-            }
-        }
-        activeAnimationFrame = requestAnimationFrame(tick);
-    }
-
-    function handleMarkerClick(targetMarker) {
-        if (!targetMarker || targetMarker.marker_type === 'main') return;
-        var mainMarker = getMainMarker();
-        if (!mainMarker) {
-            statusEl.textContent = 'No main pointer is configured on this map yet.';
-            return;
-        }
-        activeMarkerId = targetMarker.id;
-        renderMarkers();
-
-        var routeMatch = findRoute(mainMarker, targetMarker);
-        var points;
-        var style = { color: '#162338', line_width: 3 };
-        var distanceKm = null;
-        if (routeMatch) {
-            points = normalizeRoutePoints(routeMatch.route, mainMarker, targetMarker, routeMatch.reverse);
-            style = { color: routeColor(routeMatch.route), line_width: routeLineWidth(routeMatch.route) };
-            distanceKm = routeDistanceKm(routeMatch.route);
-            statusEl.textContent = 'Showing route: ' + markerLabel(mainMarker) + ' -> ' + markerLabel(targetMarker);
-        } else {
-            points = [
-                { x: clampRatio(mainMarker.x_ratio), y: clampRatio(mainMarker.y_ratio) },
-                { x: clampRatio(targetMarker.x_ratio), y: clampRatio(targetMarker.y_ratio) }
-            ];
-            statusEl.textContent = 'Direct route shown (custom route not configured).';
-        }
-        showRouteModal(mainMarker, targetMarker, distanceKm);
-        animateRoute(points, style);
-    }
-
-    function init() {
-        var mainMarker = getMainMarker();
-        if (!mainMarker) {
-            statusEl.textContent = 'Main pointer missing. Please ask your builder to configure one.';
-        }
-        renderMarkers();
-    }
-
-    init();
-})();
+window.__SRV_BOOTSTRAP__ = {
+    markers: {{ (markers or [])|tojson }},
+    routes: {{ (routes or [])|tojson }},
+    hoverRoutes: {{ (hover_routes or [])|tojson }}
+};
 </script>
+<script src="/static/js/sales_route_map_icons.js"></script>
+<script src="/static/js/sales_route_map_view.js"></script>
 </body>
 </html>
