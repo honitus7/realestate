@@ -222,6 +222,18 @@ def _is_missing_route_distance_column_error(exc):
     return "'distance_km'" in message and "'sales_route_map_routes'" in message
 
 
+def _is_missing_route_line_style_column_error(exc):
+    payload = {}
+    raw = exc.args[0] if getattr(exc, 'args', None) else {}
+    if isinstance(raw, dict):
+        payload = raw
+    code = str(payload.get('code') or '')
+    message = str(payload.get('message') or str(exc))
+    if code and code != 'PGRST204':
+        return False
+    return "'line_style'" in message and "'sales_route_map_routes'" in message
+
+
 def _is_missing_hover_route_table_error(exc):
     payload = {}
     raw = exc.args[0] if getattr(exc, 'args', None) else {}
@@ -244,6 +256,34 @@ def _normalize_distance_km(value):
     if number < 0:
         return None
     return round(number, 3)
+
+
+def _normalize_route_line_style(value, fallback='dashed'):
+    style = str(value or '').strip().lower()
+    if style in ('continuous', 'dashed', 'dotted'):
+        return style
+    return fallback
+
+
+def _normalize_route_row(route):
+    if not isinstance(route, dict):
+        return route
+    route['path_points'] = _normalize_points(route.get('path_points'))
+    route['distance_km'] = _normalize_distance_km(route.get('distance_km'))
+    route['line_style'] = _normalize_route_line_style(route.get('line_style'), 'dashed')
+    return route
+
+
+def _strip_legacy_route_fields(payload, exc):
+    legacy_payload = dict(payload or {})
+    changed = False
+    if _is_missing_route_distance_column_error(exc) and 'distance_km' in legacy_payload:
+        legacy_payload.pop('distance_km', None)
+        changed = True
+    if _is_missing_route_line_style_column_error(exc) and 'line_style' in legacy_payload:
+        legacy_payload.pop('line_style', None)
+        changed = True
+    return legacy_payload, changed
 
 
 def _normalize_ratio(value):
@@ -486,10 +526,7 @@ def list_routes(sb, map_id):
         .execute()
     )
     routes = resp.data or []
-    for route in routes:
-        route['path_points'] = _normalize_points(route.get('path_points'))
-        route['distance_km'] = _normalize_distance_km(route.get('distance_km'))
-    return routes
+    return [_normalize_route_row(route) for route in routes]
 
 
 def get_route(sb, route_id):
@@ -497,10 +534,7 @@ def get_route(sb, route_id):
     data = resp.data
     if not data:
         return None
-    route = data[0]
-    route['path_points'] = _normalize_points(route.get('path_points'))
-    route['distance_km'] = _normalize_distance_km(route.get('distance_km'))
-    return route
+    return _normalize_route_row(data[0])
 
 
 def get_next_route_sort_order(sb, map_id):
@@ -518,6 +552,7 @@ def create_route(
     path_points,
     color='#162338',
     line_width=3,
+    line_style='dashed',
     distance_km=None,
     sort_order=0,
 ):
@@ -528,24 +563,21 @@ def create_route(
         'path_points': json.dumps(_normalize_points(path_points)),
         'color': str(color or '#162338'),
         'line_width': int(line_width or 3),
+        'line_style': _normalize_route_line_style(line_style, 'dashed'),
         'distance_km': _normalize_distance_km(distance_km),
         'sort_order': int(sort_order or 0),
     }
     try:
         resp = sb.table('sales_route_map_routes').insert(row).execute()
     except APIError as exc:
-        if not _is_missing_route_distance_column_error(exc):
+        legacy_row, changed = _strip_legacy_route_fields(row, exc)
+        if not changed:
             raise
-        legacy_row = dict(row)
-        legacy_row.pop('distance_km', None)
         resp = sb.table('sales_route_map_routes').insert(legacy_row).execute()
     data = resp.data
     if not data:
         return None
-    route = data[0]
-    route['path_points'] = _normalize_points(route.get('path_points'))
-    route['distance_km'] = _normalize_distance_km(route.get('distance_km'))
-    return route
+    return _normalize_route_row(data[0])
 
 
 def update_route(sb, route_id, **fields):
@@ -555,6 +587,8 @@ def update_route(sb, route_id, **fields):
             clean[k] = str(v) if v is not None else None
         elif k in ('line_width', 'sort_order'):
             clean[k] = int(v)
+        elif k == 'line_style':
+            clean[k] = _normalize_route_line_style(v, 'dashed')
         elif k == 'distance_km':
             clean[k] = _normalize_distance_km(v)
         elif k == 'path_points':
@@ -564,20 +598,16 @@ def update_route(sb, route_id, **fields):
     try:
         resp = sb.table('sales_route_map_routes').update(clean).eq('id', str(route_id)).execute()
     except APIError as exc:
-        if not _is_missing_route_distance_column_error(exc) or 'distance_km' not in clean:
+        legacy_clean, changed = _strip_legacy_route_fields(clean, exc)
+        if not changed:
             raise
-        legacy_clean = dict(clean)
-        legacy_clean.pop('distance_km', None)
         if not legacy_clean:
             return get_route(sb, route_id)
         resp = sb.table('sales_route_map_routes').update(legacy_clean).eq('id', str(route_id)).execute()
     data = resp.data
     if not data:
         return None
-    route = data[0]
-    route['path_points'] = _normalize_points(route.get('path_points'))
-    route['distance_km'] = _normalize_distance_km(route.get('distance_km'))
-    return route
+    return _normalize_route_row(data[0])
 
 
 def delete_route(sb, route_id):
@@ -594,10 +624,7 @@ def delete_route(sb, route_id):
 
 
 def _normalize_hover_route_line_style(value, fallback='dashed'):
-    style = str(value or '').strip().lower()
-    if style in ('continuous', 'dashed', 'dotted'):
-        return style
-    return fallback
+    return _normalize_route_line_style(value, fallback)
 
 
 def _normalize_hover_route_row(route):

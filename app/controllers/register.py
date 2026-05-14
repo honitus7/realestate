@@ -7666,6 +7666,15 @@ h1 {{ margin:0 0 8px; font-size:22px; }}
             return False, None
         return True, round(distance, 3)
 
+    def _sanitize_route_line_style(value, fallback='dashed'):
+        style = str(value or '').strip().lower()
+        if style in ('continuous', 'dashed', 'dotted'):
+            return style
+        fallback_style = str(fallback or '').strip().lower()
+        if fallback_style in ('continuous', 'dashed', 'dotted'):
+            return fallback_style
+        return None
+
     _srm_icon_key_re = re.compile(r'^[a-z0-9_-]{1,64}$')
     _srm_allowed_icon_keys = {
         'main-star',
@@ -7856,13 +7865,7 @@ h1 {{ margin:0 0 8px; font-size:22px; }}
         return clean
 
     def _sanitize_hover_route_line_style(value, fallback='dashed'):
-        style = str(value or '').strip().lower()
-        if style in ('continuous', 'dashed', 'dotted'):
-            return style
-        fallback_style = str(fallback or '').strip().lower()
-        if fallback_style in ('continuous', 'dashed', 'dotted'):
-            return fallback_style
-        return None
+        return _sanitize_route_line_style(value, fallback=fallback)
 
     def _ensure_route_endpoints(points, from_marker, to_marker):
         start = {
@@ -8280,6 +8283,9 @@ h1 {{ margin:0 0 8px; font-size:22px; }}
         color = _sanitize_srm_route_color(data.get('color'), fallback='#162338')
         if color is None:
             return jsonify({'error': 'color is invalid'}), 400
+        line_style = _sanitize_route_line_style(data.get('line_style'), fallback='dashed')
+        if line_style is None:
+            return jsonify({'error': 'line_style is invalid'}), 400
         distance_valid, distance_km = _parse_distance_km(data.get('distance_km'))
         if not distance_valid:
             return jsonify({'error': 'distance_km must be a number >= 0'}), 400
@@ -8294,6 +8300,7 @@ h1 {{ margin:0 0 8px; font-size:22px; }}
                 points,
                 color=color,
                 line_width=line_width,
+                line_style=line_style,
                 distance_km=distance_km,
                 sort_order=sort_order,
             )
@@ -8352,6 +8359,11 @@ h1 {{ margin:0 0 8px; font-size:22px; }}
                 updates['line_width'] = max(1, min(12, int(data.get('line_width'))))
             except (TypeError, ValueError):
                 return jsonify({'error': 'line_width must be an integer'}), 400
+        if 'line_style' in data:
+            line_style = _sanitize_route_line_style(data.get('line_style'), fallback='dashed')
+            if line_style is None:
+                return jsonify({'error': 'line_style is invalid'}), 400
+            updates['line_style'] = line_style
         if 'distance_km' in data:
             distance_valid, distance_km = _parse_distance_km(data.get('distance_km'))
             if not distance_valid:

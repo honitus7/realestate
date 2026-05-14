@@ -84,22 +84,30 @@
         return String(clampLineWidth(lineWidth) * 0.002);
     }
 
-    function normalizeHoverRouteLineStyle(value, fallback) {
+    function normalizeRouteLineStyle(value, fallback) {
         var style = String(value || '').trim().toLowerCase();
         if (style === 'continuous' || style === 'dashed' || style === 'dotted') return style;
         return fallback || 'dashed';
     }
 
-    function hoverRouteStrokeDasharray(style) {
-        var normalized = normalizeHoverRouteLineStyle(style, 'dashed');
+    function routeStrokeDasharray(style) {
+        var normalized = normalizeRouteLineStyle(style, 'dashed');
         if (normalized === 'continuous') return 'none';
         if (normalized === 'dotted') return '0.001 0.014';
         return '0.024 0.015';
     }
 
-    function applyHoverRouteLineStyle(polyline, style) {
+    function applyRouteLineStyle(polyline, style) {
         if (!polyline) return;
-        polyline.style.strokeDasharray = hoverRouteStrokeDasharray(style);
+        polyline.style.strokeDasharray = routeStrokeDasharray(style);
+    }
+
+    function normalizeHoverRouteLineStyle(value, fallback) {
+        return normalizeRouteLineStyle(value, fallback);
+    }
+
+    function applyHoverRouteLineStyle(polyline, style) {
+        applyRouteLineStyle(polyline, style);
     }
 
     function normalizeDistanceKm(value) {
@@ -519,6 +527,7 @@
         clearRouteLayer();
         var strokeColor = normalizeHexColor(style && style.color, '#162338');
         var strokeWidth = routeStrokeWidthSvg(style && style.line_width);
+        var finalLineStyle = normalizeRouteLineStyle(style && style.line_style, 'dashed');
 
         var polyline = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
         polyline.setAttribute('class', 'srv-path');
@@ -533,6 +542,17 @@
         polyline.getBoundingClientRect();
         polyline.style.transition = 'stroke-dashoffset 900ms ease';
         polyline.style.strokeDashoffset = '0';
+
+        var routeStrokeFinalized = false;
+        function finalizeRouteStroke() {
+            if (routeStrokeFinalized) return;
+            routeStrokeFinalized = true;
+            polyline.style.transition = '';
+            polyline.style.strokeDashoffset = '0';
+            applyRouteLineStyle(polyline, finalLineStyle);
+        }
+        polyline.addEventListener('transitionend', finalizeRouteStroke, { once: true });
+        window.setTimeout(finalizeRouteStroke, 980);
 
         var dot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
         dot.setAttribute('class', 'srv-dot');

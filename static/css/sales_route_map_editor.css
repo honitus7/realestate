@@ -299,6 +299,13 @@
     font-size: 0.72rem;
 }
 
+.sre-route-editor-summary {
+    margin-bottom: 0.35rem;
+    font-size: 0.84rem;
+    font-weight: 700;
+    color: var(--color-text);
+}
+
 .sre-field {
     margin-bottom: 0.55rem;
 }
@@ -450,6 +457,12 @@
     min-width: 0;
 }
 
+.sre-list-item-copy--stack {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.12rem;
+}
+
 .sre-mini-icon {
     width: 17px;
     height: 17px;
@@ -536,7 +549,7 @@
 
 .sre-route-controls {
     display: grid;
-    grid-template-columns: 44px 70px 88px auto;
+    grid-template-columns: 44px 70px 88px 112px auto;
     gap: 0.35rem;
     align-items: center;
 }
@@ -663,7 +676,7 @@
     }
 
     .sre-route-controls {
-        grid-template-columns: 44px 62px 74px 1fr;
+        grid-template-columns: 44px 62px 74px 96px 1fr;
     }
 
     .sre-hover-route-controls {

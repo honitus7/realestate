@@ -10,6 +10,8 @@
     var hoverRoutes = [];
     var mode = 'select';
     var selectedMarkerId = null;
+    var selectedRouteId = null;
+    var selectedHoverRouteId = null;
     var routeDraft = { startMarkerId: null, waypoints: [] };
     var hoverRouteDraft = { points: [] };
     var iconLibrary = window.salesRouteMapIcons || null;
@@ -23,9 +25,12 @@
     var selectedPanelEl = null;
     var markerModalHandleEl = null;
     var markerModalCloseEl = null;
-    var liveRouteSaveTimers = {};
-    var liveRouteSaveQueue = {};
-    var liveRouteSaveInFlight = {};
+    var routePanelEl = null;
+    var routeModalHandleEl = null;
+    var routeModalCloseEl = null;
+    var hoverRoutePanelEl = null;
+    var hoverRouteModalHandleEl = null;
+    var hoverRouteModalCloseEl = null;
     var dragState = {
         active: false,
         markerId: null,
@@ -36,6 +41,28 @@
         suppressStageClick: false
     };
     var markerModalState = {
+        active: false,
+        pointerId: null,
+        startLeft: 0,
+        startTop: 0,
+        left: 0,
+        top: 0,
+        pointerStartX: 0,
+        pointerStartY: 0,
+        initialized: false
+    };
+    var routeModalState = {
+        active: false,
+        pointerId: null,
+        startLeft: 0,
+        startTop: 0,
+        left: 0,
+        top: 0,
+        pointerStartX: 0,
+        pointerStartY: 0,
+        initialized: false
+    };
+    var hoverRouteModalState = {
         active: false,
         pointerId: null,
         startLeft: 0,
@@ -99,29 +126,41 @@
         return Math.round(num * 1000) / 1000;
     }
 
-    function normalizeHoverRouteLineStyle(value, fallback) {
+    function normalizeRouteLineStyle(value, fallback) {
         var style = String(value || '').trim().toLowerCase();
         if (style === 'continuous' || style === 'dashed' || style === 'dotted') return style;
         return fallback || 'dashed';
     }
 
-    function hoverRouteLineStyleLabel(style) {
-        var normalized = normalizeHoverRouteLineStyle(style, 'dashed');
+    function routeLineStyleLabel(style) {
+        var normalized = normalizeRouteLineStyle(style, 'dashed');
         if (normalized === 'continuous') return 'Continuous';
         if (normalized === 'dotted') return 'Dotted';
         return 'Dashed';
     }
 
-    function hoverRouteStrokeDasharray(style) {
-        var normalized = normalizeHoverRouteLineStyle(style, 'dashed');
+    function routeStrokeDasharray(style) {
+        var normalized = normalizeRouteLineStyle(style, 'dashed');
         if (normalized === 'continuous') return 'none';
         if (normalized === 'dotted') return '0.001 0.014';
         return '0.018 0.012';
     }
 
-    function applyHoverRouteLineStyle(polyline, style) {
+    function applyRouteLineStyle(polyline, style) {
         if (!polyline) return;
-        polyline.style.strokeDasharray = hoverRouteStrokeDasharray(style);
+        polyline.style.strokeDasharray = routeStrokeDasharray(style);
+    }
+
+    function normalizeHoverRouteLineStyle(value, fallback) {
+        return normalizeRouteLineStyle(value, fallback);
+    }
+
+    function hoverRouteLineStyleLabel(style) {
+        return routeLineStyleLabel(style);
+    }
+
+    function applyHoverRouteLineStyle(polyline, style) {
+        applyRouteLineStyle(polyline, style);
     }
 
     function routeDistanceKm(route) {
@@ -136,14 +175,24 @@
         return hoverRoutes.find(function (route) { return String(route.id) === String(routeId); }) || null;
     }
 
+    function selectedRoute() {
+        return routeById(selectedRouteId);
+    }
+
+    function selectedHoverRoute() {
+        return hoverRouteById(selectedHoverRouteId);
+    }
+
     function currentDraftRouteStyle() {
         var colorInput = document.getElementById('sre-route-color');
         var widthInput = document.getElementById('sre-route-width');
         var distanceInput = document.getElementById('sre-route-distance');
+        var styleInput = document.getElementById('sre-route-style');
         return {
             color: normalizeHexColor(colorInput ? colorInput.value : '', '#162338'),
             line_width: clampLineWidth(widthInput ? widthInput.value : 3),
-            distance_km: normalizeDistanceKm(distanceInput ? distanceInput.value : null)
+            distance_km: normalizeDistanceKm(distanceInput ? distanceInput.value : null),
+            line_style: normalizeRouteLineStyle(styleInput ? styleInput.value : '', 'dashed')
         };
     }
 
@@ -163,6 +212,50 @@
         var label = route && String(route.label || '').trim();
         if (label) return label;
         return 'Independent Route ' + (Number(index) + 1);
+    }
+
+    function hasSelectedRouteFormState() {
+        var selected = selectedRoute();
+        var form = document.getElementById('sre-selected-route-form');
+        return !!selected && !!form && !routePanelEl.hidden;
+    }
+
+    function routeDraftFromForm(route) {
+        if (!route || String(route.id) !== String(selectedRouteId) || !hasSelectedRouteFormState()) {
+            return route;
+        }
+        var colorInput = document.getElementById('sre-selected-route-color');
+        var widthInput = document.getElementById('sre-selected-route-width');
+        var distanceInput = document.getElementById('sre-selected-route-distance');
+        var styleInput = document.getElementById('sre-selected-route-style');
+        return Object.assign({}, route, {
+            color: normalizeHexColor(colorInput ? colorInput.value : route.color, '#162338'),
+            line_width: clampLineWidth(widthInput ? widthInput.value : route.line_width),
+            distance_km: normalizeDistanceKm(distanceInput ? distanceInput.value : route.distance_km),
+            line_style: normalizeRouteLineStyle(styleInput ? styleInput.value : route.line_style, 'dashed')
+        });
+    }
+
+    function hasSelectedHoverRouteFormState() {
+        var selected = selectedHoverRoute();
+        var form = document.getElementById('sre-selected-hover-route-form');
+        return !!selected && !!form && !hoverRoutePanelEl.hidden;
+    }
+
+    function hoverRouteDraftFromForm(route) {
+        if (!route || String(route.id) !== String(selectedHoverRouteId) || !hasSelectedHoverRouteFormState()) {
+            return route;
+        }
+        var labelInput = document.getElementById('sre-selected-hover-route-label');
+        var colorInput = document.getElementById('sre-selected-hover-route-color');
+        var widthInput = document.getElementById('sre-selected-hover-route-width');
+        var styleInput = document.getElementById('sre-selected-hover-route-style');
+        return Object.assign({}, route, {
+            label: labelInput ? labelInput.value : route.label,
+            color: normalizeHexColor(colorInput ? colorInput.value : route.color, '#facc15'),
+            line_width: clampLineWidth(widthInput ? widthInput.value : route.line_width),
+            line_style: normalizeHoverRouteLineStyle(styleInput ? styleInput.value : route.line_style, 'dashed')
+        });
     }
 
     function escapeHtml(text) {
@@ -437,6 +530,23 @@
         renderLists();
     }
 
+    function refreshSelectedRouteDraftRender() {
+        renderMapOverlay();
+        renderLists();
+    }
+
+    function refreshSelectedHoverRouteDraftRender() {
+        renderMapOverlay();
+        renderLists();
+        var summaryEl = document.getElementById('sre-selected-hover-route-name');
+        if (summaryEl) {
+            var route = hoverRouteDraftFromForm(selectedHoverRoute());
+            summaryEl.textContent = hoverRouteLabel(route, hoverRoutes.findIndex(function (item) {
+                return String(item.id) === String(selectedHoverRouteId);
+            }));
+        }
+    }
+
     function markerModalBounds() {
         if (!selectedPanelEl) {
             return { minLeft: 12, maxLeft: 12, minTop: 88, maxTop: 88 };
@@ -510,6 +620,156 @@
         document.addEventListener('pointermove', handleMarkerModalDragMove);
         document.addEventListener('pointerup', endMarkerModalDrag);
         document.addEventListener('pointercancel', endMarkerModalDrag);
+    }
+
+    function routeModalBounds() {
+        if (!routePanelEl) {
+            return { minLeft: 12, maxLeft: 12, minTop: 88, maxTop: 88 };
+        }
+        var width = routePanelEl.offsetWidth || 390;
+        var height = routePanelEl.offsetHeight || 320;
+        var minLeft = 12;
+        var minTop = 88;
+        var maxLeft = Math.max(minLeft, window.innerWidth - width - 12);
+        var maxTop = Math.max(minTop, window.innerHeight - height - 12);
+        return {
+            minLeft: minLeft,
+            maxLeft: maxLeft,
+            minTop: minTop,
+            maxTop: maxTop
+        };
+    }
+
+    function setRouteModalPosition(left, top) {
+        if (!routePanelEl) return;
+        var bounds = routeModalBounds();
+        var nextLeft = Math.max(bounds.minLeft, Math.min(bounds.maxLeft, Number(left) || bounds.maxLeft));
+        var nextTop = Math.max(bounds.minTop, Math.min(bounds.maxTop, Number(top) || bounds.minTop));
+        routePanelEl.style.left = nextLeft + 'px';
+        routePanelEl.style.top = nextTop + 'px';
+        routePanelEl.style.right = 'auto';
+        routeModalState.left = nextLeft;
+        routeModalState.top = nextTop;
+    }
+
+    function ensureRouteModalPosition(forceReset) {
+        if (!routePanelEl || routePanelEl.hidden || !routePanelEl.classList.contains('is-floating')) return;
+        requestAnimationFrame(function () {
+            if (forceReset || !routeModalState.initialized) {
+                var width = routePanelEl.offsetWidth || 390;
+                setRouteModalPosition(window.innerWidth - width - 22, 112);
+                routeModalState.initialized = true;
+                return;
+            }
+            setRouteModalPosition(routeModalState.left, routeModalState.top);
+        });
+    }
+
+    function endRouteModalDrag() {
+        if (!routeModalState.active) return;
+        routeModalState.active = false;
+        routeModalState.pointerId = null;
+        document.removeEventListener('pointermove', handleRouteModalDragMove);
+        document.removeEventListener('pointerup', endRouteModalDrag);
+        document.removeEventListener('pointercancel', endRouteModalDrag);
+    }
+
+    function handleRouteModalDragMove(event) {
+        if (!routeModalState.active || event.pointerId !== routeModalState.pointerId) return;
+        var nextLeft = routeModalState.startLeft + (event.clientX - routeModalState.pointerStartX);
+        var nextTop = routeModalState.startTop + (event.clientY - routeModalState.pointerStartY);
+        setRouteModalPosition(nextLeft, nextTop);
+    }
+
+    function beginRouteModalDrag(event) {
+        if (!routePanelEl || routePanelEl.hidden || !routePanelEl.classList.contains('is-floating')) return;
+        if (event.target && event.target.closest && event.target.closest('button, input, select, textarea, label')) return;
+        if (typeof event.button === 'number' && event.button !== 0) return;
+        event.preventDefault();
+        routeModalState.active = true;
+        routeModalState.pointerId = event.pointerId;
+        routeModalState.startLeft = routeModalState.left;
+        routeModalState.startTop = routeModalState.top;
+        routeModalState.pointerStartX = event.clientX;
+        routeModalState.pointerStartY = event.clientY;
+        document.addEventListener('pointermove', handleRouteModalDragMove);
+        document.addEventListener('pointerup', endRouteModalDrag);
+        document.addEventListener('pointercancel', endRouteModalDrag);
+    }
+
+    function hoverRouteModalBounds() {
+        if (!hoverRoutePanelEl) {
+            return { minLeft: 12, maxLeft: 12, minTop: 88, maxTop: 88 };
+        }
+        var width = hoverRoutePanelEl.offsetWidth || 390;
+        var height = hoverRoutePanelEl.offsetHeight || 340;
+        var minLeft = 12;
+        var minTop = 88;
+        var maxLeft = Math.max(minLeft, window.innerWidth - width - 12);
+        var maxTop = Math.max(minTop, window.innerHeight - height - 12);
+        return {
+            minLeft: minLeft,
+            maxLeft: maxLeft,
+            minTop: minTop,
+            maxTop: maxTop
+        };
+    }
+
+    function setHoverRouteModalPosition(left, top) {
+        if (!hoverRoutePanelEl) return;
+        var bounds = hoverRouteModalBounds();
+        var nextLeft = Math.max(bounds.minLeft, Math.min(bounds.maxLeft, Number(left) || bounds.maxLeft));
+        var nextTop = Math.max(bounds.minTop, Math.min(bounds.maxTop, Number(top) || bounds.minTop));
+        hoverRoutePanelEl.style.left = nextLeft + 'px';
+        hoverRoutePanelEl.style.top = nextTop + 'px';
+        hoverRoutePanelEl.style.right = 'auto';
+        hoverRouteModalState.left = nextLeft;
+        hoverRouteModalState.top = nextTop;
+    }
+
+    function ensureHoverRouteModalPosition(forceReset) {
+        if (!hoverRoutePanelEl || hoverRoutePanelEl.hidden || !hoverRoutePanelEl.classList.contains('is-floating')) return;
+        requestAnimationFrame(function () {
+            if (forceReset || !hoverRouteModalState.initialized) {
+                var width = hoverRoutePanelEl.offsetWidth || 390;
+                setHoverRouteModalPosition(window.innerWidth - width - 22, 112);
+                hoverRouteModalState.initialized = true;
+                return;
+            }
+            setHoverRouteModalPosition(hoverRouteModalState.left, hoverRouteModalState.top);
+        });
+    }
+
+    function endHoverRouteModalDrag() {
+        if (!hoverRouteModalState.active) return;
+        hoverRouteModalState.active = false;
+        hoverRouteModalState.pointerId = null;
+        document.removeEventListener('pointermove', handleHoverRouteModalDragMove);
+        document.removeEventListener('pointerup', endHoverRouteModalDrag);
+        document.removeEventListener('pointercancel', endHoverRouteModalDrag);
+    }
+
+    function handleHoverRouteModalDragMove(event) {
+        if (!hoverRouteModalState.active || event.pointerId !== hoverRouteModalState.pointerId) return;
+        var nextLeft = hoverRouteModalState.startLeft + (event.clientX - hoverRouteModalState.pointerStartX);
+        var nextTop = hoverRouteModalState.startTop + (event.clientY - hoverRouteModalState.pointerStartY);
+        setHoverRouteModalPosition(nextLeft, nextTop);
+    }
+
+    function beginHoverRouteModalDrag(event) {
+        if (!hoverRoutePanelEl || hoverRoutePanelEl.hidden || !hoverRoutePanelEl.classList.contains('is-floating')) return;
+        if (event.target && event.target.closest && event.target.closest('button, input, select, textarea, label')) return;
+        if (typeof event.button === 'number' && event.button !== 0) return;
+        event.preventDefault();
+        hoverRouteModalState.active = true;
+        hoverRouteModalState.pointerId = event.pointerId;
+        hoverRouteModalState.startLeft = hoverRouteModalState.left;
+        hoverRouteModalState.startTop = hoverRouteModalState.top;
+        hoverRouteModalState.pointerStartX = event.clientX;
+        hoverRouteModalState.pointerStartY = event.clientY;
+        document.addEventListener('pointermove', handleHoverRouteModalDragMove);
+        document.addEventListener('pointerup', endHoverRouteModalDrag);
+        document.addEventListener('pointercancel', endHoverRouteModalDrag);
     }
 
     function renderIconLibrary() {
@@ -607,25 +867,28 @@
     function renderRoutesOverlay() {
         routesSvgEl.innerHTML = '';
         routes.forEach(function (route) {
-            var points = anchoredRoutePoints(route);
+            var renderRoute = routeDraftFromForm(route);
+            var points = anchoredRoutePoints(renderRoute);
             if (points.length < 2) return;
             var polyline = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
             polyline.setAttribute('points', pointsToSvg(points));
             polyline.setAttribute('class', 'sre-route');
-            polyline.style.stroke = routeColor(route);
-            polyline.style.strokeWidth = routeStrokeWidthSvg(routeLineWidth(route));
+            polyline.style.stroke = routeColor(renderRoute);
+            polyline.style.strokeWidth = routeStrokeWidthSvg(routeLineWidth(renderRoute));
+            applyRouteLineStyle(polyline, renderRoute && renderRoute.line_style);
             routesSvgEl.appendChild(polyline);
         });
 
         hoverRoutes.forEach(function (route) {
-            var points = hoverRoutePoints(route);
+            var renderRoute = hoverRouteDraftFromForm(route);
+            var points = hoverRoutePoints(renderRoute);
             if (points.length < 2) return;
             var polyline = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
             polyline.setAttribute('points', pointsToSvg(points));
             polyline.setAttribute('class', 'sre-route sre-route-hover');
-            polyline.style.stroke = normalizeHexColor(route && route.color, '#facc15');
-            polyline.style.strokeWidth = routeStrokeWidthSvg(route && route.line_width);
-            applyHoverRouteLineStyle(polyline, route && route.line_style);
+            polyline.style.stroke = normalizeHexColor(renderRoute && renderRoute.color, '#facc15');
+            polyline.style.strokeWidth = routeStrokeWidthSvg(renderRoute && renderRoute.line_width);
+            applyHoverRouteLineStyle(polyline, renderRoute && renderRoute.line_style);
             routesSvgEl.appendChild(polyline);
         });
 
@@ -641,6 +904,7 @@
                     draftPolyline.setAttribute('class', 'sre-route sre-route-draft');
                     draftPolyline.style.stroke = draftStyle.color;
                     draftPolyline.style.strokeWidth = routeStrokeWidthSvg(draftStyle.line_width);
+                    applyRouteLineStyle(draftPolyline, draftStyle.line_style);
                     routesSvgEl.appendChild(draftPolyline);
                 }
             }
@@ -812,93 +1076,74 @@
         ensureMarkerModalPosition(false);
     }
 
-    function upsertLocalRoute(updatedRoute) {
-        if (!updatedRoute || !updatedRoute.id) return;
-        for (var i = 0; i < routes.length; i += 1) {
-            if (String(routes[i].id) === String(updatedRoute.id)) {
-                routes[i] = updatedRoute;
-                return;
-            }
-        }
-        routes.push(updatedRoute);
+    function routeSummaryLabel(route) {
+        var fromMarker = markerById(route && route.from_marker_id);
+        var toMarker = markerById(route && route.to_marker_id);
+        return markerName(fromMarker) + ' -> ' + markerName(toMarker);
     }
 
-    function routeLivePayload(routeId) {
-        var colorInput = document.getElementById('sre-route-color-' + routeId);
-        var widthInput = document.getElementById('sre-route-width-' + routeId);
-        var distanceInput = document.getElementById('sre-route-distance-' + routeId);
-        var color = normalizeHexColor(colorInput ? colorInput.value : '', '#162338');
-        var lineWidth = clampLineWidth(widthInput ? widthInput.value : 3);
-        var distanceKm = normalizeDistanceKm(distanceInput ? distanceInput.value : null);
-        if (colorInput) colorInput.value = color;
-        if (widthInput) widthInput.value = String(lineWidth);
-        if (distanceInput) distanceInput.value = distanceKm === null ? '' : String(distanceKm);
-        return {
-            color: color,
-            line_width: lineWidth,
-            distance_km: distanceKm
-        };
-    }
-
-    function applyLocalRouteLiveValues(routeId, payload) {
-        var route = routeById(routeId);
-        if (!route) return;
-        route.color = payload.color;
-        route.line_width = payload.line_width;
-        route.distance_km = payload.distance_km;
-    }
-
-    async function persistRouteLiveValues(routeId) {
-        if (liveRouteSaveInFlight[routeId]) return;
-        var queuedPayload = liveRouteSaveQueue[routeId];
-        if (!queuedPayload) return;
-        liveRouteSaveQueue[routeId] = null;
-        liveRouteSaveInFlight[routeId] = true;
-        try {
-            var updated = await apiFetch('/api/sales-map-routes/' + encodeURIComponent(routeId), {
-                method: 'PATCH',
-                body: JSON.stringify(queuedPayload)
-            });
-            upsertLocalRoute(updated);
-            renderMapOverlay();
-        } catch (error) {
-            await loadMap();
-            setStatus((error && error.message) ? error.message : 'Failed to update route style', 'warn');
+    function renderRoutePanel() {
+        var selected = selectedRoute();
+        if (!routePanelEl) return;
+        var summaryEl = document.getElementById('sre-selected-route-name');
+        var metaEl = document.getElementById('sre-selected-route-meta');
+        var colorEl = document.getElementById('sre-selected-route-color');
+        var widthEl = document.getElementById('sre-selected-route-width');
+        var distanceEl = document.getElementById('sre-selected-route-distance');
+        var styleEl = document.getElementById('sre-selected-route-style');
+        if (!selected) {
+            routePanelEl.hidden = true;
+            routePanelEl.classList.remove('is-floating');
+            routePanelEl.style.left = '';
+            routePanelEl.style.top = '';
+            routePanelEl.style.right = '';
+            endRouteModalDrag();
             return;
-        } finally {
-            liveRouteSaveInFlight[routeId] = false;
         }
-        if (liveRouteSaveQueue[routeId]) {
-            await persistRouteLiveValues(routeId);
+        routePanelEl.hidden = false;
+        routePanelEl.classList.add('is-floating');
+        if (summaryEl) summaryEl.textContent = routeSummaryLabel(selected);
+        if (metaEl) metaEl.textContent = anchoredRoutePoints(selected).length + ' pts';
+        if (colorEl) colorEl.value = routeColor(selected);
+        if (widthEl) widthEl.value = String(routeLineWidth(selected));
+        if (distanceEl) {
+            var distanceKm = routeDistanceKm(selected);
+            distanceEl.value = distanceKm === null ? '' : String(distanceKm);
         }
+        if (styleEl) styleEl.value = normalizeRouteLineStyle(selected.line_style, 'dashed');
+        ensureRouteModalPosition(false);
     }
 
-    function queueRouteLiveSave(routeId, payload) {
-        if (liveRouteSaveTimers[routeId]) {
-            clearTimeout(liveRouteSaveTimers[routeId]);
+    function renderHoverRoutePanel() {
+        var selected = selectedHoverRoute();
+        if (!hoverRoutePanelEl) return;
+        var summaryEl = document.getElementById('sre-selected-hover-route-name');
+        var metaEl = document.getElementById('sre-selected-hover-route-meta');
+        var labelEl = document.getElementById('sre-selected-hover-route-label');
+        var colorEl = document.getElementById('sre-selected-hover-route-color');
+        var widthEl = document.getElementById('sre-selected-hover-route-width');
+        var styleEl = document.getElementById('sre-selected-hover-route-style');
+        if (!selected) {
+            hoverRoutePanelEl.hidden = true;
+            hoverRoutePanelEl.classList.remove('is-floating');
+            hoverRoutePanelEl.style.left = '';
+            hoverRoutePanelEl.style.top = '';
+            hoverRoutePanelEl.style.right = '';
+            endHoverRouteModalDrag();
+            return;
         }
-        liveRouteSaveQueue[routeId] = payload;
-        liveRouteSaveTimers[routeId] = setTimeout(function () {
-            liveRouteSaveTimers[routeId] = null;
-            persistRouteLiveValues(routeId).catch(function (error) {
-                setStatus((error && error.message) ? error.message : 'Failed to save route style', 'warn');
-            });
-        }, 260);
-    }
-
-    function handleRouteLiveInput(routeId) {
-        var payload = routeLivePayload(routeId);
-        applyLocalRouteLiveValues(routeId, payload);
-        var swatchEl = document.getElementById('sre-route-swatch-' + routeId);
-        if (swatchEl) swatchEl.style.background = payload.color;
-        var widthChipEl = document.getElementById('sre-route-width-chip-' + routeId);
-        if (widthChipEl) widthChipEl.textContent = 'W ' + payload.line_width;
-        var distanceChipEl = document.getElementById('sre-route-distance-chip-' + routeId);
-        if (distanceChipEl) {
-            distanceChipEl.textContent = payload.distance_km === null ? 'No distance' : (payload.distance_km + ' km');
-        }
-        renderMapOverlay();
-        queueRouteLiveSave(routeId, payload);
+        hoverRoutePanelEl.hidden = false;
+        hoverRoutePanelEl.classList.add('is-floating');
+        var index = hoverRoutes.findIndex(function (route) {
+            return String(route.id) === String(selected.id);
+        });
+        if (summaryEl) summaryEl.textContent = hoverRouteLabel(selected, index);
+        if (metaEl) metaEl.textContent = hoverRoutePoints(selected).length + ' pts';
+        if (labelEl) labelEl.value = selected.label || '';
+        if (colorEl) colorEl.value = normalizeHexColor(selected.color, '#facc15');
+        if (widthEl) widthEl.value = String(clampLineWidth(selected.line_width));
+        if (styleEl) styleEl.value = normalizeHoverRouteLineStyle(selected.line_style, 'dashed');
+        ensureHoverRouteModalPosition(false);
     }
 
     async function saveHoverRouteDraft() {
@@ -924,37 +1169,6 @@
         setStatus('Independent hover route saved. Click to draw another or switch modes.', 'ok');
     }
 
-    async function saveHoverRouteRow(routeId) {
-        var labelInput = document.getElementById('sre-hover-route-label-' + routeId);
-        var colorInput = document.getElementById('sre-hover-route-color-' + routeId);
-        var widthInput = document.getElementById('sre-hover-route-width-' + routeId);
-        var styleInput = document.getElementById('sre-hover-route-style-' + routeId);
-        var payload = {
-            label: labelInput ? labelInput.value.trim() : '',
-            color: normalizeHexColor(colorInput ? colorInput.value : '', '#facc15'),
-            line_width: clampLineWidth(widthInput ? widthInput.value : 4),
-            line_style: normalizeHoverRouteLineStyle(styleInput ? styleInput.value : '', 'dashed')
-        };
-        if (colorInput) colorInput.value = payload.color;
-        if (widthInput) widthInput.value = String(payload.line_width);
-        if (styleInput) styleInput.value = payload.line_style;
-        await apiFetch('/api/sales-map-hover-routes/' + encodeURIComponent(routeId), {
-            method: 'PATCH',
-            body: JSON.stringify(payload)
-        });
-        await loadMap();
-        setStatus('Independent hover route updated.', 'ok');
-    }
-
-    async function deleteHoverRouteRow(routeId) {
-        if (!confirm('Delete this independent hover route?')) return;
-        await apiFetch('/api/sales-map-hover-routes/' + encodeURIComponent(routeId), {
-            method: 'DELETE'
-        });
-        await loadMap();
-        setStatus('Independent hover route deleted.', 'ok');
-    }
-
     function renderLists() {
         var markersList = document.getElementById('sre-markers-list');
         if (!markers.length) {
@@ -971,6 +1185,8 @@
             markersList.querySelectorAll('[data-marker-id]').forEach(function (btn) {
                 btn.addEventListener('click', function () {
                     selectedMarkerId = btn.dataset.markerId;
+                    selectedRouteId = null;
+                    selectedHoverRouteId = null;
                     renderAll();
                 });
             });
@@ -981,51 +1197,25 @@
             routesList.innerHTML = '<div class="sre-note">No routes yet.</div>';
         } else {
             routesList.innerHTML = routes.map(function (route) {
-                var fromMarker = markerById(route.from_marker_id);
-                var toMarker = markerById(route.to_marker_id);
-                var label = markerName(fromMarker) + ' -> ' + markerName(toMarker);
-                var color = routeColor(route);
-                var lineWidth = routeLineWidth(route);
-                var distanceKm = routeDistanceKm(route);
+                var renderRoute = routeDraftFromForm(route);
+                var label = routeSummaryLabel(renderRoute);
+                var color = routeColor(renderRoute);
+                var lineWidth = routeLineWidth(renderRoute);
+                var lineStyle = normalizeRouteLineStyle(renderRoute && renderRoute.line_style, 'dashed');
+                var distanceKm = routeDistanceKm(renderRoute);
                 var distanceChip = distanceKm === null ? 'No distance' : (distanceKm + ' km');
-                return '<div class="sre-list-row sre-route-row">' +
-                    '<div class="sre-route-top">' +
-                    '<span class="sre-route-name">' + escapeHtml(label) + '</span>' +
-                    '<span class="sre-route-style"><span id="sre-route-swatch-' + route.id + '" class="sre-route-swatch" style="background:' + escapeHtml(color) + ';"></span><span id="sre-route-width-chip-' + route.id + '" class="sre-chip">W ' + lineWidth + '</span><span id="sre-route-distance-chip-' + route.id + '" class="sre-chip">' + escapeHtml(distanceChip) + '</span></span>' +
-                    '</div>' +
-                    '<div class="sre-route-controls">' +
-                    '<input type="color" id="sre-route-color-' + route.id + '" class="sre-route-color-input" data-route-live-id="' + route.id + '" value="' + escapeHtml(color) + '">' +
-                    '<input type="number" id="sre-route-width-' + route.id + '" class="sre-input sre-route-width-input" data-route-live-id="' + route.id + '" min="1" max="12" step="1" value="' + lineWidth + '">' +
-                    '<input type="number" id="sre-route-distance-' + route.id + '" class="sre-input sre-route-distance-input" data-route-live-id="' + route.id + '" min="0" step="0.01" placeholder="km" value="' + (distanceKm === null ? '' : escapeHtml(String(distanceKm))) + '">' +
-                    '<button type="button" class="btn btn-danger btn-sm" data-route-id="' + route.id + '">Delete</button>' +
-                    '</div>' +
-                    '</div>';
+                var activeClass = String(route.id) === String(selectedRouteId) ? ' active' : '';
+                return '<button type="button" class="sre-list-item' + activeClass + '" data-route-select-id="' + route.id + '">' +
+                    '<span class="sre-list-item-left"><span class="sre-route-swatch" style="background:' + escapeHtml(color) + ';"></span><span class="sre-list-item-copy sre-list-item-copy--stack"><span class="sre-route-name">' + escapeHtml(label) + '</span><span class="sre-note">Click to edit route</span></span></span>' +
+                    '<span class="sre-list-item-right"><span class="sre-chip">' + escapeHtml(routeLineStyleLabel(lineStyle)) + '</span><span class="sre-chip">W ' + lineWidth + '</span><span class="sre-chip">' + escapeHtml(distanceChip) + '</span></span>' +
+                    '</button>';
             }).join('');
-            routesList.querySelectorAll('[data-route-live-id]').forEach(function (input) {
-                var routeId = input.dataset.routeLiveId;
-                input.addEventListener('input', function () { handleRouteLiveInput(routeId); });
-                input.addEventListener('change', function () { handleRouteLiveInput(routeId); });
-            });
-            routesList.querySelectorAll('[data-route-id]').forEach(function (btn) {
-                btn.addEventListener('click', async function () {
-                    if (!confirm('Delete this route?')) return;
-                    btn.disabled = true;
-                    var routeId = btn.dataset.routeId;
-                    if (liveRouteSaveTimers[routeId]) {
-                        clearTimeout(liveRouteSaveTimers[routeId]);
-                        liveRouteSaveTimers[routeId] = null;
-                    }
-                    liveRouteSaveQueue[routeId] = null;
-                    liveRouteSaveInFlight[routeId] = false;
-                    try {
-                        await apiFetch('/api/sales-map-routes/' + encodeURIComponent(routeId), { method: 'DELETE' });
-                        await loadMap();
-                        setStatus('Route deleted.', 'ok');
-                    } catch (error) {
-                        setStatus((error && error.message) ? error.message : 'Failed to delete route', 'warn');
-                    } finally {
-                        btn.disabled = false;
-                    }
+            routesList.querySelectorAll('[data-route-select-id]').forEach(function (btn) {
+                btn.addEventListener('click', function () {
+                    selectedRouteId = btn.dataset.routeSelectId;
+                    selectedMarkerId = null;
+                    selectedHoverRouteId = null;
+                    renderAll();
                 });
             });
         }
@@ -1035,41 +1225,23 @@
             hoverRoutesList.innerHTML = '<div class="sre-note">No independent hover routes yet.</div>';
         } else {
             hoverRoutesList.innerHTML = hoverRoutes.map(function (route, index) {
-                var color = normalizeHexColor(route && route.color, '#facc15');
-                var lineWidth = clampLineWidth(route && route.line_width);
-                var lineStyle = normalizeHoverRouteLineStyle(route && route.line_style, 'dashed');
-                var pointsCount = hoverRoutePoints(route).length;
-                return '<div class="sre-list-row sre-hover-route-row">' +
-                    '<div class="sre-route-top">' +
-                    '<span class="sre-route-name">' + escapeHtml(hoverRouteLabel(route, index)) + '</span>' +
-                    '<span class="sre-route-style"><span class="sre-route-swatch" style="background:' + escapeHtml(color) + ';"></span><span class="sre-chip">' + escapeHtml(hoverRouteLineStyleLabel(lineStyle)) + '</span><span class="sre-chip">W ' + lineWidth + '</span><span class="sre-chip">' + pointsCount + ' pts</span></span>' +
-                    '</div>' +
-                    '<div class="sre-hover-route-controls">' +
-                    '<input type="text" id="sre-hover-route-label-' + route.id + '" class="sre-input sre-hover-route-label-input" maxlength="120" value="' + escapeHtml(route.label || '') + '" placeholder="Independent route label">' +
-                    '<input type="color" id="sre-hover-route-color-' + route.id + '" class="sre-route-color-input" value="' + escapeHtml(color) + '">' +
-                    '<input type="number" id="sre-hover-route-width-' + route.id + '" class="sre-input sre-route-width-input" min="1" max="12" step="1" value="' + lineWidth + '">' +
-                    '<select id="sre-hover-route-style-' + route.id + '" class="sre-input">' +
-                    '<option value="dashed"' + (lineStyle === 'dashed' ? ' selected' : '') + '>Dashed</option>' +
-                    '<option value="dotted"' + (lineStyle === 'dotted' ? ' selected' : '') + '>Dotted</option>' +
-                    '<option value="continuous"' + (lineStyle === 'continuous' ? ' selected' : '') + '>Continuous</option>' +
-                    '</select>' +
-                    '<button type="button" class="btn btn-secondary btn-sm" data-hover-route-save-id="' + route.id + '">Save</button>' +
-                    '<button type="button" class="btn btn-danger btn-sm" data-hover-route-delete-id="' + route.id + '">Delete</button>' +
-                    '</div>' +
-                    '</div>';
+                var renderRoute = hoverRouteDraftFromForm(route);
+                var color = normalizeHexColor(renderRoute && renderRoute.color, '#facc15');
+                var lineWidth = clampLineWidth(renderRoute && renderRoute.line_width);
+                var lineStyle = normalizeHoverRouteLineStyle(renderRoute && renderRoute.line_style, 'dashed');
+                var pointsCount = hoverRoutePoints(renderRoute).length;
+                var activeClass = String(route.id) === String(selectedHoverRouteId) ? ' active' : '';
+                return '<button type="button" class="sre-list-item' + activeClass + '" data-hover-route-select-id="' + route.id + '">' +
+                    '<span class="sre-list-item-left"><span class="sre-route-swatch" style="background:' + escapeHtml(color) + ';"></span><span class="sre-list-item-copy sre-list-item-copy--stack"><span class="sre-route-name">' + escapeHtml(hoverRouteLabel(renderRoute, index)) + '</span><span class="sre-note">Click to edit independent route</span></span></span>' +
+                    '<span class="sre-list-item-right"><span class="sre-chip">' + escapeHtml(hoverRouteLineStyleLabel(lineStyle)) + '</span><span class="sre-chip">W ' + lineWidth + '</span><span class="sre-chip">' + pointsCount + ' pts</span></span>' +
+                    '</button>';
             }).join('');
-            hoverRoutesList.querySelectorAll('[data-hover-route-save-id]').forEach(function (btn) {
+            hoverRoutesList.querySelectorAll('[data-hover-route-select-id]').forEach(function (btn) {
                 btn.addEventListener('click', function () {
-                    saveHoverRouteRow(btn.dataset.hoverRouteSaveId).catch(function (error) {
-                        setStatus((error && error.message) ? error.message : 'Failed to save hover route', 'warn');
-                    });
-                });
-            });
-            hoverRoutesList.querySelectorAll('[data-hover-route-delete-id]').forEach(function (btn) {
-                btn.addEventListener('click', function () {
-                    deleteHoverRouteRow(btn.dataset.hoverRouteDeleteId).catch(function (error) {
-                        setStatus((error && error.message) ? error.message : 'Failed to delete hover route', 'warn');
-                    });
+                    selectedHoverRouteId = btn.dataset.hoverRouteSelectId;
+                    selectedMarkerId = null;
+                    selectedRouteId = null;
+                    renderAll();
                 });
             });
         }
@@ -1077,6 +1249,8 @@
 
     function renderAll() {
         renderMarkerPanel();
+        renderRoutePanel();
+        renderHoverRoutePanel();
         renderMapOverlay();
         renderLists();
     }
@@ -1091,6 +1265,8 @@
         document.getElementById('sre-map-title').textContent = data.name || 'Route Map Editor';
         document.getElementById('sre-preview-link').href = data.share_url || '#';
         if (!selectedMarker()) selectedMarkerId = null;
+        if (!selectedRoute()) selectedRouteId = null;
+        if (!selectedHoverRoute()) selectedHoverRouteId = null;
         renderAll();
     }
 
@@ -1171,6 +1347,62 @@
         setStatus('Pointer deleted.', 'ok');
     }
 
+    async function saveSelectedRoute() {
+        var route = selectedRoute();
+        if (!route) return;
+        var payload = {
+            color: normalizeHexColor(document.getElementById('sre-selected-route-color').value, '#162338'),
+            line_width: clampLineWidth(document.getElementById('sre-selected-route-width').value),
+            distance_km: normalizeDistanceKm(document.getElementById('sre-selected-route-distance').value),
+            line_style: normalizeRouteLineStyle(document.getElementById('sre-selected-route-style').value, 'dashed')
+        };
+        await apiFetch('/api/sales-map-routes/' + encodeURIComponent(route.id), {
+            method: 'PATCH',
+            body: JSON.stringify(payload)
+        });
+        await loadMap();
+        setStatus('Route updated.', 'ok');
+    }
+
+    async function deleteSelectedRoute() {
+        var route = selectedRoute();
+        if (!route) return;
+        if (!confirm('Delete this route?')) return;
+        await apiFetch('/api/sales-map-routes/' + encodeURIComponent(route.id), { method: 'DELETE' });
+        selectedRouteId = null;
+        await loadMap();
+        setStatus('Route deleted.', 'ok');
+    }
+
+    async function saveSelectedHoverRoute() {
+        var route = selectedHoverRoute();
+        if (!route) return;
+        var payload = {
+            label: document.getElementById('sre-selected-hover-route-label').value.trim(),
+            color: normalizeHexColor(document.getElementById('sre-selected-hover-route-color').value, '#facc15'),
+            line_width: clampLineWidth(document.getElementById('sre-selected-hover-route-width').value),
+            line_style: normalizeHoverRouteLineStyle(document.getElementById('sre-selected-hover-route-style').value, 'dashed')
+        };
+        await apiFetch('/api/sales-map-hover-routes/' + encodeURIComponent(route.id), {
+            method: 'PATCH',
+            body: JSON.stringify(payload)
+        });
+        await loadMap();
+        setStatus('Independent hover route updated.', 'ok');
+    }
+
+    async function deleteSelectedHoverRoute() {
+        var route = selectedHoverRoute();
+        if (!route) return;
+        if (!confirm('Delete this independent route?')) return;
+        await apiFetch('/api/sales-map-hover-routes/' + encodeURIComponent(route.id), {
+            method: 'DELETE'
+        });
+        selectedHoverRouteId = null;
+        await loadMap();
+        setStatus('Independent hover route deleted.', 'ok');
+    }
+
     async function finalizeDrawRoute(endMarker) {
         var startMarker = markerById(routeDraft.startMarkerId);
         if (!startMarker || !endMarker) return;
@@ -1187,6 +1419,7 @@
                 path_points: points,
                 color: routeStyle.color,
                 line_width: routeStyle.line_width,
+                line_style: routeStyle.line_style,
                 distance_km: routeStyle.distance_km
             })
         });
@@ -1220,6 +1453,8 @@
             return;
         }
         selectedMarkerId = marker.id;
+        selectedRouteId = null;
+        selectedHoverRouteId = null;
         renderAll();
     }
 
@@ -1271,6 +1506,8 @@
                 return;
             }
             selectedMarkerId = null;
+            selectedRouteId = null;
+            selectedHoverRouteId = null;
             renderAll();
         } catch (error) {
             setStatus((error && error.message) ? error.message : 'Action failed', 'warn');
@@ -1293,8 +1530,28 @@
                 renderAll();
             });
         }
+        if (routeModalHandleEl) {
+            routeModalHandleEl.addEventListener('pointerdown', beginRouteModalDrag);
+        }
+        if (routeModalCloseEl) {
+            routeModalCloseEl.addEventListener('click', function () {
+                selectedRouteId = null;
+                renderAll();
+            });
+        }
+        if (hoverRouteModalHandleEl) {
+            hoverRouteModalHandleEl.addEventListener('pointerdown', beginHoverRouteModalDrag);
+        }
+        if (hoverRouteModalCloseEl) {
+            hoverRouteModalCloseEl.addEventListener('click', function () {
+                selectedHoverRouteId = null;
+                renderAll();
+            });
+        }
         window.addEventListener('resize', function () {
             ensureMarkerModalPosition(false);
+            ensureRouteModalPosition(false);
+            ensureHoverRouteModalPosition(false);
         });
 
         document.getElementById('sre-route-undo').addEventListener('click', function () {
@@ -1320,6 +1577,7 @@
         var routeColorInput = document.getElementById('sre-route-color');
         var routeWidthInput = document.getElementById('sre-route-width');
         var routeDistanceInput = document.getElementById('sre-route-distance');
+        var routeStyleInput = document.getElementById('sre-route-style');
         if (routeColorInput) {
             var onRouteColorChange = function () {
                 routeColorInput.value = normalizeHexColor(routeColorInput.value, '#162338');
@@ -1342,6 +1600,62 @@
                 routeDistanceInput.value = normalized === null ? '' : String(normalized);
             });
         }
+        if (routeStyleInput) {
+            var onRouteStyleChange = function () {
+                routeStyleInput.value = normalizeRouteLineStyle(routeStyleInput.value, 'dashed');
+                if (mode === 'draw_route' && routeDraft.startMarkerId) renderMapOverlay();
+            };
+            routeStyleInput.addEventListener('change', onRouteStyleChange);
+            routeStyleInput.addEventListener('input', onRouteStyleChange);
+        }
+
+        var selectedRouteColorInput = document.getElementById('sre-selected-route-color');
+        var selectedRouteWidthInput = document.getElementById('sre-selected-route-width');
+        var selectedRouteDistanceInput = document.getElementById('sre-selected-route-distance');
+        var selectedRouteStyleInput = document.getElementById('sre-selected-route-style');
+        if (selectedRouteColorInput) {
+            var onSelectedRouteColorChange = function () {
+                selectedRouteColorInput.value = normalizeHexColor(selectedRouteColorInput.value, '#162338');
+                refreshSelectedRouteDraftRender();
+            };
+            selectedRouteColorInput.addEventListener('input', onSelectedRouteColorChange);
+            selectedRouteColorInput.addEventListener('change', onSelectedRouteColorChange);
+        }
+        if (selectedRouteWidthInput) {
+            var onSelectedRouteWidthChange = function () {
+                selectedRouteWidthInput.value = String(clampLineWidth(selectedRouteWidthInput.value));
+                refreshSelectedRouteDraftRender();
+            };
+            selectedRouteWidthInput.addEventListener('input', onSelectedRouteWidthChange);
+            selectedRouteWidthInput.addEventListener('change', onSelectedRouteWidthChange);
+        }
+        if (selectedRouteDistanceInput) {
+            var onSelectedRouteDistanceChange = function () {
+                var normalizedDistance = normalizeDistanceKm(selectedRouteDistanceInput.value);
+                selectedRouteDistanceInput.value = normalizedDistance === null ? '' : String(normalizedDistance);
+                refreshSelectedRouteDraftRender();
+            };
+            selectedRouteDistanceInput.addEventListener('input', refreshSelectedRouteDraftRender);
+            selectedRouteDistanceInput.addEventListener('change', onSelectedRouteDistanceChange);
+        }
+        if (selectedRouteStyleInput) {
+            var onSelectedRouteStyleChange = function () {
+                selectedRouteStyleInput.value = normalizeRouteLineStyle(selectedRouteStyleInput.value, 'dashed');
+                refreshSelectedRouteDraftRender();
+            };
+            selectedRouteStyleInput.addEventListener('input', onSelectedRouteStyleChange);
+            selectedRouteStyleInput.addEventListener('change', onSelectedRouteStyleChange);
+        }
+        document.getElementById('sre-save-route').addEventListener('click', function () {
+            saveSelectedRoute().catch(function (error) {
+                setStatus((error && error.message) ? error.message : 'Failed to save route', 'warn');
+            });
+        });
+        document.getElementById('sre-delete-route').addEventListener('click', function () {
+            deleteSelectedRoute().catch(function (error) {
+                setStatus((error && error.message) ? error.message : 'Failed to delete route', 'warn');
+            });
+        });
 
         var hoverRouteColorInput = document.getElementById('sre-hover-route-color');
         var hoverRouteWidthInput = document.getElementById('sre-hover-route-width');
@@ -1378,6 +1692,48 @@
                 });
             });
         }
+
+        var selectedHoverRouteLabelInput = document.getElementById('sre-selected-hover-route-label');
+        var selectedHoverRouteColorInput = document.getElementById('sre-selected-hover-route-color');
+        var selectedHoverRouteWidthInput = document.getElementById('sre-selected-hover-route-width');
+        var selectedHoverRouteStyleInput = document.getElementById('sre-selected-hover-route-style');
+        if (selectedHoverRouteLabelInput) {
+            selectedHoverRouteLabelInput.addEventListener('input', refreshSelectedHoverRouteDraftRender);
+        }
+        if (selectedHoverRouteColorInput) {
+            var onSelectedHoverRouteColorChange = function () {
+                selectedHoverRouteColorInput.value = normalizeHexColor(selectedHoverRouteColorInput.value, '#facc15');
+                refreshSelectedHoverRouteDraftRender();
+            };
+            selectedHoverRouteColorInput.addEventListener('input', onSelectedHoverRouteColorChange);
+            selectedHoverRouteColorInput.addEventListener('change', onSelectedHoverRouteColorChange);
+        }
+        if (selectedHoverRouteWidthInput) {
+            var onSelectedHoverRouteWidthChange = function () {
+                selectedHoverRouteWidthInput.value = String(clampLineWidth(selectedHoverRouteWidthInput.value));
+                refreshSelectedHoverRouteDraftRender();
+            };
+            selectedHoverRouteWidthInput.addEventListener('input', onSelectedHoverRouteWidthChange);
+            selectedHoverRouteWidthInput.addEventListener('change', onSelectedHoverRouteWidthChange);
+        }
+        if (selectedHoverRouteStyleInput) {
+            var onSelectedHoverRouteStyleChange = function () {
+                selectedHoverRouteStyleInput.value = normalizeHoverRouteLineStyle(selectedHoverRouteStyleInput.value, 'dashed');
+                refreshSelectedHoverRouteDraftRender();
+            };
+            selectedHoverRouteStyleInput.addEventListener('input', onSelectedHoverRouteStyleChange);
+            selectedHoverRouteStyleInput.addEventListener('change', onSelectedHoverRouteStyleChange);
+        }
+        document.getElementById('sre-save-selected-hover-route').addEventListener('click', function () {
+            saveSelectedHoverRoute().catch(function (error) {
+                setStatus((error && error.message) ? error.message : 'Failed to save independent route', 'warn');
+            });
+        });
+        document.getElementById('sre-delete-selected-hover-route').addEventListener('click', function () {
+            deleteSelectedHoverRoute().catch(function (error) {
+                setStatus((error && error.message) ? error.message : 'Failed to delete independent route', 'warn');
+            });
+        });
 
         document.getElementById('sre-save-marker').addEventListener('click', function () {
             saveSelectedMarker().catch(function (error) {
@@ -1492,6 +1848,12 @@
         selectedPanelEl = document.getElementById('sre-selected-panel');
         markerModalHandleEl = document.getElementById('sre-marker-modal-handle');
         markerModalCloseEl = document.getElementById('sre-marker-modal-close');
+        routePanelEl = document.getElementById('sre-selected-route-panel');
+        routeModalHandleEl = document.getElementById('sre-route-modal-handle');
+        routeModalCloseEl = document.getElementById('sre-route-modal-close');
+        hoverRoutePanelEl = document.getElementById('sre-selected-hover-route-panel');
+        hoverRouteModalHandleEl = document.getElementById('sre-hover-route-modal-handle');
+        hoverRouteModalCloseEl = document.getElementById('sre-hover-route-modal-close');
 
         stageEl.addEventListener('click', onStageClick);
         renderIconLibrary();

@@ -114,6 +114,7 @@ create table if not exists public.sales_route_map_routes (
   path_points jsonb not null default '[]',
   color text not null default '#162338',
   line_width int not null default 3 check (line_width >= 1 and line_width <= 12),
+  line_style text not null default 'dashed' check (line_style in ('continuous', 'dashed', 'dotted')),
   distance_km double precision check (distance_km is null or distance_km >= 0),
   sort_order int not null default 0,
   created_at timestamptz default now(),

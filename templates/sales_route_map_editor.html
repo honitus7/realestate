@@ -117,6 +117,88 @@
                     </div>
                 </div>
 
+                <div class="sre-panel-section sre-selected-panel" id="sre-selected-route-panel" hidden>
+                    <div class="sre-panel-head sre-panel-head-draggable" id="sre-route-modal-handle">
+                        <div>
+                            <div class="sre-panel-title">Selected Route</div>
+                            <div class="sre-panel-drag-hint">Drag this window while editing.</div>
+                        </div>
+                        <button type="button" class="sre-panel-close" id="sre-route-modal-close" aria-label="Close route editor">Close</button>
+                    </div>
+                    <div id="sre-selected-route-form">
+                        <div class="sre-route-editor-summary" id="sre-selected-route-name"></div>
+                        <div class="sre-note sre-note-tight" id="sre-selected-route-meta"></div>
+                        <div class="sre-field-grid">
+                            <div class="sre-field">
+                                <label for="sre-selected-route-color">Route Color</label>
+                                <input id="sre-selected-route-color" class="sre-route-color-input" type="color" value="#162338">
+                            </div>
+                            <div class="sre-field">
+                                <label for="sre-selected-route-width">Route Width</label>
+                                <input id="sre-selected-route-width" class="sre-input sre-route-width-input" type="number" min="1" max="12" step="1" value="3">
+                            </div>
+                            <div class="sre-field">
+                                <label for="sre-selected-route-distance">Distance (km)</label>
+                                <input id="sre-selected-route-distance" class="sre-input sre-route-distance-input" type="number" min="0" step="0.01" placeholder="e.g. 8.5">
+                            </div>
+                            <div class="sre-field">
+                                <label for="sre-selected-route-style">Line Type</label>
+                                <select id="sre-selected-route-style" class="sre-input">
+                                    <option value="dashed">Dashed</option>
+                                    <option value="dotted">Dotted</option>
+                                    <option value="continuous">Continuous</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="sre-note sre-note-tight">Preview updates live before saving. Redraw the route if you need to change its path.</div>
+                        <div class="sre-actions">
+                            <button class="btn btn-secondary btn-sm" id="sre-save-route">Save</button>
+                            <button class="btn btn-danger btn-sm" id="sre-delete-route">Delete</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="sre-panel-section sre-selected-panel" id="sre-selected-hover-route-panel" hidden>
+                    <div class="sre-panel-head sre-panel-head-draggable" id="sre-hover-route-modal-handle">
+                        <div>
+                            <div class="sre-panel-title">Selected Independent Route</div>
+                            <div class="sre-panel-drag-hint">Drag this window while editing.</div>
+                        </div>
+                        <button type="button" class="sre-panel-close" id="sre-hover-route-modal-close" aria-label="Close independent route editor">Close</button>
+                    </div>
+                    <div id="sre-selected-hover-route-form">
+                        <div class="sre-route-editor-summary" id="sre-selected-hover-route-name"></div>
+                        <div class="sre-note sre-note-tight" id="sre-selected-hover-route-meta"></div>
+                        <div class="sre-field-grid">
+                            <div class="sre-field">
+                                <label for="sre-selected-hover-route-label">Label</label>
+                                <input id="sre-selected-hover-route-label" class="sre-input" type="text" maxlength="120" placeholder="Independent route label">
+                            </div>
+                            <div class="sre-field">
+                                <label for="sre-selected-hover-route-color">Route Color</label>
+                                <input id="sre-selected-hover-route-color" class="sre-route-color-input" type="color" value="#facc15">
+                            </div>
+                            <div class="sre-field">
+                                <label for="sre-selected-hover-route-width">Route Width</label>
+                                <input id="sre-selected-hover-route-width" class="sre-input sre-route-width-input" type="number" min="1" max="12" step="1" value="4">
+                            </div>
+                            <div class="sre-field">
+                                <label for="sre-selected-hover-route-style">Line Type</label>
+                                <select id="sre-selected-hover-route-style" class="sre-input">
+                                    <option value="dashed">Dashed</option>
+                                    <option value="dotted">Dotted</option>
+                                    <option value="continuous">Continuous</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="sre-note sre-note-tight">Preview updates live before saving. Delete and redraw the route if you need to change its path.</div>
+                        <div class="sre-actions">
+                            <button class="btn btn-secondary btn-sm" id="sre-save-selected-hover-route">Save</button>
+                            <button class="btn btn-danger btn-sm" id="sre-delete-selected-hover-route">Delete</button>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="sre-panel-section">
                     <div class="sre-panel-title">Pointers</div>
                     <div id="sre-markers-list" class="sre-list"></div>
@@ -136,6 +218,14 @@
                         <div class="sre-field">
                             <label for="sre-route-distance">New Route Distance (km)</label>
                             <input id="sre-route-distance" class="sre-input sre-route-distance-input" type="number" min="0" step="0.01" placeholder="e.g. 8.5">
+                        </div>
+                        <div class="sre-field">
+                            <label for="sre-route-style">New Route Line Type</label>
+                            <select id="sre-route-style" class="sre-input">
+                                <option value="dashed">Dashed</option>
+                                <option value="dotted">Dotted</option>
+                                <option value="continuous">Continuous</option>
+                            </select>
                         </div>
                     </div>
                     <div id="sre-routes-list" class="sre-list"></div>
