@@ -7855,6 +7855,15 @@ h1 {{ margin:0 0 8px; font-size:22px; }}
             clean.append({'x': x_ratio, 'y': y_ratio})
         return clean
 
+    def _sanitize_hover_route_line_style(value, fallback='dashed'):
+        style = str(value or '').strip().lower()
+        if style in ('continuous', 'dashed', 'dotted'):
+            return style
+        fallback_style = str(fallback or '').strip().lower()
+        if fallback_style in ('continuous', 'dashed', 'dotted'):
+            return fallback_style
+        return None
+
     def _ensure_route_endpoints(points, from_marker, to_marker):
         start = {
             'x': float(from_marker.get('x_ratio') or 0),
@@ -8407,6 +8416,9 @@ h1 {{ margin:0 0 8px; font-size:22px; }}
             line_width = max(1, min(12, int(data.get('line_width', 4))))
         except (TypeError, ValueError):
             return jsonify({'error': 'line_width must be an integer'}), 400
+        line_style = _sanitize_hover_route_line_style(data.get('line_style'), fallback='dashed')
+        if line_style is None:
+            return jsonify({'error': 'line_style is invalid'}), 400
         points = _sanitize_route_points(data.get('path_points') or [])
         if len(points) < 2:
             return jsonify({'error': 'At least two path points are required'}), 400
@@ -8419,6 +8431,7 @@ h1 {{ margin:0 0 8px; font-size:22px; }}
                 points,
                 color=color,
                 line_width=line_width,
+                line_style=line_style,
                 sort_order=sort_order,
             )
         except Exception as exc:
@@ -8454,6 +8467,11 @@ h1 {{ margin:0 0 8px; font-size:22px; }}
                 updates['line_width'] = max(1, min(12, int(data.get('line_width'))))
             except (TypeError, ValueError):
                 return jsonify({'error': 'line_width must be an integer'}), 400
+        if 'line_style' in data:
+            line_style = _sanitize_hover_route_line_style(data.get('line_style'), fallback='dashed')
+            if line_style is None:
+                return jsonify({'error': 'line_style is invalid'}), 400
+            updates['line_style'] = line_style
         if 'path_points' in data:
             points = _sanitize_route_points(data.get('path_points') or [])
             if len(points) < 2:
@@ -8521,12 +8539,20 @@ h1 {{ margin:0 0 8px; font-size:22px; }}
         markers = srm_list_markers(sb, smap['id'])
         routes = srm_list_routes(sb, smap['id'])
         hover_routes = srm_list_hover_routes(sb, smap['id'])
+        workspace_id = (request.args.get('workspace_id') or '').strip() or None
+        fv_style = {}
+        if workspace_id:
+            fv_cfg = fv_get_config(sb, workspace_id)
+            style_blob = (fv_cfg or {}).get('style')
+            if isinstance(style_blob, dict):
+                fv_style = style_blob
         return render_template(
             'sales_route_map_view.html',
             sales_map=smap,
             markers=markers,
             routes=routes,
             hover_routes=hover_routes,
+            fv_style=fv_style,
             embed=True,
         )
 
@@ -10841,6 +10867,60 @@ h1 {{ margin:0 0 8px; font-size:22px; }}
 
         workspace_hint = secure_filename((request.form.get('workspace_id') or '').strip())[:40]
         prefix = f'fv_icon_{workspace_hint}_' if workspace_hint else 'fv_icon_'
+        filename = f"{prefix}{uuid.uuid4().hex}{ext}"
+
+        try:
+            if use_s3():
+                upload_panorama_to_s3(filename, raw, allowed_types[ext])
+            else:
+                local_path = os.path.join(current_app.config['UPLOAD_FOLDER'], filename)
+                with open(local_path, 'wb') as f:
+                    f.write(raw)
+        except Exception as e:
+            return jsonify({'error': str(e)}), 500
+
+        return jsonify({
+            'filename': filename,
+            'url': '/uploads/' + filename,
+            'width': int(width),
+            'height': int(height),
+        }), 201
+
+    @app.route('/api/full-view/logo-upload', methods=['POST'])
+    @require_admin
+    def api_fv_upload_logo(user_id, role):
+        file_storage = request.files.get('file')
+        if not file_storage or not getattr(file_storage, 'filename', ''):
+            return jsonify({'error': 'Logo file is required'}), 400
+
+        original_name = secure_filename(file_storage.filename or '')
+        ext = os.path.splitext(original_name)[1].lower()
+        allowed_types = {
+            '.png': 'image/png',
+            '.webp': 'image/webp',
+            '.jpg': 'image/jpeg',
+            '.jpeg': 'image/jpeg',
+        }
+        if ext not in allowed_types:
+            return jsonify({'error': 'Only PNG, JPG, JPEG, or WebP logos are supported'}), 400
+
+        try:
+            width, height = probe_image_dimensions(file_storage.stream)
+        except Exception:
+            return jsonify({'error': 'Uploaded file is not a valid image'}), 400
+        if not width or not height:
+            return jsonify({'error': 'Uploaded file is not a valid image'}), 400
+
+        max_bytes = 5 * 1024 * 1024
+        try:
+            raw = read_uploaded_file_bytes(file_storage, max_bytes)
+        except ValueError:
+            return jsonify({'error': 'Logo file is too large. Max size is 5 MB'}), 413
+        if not raw:
+            return jsonify({'error': 'Uploaded logo is empty'}), 400
+
+        workspace_hint = secure_filename((request.form.get('workspace_id') or '').strip())[:40]
+        prefix = f'fv_logo_{workspace_hint}_' if workspace_hint else 'fv_logo_'
         filename = f"{prefix}{uuid.uuid4().hex}{ext}"
 
         try:

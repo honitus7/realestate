@@ -4570,16 +4570,21 @@
             if (btn) btn.classList.add('fv-sidebar-btn--active');
         }
 
+        function releaseSidebarButtonFocus(btn) {
+            if (!btn || typeof btn.blur !== 'function') return;
+            if (typeof requestAnimationFrame === 'function') {
+                requestAnimationFrame(function () { btn.blur(); });
+            } else {
+                setTimeout(function () { btn.blur(); }, 0);
+            }
+        }
+
         function tabDisplayName(btn) {
             if (!btn) return '';
             var labelEl = btn.querySelector('.fv-sidebar-label');
             var label = (labelEl && labelEl.textContent) ? labelEl.textContent.trim() : '';
             if (!label) label = String(btn.getAttribute('title') || '').trim();
             return label;
-        }
-
-        function isHomeTabName(name) {
-            return String(name || '').trim().toLowerCase() === 'home';
         }
 
         function isPanoramaPageForSidebar() {
@@ -4601,13 +4606,11 @@
                 }
                 return;
             }
-            var hideForHome = isHomeTabName(tabDisplayName(activeBtn));
             var hideForPanorama = isPanoramaPageForSidebar();
-            var hide = hideForHome || hideForPanorama;
-            sidebar.classList.toggle('fv-sidebar--hidden', hide);
-            document.body.classList.toggle('fv-home-active', hideForHome && !hideForPanorama);
+            sidebar.classList.toggle('fv-sidebar--hidden', hideForPanorama);
+            document.body.classList.remove('fv-home-active');
             if (navFabFv) {
-                var showRevealFab = hideForHome && !hideForPanorama;
+                var showRevealFab = false;
                 navFabFv.hidden = !showRevealFab;
                 navFabFv.style.display = showRevealFab ? 'flex' : 'none';
             }
@@ -4763,6 +4766,7 @@
             if (!sidebar) return;
             sidebar.querySelectorAll('.fv-sidebar-btn').forEach(function (btn) {
                 btn.addEventListener('click', function () {
+                    releaseSidebarButtonFocus(btn);
                     var type    = String(btn.dataset.tabType || '').trim();
                     var pano    = btn.dataset.refPanorama;
                     var dn      = btn.dataset.refDaynight;

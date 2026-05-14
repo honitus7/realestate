@@ -156,11 +156,19 @@
                             <label for="sre-hover-route-width">Route Width</label>
                             <input id="sre-hover-route-width" class="sre-input sre-route-width-input" type="number" min="1" max="12" step="1" value="4">
                         </div>
+                        <div class="sre-field">
+                            <label for="sre-hover-route-style">Line Type</label>
+                            <select id="sre-hover-route-style" class="sre-input">
+                                <option value="dashed">Dashed</option>
+                                <option value="dotted">Dotted</option>
+                                <option value="continuous">Continuous</option>
+                            </select>
+                        </div>
                     </div>
                     <div class="sre-actions">
                         <button class="btn btn-secondary btn-sm" id="sre-hover-route-save">Save Hover Route</button>
                     </div>
-                    <div class="sre-note sre-note-tight">Draw points on the map, then save. Use the list below to rename or restyle them; delete and redraw to change the path. These routes only appear on hover or tap in the public view.</div>
+                    <div class="sre-note sre-note-tight">Draw points on the map, then save. Use the list below to rename or restyle them, including dashed, dotted, or continuous line types; delete and redraw to change the path. These routes only appear on hover or tap in the public view.</div>
                     <div id="sre-hover-routes-list" class="sre-list"></div>
                 </div>
             </aside>

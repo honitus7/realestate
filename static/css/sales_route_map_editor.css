@@ -549,7 +549,7 @@
 
 .sre-hover-route-controls {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) 44px 70px auto auto;
+    grid-template-columns: minmax(0, 1fr) 44px 70px 112px auto auto;
     gap: 0.35rem;
     align-items: center;
 }
@@ -667,7 +667,7 @@
     }
 
     .sre-hover-route-controls {
-        grid-template-columns: minmax(0, 1fr) 44px 62px;
+        grid-template-columns: minmax(0, 1fr) 44px 62px 112px;
     }
 
     .sre-selected-panel.is-floating {

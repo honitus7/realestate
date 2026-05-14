@@ -90,12 +90,14 @@
     background: transparent;
     color: var(--fv-menu-text, #e9f1fb);
     cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
 
     transition: background-color 0.18s ease, color 0.18s ease;
 }
 
-.fv-sidebar-btn:hover {
-    background: rgba(243, 249, 255, 0.12);
+.fv-sidebar-btn:focus {
+    outline: none;
 }
 
 .fv-sidebar-btn--active {
@@ -185,17 +187,26 @@
     cursor: pointer;
 }
 
-.fv-nav-reveal-fab:hover {
-    background: rgba(29, 52, 90, 0.98);
+@media (hover: hover) and (pointer: fine) {
+    .fv-sidebar-btn:hover {
+        background: rgba(243, 249, 255, 0.12);
+    }
+
+    .fv-nav-reveal-fab:hover {
+        background: rgba(29, 52, 90, 0.98);
+    }
 }
 
 @media (max-width: 768px) {
     .fv-sidebar {
+        z-index: 1205;
         top: auto;
         right: 0;
         bottom: 0;
         left: 0;
         transform: none;
+        isolation: isolate;
+        pointer-events: auto;
 
         width: 100%;
         max-height: none;
@@ -218,6 +229,8 @@
     }
 
     .fv-sidebar-btn {
+        position: relative;
+        z-index: 1;
         min-height: 60px;
         width: auto;
         min-width: 0;
@@ -236,5 +249,9 @@
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
+    }
+
+    .fv-nav-reveal-fab {
+        z-index: 1206;
     }
 }

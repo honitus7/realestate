@@ -368,15 +368,21 @@
 }
 
 /* -- Responsive -- */
-@media (max-width: 600px) {
+@media (max-width: 768px) {
     .gv-panel {
-        bottom: max(0px, var(--fv-modal-bottom, 1rem)); right: max(0px, var(--fv-modal-right, 1rem)); left: auto;
-        width: min(var(--fv-modal-width, 260px), max(0px, calc(100vw - max(0px, var(--fv-modal-right, 0px)))));
-        height: min(var(--fv-modal-height, var(--fv-modal-max-height, 40vh)), max(0px, calc(100vh - max(0px, var(--fv-modal-bottom, 0px)))));
-        max-height: min(var(--fv-modal-height, var(--fv-modal-max-height, 40vh)), max(0px, calc(100vh - max(0px, var(--fv-modal-bottom, 0px)))));
+        bottom: calc(96px + env(safe-area-inset-bottom, 0px));
+        right: 0.75rem;
+        left: auto;
+        width: min(220px, calc(100vw - 1.5rem));
+        height: min(var(--fv-modal-height, var(--fv-modal-max-height, 40vh)), 40vh);
+        max-height: min(var(--fv-modal-height, var(--fv-modal-max-height, 40vh)), 40vh);
     }
     .gv-nav-btn { width: 36px; height: 36px; font-size: 1rem; }
     .gv-nav-prev { left: 0.5rem; }
     .gv-nav-next { right: 0.5rem; }
     .gv-media-wrap { padding: 1rem; }
+
+    .gv-panel.collapsed {
+        max-width: calc(100vw - 1.5rem);
+    }
 }

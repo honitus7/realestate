@@ -593,6 +593,13 @@ def delete_route(sb, route_id):
 # ---------------------------------------------------------------------------
 
 
+def _normalize_hover_route_line_style(value, fallback='dashed'):
+    style = str(value or '').strip().lower()
+    if style in ('continuous', 'dashed', 'dotted'):
+        return style
+    return fallback
+
+
 def _normalize_hover_route_row(route):
     if not isinstance(route, dict):
         return route
@@ -603,6 +610,7 @@ def _normalize_hover_route_row(route):
         route['line_width'] = max(1, min(12, int(route.get('line_width') or 4)))
     except (TypeError, ValueError):
         route['line_width'] = 4
+    route['line_style'] = _normalize_hover_route_line_style(route.get('line_style'), 'dashed')
     return route
 
 
@@ -654,6 +662,7 @@ def create_hover_route(
     path_points,
     color='#facc15',
     line_width=4,
+    line_style='dashed',
     sort_order=0,
 ):
     row = {
@@ -662,6 +671,7 @@ def create_hover_route(
         'path_points': json.dumps(_normalize_points(path_points)),
         'color': str(color or '#facc15').strip() or '#facc15',
         'line_width': max(1, min(12, int(line_width or 4))),
+        'line_style': _normalize_hover_route_line_style(line_style, 'dashed'),
         'sort_order': int(sort_order or 0),
     }
     try:
@@ -679,8 +689,12 @@ def update_hover_route(sb, hover_route_id, **fields):
     for k, v in fields.items():
         if k in ('label', 'color'):
             clean[k] = str(v or '').strip()
-        elif k in ('line_width', 'sort_order'):
+        elif k == 'line_width':
             clean[k] = max(1, min(12, int(v)))
+        elif k == 'line_style':
+            clean[k] = _normalize_hover_route_line_style(v, 'dashed')
+        elif k == 'sort_order':
+            clean[k] = int(v)
         elif k == 'path_points':
             clean[k] = json.dumps(_normalize_points(v))
     if not clean:

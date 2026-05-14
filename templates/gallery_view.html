@@ -70,7 +70,7 @@
     <div class="gv-panel" id="gv-panel">
         <div class="gv-panel-header">
             <h2 class="gv-panel-title">{{ gallery.name or 'Gallery' }}</h2>
-            <button class="gv-panel-collapse" id="gv-panel-collapse" title="Collapse">
+            <button class="gv-panel-collapse" id="gv-panel-collapse" title="Collapse" aria-label="Collapse gallery" aria-expanded="true">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
             </button>
         </div>
@@ -87,7 +87,7 @@
             </button>
             {% endfor %}
         </div>
-        <button class="gv-panel-expand" id="gv-panel-expand">
+        <button class="gv-panel-expand" id="gv-panel-expand" type="button" aria-label="Expand gallery" aria-expanded="false">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
             Gallery
         </button>
@@ -265,6 +265,9 @@
     var autoRotateManuallyPaused = false;
     var singleItem = ITEMS.length <= 1;
     var pageEl = document.getElementById('gv-page');
+    var panel = document.getElementById('gv-panel');
+    var panelCollapseBtn = document.getElementById('gv-panel-collapse');
+    var panelExpandBtn = document.getElementById('gv-panel-expand');
     var controlsEl = document.querySelector('.gv-zoom-controls');
     var autoRotateToggleBtn = document.getElementById('gv-autoplay-toggle');
     var isEmbeddedView = window.parent && window.parent !== window;
@@ -382,6 +385,24 @@
 
     function syncControlsForMedia() {
         syncAutoRotateToggleUi();
+    }
+
+    function isMobilePanelViewport() {
+        return window.matchMedia ? window.matchMedia('(max-width: 768px)').matches : window.innerWidth <= 768;
+    }
+
+    function setPanelCollapsed(collapsed) {
+        if (!panel) return;
+        var next = !!collapsed;
+        panel.classList.toggle('collapsed', next);
+        if (panelCollapseBtn) panelCollapseBtn.setAttribute('aria-expanded', next ? 'false' : 'true');
+        if (panelExpandBtn) panelExpandBtn.setAttribute('aria-expanded', next ? 'false' : 'true');
+    }
+
+    function applyMobileDefaultPanelState() {
+        if (!panel || panel.dataset.mobileDefaultApplied === '1' || !isMobilePanelViewport()) return;
+        panel.dataset.mobileDefaultApplied = '1';
+        setPanelCollapsed(true);
     }
 
     function resolveEquirectangular(item) {
@@ -595,12 +616,17 @@
         });
 
         // Panel collapse/expand
-        document.getElementById('gv-panel-collapse').addEventListener('click', function() {
-            document.getElementById('gv-panel').classList.add('collapsed');
-        });
-        document.getElementById('gv-panel-expand').addEventListener('click', function() {
-            document.getElementById('gv-panel').classList.remove('collapsed');
-        });
+        if (panelCollapseBtn) {
+            panelCollapseBtn.addEventListener('click', function() {
+                setPanelCollapsed(true);
+            });
+        }
+        if (panelExpandBtn) {
+            panelExpandBtn.addEventListener('click', function() {
+                setPanelCollapsed(false);
+            });
+        }
+        applyMobileDefaultPanelState();
 
         // Nav buttons
         document.getElementById('gv-prev').addEventListener('click', function() {
@@ -725,6 +751,7 @@
 
     window.addEventListener('resize', function() {
         if (psvViewer && typeof psvViewer.resize === 'function') psvViewer.resize();
+        applyMobileDefaultPanelState();
     });
 
     window.addEventListener('beforeunload', destroyPsvViewer);

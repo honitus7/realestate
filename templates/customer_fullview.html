@@ -26,8 +26,36 @@
             gap: 10px;
             max-width: calc(100vw - 28px);
         }
+        .cfv-header-logo-shell {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            flex: 0 1 auto;
+            min-width: 56px;
+            max-width: min(28vw, 124px);
+            height: 52px;
+            padding: 8px 12px;
+            background: rgba(12, 14, 20, 0.82);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 12px;
+            box-shadow: 0 10px 24px rgba(0, 0, 0, 0.18);
+            overflow: hidden;
+        }
+        .cfv-header-logo-shell[hidden] {
+            display: none;
+        }
+        .cfv-header-logo {
+            display: block;
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            object-position: center;
+        }
         .cfv-header {
             display: flex;
+            flex: 1 1 auto;
             flex-direction: column;
             gap: 2px;
             padding: 8px 14px;
@@ -37,6 +65,7 @@
             border: 1px solid rgba(255,255,255,0.1);
             border-radius: 12px;
             color: rgba(255,255,255,0.92);
+            min-width: 0;
             max-width: min(68vw, 620px);
         }
         .cfv-header-autoplay-btn {
@@ -120,6 +149,13 @@
         }
         .cfv-tab-frame.cfv-tab-frame--active {
             display: block;
+        }
+
+        @media (max-width: 768px) {
+            .cfv-frame-host.cfv-frame-host--mobile-nav {
+                bottom: calc(74px + env(safe-area-inset-bottom, 0px));
+                height: auto;
+            }
         }
 
         .fv-style-editor {
@@ -223,6 +259,49 @@
             grid-template-columns: 1fr 1fr;
             gap: 0.45rem;
         }
+        .fv-style-logo-row {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .fv-style-logo-preview-shell {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 76px;
+            padding: 12px 14px;
+            border: 1px dashed rgba(255,255,255,0.18);
+            border-radius: 14px;
+            background: rgba(255,255,255,0.04);
+            overflow: hidden;
+        }
+        .fv-style-logo-preview-shell.is-empty {
+            justify-content: flex-start;
+        }
+        .fv-style-logo-preview {
+            display: block;
+            width: 100%;
+            max-height: 52px;
+            object-fit: contain;
+            object-position: left center;
+        }
+        .fv-style-logo-placeholder {
+            font-size: 0.75rem;
+            color: rgba(255,255,255,0.56);
+        }
+        .fv-style-logo-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        .fv-style-logo-hint {
+            font-size: 0.74rem;
+            line-height: 1.45;
+            color: rgba(255,255,255,0.66);
+        }
+        .fv-style-logo-hint.error {
+            color: rgba(255, 180, 180, 0.95);
+        }
         .fv-style-actions {
             display: flex;
             gap: 0.45rem;
@@ -241,6 +320,10 @@
         }
         .fv-style-btn:hover {
             background: rgba(255,255,255,0.14);
+        }
+        .fv-style-btn:disabled {
+            opacity: 0.45;
+            cursor: not-allowed;
         }
         .fv-style-btn.primary {
             background: rgba(59, 168, 235, 0.24);
@@ -264,6 +347,11 @@
                 width: auto;
                 max-height: min(58vh, 560px);
             }
+            .cfv-header-logo-shell {
+                max-width: min(30vw, 96px);
+                height: 46px;
+                padding: 6px 10px;
+            }
             .cfv-header {
                 max-width: calc(100vw - 24px);
             }
@@ -276,6 +364,9 @@
 </head>
 <body>
     <div class="cfv-header-shell">
+        <div class="cfv-header-logo-shell" id="cfv-header-logo-shell" hidden>
+            <img class="cfv-header-logo" id="cfv-header-logo" alt="{{ workspace_name or 'Project' }} logo">
+        </div>
         <div class="cfv-header" id="cfv-header">
             <div class="cfv-header-title" id="cfv-header-title">{{ workspace_name or 'Project' }}</div>
             <div class="cfv-header-sub" id="cfv-header-sub">Full View</div>
@@ -331,9 +422,28 @@
     <aside class="fv-style-editor" id="fv-style-editor">
         <div class="fv-style-editor-head">
             <div class="fv-style-editor-title">Full View Screen Editor</div>
-            <div class="fv-style-editor-sub">Sidebar theme, plus floor plan and gallery panel colors, glow, transparency, blur, and size are synced to customer full view.</div>
+            <div class="fv-style-editor-sub">Sidebar theme, header logo, plus floor plan, gallery, and sales map panel colors, glow, transparency, blur, and size are synced to customer full view.</div>
         </div>
         <div class="fv-style-editor-body">
+            <div class="fv-style-section">
+                <div class="fv-style-section-title">Header Branding</div>
+                <div class="fv-style-field">
+                    <label class="fv-style-label">Header Logo</label>
+                    <div class="fv-style-logo-row">
+                        <div class="fv-style-logo-preview-shell is-empty" id="fv-style-logo-preview-shell">
+                            <img id="fv-style-logo-preview" class="fv-style-logo-preview" alt="Full View header logo preview" hidden>
+                            <div class="fv-style-logo-placeholder" id="fv-style-logo-placeholder">No logo uploaded yet.</div>
+                        </div>
+                        <div class="fv-style-logo-actions">
+                            <button class="fv-style-btn" id="fv-style-logo-upload-btn" type="button">Upload Logo</button>
+                            <button class="fv-style-btn" id="fv-style-logo-remove-btn" type="button">Remove Logo</button>
+                        </div>
+                        <input id="fv-style-logo-input" type="file" accept=".png,.jpg,.jpeg,.webp,image/png,image/jpeg,image/webp" hidden>
+                        <div class="fv-style-logo-hint" id="fv-style-logo-status">Appears on the left side of the Full View header. PNG, JPG, or WebP up to 5 MB.</div>
+                    </div>
+                </div>
+            </div>
+
             <div class="fv-style-section">
                 <div class="fv-style-section-title">Theme</div>
                 <div class="fv-style-field">
@@ -626,9 +736,104 @@
                 </div>
             </div>
 
+            <div class="fv-style-section">
+                <div class="fv-style-section-title">Sales Map Menu</div>
+                <div class="fv-style-grid">
+                    <div class="fv-style-field">
+                        <label class="fv-style-label" for="fv-style-salesmap-modal-bg">Modal BG</label>
+                        <input id="fv-style-salesmap-modal-bg" class="fv-style-input" type="color">
+                    </div>
+                    <div class="fv-style-field">
+                        <label class="fv-style-label" for="fv-style-salesmap-modal-bg-opacity">Panel BG Opacity <span class="fv-style-val" id="fv-style-salesmap-modal-bg-opacity-val"></span></label>
+                        <input id="fv-style-salesmap-modal-bg-opacity" class="fv-style-input" type="range" min="0" max="100" step="1">
+                    </div>
+                    <div class="fv-style-field">
+                        <label class="fv-style-label" for="fv-style-salesmap-modal-blur">Background Blur <span class="fv-style-val" id="fv-style-salesmap-modal-blur-val"></span></label>
+                        <input id="fv-style-salesmap-modal-blur" class="fv-style-input" type="range" min="0" max="40" step="1">
+                    </div>
+                    <div class="fv-style-field">
+                        <label class="fv-style-label" for="fv-style-salesmap-modal-border">Modal Border</label>
+                        <input id="fv-style-salesmap-modal-border" class="fv-style-input" type="color">
+                    </div>
+                    <div class="fv-style-field">
+                        <label class="fv-style-label" for="fv-style-salesmap-modal-glow">Glow Color</label>
+                        <input id="fv-style-salesmap-modal-glow" class="fv-style-input" type="color">
+                    </div>
+                    <div class="fv-style-field">
+                        <label class="fv-style-label" for="fv-style-salesmap-modal-glow-opacity">Glow Opacity <span class="fv-style-val" id="fv-style-salesmap-modal-glow-opacity-val"></span></label>
+                        <input id="fv-style-salesmap-modal-glow-opacity" class="fv-style-input" type="range" min="0" max="100" step="1">
+                    </div>
+                    <div class="fv-style-field">
+                        <label class="fv-style-label" for="fv-style-salesmap-modal-title">Title Text</label>
+                        <input id="fv-style-salesmap-modal-title" class="fv-style-input" type="color">
+                    </div>
+                    <div class="fv-style-field">
+                        <label class="fv-style-label" for="fv-style-salesmap-modal-item">Item Text</label>
+                        <input id="fv-style-salesmap-modal-item" class="fv-style-input" type="color">
+                    </div>
+                    <div class="fv-style-field">
+                        <label class="fv-style-label" for="fv-style-salesmap-modal-active-bg">Active Item BG</label>
+                        <input id="fv-style-salesmap-modal-active-bg" class="fv-style-input" type="color">
+                    </div>
+                    <div class="fv-style-field">
+                        <label class="fv-style-label" for="fv-style-salesmap-modal-active-border">Active Item Border</label>
+                        <input id="fv-style-salesmap-modal-active-border" class="fv-style-input" type="color">
+                    </div>
+                    <div class="fv-style-field">
+                        <label class="fv-style-label" for="fv-style-salesmap-modal-width">Modal Width <span class="fv-style-val" id="fv-style-salesmap-modal-width-val"></span></label>
+                        <input id="fv-style-salesmap-modal-width" class="fv-style-input" type="range" min="220" max="2200" step="1">
+                    </div>
+                    <div class="fv-style-field">
+                        <label class="fv-style-label" for="fv-style-salesmap-modal-height">Modal Height <span class="fv-style-val" id="fv-style-salesmap-modal-height-val"></span></label>
+                        <input id="fv-style-salesmap-modal-height" class="fv-style-input" type="range" min="20" max="100" step="1">
+                    </div>
+                    <div class="fv-style-field">
+                        <label class="fv-style-label" for="fv-style-salesmap-modal-left">Left Offset <span class="fv-style-val" id="fv-style-salesmap-modal-left-val"></span></label>
+                        <input id="fv-style-salesmap-modal-left" class="fv-style-input" type="range" min="0" max="2400" step="1">
+                    </div>
+                    <div class="fv-style-field">
+                        <label class="fv-style-label" for="fv-style-salesmap-modal-bottom">Bottom Offset <span class="fv-style-val" id="fv-style-salesmap-modal-bottom-val"></span></label>
+                        <input id="fv-style-salesmap-modal-bottom" class="fv-style-input" type="range" min="0" max="240" step="1">
+                    </div>
+                    <div class="fv-style-field">
+                        <label class="fv-style-label" for="fv-style-salesmap-modal-title-font">Title Font</label>
+                        <select id="fv-style-salesmap-modal-title-font" class="fv-style-select">
+                            <option value="Syne">Syne</option>
+                            <option value="Inter">Inter</option>
+                            <option value="Poppins">Poppins</option>
+                            <option value="Montserrat">Montserrat</option>
+                            <option value="Lora">Lora</option>
+                            <option value="Merriweather">Merriweather</option>
+                            <option value="Oswald">Oswald</option>
+                        </select>
+                    </div>
+                    <div class="fv-style-field">
+                        <label class="fv-style-label" for="fv-style-salesmap-modal-item-font">Item Font</label>
+                        <select id="fv-style-salesmap-modal-item-font" class="fv-style-select">
+                            <option value="Syne">Syne</option>
+                            <option value="Inter">Inter</option>
+                            <option value="Poppins">Poppins</option>
+                            <option value="Montserrat">Montserrat</option>
+                            <option value="Lora">Lora</option>
+                            <option value="Merriweather">Merriweather</option>
+                            <option value="Oswald">Oswald</option>
+                        </select>
+                    </div>
+                    <div class="fv-style-field">
+                        <label class="fv-style-label" for="fv-style-salesmap-modal-title-size">Title Size <span class="fv-style-val" id="fv-style-salesmap-modal-title-size-val"></span></label>
+                        <input id="fv-style-salesmap-modal-title-size" class="fv-style-input" type="range" min="11" max="24" step="1">
+                    </div>
+                    <div class="fv-style-field">
+                        <label class="fv-style-label" for="fv-style-salesmap-modal-item-size">Item Size <span class="fv-style-val" id="fv-style-salesmap-modal-item-size-val"></span></label>
+                        <input id="fv-style-salesmap-modal-item-size" class="fv-style-input" type="range" min="10" max="22" step="1">
+                    </div>
+                </div>
+            </div>
+
             <div class="fv-style-actions">
                 <button class="fv-style-btn" id="fv-style-open-floorplan" type="button">Preview Floor Plans</button>
                 <button class="fv-style-btn" id="fv-style-open-gallery" type="button">Preview Gallery</button>
+                <button class="fv-style-btn" id="fv-style-open-salesmap" type="button">Preview Sales Map</button>
                 <button class="fv-style-btn" id="fv-style-reset" type="button">Reset</button>
                 <button class="fv-style-btn primary" id="fv-style-save" type="button">Save Style</button>
             </div>
@@ -652,6 +857,8 @@
 
     var frameHost = document.getElementById('cfv-frame-host');
     var sidebar = document.getElementById('fv-sidebar');
+    var headerLogoShellEl = document.getElementById('cfv-header-logo-shell');
+    var headerLogoEl = document.getElementById('cfv-header-logo');
     var headerTitleEl = document.getElementById('cfv-header-title');
     var headerSubEl = document.getElementById('cfv-header-sub');
     var headerAutoplayBtn = document.getElementById('cfv-header-autoplay-btn');
@@ -694,8 +901,15 @@
         };
     }
 
+    function defaultSalesMapModalStyle() {
+        var modal = defaultModalStyle();
+        modal.left_offset = 24;
+        return modal;
+    }
+
     var DEFAULT_STYLE = {
         menu_theme: 'blue',
+        header_logo_url: '',
         sidebar: {
             bg_start: '#253f69',
             bg_end: '#162b51',
@@ -715,7 +929,8 @@
         },
         modal: defaultModalStyle(),
         modal_floorplan: defaultModalStyle(),
-        modal_gallery: defaultModalStyle()
+        modal_gallery: defaultModalStyle(),
+        modal_sales_map: defaultSalesMapModalStyle()
     };
 
     var THEME_PRESETS = {
@@ -1182,10 +1397,18 @@
         };
     }
 
+    function normalizeSalesMapModalBlock(modalRaw, fallbackRaw, fallbackLeftOffset) {
+        var modal = (modalRaw && typeof modalRaw === 'object') ? modalRaw : {};
+        var normalized = normalizeModalBlock(modal, fallbackRaw);
+        normalized.left_offset = clampInt(modal.left_offset, 0, 2400, typeof fallbackLeftOffset === 'number' ? fallbackLeftOffset : DEFAULT_STYLE.modal_sales_map.left_offset);
+        return normalized;
+    }
+
     function normalizeStyle(raw) {
         var input = (raw && typeof raw === 'object') ? raw : {};
         var merged = deepMerge(cloneObj(DEFAULT_STYLE), input);
         if (!THEME_PRESETS[merged.menu_theme]) merged.menu_theme = 'blue';
+        merged.header_logo_url = String(merged.header_logo_url || '').trim();
 
         merged.sidebar.bg_start = sanitizeHex(merged.sidebar.bg_start, DEFAULT_STYLE.sidebar.bg_start);
         merged.sidebar.bg_end = sanitizeHex(merged.sidebar.bg_end, DEFAULT_STYLE.sidebar.bg_end);
@@ -1206,13 +1429,30 @@
         var legacyModal = (input.modal && typeof input.modal === 'object') ? input.modal : null;
         var hasFloorPlanModal = (input.modal_floorplan && typeof input.modal_floorplan === 'object');
         var hasGalleryModal = (input.modal_gallery && typeof input.modal_gallery === 'object');
+        var hasSalesMapModal = (input.modal_sales_map && typeof input.modal_sales_map === 'object');
         if (legacyModal && !hasFloorPlanModal) deepMerge(merged.modal_floorplan, legacyModal);
         if (legacyModal && !hasGalleryModal) deepMerge(merged.modal_gallery, legacyModal);
+        if (legacyModal && !hasSalesMapModal) deepMerge(merged.modal_sales_map, legacyModal);
 
         merged.modal = normalizeModalBlock(merged.modal, DEFAULT_STYLE.modal);
         merged.modal_floorplan = normalizeModalBlock(merged.modal_floorplan, merged.modal);
         merged.modal_gallery = normalizeModalBlock(merged.modal_gallery, merged.modal);
+        merged.modal_sales_map = normalizeSalesMapModalBlock(merged.modal_sales_map, merged.modal, DEFAULT_STYLE.modal_sales_map.left_offset);
         return merged;
+    }
+
+    function applyHeaderBranding(style) {
+        if (!headerLogoShellEl || !headerLogoEl) return;
+        var logoUrl = String((style && style.header_logo_url) || '').trim();
+        if (!logoUrl) {
+            headerLogoEl.removeAttribute('src');
+            headerLogoShellEl.hidden = true;
+            return;
+        }
+        if (headerLogoEl.getAttribute('src') !== logoUrl) {
+            headerLogoEl.src = logoUrl;
+        }
+        headerLogoShellEl.hidden = false;
     }
 
     function setCssVar(name, value) {
@@ -1317,6 +1557,7 @@
     function applyAndBroadcastStyle() {
         styleState = normalizeStyle(styleState);
         applyStyleConfig(styleState);
+        applyHeaderBranding(styleState);
         if (IS_EDITOR) postStylePreview();
     }
 
@@ -1654,6 +1895,15 @@
         if (btn) btn.classList.add('fv-sidebar-btn--active');
     }
 
+    function releaseSidebarButtonFocus(btn) {
+        if (!btn || typeof btn.blur !== 'function') return;
+        if (typeof requestAnimationFrame === 'function') {
+            requestAnimationFrame(function () { btn.blur(); });
+        } else {
+            setTimeout(function () { btn.blur(); }, 0);
+        }
+    }
+
     function tabDisplayName(btn) {
         if (!btn) return '';
         var labelEl = btn.querySelector('.fv-sidebar-label');
@@ -1662,26 +1912,22 @@
         return label;
     }
 
-    function isHomeTabName(name) {
-        return String(name || '').trim().toLowerCase() === 'home';
-    }
-
     function updateShellHomeSidebarState(btn) {
         if (!sidebar) {
             document.body.classList.remove('fv-home-active');
+            if (frameHost) frameHost.classList.remove('cfv-frame-host--mobile-nav');
             if (navFab) {
                 navFab.hidden = true;
                 navFab.style.display = 'none';
             }
             return;
         }
-        var hide = isHomeTabName(tabDisplayName(btn));
-        sidebar.classList.toggle('fv-sidebar--hidden', hide);
-        document.body.classList.toggle('fv-home-active', hide);
+        sidebar.classList.remove('fv-sidebar--hidden');
+        document.body.classList.remove('fv-home-active');
+        if (frameHost) frameHost.classList.add('cfv-frame-host--mobile-nav');
         if (navFab) {
-            var showFab = !!hide;
-            navFab.hidden = !showFab;
-            navFab.style.display = showFab ? 'flex' : 'none';
+            navFab.hidden = true;
+            navFab.style.display = 'none';
         }
     }
 
@@ -1690,6 +1936,7 @@
         navFab.addEventListener('click', function () {
             if (sidebar) sidebar.classList.remove('fv-sidebar--hidden');
             document.body.classList.remove('fv-home-active');
+            if (frameHost) frameHost.classList.add('cfv-frame-host--mobile-nav');
             navFab.hidden = true;
             navFab.style.display = 'none';
         });
@@ -1757,6 +2004,7 @@
             if (!btn || !sidebar.contains(btn)) return;
             evt.preventDefault();
             loadTab(btn);
+            releaseSidebarButtonFocus(btn);
         });
     }
 
@@ -1827,13 +2075,60 @@
         }
     }
 
-    function editorAuthHeaders() {
-        if (!window._supabase) return Promise.resolve({ 'Content-Type': 'application/json' });
+    function editorAuthHeaders(includeJsonContentType) {
+        var withJson = includeJsonContentType !== false;
+        if (!window._supabase) return Promise.resolve(withJson ? { 'Content-Type': 'application/json' } : {});
         return window._supabase.auth.getSession().then(function (r) {
-            var h = { 'Content-Type': 'application/json' };
+            var h = withJson ? { 'Content-Type': 'application/json' } : {};
             if (r.data.session && r.data.session.access_token) h.Authorization = 'Bearer ' + r.data.session.access_token;
             return h;
         });
+    }
+
+    async function uploadFullViewHeaderLogo(file) {
+        var headers = await editorAuthHeaders(false);
+        var formData = new FormData();
+        formData.append('file', file);
+        if (WS_ID) formData.append('workspace_id', WS_ID);
+        var res = await fetch('/api/full-view/logo-upload', {
+            method: 'POST',
+            headers: headers,
+            body: formData
+        });
+        var text = await res.text().catch(function () { return ''; });
+        var payload = null;
+        try { payload = text ? JSON.parse(text) : null; } catch (e) { payload = null; }
+        if (!res.ok) {
+            throw new Error((payload && payload.error) || text || res.statusText || 'Logo upload failed');
+        }
+        return payload || {};
+    }
+
+    function syncHeaderLogoControls(message, isError) {
+        var previewShell = document.getElementById('fv-style-logo-preview-shell');
+        var previewEl = document.getElementById('fv-style-logo-preview');
+        var placeholderEl = document.getElementById('fv-style-logo-placeholder');
+        var statusEl = document.getElementById('fv-style-logo-status');
+        var removeBtn = document.getElementById('fv-style-logo-remove-btn');
+        var defaultStatus = 'Appears on the left side of the Full View header. PNG, JPG, or WebP up to 5 MB.';
+        var logoUrl = String((styleState && styleState.header_logo_url) || '').trim();
+
+        if (previewShell) previewShell.classList.toggle('is-empty', !logoUrl);
+        if (previewEl) {
+            if (logoUrl) {
+                if (previewEl.getAttribute('src') !== logoUrl) previewEl.src = logoUrl;
+                previewEl.hidden = false;
+            } else {
+                previewEl.hidden = true;
+                previewEl.removeAttribute('src');
+            }
+        }
+        if (placeholderEl) placeholderEl.hidden = !!logoUrl;
+        if (removeBtn) removeBtn.disabled = !logoUrl;
+        if (statusEl) {
+            statusEl.textContent = message || defaultStatus;
+            statusEl.classList.toggle('error', !!isError);
+        }
     }
 
     function syncEditorForm() {
@@ -1895,6 +2190,24 @@
         set('fv-style-gallery-modal-item-font', s.modal_gallery.item_font_family);
         set('fv-style-gallery-modal-title-size', s.modal_gallery.title_font_size_px);
         set('fv-style-gallery-modal-item-size', s.modal_gallery.item_font_size_px);
+        set('fv-style-salesmap-modal-bg', s.modal_sales_map.bg);
+        set('fv-style-salesmap-modal-bg-opacity', s.modal_sales_map.bg_opacity_pct);
+        set('fv-style-salesmap-modal-blur', s.modal_sales_map.backdrop_blur_px);
+        set('fv-style-salesmap-modal-border', s.modal_sales_map.border);
+        set('fv-style-salesmap-modal-glow', s.modal_sales_map.glow_color);
+        set('fv-style-salesmap-modal-glow-opacity', s.modal_sales_map.glow_opacity_pct);
+        set('fv-style-salesmap-modal-title', s.modal_sales_map.title_text);
+        set('fv-style-salesmap-modal-item', s.modal_sales_map.item_text);
+        set('fv-style-salesmap-modal-active-bg', s.modal_sales_map.item_active_bg);
+        set('fv-style-salesmap-modal-active-border', s.modal_sales_map.item_active_border);
+        set('fv-style-salesmap-modal-width', s.modal_sales_map.width);
+        set('fv-style-salesmap-modal-height', s.modal_sales_map.max_height_vh);
+        set('fv-style-salesmap-modal-left', s.modal_sales_map.left_offset);
+        set('fv-style-salesmap-modal-bottom', s.modal_sales_map.bottom_offset);
+        set('fv-style-salesmap-modal-title-font', s.modal_sales_map.title_font_family);
+        set('fv-style-salesmap-modal-item-font', s.modal_sales_map.item_font_family);
+        set('fv-style-salesmap-modal-title-size', s.modal_sales_map.title_font_size_px);
+        set('fv-style-salesmap-modal-item-size', s.modal_sales_map.item_font_size_px);
 
         var mapVals = [
             ['fv-style-menu-bg-opacity-val', s.sidebar.bg_opacity_pct + '%'],
@@ -1920,12 +2233,22 @@
             ['fv-style-gallery-modal-right-val', s.modal_gallery.right_offset + 'px'],
             ['fv-style-gallery-modal-bottom-val', s.modal_gallery.bottom_offset + 'px'],
             ['fv-style-gallery-modal-title-size-val', s.modal_gallery.title_font_size_px + 'px'],
-            ['fv-style-gallery-modal-item-size-val', s.modal_gallery.item_font_size_px + 'px']
+            ['fv-style-gallery-modal-item-size-val', s.modal_gallery.item_font_size_px + 'px'],
+            ['fv-style-salesmap-modal-bg-opacity-val', s.modal_sales_map.bg_opacity_pct + '%'],
+            ['fv-style-salesmap-modal-blur-val', s.modal_sales_map.backdrop_blur_px + 'px'],
+            ['fv-style-salesmap-modal-glow-opacity-val', s.modal_sales_map.glow_opacity_pct + '%'],
+            ['fv-style-salesmap-modal-width-val', s.modal_sales_map.width + 'px'],
+            ['fv-style-salesmap-modal-height-val', s.modal_sales_map.max_height_vh + 'vh'],
+            ['fv-style-salesmap-modal-left-val', s.modal_sales_map.left_offset + 'px'],
+            ['fv-style-salesmap-modal-bottom-val', s.modal_sales_map.bottom_offset + 'px'],
+            ['fv-style-salesmap-modal-title-size-val', s.modal_sales_map.title_font_size_px + 'px'],
+            ['fv-style-salesmap-modal-item-size-val', s.modal_sales_map.item_font_size_px + 'px']
         ];
         mapVals.forEach(function (row) {
             var node = document.getElementById(row[0]);
             if (node) node.textContent = row[1];
         });
+        syncHeaderLogoControls();
     }
 
     function bindEditor() {
@@ -1967,6 +2290,46 @@
             });
         }
 
+        var logoInput = document.getElementById('fv-style-logo-input');
+        var logoUploadBtn = document.getElementById('fv-style-logo-upload-btn');
+        var logoRemoveBtn = document.getElementById('fv-style-logo-remove-btn');
+        if (logoUploadBtn && logoInput) {
+            logoUploadBtn.addEventListener('click', function () {
+                logoInput.click();
+            });
+        }
+        if (logoInput) {
+            logoInput.addEventListener('change', async function () {
+                var file = this.files && this.files[0] ? this.files[0] : null;
+                if (!file) return;
+                syncHeaderLogoControls('Uploading logo...', false);
+                try {
+                    var result = await uploadFullViewHeaderLogo(file);
+                    styleState.header_logo_url = String((result && result.url) || '').trim();
+                    syncEditorForm();
+                    applyAndBroadcastStyle();
+                    syncHeaderLogoControls('Logo uploaded. Click Save Style to keep it.', false);
+                    showEditorStatus('Logo uploaded. Click Save Style to publish it.', false);
+                } catch (e) {
+                    var message = String((e && e.message) || 'Logo upload failed');
+                    syncHeaderLogoControls(message, true);
+                    showEditorStatus('Logo upload failed: ' + message, true);
+                } finally {
+                    this.value = '';
+                }
+            });
+        }
+        if (logoRemoveBtn) {
+            logoRemoveBtn.addEventListener('click', function () {
+                if (!styleState || !styleState.header_logo_url) return;
+                styleState.header_logo_url = '';
+                syncEditorForm();
+                applyAndBroadcastStyle();
+                syncHeaderLogoControls('Logo removed. Click Save Style to keep it.', false);
+                showEditorStatus('Logo removed. Click Save Style to publish it.', false);
+            });
+        }
+
         var themeSel = document.getElementById('fv-style-theme');
         if (themeSel) {
             themeSel.addEventListener('change', function () {
@@ -1977,6 +2340,7 @@
                     deepMerge(styleState.modal, preset.modal);
                     deepMerge(styleState.modal_floorplan, preset.modal);
                     deepMerge(styleState.modal_gallery, preset.modal);
+                    deepMerge(styleState.modal_sales_map, preset.modal);
                 }
                 styleState = normalizeStyle(styleState);
                 syncEditorForm();
@@ -2005,12 +2369,21 @@
         bindColor('fv-style-gallery-modal-item', function (v) { styleState.modal_gallery.item_text = v; });
         bindColor('fv-style-gallery-modal-active-bg', function (v) { styleState.modal_gallery.item_active_bg = v; });
         bindColor('fv-style-gallery-modal-active-border', function (v) { styleState.modal_gallery.item_active_border = v; });
+        bindColor('fv-style-salesmap-modal-bg', function (v) { styleState.modal_sales_map.bg = v; });
+        bindColor('fv-style-salesmap-modal-border', function (v) { styleState.modal_sales_map.border = v; });
+        bindColor('fv-style-salesmap-modal-glow', function (v) { styleState.modal_sales_map.glow_color = v; });
+        bindColor('fv-style-salesmap-modal-title', function (v) { styleState.modal_sales_map.title_text = v; });
+        bindColor('fv-style-salesmap-modal-item', function (v) { styleState.modal_sales_map.item_text = v; });
+        bindColor('fv-style-salesmap-modal-active-bg', function (v) { styleState.modal_sales_map.item_active_bg = v; });
+        bindColor('fv-style-salesmap-modal-active-border', function (v) { styleState.modal_sales_map.item_active_border = v; });
         bindSelect('fv-style-menu-font', function (v) { styleState.sidebar.font_family = v; });
         bindSelect('fv-style-menu-white-icons', function (v) { styleState.sidebar.icon_white = v === '1'; });
         bindSelect('fv-style-modal-title-font', function (v) { styleState.modal_floorplan.title_font_family = v; });
         bindSelect('fv-style-modal-item-font', function (v) { styleState.modal_floorplan.item_font_family = v; });
         bindSelect('fv-style-gallery-modal-title-font', function (v) { styleState.modal_gallery.title_font_family = v; });
         bindSelect('fv-style-gallery-modal-item-font', function (v) { styleState.modal_gallery.item_font_family = v; });
+        bindSelect('fv-style-salesmap-modal-title-font', function (v) { styleState.modal_sales_map.title_font_family = v; });
+        bindSelect('fv-style-salesmap-modal-item-font', function (v) { styleState.modal_sales_map.item_font_family = v; });
 
         bindRange('fv-style-menu-bg-opacity', function (v) { styleState.sidebar.bg_opacity_pct = v; }, 'fv-style-menu-bg-opacity-val', '%');
         bindRange('fv-style-menu-glow-opacity', function (v) { styleState.sidebar.glow_opacity_pct = v; }, 'fv-style-menu-glow-opacity-val', '%');
@@ -2036,6 +2409,15 @@
         bindRange('fv-style-gallery-modal-bottom', function (v) { styleState.modal_gallery.bottom_offset = v; }, 'fv-style-gallery-modal-bottom-val', 'px');
         bindRange('fv-style-gallery-modal-title-size', function (v) { styleState.modal_gallery.title_font_size_px = v; }, 'fv-style-gallery-modal-title-size-val', 'px');
         bindRange('fv-style-gallery-modal-item-size', function (v) { styleState.modal_gallery.item_font_size_px = v; }, 'fv-style-gallery-modal-item-size-val', 'px');
+        bindRange('fv-style-salesmap-modal-bg-opacity', function (v) { styleState.modal_sales_map.bg_opacity_pct = v; }, 'fv-style-salesmap-modal-bg-opacity-val', '%');
+        bindRange('fv-style-salesmap-modal-blur', function (v) { styleState.modal_sales_map.backdrop_blur_px = v; }, 'fv-style-salesmap-modal-blur-val', 'px');
+        bindRange('fv-style-salesmap-modal-glow-opacity', function (v) { styleState.modal_sales_map.glow_opacity_pct = v; }, 'fv-style-salesmap-modal-glow-opacity-val', '%');
+        bindRange('fv-style-salesmap-modal-width', function (v) { styleState.modal_sales_map.width = v; }, 'fv-style-salesmap-modal-width-val', 'px');
+        bindRange('fv-style-salesmap-modal-height', function (v) { styleState.modal_sales_map.max_height_vh = v; }, 'fv-style-salesmap-modal-height-val', 'vh');
+        bindRange('fv-style-salesmap-modal-left', function (v) { styleState.modal_sales_map.left_offset = v; }, 'fv-style-salesmap-modal-left-val', 'px');
+        bindRange('fv-style-salesmap-modal-bottom', function (v) { styleState.modal_sales_map.bottom_offset = v; }, 'fv-style-salesmap-modal-bottom-val', 'px');
+        bindRange('fv-style-salesmap-modal-title-size', function (v) { styleState.modal_sales_map.title_font_size_px = v; }, 'fv-style-salesmap-modal-title-size-val', 'px');
+        bindRange('fv-style-salesmap-modal-item-size', function (v) { styleState.modal_sales_map.item_font_size_px = v; }, 'fv-style-salesmap-modal-item-size-val', 'px');
 
         var previewFloorPlan = document.getElementById('fv-style-open-floorplan');
         if (previewFloorPlan) {
@@ -2061,10 +2443,24 @@
             });
         }
 
+        var previewSalesMap = document.getElementById('fv-style-open-salesmap');
+        if (previewSalesMap) {
+            previewSalesMap.addEventListener('click', function () {
+                var tab = firstTabByTypes(['sales_map']);
+                if (!tab) {
+                    showEditorStatus('Add a Sales Map tab first in Full View Creator.', true);
+                    return;
+                }
+                loadTab(tab);
+            });
+        }
+
         var resetBtn = document.getElementById('fv-style-reset');
         if (resetBtn) {
             resetBtn.addEventListener('click', function () {
+                var preservedLogoUrl = String((styleState && styleState.header_logo_url) || '').trim();
                 styleState = normalizeStyle(DEFAULT_STYLE);
+                styleState.header_logo_url = preservedLogoUrl;
                 syncEditorForm();
                 applyAndBroadcastStyle();
                 showEditorStatus('Theme reset to default.', false);
@@ -2108,6 +2504,12 @@
     }
 
     styleState = normalizeStyle(INITIAL_STYLE);
+    if (headerLogoEl) {
+        headerLogoEl.addEventListener('error', function () {
+            headerLogoEl.removeAttribute('src');
+            if (headerLogoShellEl) headerLogoShellEl.hidden = true;
+        });
+    }
     applyAndBroadcastStyle();
     autoSelect();
     bindEditor();

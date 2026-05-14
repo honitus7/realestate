@@ -99,6 +99,31 @@
         return Math.round(num * 1000) / 1000;
     }
 
+    function normalizeHoverRouteLineStyle(value, fallback) {
+        var style = String(value || '').trim().toLowerCase();
+        if (style === 'continuous' || style === 'dashed' || style === 'dotted') return style;
+        return fallback || 'dashed';
+    }
+
+    function hoverRouteLineStyleLabel(style) {
+        var normalized = normalizeHoverRouteLineStyle(style, 'dashed');
+        if (normalized === 'continuous') return 'Continuous';
+        if (normalized === 'dotted') return 'Dotted';
+        return 'Dashed';
+    }
+
+    function hoverRouteStrokeDasharray(style) {
+        var normalized = normalizeHoverRouteLineStyle(style, 'dashed');
+        if (normalized === 'continuous') return 'none';
+        if (normalized === 'dotted') return '0.001 0.014';
+        return '0.018 0.012';
+    }
+
+    function applyHoverRouteLineStyle(polyline, style) {
+        if (!polyline) return;
+        polyline.style.strokeDasharray = hoverRouteStrokeDasharray(style);
+    }
+
     function routeDistanceKm(route) {
         return normalizeDistanceKm(route && route.distance_km);
     }
@@ -125,10 +150,12 @@
     function currentDraftHoverRouteStyle() {
         var colorInput = document.getElementById('sre-hover-route-color');
         var widthInput = document.getElementById('sre-hover-route-width');
+        var styleInput = document.getElementById('sre-hover-route-style');
         return {
             label: (document.getElementById('sre-hover-route-label').value || '').trim(),
             color: normalizeHexColor(colorInput ? colorInput.value : '', '#facc15'),
-            line_width: clampLineWidth(widthInput ? widthInput.value : 4)
+            line_width: clampLineWidth(widthInput ? widthInput.value : 4),
+            line_style: normalizeHoverRouteLineStyle(styleInput ? styleInput.value : '', 'dashed')
         };
     }
 
@@ -598,6 +625,7 @@
             polyline.setAttribute('class', 'sre-route sre-route-hover');
             polyline.style.stroke = normalizeHexColor(route && route.color, '#facc15');
             polyline.style.strokeWidth = routeStrokeWidthSvg(route && route.line_width);
+            applyHoverRouteLineStyle(polyline, route && route.line_style);
             routesSvgEl.appendChild(polyline);
         });
 
@@ -625,6 +653,7 @@
             hoverDraftPolyline.setAttribute('class', 'sre-route sre-route-hover sre-route-draft');
             hoverDraftPolyline.style.stroke = hoverDraftStyle.color;
             hoverDraftPolyline.style.strokeWidth = routeStrokeWidthSvg(hoverDraftStyle.line_width);
+            applyHoverRouteLineStyle(hoverDraftPolyline, hoverDraftStyle.line_style);
             routesSvgEl.appendChild(hoverDraftPolyline);
         }
     }
@@ -884,11 +913,13 @@
                 label: style.label,
                 path_points: hoverRouteDraft.points,
                 color: style.color,
-                line_width: style.line_width
+                line_width: style.line_width,
+                line_style: style.line_style
             })
         });
         hoverRouteDraft.points = [];
         document.getElementById('sre-hover-route-label').value = '';
+        document.getElementById('sre-hover-route-style').value = 'dashed';
         await loadMap();
         setStatus('Independent hover route saved. Click to draw another or switch modes.', 'ok');
     }
@@ -897,13 +928,16 @@
         var labelInput = document.getElementById('sre-hover-route-label-' + routeId);
         var colorInput = document.getElementById('sre-hover-route-color-' + routeId);
         var widthInput = document.getElementById('sre-hover-route-width-' + routeId);
+        var styleInput = document.getElementById('sre-hover-route-style-' + routeId);
         var payload = {
             label: labelInput ? labelInput.value.trim() : '',
             color: normalizeHexColor(colorInput ? colorInput.value : '', '#facc15'),
-            line_width: clampLineWidth(widthInput ? widthInput.value : 4)
+            line_width: clampLineWidth(widthInput ? widthInput.value : 4),
+            line_style: normalizeHoverRouteLineStyle(styleInput ? styleInput.value : '', 'dashed')
         };
         if (colorInput) colorInput.value = payload.color;
         if (widthInput) widthInput.value = String(payload.line_width);
+        if (styleInput) styleInput.value = payload.line_style;
         await apiFetch('/api/sales-map-hover-routes/' + encodeURIComponent(routeId), {
             method: 'PATCH',
             body: JSON.stringify(payload)
@@ -1003,16 +1037,22 @@
             hoverRoutesList.innerHTML = hoverRoutes.map(function (route, index) {
                 var color = normalizeHexColor(route && route.color, '#facc15');
                 var lineWidth = clampLineWidth(route && route.line_width);
+                var lineStyle = normalizeHoverRouteLineStyle(route && route.line_style, 'dashed');
                 var pointsCount = hoverRoutePoints(route).length;
                 return '<div class="sre-list-row sre-hover-route-row">' +
                     '<div class="sre-route-top">' +
                     '<span class="sre-route-name">' + escapeHtml(hoverRouteLabel(route, index)) + '</span>' +
-                    '<span class="sre-route-style"><span class="sre-route-swatch" style="background:' + escapeHtml(color) + ';"></span><span class="sre-chip">W ' + lineWidth + '</span><span class="sre-chip">' + pointsCount + ' pts</span></span>' +
+                    '<span class="sre-route-style"><span class="sre-route-swatch" style="background:' + escapeHtml(color) + ';"></span><span class="sre-chip">' + escapeHtml(hoverRouteLineStyleLabel(lineStyle)) + '</span><span class="sre-chip">W ' + lineWidth + '</span><span class="sre-chip">' + pointsCount + ' pts</span></span>' +
                     '</div>' +
                     '<div class="sre-hover-route-controls">' +
                     '<input type="text" id="sre-hover-route-label-' + route.id + '" class="sre-input sre-hover-route-label-input" maxlength="120" value="' + escapeHtml(route.label || '') + '" placeholder="Independent route label">' +
                     '<input type="color" id="sre-hover-route-color-' + route.id + '" class="sre-route-color-input" value="' + escapeHtml(color) + '">' +
                     '<input type="number" id="sre-hover-route-width-' + route.id + '" class="sre-input sre-route-width-input" min="1" max="12" step="1" value="' + lineWidth + '">' +
+                    '<select id="sre-hover-route-style-' + route.id + '" class="sre-input">' +
+                    '<option value="dashed"' + (lineStyle === 'dashed' ? ' selected' : '') + '>Dashed</option>' +
+                    '<option value="dotted"' + (lineStyle === 'dotted' ? ' selected' : '') + '>Dotted</option>' +
+                    '<option value="continuous"' + (lineStyle === 'continuous' ? ' selected' : '') + '>Continuous</option>' +
+                    '</select>' +
                     '<button type="button" class="btn btn-secondary btn-sm" data-hover-route-save-id="' + route.id + '">Save</button>' +
                     '<button type="button" class="btn btn-danger btn-sm" data-hover-route-delete-id="' + route.id + '">Delete</button>' +
                     '</div>' +
@@ -1305,6 +1345,7 @@
 
         var hoverRouteColorInput = document.getElementById('sre-hover-route-color');
         var hoverRouteWidthInput = document.getElementById('sre-hover-route-width');
+        var hoverRouteStyleInput = document.getElementById('sre-hover-route-style');
         var hoverRouteSaveBtn = document.getElementById('sre-hover-route-save');
         if (hoverRouteColorInput) {
             var onHoverRouteColorChange = function () {
@@ -1321,6 +1362,14 @@
             };
             hoverRouteWidthInput.addEventListener('input', onHoverRouteWidthChange);
             hoverRouteWidthInput.addEventListener('change', onHoverRouteWidthChange);
+        }
+        if (hoverRouteStyleInput) {
+            var onHoverRouteStyleChange = function () {
+                hoverRouteStyleInput.value = normalizeHoverRouteLineStyle(hoverRouteStyleInput.value, 'dashed');
+                if (mode === 'draw_hover_route' && hoverRouteDraft.points.length) renderMapOverlay();
+            };
+            hoverRouteStyleInput.addEventListener('change', onHoverRouteStyleChange);
+            hoverRouteStyleInput.addEventListener('input', onHoverRouteStyleChange);
         }
         if (hoverRouteSaveBtn) {
             hoverRouteSaveBtn.addEventListener('click', function () {

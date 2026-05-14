@@ -32,7 +32,7 @@
     <div class="fpv-panel" id="fpv-panel">
         <div class="fpv-panel-header">
             <h2 class="fpv-panel-title">{{ catalogue.name or 'Floor Plans' }}</h2>
-            <button class="fpv-panel-collapse" id="fpv-panel-collapse" title="Collapse">
+            <button class="fpv-panel-collapse" id="fpv-panel-collapse" title="Collapse" aria-label="Collapse floor plans" aria-expanded="true">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
             </button>
         </div>
@@ -45,7 +45,7 @@
             </button>
             {% endfor %}
         </div>
-        <button class="fpv-panel-expand" id="fpv-panel-expand">
+        <button class="fpv-panel-expand" id="fpv-panel-expand" type="button" aria-label="Expand floor plans" aria-expanded="false">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
             Floor Plans
         </button>
@@ -182,6 +182,8 @@
     var items = document.querySelectorAll('.fpv-panel-item');
     var imgEl = document.getElementById('fpv-image');
     var panel = document.getElementById('fpv-panel');
+    var panelCollapseBtn = document.getElementById('fpv-panel-collapse');
+    var panelExpandBtn = document.getElementById('fpv-panel-expand');
     var currentIdx = 0;
     var scale = 1;
     var panX = 0, panY = 0;
@@ -236,15 +238,39 @@
         }, 250);
     }
 
+    function isMobilePanelViewport() {
+        return window.matchMedia ? window.matchMedia('(max-width: 768px)').matches : window.innerWidth <= 768;
+    }
+
+    function setPanelCollapsed(collapsed) {
+        if (!panel) return;
+        var next = !!collapsed;
+        panel.classList.toggle('collapsed', next);
+        if (panelCollapseBtn) panelCollapseBtn.setAttribute('aria-expanded', next ? 'false' : 'true');
+        if (panelExpandBtn) panelExpandBtn.setAttribute('aria-expanded', next ? 'false' : 'true');
+    }
+
+    function applyMobileDefaultPanelState() {
+        if (!panel || panel.dataset.mobileDefaultApplied === '1' || !isMobilePanelViewport()) return;
+        panel.dataset.mobileDefaultApplied = '1';
+        setPanelCollapsed(true);
+    }
+
     // -- Panel collapse/expand --
 
-    document.getElementById('fpv-panel-collapse').addEventListener('click', function() {
-        panel.classList.add('collapsed');
-    });
+    if (panelCollapseBtn) {
+        panelCollapseBtn.addEventListener('click', function() {
+            setPanelCollapsed(true);
+        });
+    }
 
-    document.getElementById('fpv-panel-expand').addEventListener('click', function() {
-        panel.classList.remove('collapsed');
-    });
+    if (panelExpandBtn) {
+        panelExpandBtn.addEventListener('click', function() {
+            setPanelCollapsed(false);
+        });
+    }
+
+    applyMobileDefaultPanelState();
 
     // -- Zoom & Pan --
 
@@ -361,6 +387,10 @@
             items[prev].click();
             items[prev].scrollIntoView({ behavior: 'smooth', block: 'nearest' });
         }
+    });
+
+    window.addEventListener('resize', function() {
+        applyMobileDefaultPanelState();
     });
 })();
 </script>

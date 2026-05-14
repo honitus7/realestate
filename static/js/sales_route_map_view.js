@@ -8,12 +8,17 @@
     var iconLibrary = window.salesRouteMapIcons || null;
 
     var stageEl = document.getElementById('srv-stage');
+    var mapCanvasEl = document.getElementById('srv-map-canvas');
+    var imageEl = document.getElementById('srv-image');
     var markersLayer = document.getElementById('srv-markers-layer');
     var routesSvg = document.getElementById('srv-routes-svg');
     var hoverRoutesSvg = document.getElementById('srv-hover-routes-svg');
     var hoverRoutesLayer = document.getElementById('srv-hover-routes-layer');
     var statusEl = document.getElementById('srv-status');
+    var filterPanelEl = document.getElementById('srv-filter-panel');
     var typeFiltersEl = document.getElementById('srv-type-filters');
+    var filterPanelCollapseBtn = document.getElementById('srv-filter-panel-collapse');
+    var filterPanelExpandBtn = document.getElementById('srv-filter-panel-expand');
     var routeModalEl = document.getElementById('srv-route-modal');
     var routeModalMediaEl = routeModalEl ? routeModalEl.querySelector('.srv-route-modal-media') : null;
     var routeModalIconEl = document.getElementById('srv-route-modal-icon');
@@ -26,6 +31,23 @@
     var activeTypeFilter = 'all';
     var activeHoverRouteId = null;
     var hoverRouteLocked = false;
+    var INITIAL_MAP_SCALE = 1.32;
+    var MIN_MAP_SCALE = 1;
+    var MAX_MAP_SCALE = 4.5;
+    var mapScale = INITIAL_MAP_SCALE;
+    var mapTranslateX = 0;
+    var mapTranslateY = 0;
+    var mousePanActive = false;
+    var touchPanActive = false;
+    var touchPinchActive = false;
+    var panStartClientX = 0;
+    var panStartClientY = 0;
+    var panStartTranslateX = 0;
+    var panStartTranslateY = 0;
+    var pinchStartDistance = 0;
+    var pinchStartScale = INITIAL_MAP_SCALE;
+    var pinchLastCenter = null;
+    var suppressStageClickOnce = false;
 
     function clampRatio(value) {
         var num = Number(value);
@@ -62,6 +84,24 @@
         return String(clampLineWidth(lineWidth) * 0.002);
     }
 
+    function normalizeHoverRouteLineStyle(value, fallback) {
+        var style = String(value || '').trim().toLowerCase();
+        if (style === 'continuous' || style === 'dashed' || style === 'dotted') return style;
+        return fallback || 'dashed';
+    }
+
+    function hoverRouteStrokeDasharray(style) {
+        var normalized = normalizeHoverRouteLineStyle(style, 'dashed');
+        if (normalized === 'continuous') return 'none';
+        if (normalized === 'dotted') return '0.001 0.014';
+        return '0.024 0.015';
+    }
+
+    function applyHoverRouteLineStyle(polyline, style) {
+        if (!polyline) return;
+        polyline.style.strokeDasharray = hoverRouteStrokeDasharray(style);
+    }
+
     function normalizeDistanceKm(value) {
         if (value === null || value === undefined) return null;
         var raw = String(value).trim();
@@ -86,6 +126,100 @@
             return 'Click a normal pointer to view its route, or hover a highway label to preview an independent route.';
         }
         return 'Click a normal pointer to view its route.';
+    }
+
+    function isMobileViewport() {
+        return window.matchMedia ? window.matchMedia('(max-width: 768px)').matches : window.innerWidth <= 768;
+    }
+
+    function isInteractiveUiTarget(target) {
+        return !!(target && target.closest && target.closest('.srv-marker, .srv-hover-chip, .srv-route-modal, .srv-filter-panel'));
+    }
+
+    function clampMapScale(value) {
+        var num = Number(value);
+        if (!Number.isFinite(num)) return INITIAL_MAP_SCALE;
+        return Math.max(MIN_MAP_SCALE, Math.min(MAX_MAP_SCALE, num));
+    }
+
+    function clampMapTranslation() {
+        if (!stageEl || !mapCanvasEl) return;
+        var stageWidth = stageEl.clientWidth || 0;
+        var stageHeight = stageEl.clientHeight || 0;
+        var canvasWidth = mapCanvasEl.offsetWidth || 0;
+        var canvasHeight = mapCanvasEl.offsetHeight || 0;
+        var scaledWidth = canvasWidth * mapScale;
+        var scaledHeight = canvasHeight * mapScale;
+        var maxX = Math.max(0, (scaledWidth - stageWidth) / 2);
+        var maxY = Math.max(0, (scaledHeight - stageHeight) / 2);
+        mapTranslateX = Math.max(-maxX, Math.min(maxX, mapTranslateX));
+        mapTranslateY = Math.max(-maxY, Math.min(maxY, mapTranslateY));
+    }
+
+    function applyMapTransform() {
+        if (!mapCanvasEl) return;
+        clampMapTranslation();
+        mapCanvasEl.style.transform = 'translate(' + mapTranslateX + 'px, ' + mapTranslateY + 'px) scale(' + mapScale + ')';
+    }
+
+    function zoomMapAroundPoint(nextScale, clientX, clientY) {
+        if (!stageEl || !mapCanvasEl) return;
+        var targetScale = clampMapScale(nextScale);
+        var rect = stageEl.getBoundingClientRect();
+        var localX = clientX - rect.left - (rect.width / 2);
+        var localY = clientY - rect.top - (rect.height / 2);
+        var ratio = targetScale / mapScale;
+        mapTranslateX = localX - ((localX - mapTranslateX) * ratio);
+        mapTranslateY = localY - ((localY - mapTranslateY) * ratio);
+        mapScale = targetScale;
+        applyMapTransform();
+    }
+
+    function resetMapView() {
+        mapScale = clampMapScale(INITIAL_MAP_SCALE);
+        mapTranslateX = 0;
+        mapTranslateY = 0;
+        applyMapTransform();
+    }
+
+    function touchDistance(touches) {
+        if (!touches || touches.length < 2) return 0;
+        var dx = touches[0].clientX - touches[1].clientX;
+        var dy = touches[0].clientY - touches[1].clientY;
+        return Math.sqrt((dx * dx) + (dy * dy));
+    }
+
+    function touchCenter(touches) {
+        if (!touches || !touches.length) return null;
+        if (touches.length === 1) {
+            return { clientX: touches[0].clientX, clientY: touches[0].clientY };
+        }
+        return {
+            clientX: (touches[0].clientX + touches[1].clientX) / 2,
+            clientY: (touches[0].clientY + touches[1].clientY) / 2
+        };
+    }
+
+    function releaseMapPointerState() {
+        mousePanActive = false;
+        touchPanActive = false;
+        touchPinchActive = false;
+        pinchLastCenter = null;
+        if (mapCanvasEl) mapCanvasEl.classList.remove('is-dragging');
+    }
+
+    function setFilterPanelCollapsed(collapsed) {
+        if (!filterPanelEl) return;
+        var next = !!collapsed;
+        filterPanelEl.classList.toggle('collapsed', next);
+        if (filterPanelCollapseBtn) filterPanelCollapseBtn.setAttribute('aria-expanded', next ? 'false' : 'true');
+        if (filterPanelExpandBtn) filterPanelExpandBtn.setAttribute('aria-expanded', next ? 'false' : 'true');
+    }
+
+    function applyMobileDefaultFilterPanelState() {
+        if (!filterPanelEl || filterPanelEl.hidden || filterPanelEl.dataset.mobileDefaultApplied === '1' || !isMobileViewport()) return;
+        filterPanelEl.dataset.mobileDefaultApplied = '1';
+        setFilterPanelCollapsed(true);
     }
 
     function markerById(markerId) {
@@ -220,6 +354,7 @@
         line.setAttribute('points', pointsToSvg(points));
         line.style.stroke = routeColor(route);
         line.style.strokeWidth = String(routeLineWidth(route) * 0.0022);
+        applyHoverRouteLineStyle(line, route && route.line_style);
         hoverRoutesSvg.appendChild(line);
     }
 
@@ -468,13 +603,14 @@
     }
 
     function renderTypeFilters() {
-        if (!typeFiltersEl) return;
+        if (!typeFiltersEl || !filterPanelEl) return;
         var types = distinctPointerTypes();
         if (!types.length) {
-            typeFiltersEl.hidden = true;
+            typeFiltersEl.innerHTML = '';
+            filterPanelEl.hidden = true;
             return;
         }
-        typeFiltersEl.hidden = false;
+        filterPanelEl.hidden = false;
         var allTypes = [{ key: 'all', label: 'All' }].concat(types);
         typeFiltersEl.innerHTML = allTypes.map(function (typeMeta) {
             var cls = 'srv-filter-chip';
@@ -499,6 +635,7 @@
                 }
             });
         });
+        applyMobileDefaultFilterPanelState();
     }
 
     function handleMarkerClick(targetMarker) {
@@ -541,10 +678,130 @@
 
     function handleStageClick(event) {
         if (!stageEl) return;
-        if (event.target && event.target.closest && event.target.closest('.srv-marker, .srv-hover-chip, .srv-route-modal')) {
+        if (suppressStageClickOnce) {
+            suppressStageClickOnce = false;
+            return;
+        }
+        if (event.target && event.target.closest && event.target.closest('.srv-marker, .srv-hover-chip, .srv-route-modal, .srv-filter-panel')) {
             return;
         }
         clearActiveMarkerSelection(true);
+    }
+
+    function bindFilterPanelControls() {
+        if (filterPanelCollapseBtn) {
+            filterPanelCollapseBtn.addEventListener('click', function () {
+                setFilterPanelCollapsed(true);
+            });
+        }
+        if (filterPanelExpandBtn) {
+            filterPanelExpandBtn.addEventListener('click', function () {
+                setFilterPanelCollapsed(false);
+            });
+        }
+    }
+
+    function bindMapInteractions() {
+        if (!stageEl || !mapCanvasEl) return;
+
+        stageEl.addEventListener('wheel', function (event) {
+            if (isInteractiveUiTarget(event.target)) return;
+            event.preventDefault();
+            var delta = event.deltaY > 0 ? 0.9 : 1.1;
+            zoomMapAroundPoint(mapScale * delta, event.clientX, event.clientY);
+        }, { passive: false });
+
+        stageEl.addEventListener('mousedown', function (event) {
+            if (event.button !== 0 || isInteractiveUiTarget(event.target)) return;
+            mousePanActive = true;
+            panStartClientX = event.clientX;
+            panStartClientY = event.clientY;
+            panStartTranslateX = mapTranslateX;
+            panStartTranslateY = mapTranslateY;
+            mapCanvasEl.classList.add('is-dragging');
+            event.preventDefault();
+        });
+
+        window.addEventListener('mousemove', function (event) {
+            if (!mousePanActive) return;
+            var deltaX = event.clientX - panStartClientX;
+            var deltaY = event.clientY - panStartClientY;
+            if (Math.abs(deltaX) > 3 || Math.abs(deltaY) > 3) suppressStageClickOnce = true;
+            mapTranslateX = panStartTranslateX + deltaX;
+            mapTranslateY = panStartTranslateY + deltaY;
+            applyMapTransform();
+        });
+
+        window.addEventListener('mouseup', function () {
+            if (!mousePanActive) return;
+            mousePanActive = false;
+            if (mapCanvasEl) mapCanvasEl.classList.remove('is-dragging');
+        });
+
+        stageEl.addEventListener('touchstart', function (event) {
+            if (isInteractiveUiTarget(event.target)) return;
+            if (event.touches.length >= 2) {
+                touchPinchActive = true;
+                touchPanActive = false;
+                pinchStartDistance = touchDistance(event.touches);
+                pinchStartScale = mapScale;
+                pinchLastCenter = touchCenter(event.touches);
+                if (mapCanvasEl) mapCanvasEl.classList.add('is-dragging');
+                return;
+            }
+            if (event.touches.length === 1) {
+                touchPanActive = true;
+                touchPinchActive = false;
+                panStartClientX = event.touches[0].clientX;
+                panStartClientY = event.touches[0].clientY;
+                panStartTranslateX = mapTranslateX;
+                panStartTranslateY = mapTranslateY;
+                if (mapCanvasEl) mapCanvasEl.classList.add('is-dragging');
+            }
+        }, { passive: true });
+
+        stageEl.addEventListener('touchmove', function (event) {
+            if (touchPinchActive && event.touches.length >= 2) {
+                event.preventDefault();
+                var nextDistance = touchDistance(event.touches);
+                var center = touchCenter(event.touches);
+                if (pinchLastCenter && center) {
+                    mapTranslateX += center.clientX - pinchLastCenter.clientX;
+                    mapTranslateY += center.clientY - pinchLastCenter.clientY;
+                }
+                pinchLastCenter = center;
+                suppressStageClickOnce = true;
+                zoomMapAroundPoint((pinchStartScale * nextDistance) / (pinchStartDistance || 1), center.clientX, center.clientY);
+                return;
+            }
+            if (touchPanActive && event.touches.length === 1) {
+                event.preventDefault();
+                var deltaX = event.touches[0].clientX - panStartClientX;
+                var deltaY = event.touches[0].clientY - panStartClientY;
+                if (Math.abs(deltaX) > 3 || Math.abs(deltaY) > 3) suppressStageClickOnce = true;
+                mapTranslateX = panStartTranslateX + deltaX;
+                mapTranslateY = panStartTranslateY + deltaY;
+                applyMapTransform();
+            }
+        }, { passive: false });
+
+        function endTouchInteraction(event) {
+            if (touchPinchActive && event.touches && event.touches.length === 1) {
+                touchPinchActive = false;
+                touchPanActive = true;
+                panStartClientX = event.touches[0].clientX;
+                panStartClientY = event.touches[0].clientY;
+                panStartTranslateX = mapTranslateX;
+                panStartTranslateY = mapTranslateY;
+                pinchLastCenter = null;
+                return;
+            }
+            if (event.touches && event.touches.length >= 2) return;
+            releaseMapPointerState();
+        }
+
+        stageEl.addEventListener('touchend', endTouchInteraction, { passive: true });
+        stageEl.addEventListener('touchcancel', endTouchInteraction, { passive: true });
     }
 
     function init() {
@@ -554,7 +811,17 @@
         } else {
             statusEl.textContent = defaultStatusText();
         }
+        bindFilterPanelControls();
+        bindMapInteractions();
         if (stageEl) stageEl.addEventListener('click', handleStageClick);
+        if (imageEl) {
+            if (imageEl.complete) resetMapView();
+            else imageEl.addEventListener('load', resetMapView, { once: true });
+        }
+        window.addEventListener('resize', function () {
+            applyMapTransform();
+            applyMobileDefaultFilterPanelState();
+        });
         renderTypeFilters();
         renderMarkers();
         renderHoverRouteChips();
