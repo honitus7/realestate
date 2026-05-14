@@ -212,7 +212,7 @@
 
         @media (max-width: 768px) {
             .cfv-frame-host.cfv-frame-host--mobile-nav {
-                bottom: calc(74px + env(safe-area-inset-bottom, 0px));
+                bottom: calc(84px + env(safe-area-inset-bottom, 0px));
                 height: auto;
             }
             .cfv-header-shell {
@@ -305,7 +305,7 @@
             inset: 0;
         }
         body.fv-mobile-mode .cfv-frame-host.cfv-frame-host--mobile-nav {
-            bottom: calc(74px + env(safe-area-inset-bottom, 0px));
+            bottom: calc(84px + env(safe-area-inset-bottom, 0px));
             height: auto;
         }
         body.fv-mobile-mode .fv-sidebar {
@@ -335,8 +335,8 @@
         body.fv-mobile-mode .fv-sidebar-btn {
             position: relative;
             z-index: 1;
-            min-height: 64px;
-            height: max(64px, calc(var(--fv-menu-icon-box-size, 26px) + (var(--fv-menu-font-size, 9px) * 2.25) + 16px));
+            min-height: 72px;
+            height: max(72px, calc(var(--fv-menu-icon-box-size, 26px) + (var(--fv-menu-font-size, 9px) * 3.25) + 18px));
             width: auto;
             min-width: 0;
             flex: 1 1 0;
@@ -361,8 +361,8 @@
             hyphens: auto;
             display: -webkit-box;
             -webkit-box-orient: vertical;
-            -webkit-line-clamp: 2;
-            min-height: calc(2 * 1.05em);
+            -webkit-line-clamp: 3;
+            min-height: calc(3 * 1.05em);
         }
         body.fv-mobile-mode .fv-nav-reveal-fab {
             z-index: 1206;
@@ -806,7 +806,7 @@
                     </div>
                     <div class="fv-style-field">
                         <label class="fv-style-label" for="fv-style-menu-font-size">Menu Label Size <span class="fv-style-val" id="fv-style-menu-font-size-val"></span></label>
-                        <input id="fv-style-menu-font-size" class="fv-style-input" type="range" min="9" max="18" step="1">
+                        <input id="fv-style-menu-font-size" class="fv-style-input" type="range" min="2" max="48" step="1">
                     </div>
                 </div>
             </div>
@@ -1707,7 +1707,7 @@
         merged.sidebar.max_height_vh = clampInt(merged.sidebar.max_height_vh, 30, 100, DEFAULT_STYLE.sidebar.max_height_vh);
         merged.sidebar.icon_size_px = clampInt(merged.sidebar.icon_size_px, 12, 40, DEFAULT_STYLE.sidebar.icon_size_px);
         merged.sidebar.font_family = sanitizeFontFamily(merged.sidebar.font_family, DEFAULT_STYLE.sidebar.font_family);
-        merged.sidebar.font_size_px = clampInt(merged.sidebar.font_size_px, 9, 18, DEFAULT_STYLE.sidebar.font_size_px);
+        merged.sidebar.font_size_px = clampInt(merged.sidebar.font_size_px, 2, 48, DEFAULT_STYLE.sidebar.font_size_px);
 
         var legacyModal = (input.modal && typeof input.modal === 'object') ? input.modal : null;
         var hasFloorPlanModal = (input.modal_floorplan && typeof input.modal_floorplan === 'object');

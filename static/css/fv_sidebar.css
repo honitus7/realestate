@@ -75,8 +75,8 @@
 
 .fv-sidebar-btn {
     width: 100%;
-    min-height: 68px;
-    height: max(68px, calc(var(--fv-menu-icon-box-size, 26px) + (var(--fv-menu-font-size, 9px) * 2.35) + 18px));
+    min-height: 76px;
+    height: max(76px, calc(var(--fv-menu-icon-box-size, 26px) + (var(--fv-menu-font-size, 9px) * 3.35) + 20px));
     margin: 0;
     padding: 7px 4px 6px;
 
@@ -164,8 +164,8 @@
     hyphens: auto;
     display: -webkit-box;
     -webkit-box-orient: vertical;
-    -webkit-line-clamp: 2;
-    min-height: calc(2 * 1.14em);
+    -webkit-line-clamp: 3;
+    min-height: calc(3 * 1.14em);
 }
 
 .fv-nav-reveal-fab {
@@ -237,8 +237,8 @@
     .fv-sidebar-btn {
         position: relative;
         z-index: 1;
-        min-height: 60px;
-        height: max(60px, calc(var(--fv-menu-icon-box-size, 26px) + (var(--fv-menu-font-size, 9px) * 2.25) + 16px));
+        min-height: 72px;
+        height: max(72px, calc(var(--fv-menu-icon-box-size, 26px) + (var(--fv-menu-font-size, 9px) * 3.25) + 18px));
         width: auto;
         min-width: 0;
         flex: 1 1 0;
@@ -264,8 +264,8 @@
         hyphens: auto;
         display: -webkit-box;
         -webkit-box-orient: vertical;
-        -webkit-line-clamp: 2;
-        min-height: calc(2 * 1.05em);
+        -webkit-line-clamp: 3;
+        min-height: calc(3 * 1.05em);
     }
 
     .fv-nav-reveal-fab {
