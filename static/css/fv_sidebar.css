@@ -76,14 +76,16 @@
 .fv-sidebar-btn {
     width: 100%;
     min-height: 68px;
+    height: max(68px, calc(var(--fv-menu-icon-box-size, 26px) + (var(--fv-menu-font-size, 9px) * 2.35) + 18px));
     margin: 0;
     padding: 7px 4px 6px;
 
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: center;
+    justify-content: flex-start;
     gap: 5px;
+    overflow: hidden;
 
     border: none;
     border-radius: 0;
@@ -157,9 +159,13 @@
     white-space: normal;
     overflow: visible;
     text-overflow: clip;
-    overflow-wrap: normal;
-    word-break: normal;
+    overflow-wrap: anywhere;
+    word-break: break-word;
     hyphens: auto;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    min-height: calc(2 * 1.14em);
 }
 
 .fv-nav-reveal-fab {
@@ -232,11 +238,14 @@
         position: relative;
         z-index: 1;
         min-height: 60px;
+        height: max(60px, calc(var(--fv-menu-icon-box-size, 26px) + (var(--fv-menu-font-size, 9px) * 2.25) + 16px));
         width: auto;
         min-width: 0;
         flex: 1 1 0;
         padding: 6px 3px 5px;
+        justify-content: flex-start;
         border-radius: 8px;
+        overflow: hidden;
     }
 
     .fv-sidebar-btn--active {
@@ -246,9 +255,17 @@
     .fv-sidebar-label {
         max-width: 100%;
         font-size: var(--fv-menu-font-size, 0.55rem);
-        white-space: nowrap;
+        line-height: 1.05;
+        white-space: normal;
         overflow: hidden;
-        text-overflow: ellipsis;
+        text-overflow: clip;
+        overflow-wrap: anywhere;
+        word-break: break-word;
+        hyphens: auto;
+        display: -webkit-box;
+        -webkit-box-orient: vertical;
+        -webkit-line-clamp: 2;
+        min-height: calc(2 * 1.05em);
     }
 
     .fv-nav-reveal-fab {

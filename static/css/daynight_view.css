@@ -25,6 +25,13 @@ html, body {
     cursor: grab;
 }
 
+body.preview-mobile #dn-viewport,
+body.preview-mobile #dn-loader,
+body.preview-mobile #dn-vignette,
+body.preview-mobile #dn-indicator {
+    height: 100dvh;
+}
+
 #dn-viewport.grabbing {
     cursor: grabbing;
 }

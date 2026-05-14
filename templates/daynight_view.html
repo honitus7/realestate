@@ -6,7 +6,7 @@
     <title>{{ project.name }}</title>
     <link rel="stylesheet" href="/static/css/daynight_view.css">
 </head>
-<body>
+<body class="{{ 'preview-mobile' if preview_mode == 'mobile' else '' }}">
     <div id="dn-loader"><div class="dn-spinner"></div></div>
     <div id="dn-viewport"></div>
     <div id="dn-vignette"></div>

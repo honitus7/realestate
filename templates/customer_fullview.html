@@ -112,6 +112,40 @@
         .cfv-header-autoplay-btn:hover {
             background: rgba(18, 21, 30, 0.9);
         }
+        .cfv-header-preview-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.34rem;
+            width: auto;
+            min-width: 42px;
+            height: 42px;
+            padding: 0 0.72rem;
+            flex: 0 0 auto;
+            background: rgba(12, 14, 20, 0.82);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 12px;
+            color: rgba(255,255,255,0.92);
+            box-shadow: 0 10px 24px rgba(0, 0, 0, 0.18);
+            cursor: pointer;
+            white-space: nowrap;
+        }
+        .cfv-header-preview-btn:hover {
+            background: rgba(18, 21, 30, 0.9);
+        }
+        .cfv-header-preview-btn iconify-icon {
+            width: 18px;
+            height: 18px;
+            font-size: 18px;
+            display: block;
+        }
+        .cfv-header-preview-btn-label {
+            font-size: 0.74rem;
+            font-weight: 700;
+            letter-spacing: 0.01em;
+        }
         .cfv-header-autoplay-icon {
             display: inline-flex;
             align-items: center;
@@ -204,6 +238,14 @@
             .cfv-header-sub {
                 font-size: calc(0.7rem * var(--fv-header-scale, 1));
             }
+            .cfv-header-preview-btn {
+                padding: 0;
+                width: 42px;
+                min-width: 42px;
+            }
+            .cfv-header-preview-btn-label {
+                display: none;
+            }
         }
 
         body.fv-mobile-mode .cfv-shell-preview {
@@ -293,12 +335,16 @@
         body.fv-mobile-mode .fv-sidebar-btn {
             position: relative;
             z-index: 1;
-            min-height: 60px;
+            min-height: 64px;
+            height: max(64px, calc(var(--fv-menu-icon-box-size, 26px) + (var(--fv-menu-font-size, 9px) * 2.25) + 16px));
             width: auto;
             min-width: 0;
             flex: 1 1 0;
-            padding: 6px 3px 5px;
+            padding: 7px 3px 6px;
+            gap: 4px;
+            justify-content: flex-start;
             border-radius: 8px;
+            overflow: hidden;
         }
         body.fv-mobile-mode .fv-sidebar-btn--active {
             border-radius: 8px;
@@ -306,9 +352,17 @@
         body.fv-mobile-mode .fv-sidebar-label {
             max-width: 100%;
             font-size: var(--fv-menu-font-size, 0.55rem);
-            white-space: nowrap;
+            line-height: 1.05;
+            white-space: normal;
             overflow: hidden;
-            text-overflow: ellipsis;
+            text-overflow: clip;
+            overflow-wrap: anywhere;
+            word-break: break-word;
+            hyphens: auto;
+            display: -webkit-box;
+            -webkit-box-orient: vertical;
+            -webkit-line-clamp: 2;
+            min-height: calc(2 * 1.05em);
         }
         body.fv-mobile-mode .fv-nav-reveal-fab {
             z-index: 1206;
@@ -551,6 +605,12 @@
                         </svg>
                     </span>
                 </button>
+                {% if is_editor %}
+                <button type="button" class="cfv-header-preview-btn" id="cfv-header-preview-btn" aria-label="Switch to mobile preview" title="Switch to mobile preview">
+                    <iconify-icon id="cfv-header-preview-icon" icon="ph:device-mobile"></iconify-icon>
+                    <span class="cfv-header-preview-btn-label" id="cfv-header-preview-label">Mobile View</span>
+                </button>
+                {% endif %}
             </div>
 
             <div class="cfv-frame-host" id="cfv-frame-host" aria-live="polite"></div>
@@ -1055,6 +1115,7 @@
     var IS_EDITOR = {{ (is_editor or false) | tojson }};
     var FV_CONFIG_ID = {{ (fv_config.get('id') if fv_config else '') | tojson }};
     var INITIAL_STYLE = {{ (fv_style or {}) | tojson }};
+    var INITIAL_EDITOR_PREVIEW_MODE = {{ (editor_preview_mode or '') | tojson }};
     var SUPABASE_URL = {{ (supabase_url or '') | tojson }};
     var SUPABASE_ANON_KEY = {{ (supabase_anon_key or '') | tojson }};
 
@@ -1065,6 +1126,9 @@
     var headerTitleEl = document.getElementById('cfv-header-title');
     var headerSubEl = document.getElementById('cfv-header-sub');
     var headerAutoplayBtn = document.getElementById('cfv-header-autoplay-btn');
+    var headerPreviewBtn = document.getElementById('cfv-header-preview-btn');
+    var headerPreviewIcon = document.getElementById('cfv-header-preview-icon');
+    var headerPreviewLabel = document.getElementById('cfv-header-preview-label');
     var navFab = document.getElementById('fv-nav-reveal-fab');
     var activeBtn = null;
     var activeFrame = null;
@@ -1110,6 +1174,10 @@
         var modal = defaultModalStyle();
         modal.left_offset = 24;
         return modal;
+    }
+
+    function editorPreviewQuerySuffix() {
+        return (IS_EDITOR && editorPreviewMode === 'mobile') ? '&preview=mobile' : '';
     }
 
     var DEFAULT_STYLE = {
@@ -1883,6 +1951,7 @@
         var url = '/customer/project/' + encodeURIComponent(WS_ID) + '?embed=1';
         var panoRef = String(panoramaId || '').trim();
         if (panoRef) url += '&pano=' + encodeURIComponent(panoRef);
+        url += editorPreviewQuerySuffix();
         return url;
     }
 
@@ -1895,14 +1964,15 @@
             if (ytEmbed) return ytEmbed;
         }
         var wsQ = '?workspace_id=' + encodeURIComponent(WS_ID) + '&embed=1';
-        if (type === 'floor_plan' && ref) return '/customer/full-view/floor-plan/' + ref + wsQ;
-        if (type === 'gallery' && ref) return '/customer/full-view/gallery/' + ref + wsQ;
-        if (type === 'amenities' && ref) return '/customer/full-view/gallery/' + ref + wsQ;
-        if (type === 'highlights' && ref) return '/customer/full-view/gallery/' + ref + wsQ;
-        if (type === 'daynight' && ref) return '/customer/full-view/daynight/' + ref + wsQ;
-        if (type === 'project_plan' && ref) return '/customer/full-view/project-plan/' + ref + wsQ;
-        if (type === 'sales_map' && ref) return '/customer/full-view/sales-map/' + ref + wsQ;
-        if (type === 'sales_flat360' && ref) return '/customer/full-view/sales-flat360/' + ref + wsQ;
+        var previewQ = editorPreviewQuerySuffix();
+        if (type === 'floor_plan' && ref) return '/customer/full-view/floor-plan/' + ref + wsQ + previewQ;
+        if (type === 'gallery' && ref) return '/customer/full-view/gallery/' + ref + wsQ + previewQ;
+        if (type === 'amenities' && ref) return '/customer/full-view/gallery/' + ref + wsQ + previewQ;
+        if (type === 'highlights' && ref) return '/customer/full-view/gallery/' + ref + wsQ + previewQ;
+        if (type === 'daynight' && ref) return '/customer/full-view/daynight/' + ref + wsQ + previewQ;
+        if (type === 'project_plan' && ref) return '/customer/full-view/project-plan/' + ref + wsQ + previewQ;
+        if (type === 'sales_map' && ref) return '/customer/full-view/sales-map/' + ref + wsQ + previewQ;
+        if (type === 'sales_flat360' && ref) return '/customer/full-view/sales-flat360/' + ref + wsQ + previewQ;
         if (type === 'video') return ytEmbed;
         if (type === 'location' && contentUrl) return contentUrl;
         if (type === 'brochure' && contentUrl) return contentUrl;
@@ -2197,7 +2267,8 @@
         if (history.replaceState && WS_ID) {
             history.replaceState(null, '', SHELL_BASE_PATH
                 + '?type=' + encodeURIComponent(meta.type)
-                + '&ref=' + encodeURIComponent(meta.ref || ''));
+                + '&ref=' + encodeURIComponent(meta.ref || '')
+                + editorPreviewQuerySuffix());
         }
     }
 
@@ -2215,6 +2286,11 @@
         headerAutoplayBtn.addEventListener('click', function () {
             if (!shellAutoplayAvailable) return;
             postToActiveFrame({ type: 'fv-gallery-autoplay-control', action: 'toggle' });
+        });
+    }
+    if (headerPreviewBtn) {
+        headerPreviewBtn.addEventListener('click', function () {
+            applyEditorPreviewMode(editorPreviewMode === 'mobile' ? 'desktop' : 'mobile');
         });
     }
 
@@ -2301,11 +2377,27 @@
 
     function loadEditorPreviewMode() {
         if (!IS_EDITOR) return 'desktop';
+        if (INITIAL_EDITOR_PREVIEW_MODE) return normalizePreviewMode(INITIAL_EDITOR_PREVIEW_MODE);
         try {
             if (!window.localStorage) return 'desktop';
             return normalizePreviewMode(localStorage.getItem(PREVIEW_MODE_STORAGE_KEY));
         } catch (e) {
             return 'desktop';
+        }
+    }
+
+    function syncEditorPreviewToggleUi() {
+        if (!IS_EDITOR) return;
+        if (headerPreviewBtn) {
+            var switchToMobile = editorPreviewMode !== 'mobile';
+            headerPreviewBtn.title = switchToMobile ? 'Switch to mobile preview' : 'Switch to desktop preview';
+            headerPreviewBtn.setAttribute('aria-label', headerPreviewBtn.title);
+        }
+        if (headerPreviewIcon) {
+            headerPreviewIcon.setAttribute('icon', editorPreviewMode === 'mobile' ? 'ph:desktop' : 'ph:device-mobile');
+        }
+        if (headerPreviewLabel) {
+            headerPreviewLabel.textContent = editorPreviewMode === 'mobile' ? 'Desktop View' : 'Mobile View';
         }
     }
 
@@ -2315,9 +2407,13 @@
         document.body.classList.toggle('fv-mobile-mode', editorPreviewMode === 'mobile');
         var selectEl = document.getElementById('fv-style-preview-mode');
         if (selectEl && selectEl.value !== editorPreviewMode) selectEl.value = editorPreviewMode;
+        syncEditorPreviewToggleUi();
         try {
             if (window.localStorage) localStorage.setItem(PREVIEW_MODE_STORAGE_KEY, editorPreviewMode);
         } catch (e) { }
+        if (activeBtn) {
+            loadTab(activeBtn, { skipPreload: true });
+        }
     }
 
     function editorAuthHeaders(includeJsonContentType) {

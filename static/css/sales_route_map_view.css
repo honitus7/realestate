@@ -571,12 +571,12 @@ body {
     }
 
     .srv-filter-panel {
-        left: min(var(--fv-salesmap-modal-left, 24px), calc(100vw - 1.5rem));
-        right: auto;
-        bottom: calc(62px + env(safe-area-inset-bottom, 0px) + var(--fv-salesmap-modal-bottom, 24px));
+        left: auto;
+        right: min(var(--fv-salesmap-modal-left, 24px), calc(100vw - 1.5rem));
+        bottom: calc(72px + env(safe-area-inset-bottom, 0px) + var(--fv-salesmap-modal-bottom, 24px));
         width: min(var(--fv-salesmap-modal-width, 260px), max(0px, calc(100vw - var(--fv-salesmap-modal-left, 0px) - 1rem)));
-        height: min(var(--fv-salesmap-modal-height, var(--fv-salesmap-modal-max-height, 72vh)), max(0px, calc(100vh - (62px + env(safe-area-inset-bottom, 0px) + var(--fv-salesmap-modal-bottom, 24px)))));
-        max-height: min(var(--fv-salesmap-modal-height, var(--fv-salesmap-modal-max-height, 72vh)), max(0px, calc(100vh - (62px + env(safe-area-inset-bottom, 0px) + var(--fv-salesmap-modal-bottom, 24px)))));
+        height: min(var(--fv-salesmap-modal-height, var(--fv-salesmap-modal-max-height, 72vh)), max(0px, calc(100vh - (72px + env(safe-area-inset-bottom, 0px) + var(--fv-salesmap-modal-bottom, 24px)))));
+        max-height: min(var(--fv-salesmap-modal-height, var(--fv-salesmap-modal-max-height, 72vh)), max(0px, calc(100vh - (72px + env(safe-area-inset-bottom, 0px) + var(--fv-salesmap-modal-bottom, 24px)))));
     }
 
     .srv-filter-panel.collapsed {

@@ -3707,6 +3707,30 @@
             document.body.classList.toggle('is-2d', Boolean(visible));
         }
 
+        function shouldUseMobileFullBleed2d() {
+            if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return false;
+            try {
+                return window.matchMedia('(hover: none) and (pointer: coarse)').matches;
+            } catch (e) {
+                return window.innerWidth <= 768;
+            }
+        }
+
+        function update2dScaleBounds() {
+            if (!imageWidth || !imageHeight) return;
+            if (!containerWidth || !Number.isFinite(containerWidth) || containerWidth <= 0) {
+                containerWidth = (imageContainer && imageContainer.clientWidth) ? imageContainer.clientWidth : window.innerWidth;
+            }
+            if (!containerHeight || !Number.isFinite(containerHeight) || containerHeight <= 0) {
+                containerHeight = (imageContainer && imageContainer.clientHeight) ? imageContainer.clientHeight : window.innerHeight;
+            }
+            const baseScale = shouldUseMobileFullBleed2d()
+                ? Math.max(containerWidth / imageWidth, containerHeight / imageHeight)
+                : Math.min(containerWidth / imageWidth, containerHeight / imageHeight);
+            minScale2d = Math.max(0.01, baseScale);
+            maxScale2d = Math.max(5.0, minScale2d * 2.0);
+        }
+
         function destroyViewer() {
             if (viewer && typeof viewer.destroy === 'function') {
                 try { viewer.destroy(); } catch (e) { }
@@ -3745,11 +3769,9 @@
             var rect = (typeof imageContainer.getBoundingClientRect === 'function') ? imageContainer.getBoundingClientRect() : null;
             containerWidth = (rect && rect.width > 0) ? rect.width : (imageContainer.clientWidth || window.innerWidth || 1);
             containerHeight = (rect && rect.height > 0) ? rect.height : (imageContainer.clientHeight || window.innerHeight || 1);
-            // Show the full image initially (allow whitespace if aspect differs).
-            const fitContainScale = Math.min(containerWidth / imageWidth, containerHeight / imageHeight);
-            minScale2d = Math.max(0.01, fitContainScale);
-            maxScale2d = 5.0;
-            // Start at the minimum zoom: full image visible.
+            // Show the full image on desktop and fill the viewport on mobile.
+            update2dScaleBounds();
+            // Start at the minimum zoom for the current layout.
             scale = minScale2d;
             translateX = 0;
             translateY = 0;
@@ -4335,9 +4357,7 @@
             if (!CURRENT_PANORAMA_IS_360) {
                 containerWidth = imageContainer ? (imageContainer.getBoundingClientRect ? imageContainer.getBoundingClientRect().width : imageContainer.clientWidth) : containerWidth;
                 containerHeight = imageContainer ? (imageContainer.getBoundingClientRect ? imageContainer.getBoundingClientRect().height : imageContainer.clientHeight) : containerHeight;
-                const fitContainScale = Math.min(containerWidth / imageWidth, containerHeight / imageHeight);
-                minScale2d = Math.max(0.01, fitContainScale);
-                maxScale2d = 5.0;
+                update2dScaleBounds();
                 if (scale < minScale2d) scale = minScale2d;
                 if (scale > maxScale2d) scale = maxScale2d;
                 update2dTransform();

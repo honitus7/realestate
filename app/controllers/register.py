@@ -6977,13 +6977,15 @@ h1 {{ margin:0 0 8px; font-size:22px; }}
             media_url = get_daynight_s3_url(project['video_filename'])
         if not media_url:
             return "Media not yet uploaded", 404
+        preview_mode = request.args.get('preview', '').strip().lower() or ''
         return render_template('daynight_view.html',
                                project=project,
                                media_url=media_url,
                                media_type=project.get('media_type'),
                                stitched_width=project.get('stitched_width', 0),
                                stitched_height=project.get('stitched_height', 0),
-                               drag_speed=project.get('drag_speed') or 80)
+                               drag_speed=project.get('drag_speed') or 80,
+                               preview_mode=preview_mode)
 
     # ==================================================================
     # Floor Plan Catalogue
@@ -11108,6 +11110,7 @@ h1 {{ margin:0 0 8px; font-size:22px; }}
                                fv_config=fv_config,
                                fv_style=fv_style,
                                is_editor=False,
+                               editor_preview_mode='',
                                init_type=init_type,
                                init_ref=init_ref)
 
@@ -11128,6 +11131,7 @@ h1 {{ margin:0 0 8px; font-size:22px; }}
         fv_style = fv_config.get('style') if isinstance(fv_config.get('style'), dict) else {}
         init_type = request.args.get('type', '').strip() or None
         init_ref = request.args.get('ref', '').strip() or None
+        editor_preview_mode = request.args.get('preview', '').strip().lower() or ''
         return render_template('customer_fullview.html',
                                workspace_id=workspace_id,
                                workspace_name=ws.get('name', ''),
@@ -11136,6 +11140,7 @@ h1 {{ margin:0 0 8px; font-size:22px; }}
                                is_editor=True,
                                init_type=init_type,
                                init_ref=init_ref,
+                               editor_preview_mode=editor_preview_mode,
                                **auth_ctx())
 
     @app.route('/customer/full-view/floor-plan/<catalogue_id>')
@@ -11207,6 +11212,7 @@ h1 {{ margin:0 0 8px; font-size:22px; }}
             media_url = get_daynight_s3_url(project['video_filename'])
         if not media_url:
             return "Media not yet uploaded", 404
+        preview_mode = request.args.get('preview', '').strip().lower() or ''
         return render_template('daynight_view.html',
                                project=project,
                                media_url=media_url,
@@ -11214,6 +11220,7 @@ h1 {{ margin:0 0 8px; font-size:22px; }}
                                stitched_width=project.get('stitched_width', 0),
                                stitched_height=project.get('stitched_height', 0),
                                drag_speed=project.get('drag_speed') or 80,
+                               preview_mode=preview_mode,
                                fv_config=None)
 
     @app.route('/customer/full-view/project-plan/<plan_id>')
