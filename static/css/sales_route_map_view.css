@@ -17,6 +17,7 @@ body {
     --fv-salesmap-modal-item-text: rgba(242, 246, 255, 0.9);
     --fv-salesmap-modal-item-active-bg: rgba(62, 86, 127, 0.35);
     --fv-salesmap-modal-item-active-border: rgba(164, 193, 234, 0.62);
+    --fv-modal-padding-scale: 1;
     --fv-salesmap-modal-width: 260px;
     --fv-salesmap-modal-height: 72vh;
     --fv-salesmap-modal-max-height: 72vh;
@@ -294,11 +295,11 @@ body {
 }
 
 .srv-filter-panel-header {
-    padding: 0.85rem 1rem 0.6rem;
+    padding: calc(0.85rem * var(--fv-modal-padding-scale, 1)) calc(1rem * var(--fv-modal-padding-scale, 1)) calc(0.6rem * var(--fv-modal-padding-scale, 1));
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 0.5rem;
+    gap: calc(0.5rem * var(--fv-modal-padding-scale, 1));
     border-bottom: 1px solid rgba(255, 255, 255, 0.06);
     flex-shrink: 0;
 }
@@ -332,7 +333,7 @@ body {
 }
 
 .srv-type-filters {
-    --srv-filter-row-gap: 0.2rem;
+    --srv-filter-row-gap: calc(0.2rem * var(--fv-modal-padding-scale, 1));
     display: flex;
     flex-direction: column;
     gap: var(--srv-filter-row-gap);
@@ -340,7 +341,7 @@ body {
     min-height: 0;
     max-height: none;
     overflow-y: auto;
-    padding: 0.4rem;
+    padding: calc(0.4rem * var(--fv-modal-padding-scale, 1));
 }
 
 .srv-type-filters::-webkit-scrollbar {
@@ -376,8 +377,8 @@ body {
 .srv-filter-panel-expand {
     display: none;
     align-items: center;
-    gap: 0.4rem;
-    padding: 0.55rem 0.85rem;
+    gap: calc(0.4rem * var(--fv-modal-padding-scale, 1));
+    padding: calc(0.55rem * var(--fv-modal-padding-scale, 1)) calc(0.85rem * var(--fv-modal-padding-scale, 1));
     border: none;
     background: transparent;
     color: var(--fv-salesmap-modal-title, #ffffff);
@@ -393,8 +394,8 @@ body {
 }
 
 .srv-filter-chip {
-    min-height: 2.25rem;
-    padding: 0.55rem 0.75rem;
+    min-height: calc(2.25rem * var(--fv-modal-padding-scale, 1));
+    padding: calc(0.55rem * var(--fv-modal-padding-scale, 1)) calc(0.75rem * var(--fv-modal-padding-scale, 1));
     border: 1px solid transparent;
     border-radius: 8px;
     background: transparent;
@@ -449,7 +450,7 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 0.85rem;
+    padding: calc(0.85rem * var(--fv-modal-padding-scale, 1));
     min-width: 0;
     background: var(--srv-marker-card-bg, linear-gradient(160deg, rgba(56, 189, 248, 0.86), rgba(15, 23, 42, 0.86)));
 }
@@ -476,13 +477,13 @@ body {
 
 .srv-route-modal-type-badge {
     position: absolute;
-    top: 0.65rem;
-    left: 0.65rem;
+    top: calc(0.65rem * var(--fv-modal-padding-scale, 1));
+    left: calc(0.65rem * var(--fv-modal-padding-scale, 1));
     font-size: 0.62rem;
     font-weight: 800;
     text-transform: uppercase;
     letter-spacing: 0.05em;
-    padding: 0.24rem 0.5rem;
+    padding: calc(0.24rem * var(--fv-modal-padding-scale, 1)) calc(0.5rem * var(--fv-modal-padding-scale, 1));
     border-radius: 999px;
     border: 1px solid var(--srv-marker-badge-border, rgba(255, 255, 255, 0.18));
     background: var(--srv-marker-badge-bg, rgba(255, 255, 255, 0.16));
@@ -494,7 +495,7 @@ body {
 }
 
 .srv-route-modal-content {
-    padding: 0.85rem 0.95rem;
+    padding: calc(0.85rem * var(--fv-modal-padding-scale, 1)) calc(0.95rem * var(--fv-modal-padding-scale, 1));
     display: flex;
     flex-direction: column;
     justify-content: center;
@@ -524,10 +525,10 @@ body {
 }
 
 .srv-route-modal-meta {
-    margin-top: 0.5rem;
+    margin-top: calc(0.5rem * var(--fv-modal-padding-scale, 1));
     display: flex;
     flex-wrap: wrap;
-    gap: 0.45rem;
+    gap: calc(0.45rem * var(--fv-modal-padding-scale, 1));
     min-width: 0;
 }
 
@@ -570,12 +571,12 @@ body {
     }
 
     .srv-filter-panel {
-        left: auto;
-        right: 0.75rem;
+        left: min(var(--fv-salesmap-modal-left, 24px), calc(100vw - 1.5rem));
+        right: auto;
         bottom: calc(62px + env(safe-area-inset-bottom, 0px) + var(--fv-salesmap-modal-bottom, 24px));
-        width: min(220px, calc(100vw - 1.5rem));
-        height: min(var(--fv-salesmap-modal-height, var(--fv-salesmap-modal-max-height, 40vh)), 40vh);
-        max-height: min(var(--fv-salesmap-modal-height, var(--fv-salesmap-modal-max-height, 40vh)), 40vh);
+        width: min(var(--fv-salesmap-modal-width, 260px), max(0px, calc(100vw - var(--fv-salesmap-modal-left, 0px) - 1rem)));
+        height: min(var(--fv-salesmap-modal-height, var(--fv-salesmap-modal-max-height, 72vh)), max(0px, calc(100vh - (62px + env(safe-area-inset-bottom, 0px) + var(--fv-salesmap-modal-bottom, 24px)))));
+        max-height: min(var(--fv-salesmap-modal-height, var(--fv-salesmap-modal-max-height, 72vh)), max(0px, calc(100vh - (62px + env(safe-area-inset-bottom, 0px) + var(--fv-salesmap-modal-bottom, 24px)))));
     }
 
     .srv-filter-panel.collapsed {

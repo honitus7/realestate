@@ -109,6 +109,7 @@
         item_text: '#f2f6ff',
         item_active_bg: '#3e567f',
         item_active_border: '#a4c1ea',
+        modal_padding_pct: 100,
         width: 260,
         max_height_vh: 72,
         right_offset: 112,
@@ -172,6 +173,7 @@
             item_text: sanitizeHex(modal.item_text, DEFAULT_MODAL.item_text),
             item_active_bg: sanitizeHex(modal.item_active_bg, DEFAULT_MODAL.item_active_bg),
             item_active_border: sanitizeHex(modal.item_active_border, DEFAULT_MODAL.item_active_border),
+            modal_padding_pct: clampInt(modal.modal_padding_pct, 60, 160, DEFAULT_MODAL.modal_padding_pct),
             width: clampInt(modal.width, 220, 2200, DEFAULT_MODAL.width),
             max_height_vh: clampInt(modal.max_height_vh, 20, 100, DEFAULT_MODAL.max_height_vh),
             right_offset: clampInt(modal.right_offset, 0, 280, DEFAULT_MODAL.right_offset),
@@ -201,6 +203,7 @@
         setCssVar('--fv-modal-item-text', hexToRgba(m.item_text, 0.9));
         setCssVar('--fv-modal-item-active-bg', hexToRgba(m.item_active_bg, 0.35));
         setCssVar('--fv-modal-item-active-border', hexToRgba(m.item_active_border, 0.62));
+        setCssVar('--fv-modal-padding-scale', String(m.modal_padding_pct / 100));
         setCssVar('--fv-modal-width', m.width + 'px');
         setCssVar('--fv-modal-height', m.max_height_vh + 'vh');
         setCssVar('--fv-modal-max-height', m.max_height_vh + 'vh');

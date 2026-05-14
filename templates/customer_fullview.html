@@ -16,31 +16,50 @@
     <style>
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
         html, body { width: 100%; height: 100%; overflow: hidden; background: #0c0e14; font-family: 'Syne', sans-serif; }
+        .cfv-shell-preview {
+            position: fixed;
+            inset: 0;
+            z-index: 1;
+        }
+        .cfv-shell-stage {
+            position: relative;
+            width: 100%;
+            height: 100%;
+        }
         .cfv-header-shell {
             position: fixed;
             top: 14px;
             left: 14px;
             z-index: 200;
             display: flex;
-            align-items: flex-start;
-            gap: 10px;
+            align-items: center;
+            gap: 0.6rem;
+            max-width: calc(100vw - 28px);
+        }
+        .cfv-header-brand {
+            display: inline-flex;
+            align-items: center;
+            gap: calc(0.85rem * var(--fv-header-padding-scale, 1));
+            min-height: 74px;
+            padding: calc(0.8rem * var(--fv-header-padding-scale, 1)) calc(0.95rem * var(--fv-header-padding-scale, 1));
+            border-radius: 20px;
+            border: 1px solid rgba(120, 143, 170, 0.28);
+            background: linear-gradient(135deg, rgba(28, 38, 56, 0.96) 0%, rgba(37, 44, 57, 0.96) 100%);
+            box-shadow: 0 12px 30px rgba(20, 28, 43, 0.14);
+            min-width: 0;
             max-width: calc(100vw - 28px);
         }
         .cfv-header-logo-shell {
-            display: inline-flex;
+            display: flex;
             align-items: center;
             justify-content: center;
-            flex: 0 1 auto;
-            min-width: 56px;
-            max-width: min(28vw, 124px);
-            height: 52px;
-            padding: 8px 12px;
-            background: rgba(12, 14, 20, 0.82);
-            backdrop-filter: blur(12px);
-            -webkit-backdrop-filter: blur(12px);
-            border: 1px solid rgba(255,255,255,0.1);
-            border-radius: 12px;
-            box-shadow: 0 10px 24px rgba(0, 0, 0, 0.18);
+            flex: 0 0 auto;
+            width: max(42px, calc(54px * var(--fv-header-logo-scale, 1)));
+            height: max(42px, calc(54px * var(--fv-header-logo-scale, 1)));
+            padding: calc(8px * var(--fv-header-logo-scale, 1) * var(--fv-header-logo-padding-scale, 1)) calc(12px * var(--fv-header-logo-scale, 1) * var(--fv-header-logo-padding-scale, 1));
+            background: rgba(255, 255, 255, 0.12);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 14px;
             overflow: hidden;
         }
         .cfv-header-logo-shell[hidden] {
@@ -52,21 +71,23 @@
             height: 100%;
             object-fit: contain;
             object-position: center;
+            padding: 0;
+            box-sizing: border-box;
         }
         .cfv-header {
             display: flex;
-            flex: 1 1 auto;
             flex-direction: column;
-            gap: 2px;
-            padding: 8px 14px;
-            background: rgba(12, 14, 20, 0.82);
-            backdrop-filter: blur(12px);
-            -webkit-backdrop-filter: blur(12px);
-            border: 1px solid rgba(255,255,255,0.1);
-            border-radius: 12px;
-            color: rgba(255,255,255,0.92);
+            gap: 0.18rem;
             min-width: 0;
-            max-width: min(68vw, 620px);
+            max-width: max(150px, calc(220px * var(--fv-header-scale, 1)));
+            color: rgba(255, 255, 255, 0.92);
+            background: transparent;
+            border: 0;
+            border-radius: 0;
+            padding: 0;
+            box-shadow: none;
+            flex: 0 1 auto;
+            min-width: 0;
         }
         .cfv-header-autoplay-btn {
             display: inline-flex;
@@ -114,17 +135,21 @@
             display: inline-flex;
         }
         .cfv-header-title {
-            font-size: 0.9rem;
+            font-size: calc(0.92rem * var(--fv-header-scale, 1));
             font-weight: 700;
-            line-height: 1.2;
+            line-height: 1.15;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
+            max-width: min(180px, 100%);
         }
         .cfv-header-sub {
-            font-size: 0.74rem;
-            font-weight: 500;
-            color: rgba(255,255,255,0.68);
+            margin-top: 0.18rem;
+            font-size: calc(0.7rem * var(--fv-header-scale, 1));
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: rgba(255, 255, 255, 0.66);
             line-height: 1.2;
             white-space: nowrap;
             overflow: hidden;
@@ -156,6 +181,139 @@
                 bottom: calc(74px + env(safe-area-inset-bottom, 0px));
                 height: auto;
             }
+            .cfv-header-shell {
+                gap: 0.45rem;
+                max-width: calc(100vw - 20px);
+            }
+            .cfv-header-brand {
+                gap: calc(0.75rem * var(--fv-header-padding-scale, 1));
+                min-height: 68px;
+                padding: calc(0.7rem * var(--fv-header-padding-scale, 1)) calc(0.8rem * var(--fv-header-padding-scale, 1));
+            }
+            .cfv-header-logo-shell {
+                width: max(40px, calc(46px * var(--fv-header-logo-scale, 1)));
+                height: max(40px, calc(46px * var(--fv-header-logo-scale, 1)));
+                padding: calc(6px * var(--fv-header-logo-scale, 1) * var(--fv-header-logo-padding-scale, 1)) calc(9px * var(--fv-header-logo-scale, 1) * var(--fv-header-logo-padding-scale, 1));
+            }
+            .cfv-header {
+                max-width: max(140px, calc(200px * var(--fv-header-scale, 1)));
+            }
+            .cfv-header-title {
+                font-size: calc(0.86rem * var(--fv-header-scale, 1));
+            }
+            .cfv-header-sub {
+                font-size: calc(0.7rem * var(--fv-header-scale, 1));
+            }
+        }
+
+        body.fv-mobile-mode .cfv-shell-preview {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 14px;
+            background:
+                radial-gradient(circle at 15% 15%, rgba(75, 170, 245, 0.22), transparent 42%),
+                radial-gradient(circle at 85% 10%, rgba(75, 245, 200, 0.14), transparent 38%),
+                radial-gradient(circle at 50% 92%, rgba(255, 255, 255, 0.06), transparent 44%),
+                #0b0e15;
+        }
+        body.fv-mobile-mode .cfv-shell-stage {
+            width: min(410px, calc(100vw - 28px));
+            height: min(844px, calc(100vh - 28px));
+            border-radius: 24px;
+            overflow: hidden;
+            background: #0c0e14;
+            border: 1px solid rgba(176, 216, 247, 0.34);
+            box-shadow:
+                0 32px 62px rgba(0, 0, 0, 0.52),
+                0 0 0 1px rgba(255, 255, 255, 0.08) inset;
+        }
+        body.fv-mobile-mode .cfv-header-shell,
+        body.fv-mobile-mode .cfv-frame-host,
+        body.fv-mobile-mode .fv-sidebar,
+        body.fv-mobile-mode .fv-nav-reveal-fab {
+            position: absolute;
+        }
+        body.fv-mobile-mode .cfv-header-shell {
+            top: 10px;
+            left: 10px;
+            max-width: calc(100% - 20px);
+            gap: 0.45rem;
+        }
+        body.fv-mobile-mode .cfv-header-brand {
+            gap: calc(0.75rem * var(--fv-header-padding-scale, 1));
+            min-height: 68px;
+            padding: calc(0.7rem * var(--fv-header-padding-scale, 1)) calc(0.8rem * var(--fv-header-padding-scale, 1));
+        }
+        body.fv-mobile-mode .cfv-header-logo-shell {
+            width: max(40px, calc(46px * var(--fv-header-logo-scale, 1)));
+            height: max(40px, calc(46px * var(--fv-header-logo-scale, 1)));
+            padding: calc(6px * var(--fv-header-logo-scale, 1) * var(--fv-header-logo-padding-scale, 1)) calc(9px * var(--fv-header-logo-scale, 1) * var(--fv-header-logo-padding-scale, 1));
+        }
+        body.fv-mobile-mode .cfv-header {
+            max-width: max(140px, calc(200px * var(--fv-header-scale, 1)));
+        }
+        body.fv-mobile-mode .cfv-header-title {
+            font-size: calc(0.86rem * var(--fv-header-scale, 1));
+        }
+        body.fv-mobile-mode .cfv-header-sub {
+            font-size: calc(0.7rem * var(--fv-header-scale, 1));
+        }
+        body.fv-mobile-mode .cfv-frame-host {
+            inset: 0;
+        }
+        body.fv-mobile-mode .cfv-frame-host.cfv-frame-host--mobile-nav {
+            bottom: calc(74px + env(safe-area-inset-bottom, 0px));
+            height: auto;
+        }
+        body.fv-mobile-mode .fv-sidebar {
+            z-index: 1205;
+            top: auto;
+            right: 0;
+            bottom: 0;
+            left: 0;
+            transform: none;
+            isolation: isolate;
+            pointer-events: auto;
+            width: 100%;
+            max-height: none;
+            padding: 5px 6px calc(7px + env(safe-area-inset-bottom, 0));
+            flex-direction: row;
+            align-items: stretch;
+            border-left: 1px solid rgba(119, 163, 207, 0.34);
+            border-radius: 14px 14px 0 0;
+            box-shadow: 0 -10px 20px rgba(0, 0, 0, 0.45);
+            overflow-x: hidden;
+            overflow-y: hidden;
+            flex-wrap: nowrap;
+        }
+        body.fv-mobile-mode .fv-sidebar::before {
+            display: none;
+        }
+        body.fv-mobile-mode .fv-sidebar-btn {
+            position: relative;
+            z-index: 1;
+            min-height: 60px;
+            width: auto;
+            min-width: 0;
+            flex: 1 1 0;
+            padding: 6px 3px 5px;
+            border-radius: 8px;
+        }
+        body.fv-mobile-mode .fv-sidebar-btn--active {
+            border-radius: 8px;
+        }
+        body.fv-mobile-mode .fv-sidebar-label {
+            max-width: 100%;
+            font-size: var(--fv-menu-font-size, 0.55rem);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        body.fv-mobile-mode .fv-nav-reveal-fab {
+            z-index: 1206;
+            right: 14px;
+            bottom: calc(14px + env(safe-area-inset-bottom, 0px));
         }
 
         .fv-style-editor {
@@ -264,12 +422,17 @@
             flex-direction: column;
             gap: 10px;
         }
+        .fv-style-spacing-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 0.45rem;
+        }
         .fv-style-logo-preview-shell {
             display: flex;
             align-items: center;
             justify-content: center;
             min-height: 76px;
-            padding: 12px 14px;
+            padding: calc(12px * var(--fv-header-logo-padding-scale, 1)) calc(14px * var(--fv-header-logo-padding-scale, 1));
             border: 1px dashed rgba(255,255,255,0.18);
             border-radius: 14px;
             background: rgba(255,255,255,0.04);
@@ -348,81 +511,87 @@
                 max-height: min(58vh, 560px);
             }
             .cfv-header-logo-shell {
-                max-width: min(30vw, 96px);
-                height: 46px;
-                padding: 6px 10px;
+                width: max(40px, calc(46px * var(--fv-header-logo-scale, 1)));
+                height: max(40px, calc(46px * var(--fv-header-logo-scale, 1)));
+                padding: calc(6px * var(--fv-header-logo-scale, 1) * var(--fv-header-logo-padding-scale, 1)) calc(9px * var(--fv-header-logo-scale, 1) * var(--fv-header-logo-padding-scale, 1));
             }
             .cfv-header {
-                max-width: calc(100vw - 24px);
+                max-width: max(140px, calc(200px * var(--fv-header-scale, 1)));
             }
             .cfv-header-shell {
                 max-width: calc(100vw - 20px);
-                gap: 8px;
+                gap: 0.45rem;
             }
         }
     </style>
 </head>
 <body>
-    <div class="cfv-header-shell">
-        <div class="cfv-header-logo-shell" id="cfv-header-logo-shell" hidden>
-            <img class="cfv-header-logo" id="cfv-header-logo" alt="{{ workspace_name or 'Project' }} logo">
+    <div class="cfv-shell-preview" id="cfv-shell-preview">
+        <div class="cfv-shell-stage" id="cfv-shell-stage">
+            <div class="cfv-header-shell">
+                <div class="cfv-header-brand" id="cfv-header-brand">
+                    <div class="cfv-header-logo-shell" id="cfv-header-logo-shell" hidden>
+                        <img class="cfv-header-logo" id="cfv-header-logo" alt="{{ workspace_name or 'Project' }} logo">
+                    </div>
+                    <div class="cfv-header" id="cfv-header">
+                        <div class="cfv-header-title" id="cfv-header-title">{{ workspace_name or 'Project' }}</div>
+                        <div class="cfv-header-sub" id="cfv-header-sub">Full View</div>
+                    </div>
+                </div>
+                <button type="button" class="cfv-header-autoplay-btn" id="cfv-header-autoplay-btn" aria-label="Pause autoplay" title="Pause autoplay" hidden>
+                    <span class="cfv-header-autoplay-icon cfv-header-autoplay-icon-pause" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" focusable="false">
+                            <rect x="6" y="5" width="4" height="14" rx="1.4"></rect>
+                            <rect x="14" y="5" width="4" height="14" rx="1.4"></rect>
+                        </svg>
+                    </span>
+                    <span class="cfv-header-autoplay-icon cfv-header-autoplay-icon-play" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" focusable="false">
+                            <path d="M8 5.5v13a1 1 0 0 0 1.53.85l10-6.5a1 1 0 0 0 0-1.7l-10-6.5A1 1 0 0 0 8 5.5z"></path>
+                        </svg>
+                    </span>
+                </button>
+            </div>
+
+            <div class="cfv-frame-host" id="cfv-frame-host" aria-live="polite"></div>
+
+            {% if fv_config and fv_config.get('tabs') and (is_editor or fv_config.get('is_active')) %}
+            <nav class="fv-sidebar" id="fv-sidebar" aria-label="Full View Navigation">
+                {% for tab in fv_config.get('tabs', []) %}
+                {% set tab_content = tab.content_data or {} %}
+                <button class="fv-sidebar-btn" type="button"
+                        data-tab-type="{{ tab.tab_type }}"
+                        data-ref-panorama="{{ tab.ref_panorama_id or '' }}"
+                        data-ref-daynight="{{ tab.ref_daynight_id or '' }}"
+                        data-ref-floorplan="{{ tab.ref_floor_plan_id or '' }}"
+                        data-ref-gallery="{{ tab.ref_gallery_id or '' }}"
+                        data-ref-projectplan="{{ tab.ref_project_plan_id or '' }}"
+                        data-ref-salesmap="{{ tab.ref_sales_map_id or '' }}"
+                        data-ref-salesflat360="{{ tab.ref_sales_flat360_id or '' }}"
+                        data-content='{{ (tab.content_data or {}) | tojson }}'
+                        title="{{ tab.name }}">
+                    <span class="fv-sidebar-icon" style="--fv-tab-icon-offset-x: {{ tab_content.get('icon_offset_x_px', tab_content.get('icon_offset_x', 0)) }}px; --fv-tab-icon-offset-y: {{ tab_content.get('icon_offset_y_px', tab_content.get('icon_offset_y', 0)) }}px;">
+                        {% if tab_content.get('icon_mode') == 'upload' and tab_content.get('icon_upload_url') %}
+                        <img src="{{ tab_content.get('icon_upload_url') }}" alt="" class="fv-sidebar-custom-icon">
+                        {% else %}
+                        <iconify-icon icon="{{ tab.icon }}"></iconify-icon>
+                        {% endif %}
+                    </span>
+                    <span class="fv-sidebar-label">{{ tab.name }}</span>
+                </button>
+                {% endfor %}
+            </nav>
+            {% endif %}
+
+            <button type="button" class="fv-nav-reveal-fab" id="fv-nav-reveal-fab" aria-label="Show navigation" hidden></button>
         </div>
-        <div class="cfv-header" id="cfv-header">
-            <div class="cfv-header-title" id="cfv-header-title">{{ workspace_name or 'Project' }}</div>
-            <div class="cfv-header-sub" id="cfv-header-sub">Full View</div>
-        </div>
-        <button type="button" class="cfv-header-autoplay-btn" id="cfv-header-autoplay-btn" aria-label="Pause autoplay" title="Pause autoplay" hidden>
-            <span class="cfv-header-autoplay-icon cfv-header-autoplay-icon-pause" aria-hidden="true">
-                <svg viewBox="0 0 24 24" focusable="false">
-                    <rect x="6" y="5" width="4" height="14" rx="1.4"></rect>
-                    <rect x="14" y="5" width="4" height="14" rx="1.4"></rect>
-                </svg>
-            </span>
-            <span class="cfv-header-autoplay-icon cfv-header-autoplay-icon-play" aria-hidden="true">
-                <svg viewBox="0 0 24 24" focusable="false">
-                    <path d="M8 5.5v13a1 1 0 0 0 1.53.85l10-6.5a1 1 0 0 0 0-1.7l-10-6.5A1 1 0 0 0 8 5.5z"></path>
-                </svg>
-            </span>
-        </button>
     </div>
-
-    <div class="cfv-frame-host" id="cfv-frame-host" aria-live="polite"></div>
-
-    {% if fv_config and fv_config.get('tabs') and (is_editor or fv_config.get('is_active')) %}
-    <nav class="fv-sidebar" id="fv-sidebar" aria-label="Full View Navigation">
-        {% for tab in fv_config.get('tabs', []) %}
-        {% set tab_content = tab.content_data or {} %}
-        <button class="fv-sidebar-btn" type="button"
-                data-tab-type="{{ tab.tab_type }}"
-                data-ref-panorama="{{ tab.ref_panorama_id or '' }}"
-                data-ref-daynight="{{ tab.ref_daynight_id or '' }}"
-                data-ref-floorplan="{{ tab.ref_floor_plan_id or '' }}"
-                data-ref-gallery="{{ tab.ref_gallery_id or '' }}"
-                data-ref-projectplan="{{ tab.ref_project_plan_id or '' }}"
-                data-ref-salesmap="{{ tab.ref_sales_map_id or '' }}"
-                data-ref-salesflat360="{{ tab.ref_sales_flat360_id or '' }}"
-                data-content='{{ (tab.content_data or {}) | tojson }}'
-                title="{{ tab.name }}">
-            <span class="fv-sidebar-icon" style="--fv-tab-icon-offset-x: {{ tab_content.get('icon_offset_x_px', tab_content.get('icon_offset_x', 0)) }}px; --fv-tab-icon-offset-y: {{ tab_content.get('icon_offset_y_px', tab_content.get('icon_offset_y', 0)) }}px;">
-                {% if tab_content.get('icon_mode') == 'upload' and tab_content.get('icon_upload_url') %}
-                <img src="{{ tab_content.get('icon_upload_url') }}" alt="" class="fv-sidebar-custom-icon">
-                {% else %}
-                <iconify-icon icon="{{ tab.icon }}"></iconify-icon>
-                {% endif %}
-            </span>
-            <span class="fv-sidebar-label">{{ tab.name }}</span>
-        </button>
-        {% endfor %}
-    </nav>
-    {% endif %}
-
-    <button type="button" class="fv-nav-reveal-fab" id="fv-nav-reveal-fab" aria-label="Show navigation" hidden></button>
 
     {% if is_editor %}
     <aside class="fv-style-editor" id="fv-style-editor">
         <div class="fv-style-editor-head">
             <div class="fv-style-editor-title">Full View Screen Editor</div>
-            <div class="fv-style-editor-sub">Sidebar theme, header logo, plus floor plan, gallery, and sales map panel colors, glow, transparency, blur, and size are synced to customer full view.</div>
+            <div class="fv-style-editor-sub">Sidebar theme, header logo size, logo shell padding, header size, header spacing, and modal spacing plus floor plan, gallery, and sales map panel colors, glow, transparency, blur, and size are synced to customer full view.</div>
         </div>
         <div class="fv-style-editor-body">
             <div class="fv-style-section">
@@ -439,7 +608,29 @@
                             <button class="fv-style-btn" id="fv-style-logo-remove-btn" type="button">Remove Logo</button>
                         </div>
                         <input id="fv-style-logo-input" type="file" accept=".png,.jpg,.jpeg,.webp,image/png,image/jpeg,image/webp" hidden>
-                        <div class="fv-style-logo-hint" id="fv-style-logo-status">Appears on the left side of the Full View header. PNG, JPG, or WebP up to 5 MB.</div>
+                        <div class="fv-style-field">
+                            <label class="fv-style-label" for="fv-style-header-logo-size">Logo Size <span class="fv-style-val" id="fv-style-header-logo-size-val"></span></label>
+                            <input id="fv-style-header-logo-size" class="fv-style-input" type="range" min="60" max="160" step="1">
+                        </div>
+                        <div class="fv-style-field">
+                            <label class="fv-style-label" for="fv-style-header-logo-padding">Logo Shell Padding <span class="fv-style-val" id="fv-style-header-logo-padding-val"></span></label>
+                            <input id="fv-style-header-logo-padding" class="fv-style-input" type="range" min="0" max="160" step="1">
+                        </div>
+                        <div class="fv-style-field">
+                            <label class="fv-style-label" for="fv-style-header-size">Header Size <span class="fv-style-val" id="fv-style-header-size-val"></span></label>
+                            <input id="fv-style-header-size" class="fv-style-input" type="range" min="60" max="160" step="1">
+                        </div>
+                        <div class="fv-style-logo-hint" id="fv-style-logo-status">Appears on the left side of the Full View header. Use the size and spacing sliders to resize the logo box, logo shell padding, branding card, and modal spacing live. PNG, JPG, or WebP up to 5 MB.</div>
+                    </div>
+                </div>
+                <div class="fv-style-spacing-grid">
+                    <div class="fv-style-field">
+                        <label class="fv-style-label" for="fv-style-header-padding">Header Padding <span class="fv-style-val" id="fv-style-header-padding-val"></span></label>
+                        <input id="fv-style-header-padding" class="fv-style-input" type="range" min="0" max="160" step="1">
+                    </div>
+                    <div class="fv-style-field">
+                        <label class="fv-style-label" for="fv-style-modal-padding">Modal Padding <span class="fv-style-val" id="fv-style-modal-padding-val"></span></label>
+                        <input id="fv-style-modal-padding" class="fv-style-input" type="range" min="60" max="160" step="1">
                     </div>
                 </div>
             </div>
@@ -469,6 +660,18 @@
                         <option value="graphite">Graphite Neon</option>
                     </select>
                 </div>
+            </div>
+
+            <div class="fv-style-section">
+                <div class="fv-style-section-title">Preview Mode</div>
+                <div class="fv-style-field">
+                    <label class="fv-style-label" for="fv-style-preview-mode">Screen Mode</label>
+                    <select id="fv-style-preview-mode" class="fv-style-select">
+                        <option value="desktop">Desktop Mode</option>
+                        <option value="mobile">Mobile Mode</option>
+                    </select>
+                </div>
+                <div class="fv-style-logo-hint">Mobile Mode shrinks the preview into a phone-sized screen so you can fine-tune icon size, text size, and modal settings while editing.</div>
             </div>
 
             <div class="fv-style-section">
@@ -875,8 +1078,10 @@
     var shellAutoplayPaused = false;
     var SHELL_BASE_PATH = (IS_EDITOR ? '/customer/full-view/edit/' : '/customer/full-view/') + encodeURIComponent(WS_ID || '');
     var PREFETCH_STATE_KEY = 'fv_shell_prefetch_v3::' + String(WS_ID || '');
+    var PREVIEW_MODE_STORAGE_KEY = 'fv_shell_editor_preview_mode::' + String(WS_ID || '');
     var PREFETCH_TTL_MS = 15 * 60 * 1000;
     var MAX_PRELOADED_FRAMES = 8;
+    var editorPreviewMode = 'desktop';
 
     function defaultModalStyle() {
         return {
@@ -910,6 +1115,11 @@
     var DEFAULT_STYLE = {
         menu_theme: 'blue',
         header_logo_url: '',
+        header_logo_size_pct: 100,
+        header_logo_padding_pct: 100,
+        header_size_pct: 100,
+        header_padding_pct: 100,
+        modal_padding_pct: 100,
         sidebar: {
             bg_start: '#253f69',
             bg_end: '#162b51',
@@ -1409,6 +1619,11 @@
         var merged = deepMerge(cloneObj(DEFAULT_STYLE), input);
         if (!THEME_PRESETS[merged.menu_theme]) merged.menu_theme = 'blue';
         merged.header_logo_url = String(merged.header_logo_url || '').trim();
+        merged.header_logo_size_pct = clampInt(merged.header_logo_size_pct, 60, 160, DEFAULT_STYLE.header_logo_size_pct);
+        merged.header_logo_padding_pct = clampInt(merged.header_logo_padding_pct, 0, 160, DEFAULT_STYLE.header_logo_padding_pct);
+        merged.header_size_pct = clampInt(merged.header_size_pct, 60, 160, DEFAULT_STYLE.header_size_pct);
+        merged.header_padding_pct = clampInt(merged.header_padding_pct, 0, 160, DEFAULT_STYLE.header_padding_pct);
+        merged.modal_padding_pct = clampInt(merged.modal_padding_pct, 60, 160, DEFAULT_STYLE.modal_padding_pct);
 
         merged.sidebar.bg_start = sanitizeHex(merged.sidebar.bg_start, DEFAULT_STYLE.sidebar.bg_start);
         merged.sidebar.bg_end = sanitizeHex(merged.sidebar.bg_end, DEFAULT_STYLE.sidebar.bg_end);
@@ -1491,6 +1706,11 @@
         setCssVar('--fv-menu-inner-border', 'rgba(255, 255, 255, ' + menuInnerBorderAlpha.toFixed(3) + ')');
         setCssVar('--fv-menu-font-family', "'" + s.sidebar.font_family + "', sans-serif");
         setCssVar('--fv-menu-font-size', s.sidebar.font_size_px + 'px');
+        setCssVar('--fv-header-logo-scale', String(s.header_logo_size_pct / 100));
+        setCssVar('--fv-header-logo-padding-scale', String(s.header_logo_padding_pct / 100));
+        setCssVar('--fv-header-scale', String(s.header_size_pct / 100));
+        setCssVar('--fv-header-padding-scale', String(s.header_padding_pct / 100));
+        setCssVar('--fv-modal-padding-scale', String(s.modal_padding_pct / 100));
         if (sidebar) {
             var iconSizePx = s.sidebar.icon_size_px + 'px';
             sidebar.querySelectorAll('.fv-sidebar-icon iconify-icon').forEach(function (node) {
@@ -2075,6 +2295,31 @@
         }
     }
 
+    function normalizePreviewMode(mode) {
+        return String(mode || '').trim().toLowerCase() === 'mobile' ? 'mobile' : 'desktop';
+    }
+
+    function loadEditorPreviewMode() {
+        if (!IS_EDITOR) return 'desktop';
+        try {
+            if (!window.localStorage) return 'desktop';
+            return normalizePreviewMode(localStorage.getItem(PREVIEW_MODE_STORAGE_KEY));
+        } catch (e) {
+            return 'desktop';
+        }
+    }
+
+    function applyEditorPreviewMode(mode) {
+        if (!IS_EDITOR) return;
+        editorPreviewMode = normalizePreviewMode(mode);
+        document.body.classList.toggle('fv-mobile-mode', editorPreviewMode === 'mobile');
+        var selectEl = document.getElementById('fv-style-preview-mode');
+        if (selectEl && selectEl.value !== editorPreviewMode) selectEl.value = editorPreviewMode;
+        try {
+            if (window.localStorage) localStorage.setItem(PREVIEW_MODE_STORAGE_KEY, editorPreviewMode);
+        } catch (e) { }
+    }
+
     function editorAuthHeaders(includeJsonContentType) {
         var withJson = includeJsonContentType !== false;
         if (!window._supabase) return Promise.resolve(withJson ? { 'Content-Type': 'application/json' } : {});
@@ -2110,7 +2355,7 @@
         var placeholderEl = document.getElementById('fv-style-logo-placeholder');
         var statusEl = document.getElementById('fv-style-logo-status');
         var removeBtn = document.getElementById('fv-style-logo-remove-btn');
-        var defaultStatus = 'Appears on the left side of the Full View header. PNG, JPG, or WebP up to 5 MB.';
+        var defaultStatus = 'Appears on the left side of the Full View header. Use the size and spacing sliders to resize the logo box, logo shell padding, branding card, and modal spacing live. PNG, JPG, or WebP up to 5 MB.';
         var logoUrl = String((styleState && styleState.header_logo_url) || '').trim();
 
         if (previewShell) previewShell.classList.toggle('is-empty', !logoUrl);
@@ -2139,6 +2384,12 @@
             el.value = value;
         };
         set('fv-style-theme', s.menu_theme);
+        set('fv-style-preview-mode', editorPreviewMode);
+        set('fv-style-header-logo-size', s.header_logo_size_pct);
+        set('fv-style-header-logo-padding', s.header_logo_padding_pct);
+        set('fv-style-header-size', s.header_size_pct);
+        set('fv-style-header-padding', s.header_padding_pct);
+        set('fv-style-modal-padding', s.modal_padding_pct);
         set('fv-style-menu-start', s.sidebar.bg_start);
         set('fv-style-menu-end', s.sidebar.bg_end);
         set('fv-style-menu-bg-opacity', s.sidebar.bg_opacity_pct);
@@ -2210,6 +2461,11 @@
         set('fv-style-salesmap-modal-item-size', s.modal_sales_map.item_font_size_px);
 
         var mapVals = [
+            ['fv-style-header-logo-size-val', s.header_logo_size_pct + '%'],
+            ['fv-style-header-logo-padding-val', s.header_logo_padding_pct + '%'],
+            ['fv-style-header-size-val', s.header_size_pct + '%'],
+            ['fv-style-header-padding-val', s.header_padding_pct + '%'],
+            ['fv-style-modal-padding-val', s.modal_padding_pct + '%'],
             ['fv-style-menu-bg-opacity-val', s.sidebar.bg_opacity_pct + '%'],
             ['fv-style-menu-glow-opacity-val', s.sidebar.glow_opacity_pct + '%'],
             ['fv-style-menu-width-val', s.sidebar.width + 'px'],
@@ -2348,6 +2604,14 @@
             });
         }
 
+        var previewModeSel = document.getElementById('fv-style-preview-mode');
+        if (previewModeSel) {
+            previewModeSel.value = editorPreviewMode;
+            previewModeSel.addEventListener('change', function () {
+                applyEditorPreviewMode(previewModeSel.value);
+            });
+        }
+
         bindColor('fv-style-menu-start', function (v) { styleState.sidebar.bg_start = v; });
         bindColor('fv-style-menu-end', function (v) { styleState.sidebar.bg_end = v; });
         bindColor('fv-style-menu-border', function (v) { styleState.sidebar.border = v; });
@@ -2385,6 +2649,11 @@
         bindSelect('fv-style-salesmap-modal-title-font', function (v) { styleState.modal_sales_map.title_font_family = v; });
         bindSelect('fv-style-salesmap-modal-item-font', function (v) { styleState.modal_sales_map.item_font_family = v; });
 
+        bindRange('fv-style-header-logo-size', function (v) { styleState.header_logo_size_pct = v; }, 'fv-style-header-logo-size-val', '%');
+        bindRange('fv-style-header-logo-padding', function (v) { styleState.header_logo_padding_pct = v; }, 'fv-style-header-logo-padding-val', '%');
+        bindRange('fv-style-header-size', function (v) { styleState.header_size_pct = v; }, 'fv-style-header-size-val', '%');
+        bindRange('fv-style-header-padding', function (v) { styleState.header_padding_pct = v; }, 'fv-style-header-padding-val', '%');
+        bindRange('fv-style-modal-padding', function (v) { styleState.modal_padding_pct = v; }, 'fv-style-modal-padding-val', '%');
         bindRange('fv-style-menu-bg-opacity', function (v) { styleState.sidebar.bg_opacity_pct = v; }, 'fv-style-menu-bg-opacity-val', '%');
         bindRange('fv-style-menu-glow-opacity', function (v) { styleState.sidebar.glow_opacity_pct = v; }, 'fv-style-menu-glow-opacity-val', '%');
         bindRange('fv-style-menu-width', function (v) { styleState.sidebar.width = v; }, 'fv-style-menu-width-val', 'px');
@@ -2509,6 +2778,10 @@
             headerLogoEl.removeAttribute('src');
             if (headerLogoShellEl) headerLogoShellEl.hidden = true;
         });
+    }
+    if (IS_EDITOR) {
+        editorPreviewMode = loadEditorPreviewMode();
+        applyEditorPreviewMode(editorPreviewMode);
     }
     applyAndBroadcastStyle();
     autoSelect();

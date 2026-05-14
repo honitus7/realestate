@@ -102,7 +102,7 @@
             <div class="fv-branding-bar">
                 <div class="fv-branding-copy">
                     <div class="fv-branding-eyebrow">Header Branding</div>
-                    <div class="fv-branding-sub">Upload a logo for the customer Full View top-left header. It will appear next to the workspace name across panoramas, floor plans, galleries, day/night, sales map, and other linked tabs.</div>
+                    <div class="fv-branding-sub">Upload a logo for the customer Full View top-left header. Use the size and spacing sliders to tighten the logo box, logo shell padding, header card, and shared modal chrome across panoramas, floor plans, galleries, day/night, sales map, and other linked tabs.</div>
                 </div>
                 <div class="fv-branding-preview" id="fv-branding-preview">
                     <div class="fv-branding-preview-logo-shell">
@@ -119,8 +119,47 @@
                         <button class="btn btn-secondary btn-sm" id="fv-logo-upload-btn" type="button">Upload Logo</button>
                         <button class="btn btn-secondary btn-sm" id="fv-logo-remove-btn" type="button">Remove Logo</button>
                     </div>
+                    <div class="fv-branding-size-grid">
+                        <div class="fv-branding-size-field">
+                            <label class="fv-branding-size-label" for="fv-branding-logo-size">
+                                <span>Logo Size</span>
+                                <span class="fv-branding-size-value" id="fv-branding-logo-size-value"></span>
+                            </label>
+                            <input type="range" class="fv-branding-size-range" id="fv-branding-logo-size" min="60" max="160" step="1">
+                        </div>
+                        <div class="fv-branding-size-field">
+                            <label class="fv-branding-size-label" for="fv-branding-logo-padding">
+                                <span>Logo Shell Padding</span>
+                                <span class="fv-branding-size-value" id="fv-branding-logo-padding-value"></span>
+                            </label>
+                            <input type="range" class="fv-branding-size-range" id="fv-branding-logo-padding" min="0" max="160" step="1">
+                        </div>
+                        <div class="fv-branding-size-field">
+                            <label class="fv-branding-size-label" for="fv-branding-header-size">
+                                <span>Header Size</span>
+                                <span class="fv-branding-size-value" id="fv-branding-header-size-value"></span>
+                            </label>
+                            <input type="range" class="fv-branding-size-range" id="fv-branding-header-size" min="60" max="160" step="1">
+                        </div>
+                    </div>
+                    <div class="fv-branding-space-grid">
+                        <div class="fv-branding-size-field">
+                            <label class="fv-branding-size-label" for="fv-branding-header-padding">
+                                <span>Header Padding</span>
+                                <span class="fv-branding-size-value" id="fv-branding-header-padding-value"></span>
+                            </label>
+                            <input type="range" class="fv-branding-size-range" id="fv-branding-header-padding" min="0" max="160" step="1">
+                        </div>
+                        <div class="fv-branding-size-field">
+                            <label class="fv-branding-size-label" for="fv-branding-modal-padding">
+                                <span>Modal Padding</span>
+                                <span class="fv-branding-size-value" id="fv-branding-modal-padding-value"></span>
+                            </label>
+                            <input type="range" class="fv-branding-size-range" id="fv-branding-modal-padding" min="60" max="160" step="1">
+                        </div>
+                    </div>
                     <input type="file" id="fv-logo-input" accept=".png,.jpg,.jpeg,.webp,image/png,image/jpeg,image/webp" hidden>
-                    <div class="fv-branding-status" id="fv-branding-status">Shows on the customer Full View header next to the workspace name.</div>
+                    <div class="fv-branding-status" id="fv-branding-status">Shows on the customer Full View header next to the workspace name. Logo shell padding, header, and modal spacing changes save automatically.</div>
                 </div>
             </div>
             <div class="fv-inline-status fv-inline-status--compact" id="fv-resource-status" style="display:none;"></div>
@@ -516,21 +555,109 @@ function clonePlainObject(value) {
     }
 }
 
+function clampBrandingSizePct(value, fallback) {
+    const n = parseInt(value, 10);
+    if (!isFinite(n)) return fallback;
+    return Math.max(60, Math.min(160, n));
+}
+
+function clampBrandingPaddingPct(value, fallback) {
+    const n = parseInt(value, 10);
+    if (!isFinite(n)) return fallback;
+    return Math.max(0, Math.min(160, n));
+}
+
 function normalizeConfigStyle(value) {
-    return clonePlainObject(value);
+    const style = clonePlainObject(value);
+    style.header_logo_url = String(style.header_logo_url || '').trim();
+    style.header_logo_size_pct = clampBrandingSizePct(style.header_logo_size_pct, 100);
+    style.header_logo_padding_pct = clampBrandingPaddingPct(style.header_logo_padding_pct, 100);
+    style.header_size_pct = clampBrandingSizePct(style.header_size_pct, 100);
+    style.header_padding_pct = clampBrandingPaddingPct(style.header_padding_pct, 100);
+    style.modal_padding_pct = clampBrandingSizePct(style.modal_padding_pct, 100);
+    return style;
+}
+
+function syncBrandingSizeControls(style) {
+    const logoInput = document.getElementById('fv-branding-logo-size');
+    const logoPaddingInput = document.getElementById('fv-branding-logo-padding');
+    const headerInput = document.getElementById('fv-branding-header-size');
+    const headerPaddingInput = document.getElementById('fv-branding-header-padding');
+    const modalPaddingInput = document.getElementById('fv-branding-modal-padding');
+    const logoValue = document.getElementById('fv-branding-logo-size-value');
+    const logoPaddingValue = document.getElementById('fv-branding-logo-padding-value');
+    const headerValue = document.getElementById('fv-branding-header-size-value');
+    const headerPaddingValue = document.getElementById('fv-branding-header-padding-value');
+    const modalPaddingValue = document.getElementById('fv-branding-modal-padding-value');
+    const safeStyle = normalizeConfigStyle(style || currentConfigStyle);
+    const logoPct = clampBrandingSizePct(safeStyle.header_logo_size_pct, 100);
+    const logoPaddingPct = clampBrandingPaddingPct(safeStyle.header_logo_padding_pct, 100);
+    const headerPct = clampBrandingSizePct(safeStyle.header_size_pct, 100);
+    const headerPaddingPct = clampBrandingPaddingPct(safeStyle.header_padding_pct, 100);
+    const modalPaddingPct = clampBrandingSizePct(safeStyle.modal_padding_pct, 100);
+
+    if (logoInput && String(logoInput.value || '') !== String(logoPct)) logoInput.value = String(logoPct);
+    if (logoPaddingInput && String(logoPaddingInput.value || '') !== String(logoPaddingPct)) logoPaddingInput.value = String(logoPaddingPct);
+    if (headerInput && String(headerInput.value || '') !== String(headerPct)) headerInput.value = String(headerPct);
+    if (headerPaddingInput && String(headerPaddingInput.value || '') !== String(headerPaddingPct)) headerPaddingInput.value = String(headerPaddingPct);
+    if (modalPaddingInput && String(modalPaddingInput.value || '') !== String(modalPaddingPct)) modalPaddingInput.value = String(modalPaddingPct);
+    if (logoValue) logoValue.textContent = logoPct + '%';
+    if (logoPaddingValue) logoPaddingValue.textContent = logoPaddingPct + '%';
+    if (headerValue) headerValue.textContent = headerPct + '%';
+    if (headerPaddingValue) headerPaddingValue.textContent = headerPaddingPct + '%';
+    if (modalPaddingValue) modalPaddingValue.textContent = modalPaddingPct + '%';
+
+    return { logoPct, logoPaddingPct, headerPct, headerPaddingPct, modalPaddingPct, style: safeStyle };
+}
+
+async function saveCurrentConfigStyle() {
+    const configId = await ensureCurrentConfigId();
+    const nextStyle = normalizeConfigStyle(currentConfigStyle);
+    const result = await apiPut('/api/full-view/config/' + configId, { style: nextStyle });
+    const savedStyle = (result && result.config && result.config.style && typeof result.config.style === 'object')
+        ? result.config.style
+        : nextStyle;
+    currentConfigStyle = normalizeConfigStyle(savedStyle);
+    return currentConfigStyle;
 }
 
 function syncBrandingPreview(message, kind) {
     const titleEl = document.getElementById('fv-branding-preview-title');
+    const previewEl = document.getElementById('fv-branding-preview');
+    const textEl = document.querySelector('.fv-branding-preview-text');
+    const subEl = document.querySelector('.fv-branding-preview-sub');
     const logoEl = document.getElementById('fv-branding-preview-logo');
+    const logoShellEl = document.querySelector('.fv-branding-preview-logo-shell');
     const placeholderEl = document.getElementById('fv-branding-preview-logo-placeholder');
     const removeBtn = document.getElementById('fv-logo-remove-btn');
     const statusEl = document.getElementById('fv-branding-status');
     const builderNameEl = document.getElementById('fv-builder-ws-name');
-    const logoUrl = String((currentConfigStyle && currentConfigStyle.header_logo_url) || '').trim();
+    const sizeState = syncBrandingSizeControls(currentConfigStyle);
+    const logoUrl = String((sizeState.style && sizeState.style.header_logo_url) || '').trim();
     const workspaceName = String((builderNameEl && builderNameEl.textContent) || '').trim() || 'Workspace';
+    const logoScale = sizeState.logoPct / 100;
+    const logoPaddingScale = sizeState.logoPaddingPct / 100;
+    const headerScale = sizeState.headerPct / 100;
+    const headerPaddingScale = sizeState.headerPaddingPct / 100;
 
     if (titleEl) titleEl.textContent = workspaceName;
+    if (previewEl) {
+        previewEl.style.setProperty('--fv-header-logo-scale', String(logoScale));
+        previewEl.style.setProperty('--fv-header-logo-padding-scale', String(logoPaddingScale));
+        previewEl.style.gap = (0.85 * headerPaddingScale).toFixed(2) + 'rem';
+        previewEl.style.padding = (0.8 * headerPaddingScale).toFixed(2) + 'rem ' + (0.95 * headerPaddingScale).toFixed(2) + 'rem';
+    }
+    if (logoShellEl) {
+        const shellSize = Math.max(42, Math.round(54 * logoScale));
+        logoShellEl.style.width = shellSize + 'px';
+        logoShellEl.style.height = shellSize + 'px';
+    }
+    if (titleEl) {
+        titleEl.style.fontSize = (0.92 * headerScale).toFixed(2) + 'rem';
+        titleEl.style.maxWidth = Math.max(120, Math.round(180 * headerScale)) + 'px';
+    }
+    if (textEl) textEl.style.maxWidth = Math.max(150, Math.round(220 * headerScale)) + 'px';
+    if (subEl) subEl.style.fontSize = (0.7 * headerScale).toFixed(2) + 'rem';
     if (logoEl) {
         if (logoUrl) {
             if (logoEl.getAttribute('src') !== logoUrl) logoEl.src = logoUrl;
@@ -543,7 +670,7 @@ function syncBrandingPreview(message, kind) {
     if (placeholderEl) placeholderEl.hidden = !!logoUrl;
     if (removeBtn) removeBtn.disabled = !logoUrl;
     if (statusEl) {
-        statusEl.textContent = message || 'Shows on the customer Full View header next to the workspace name.';
+        statusEl.textContent = message || 'Shows on the customer Full View header next to the workspace name. Logo shell padding, header, and modal spacing changes save automatically.';
         statusEl.classList.remove('is-error', 'is-ok');
         if (kind === 'error') statusEl.classList.add('is-error');
         if (kind === 'ok') statusEl.classList.add('is-ok');
@@ -553,9 +680,19 @@ function syncBrandingPreview(message, kind) {
 function setBrandingBusy(isBusy) {
     const uploadBtn = document.getElementById('fv-logo-upload-btn');
     const removeBtn = document.getElementById('fv-logo-remove-btn');
+    const logoSize = document.getElementById('fv-branding-logo-size');
+    const logoPadding = document.getElementById('fv-branding-logo-padding');
+    const headerSize = document.getElementById('fv-branding-header-size');
+    const headerPadding = document.getElementById('fv-branding-header-padding');
+    const modalPadding = document.getElementById('fv-branding-modal-padding');
     const hasLogo = !!String((currentConfigStyle && currentConfigStyle.header_logo_url) || '').trim();
     if (uploadBtn) uploadBtn.disabled = !!isBusy;
     if (removeBtn) removeBtn.disabled = !!isBusy || !hasLogo;
+    if (logoSize) logoSize.disabled = !!isBusy;
+    if (logoPadding) logoPadding.disabled = !!isBusy;
+    if (headerSize) headerSize.disabled = !!isBusy;
+    if (headerPadding) headerPadding.disabled = !!isBusy;
+    if (modalPadding) modalPadding.disabled = !!isBusy;
 }
 
 async function uploadFullViewLogo(file) {
@@ -578,17 +715,11 @@ async function uploadFullViewLogo(file) {
 }
 
 async function saveHeaderLogoUrl(url) {
-    const configId = await ensureCurrentConfigId();
-    const nextStyle = normalizeConfigStyle(currentConfigStyle);
     const cleanUrl = String(url || '').trim();
-    if (cleanUrl) nextStyle.header_logo_url = cleanUrl;
-    else delete nextStyle.header_logo_url;
-    const result = await apiPut('/api/full-view/config/' + configId, { style: nextStyle });
-    const savedStyle = (result && result.config && result.config.style && typeof result.config.style === 'object')
-        ? result.config.style
-        : nextStyle;
-    currentConfigStyle = normalizeConfigStyle(savedStyle);
-    return currentConfigStyle;
+    currentConfigStyle = normalizeConfigStyle(currentConfigStyle);
+    if (cleanUrl) currentConfigStyle.header_logo_url = cleanUrl;
+    else delete currentConfigStyle.header_logo_url;
+    return saveCurrentConfigStyle();
 }
 
 /* ------------------------------------------------------------------ */
@@ -1480,10 +1611,135 @@ function bindEvents() {
     document.getElementById('fv-add-tab-btn').addEventListener('click', function () { openTabDialog(null); });
 
     const logoInput = document.getElementById('fv-logo-input');
+    const logoSizeInput = document.getElementById('fv-branding-logo-size');
+    const logoPaddingInput = document.getElementById('fv-branding-logo-padding');
+    const headerSizeInput = document.getElementById('fv-branding-header-size');
+    const headerPaddingInput = document.getElementById('fv-branding-header-padding');
+    const modalPaddingInput = document.getElementById('fv-branding-modal-padding');
     document.getElementById('fv-logo-upload-btn').addEventListener('click', function () {
         if (!currentWorkspaceId || !logoInput) return;
         logoInput.click();
     });
+    if (logoSizeInput) {
+        logoSizeInput.addEventListener('input', function () {
+            currentConfigStyle = normalizeConfigStyle(currentConfigStyle);
+            currentConfigStyle.header_logo_size_pct = clampBrandingSizePct(this.value, 100);
+            syncBrandingPreview();
+        });
+        logoSizeInput.addEventListener('change', async function () {
+            currentConfigStyle = normalizeConfigStyle(currentConfigStyle);
+            currentConfigStyle.header_logo_size_pct = clampBrandingSizePct(this.value, 100);
+            setBrandingBusy(true);
+            syncBrandingPreview('Saving logo size...', null);
+            try {
+                await saveCurrentConfigStyle();
+                syncBrandingPreview('Logo size saved.', 'ok');
+                setInlineStatus('fv-resource-status', 'Logo size updated.', 'ok');
+            } catch (e) {
+                const message = String((e && e.message) || 'Could not save logo size');
+                syncBrandingPreview(message, 'error');
+                setInlineStatus('fv-resource-status', 'Logo size save failed: ' + message, 'error');
+            } finally {
+                setBrandingBusy(false);
+            }
+        });
+    }
+    if (logoPaddingInput) {
+        logoPaddingInput.addEventListener('input', function () {
+            currentConfigStyle = normalizeConfigStyle(currentConfigStyle);
+            currentConfigStyle.header_logo_padding_pct = clampBrandingPaddingPct(this.value, 100);
+            syncBrandingPreview();
+        });
+        logoPaddingInput.addEventListener('change', async function () {
+            currentConfigStyle = normalizeConfigStyle(currentConfigStyle);
+            currentConfigStyle.header_logo_padding_pct = clampBrandingPaddingPct(this.value, 100);
+            setBrandingBusy(true);
+            syncBrandingPreview('Saving logo shell padding...', null);
+            try {
+                await saveCurrentConfigStyle();
+                syncBrandingPreview('Logo shell padding saved.', 'ok');
+                setInlineStatus('fv-resource-status', 'Logo shell padding updated.', 'ok');
+            } catch (e) {
+                const message = String((e && e.message) || 'Could not save logo shell padding');
+                syncBrandingPreview(message, 'error');
+                setInlineStatus('fv-resource-status', 'Logo shell padding save failed: ' + message, 'error');
+            } finally {
+                setBrandingBusy(false);
+            }
+        });
+    }
+    if (headerSizeInput) {
+        headerSizeInput.addEventListener('input', function () {
+            currentConfigStyle = normalizeConfigStyle(currentConfigStyle);
+            currentConfigStyle.header_size_pct = clampBrandingSizePct(this.value, 100);
+            syncBrandingPreview();
+        });
+        headerSizeInput.addEventListener('change', async function () {
+            currentConfigStyle = normalizeConfigStyle(currentConfigStyle);
+            currentConfigStyle.header_size_pct = clampBrandingSizePct(this.value, 100);
+            setBrandingBusy(true);
+            syncBrandingPreview('Saving header size...', null);
+            try {
+                await saveCurrentConfigStyle();
+                syncBrandingPreview('Header size saved.', 'ok');
+                setInlineStatus('fv-resource-status', 'Header size updated.', 'ok');
+            } catch (e) {
+                const message = String((e && e.message) || 'Could not save header size');
+                syncBrandingPreview(message, 'error');
+                setInlineStatus('fv-resource-status', 'Header size save failed: ' + message, 'error');
+            } finally {
+                setBrandingBusy(false);
+            }
+        });
+    }
+    if (headerPaddingInput) {
+        headerPaddingInput.addEventListener('input', function () {
+            currentConfigStyle = normalizeConfigStyle(currentConfigStyle);
+            currentConfigStyle.header_padding_pct = clampBrandingPaddingPct(this.value, 100);
+            syncBrandingPreview();
+        });
+        headerPaddingInput.addEventListener('change', async function () {
+            currentConfigStyle = normalizeConfigStyle(currentConfigStyle);
+            currentConfigStyle.header_padding_pct = clampBrandingPaddingPct(this.value, 100);
+            setBrandingBusy(true);
+            syncBrandingPreview('Saving header spacing...', null);
+            try {
+                await saveCurrentConfigStyle();
+                syncBrandingPreview('Header spacing saved.', 'ok');
+                setInlineStatus('fv-resource-status', 'Header spacing updated.', 'ok');
+            } catch (e) {
+                const message = String((e && e.message) || 'Could not save header spacing');
+                syncBrandingPreview(message, 'error');
+                setInlineStatus('fv-resource-status', 'Header spacing save failed: ' + message, 'error');
+            } finally {
+                setBrandingBusy(false);
+            }
+        });
+    }
+    if (modalPaddingInput) {
+        modalPaddingInput.addEventListener('input', function () {
+            currentConfigStyle = normalizeConfigStyle(currentConfigStyle);
+            currentConfigStyle.modal_padding_pct = clampBrandingSizePct(this.value, 100);
+            syncBrandingPreview();
+        });
+        modalPaddingInput.addEventListener('change', async function () {
+            currentConfigStyle = normalizeConfigStyle(currentConfigStyle);
+            currentConfigStyle.modal_padding_pct = clampBrandingSizePct(this.value, 100);
+            setBrandingBusy(true);
+            syncBrandingPreview('Saving modal spacing...', null);
+            try {
+                await saveCurrentConfigStyle();
+                syncBrandingPreview('Modal spacing saved.', 'ok');
+                setInlineStatus('fv-resource-status', 'Modal spacing updated.', 'ok');
+            } catch (e) {
+                const message = String((e && e.message) || 'Could not save modal spacing');
+                syncBrandingPreview(message, 'error');
+                setInlineStatus('fv-resource-status', 'Modal spacing save failed: ' + message, 'error');
+            } finally {
+                setBrandingBusy(false);
+            }
+        });
+    }
     if (logoInput) {
         logoInput.addEventListener('change', async function () {
             const file = this.files && this.files[0] ? this.files[0] : null;

@@ -9220,9 +9220,16 @@ h1 {{ margin:0 0 8px; font-size:22px; }}
                         z['linked_floor_plan_name'] = fp_item.get('name', '')
             bm['zones'] = bm_zones
             buildings.append(bm)
+        fv_style = {}
+        workspace_id = str((plan or {}).get('workspace_id') or '').strip()
+        if workspace_id:
+            fv_cfg = fv_get_config(sb, workspace_id)
+            if fv_cfg and isinstance(fv_cfg.get('style'), dict):
+                fv_style = fv_cfg.get('style')
         return render_template('project_plan_view.html',
                                plan=plan,
-                               buildings=buildings)
+                               buildings=buildings,
+                               fv_style=fv_style)
 
     # ==================================================================
     # Galleries
@@ -11234,7 +11241,14 @@ h1 {{ margin:0 0 8px; font-size:22px; }}
                         z['linked_floor_plan_name'] = fp_item.get('name', '')
             bm['zones'] = bm_zones
             buildings.append(bm)
+        fv_style = {}
+        workspace_id = str((plan or {}).get('workspace_id') or '').strip()
+        if workspace_id:
+            fv_cfg = fv_get_config(sb, workspace_id)
+            if fv_cfg and isinstance(fv_cfg.get('style'), dict):
+                fv_style = fv_cfg.get('style')
         return render_template('project_plan_view.html',
                                plan=plan,
                                buildings=buildings,
-                               fv_config=None)
+                               fv_config=None,
+                               fv_style=fv_style)

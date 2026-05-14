@@ -453,6 +453,7 @@
 .fv-branding-preview-logo-shell {
     width: 54px;
     height: 54px;
+    padding: calc(8px * var(--fv-header-logo-scale, 1) * var(--fv-header-logo-padding-scale, 1)) calc(12px * var(--fv-header-logo-scale, 1) * var(--fv-header-logo-padding-scale, 1));
     border-radius: 14px;
     background: rgba(255, 255, 255, 0.12);
     border: 1px solid rgba(255, 255, 255, 0.2);
@@ -468,7 +469,7 @@
     height: 100%;
     object-fit: contain;
     display: block;
-    padding: 0.35rem;
+    padding: 0;
     box-sizing: border-box;
 }
 
@@ -515,6 +516,47 @@
     flex-wrap: wrap;
     justify-content: flex-end;
     gap: 0.45rem;
+}
+
+.fv-branding-size-grid,
+.fv-branding-space-grid {
+    width: 100%;
+    max-width: 280px;
+    align-self: stretch;
+    display: grid;
+    gap: 0.55rem;
+    padding: 0.7rem 0.8rem;
+    border: 1px solid rgba(120, 143, 170, 0.18);
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.46);
+}
+
+.fv-branding-size-field {
+    display: grid;
+    gap: 0.3rem;
+}
+
+.fv-branding-size-label {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    font-size: 0.67rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--color-text-dim);
+}
+
+.fv-branding-size-value {
+    color: var(--fv-accent);
+    font-variant-numeric: tabular-nums;
+}
+
+.fv-branding-size-range {
+    width: 100%;
+    margin: 0;
+    accent-color: #5d9eff;
 }
 
 .fv-branding-status {
@@ -915,6 +957,8 @@
     .fv-branding-preview { width: 100%; max-width: 100%; }
     .fv-branding-actions { align-items: flex-start; }
     .fv-branding-btn-row { justify-content: flex-start; }
+    .fv-branding-size-grid,
+    .fv-branding-space-grid { max-width: 100%; }
     .fv-branding-status { max-width: none; text-align: left; }
     .fv-row-type { display: none; }
     .fv-icon-grid { grid-template-columns: repeat(auto-fill, minmax(68px, 1fr)); }

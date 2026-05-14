@@ -67,8 +67,46 @@
 <script>
 (function() {
     // ── Data from server ──
+    var INITIAL_STYLE = {{ (fv_style or {}) | tojson }};
+    var DEFAULT_STYLE = {
+        modal_padding_pct: 100
+    };
     var BUILDINGS = {{ buildings|tojson }};
     var currentBuildingIndex = 0;
+
+    function clampInt(value, min, max, fallback) {
+        var n = parseInt(value, 10);
+        if (Number.isNaN(n)) return fallback;
+        if (n < min) return min;
+        if (n > max) return max;
+        return n;
+    }
+
+    function normalizeStyle(raw) {
+        var style = raw && typeof raw === 'object' ? raw : {};
+        return {
+            modal_padding_pct: clampInt(style.modal_padding_pct, 60, 160, DEFAULT_STYLE.modal_padding_pct)
+        };
+    }
+
+    function setCssVar(name, value) {
+        document.documentElement.style.setProperty(name, value);
+    }
+
+    function applyStyle(raw) {
+        var s = normalizeStyle(raw);
+        setCssVar('--fv-modal-padding-scale', String(s.modal_padding_pct / 100));
+    }
+
+    applyStyle(INITIAL_STYLE);
+
+    window.addEventListener('message', function (evt) {
+        if (evt.origin !== window.location.origin) return;
+        var data = evt.data || {};
+        if (data.type === 'fv-style-preview' && data.style && typeof data.style === 'object') {
+            applyStyle(data.style);
+        }
+    });
 
     // Parse zone points
     BUILDINGS.forEach(function(bm) {
