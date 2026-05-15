@@ -26,12 +26,13 @@
     var routeModalTitleEl = document.getElementById('srv-route-modal-title');
     var routeModalPointerTypeEl = document.getElementById('srv-route-modal-pointer-type');
     var routeModalDistanceEl = document.getElementById('srv-route-modal-distance');
+    var PREVIEW_MOBILE = document.body && document.body.classList ? document.body.classList.contains('preview-mobile') : false;
     var activeMarkerId = null;
     var activeAnimationFrame = null;
     var activeTypeFilter = 'all';
     var activeHoverRouteId = null;
     var hoverRouteLocked = false;
-    var INITIAL_MAP_SCALE = 1.32;
+    var INITIAL_MAP_SCALE = PREVIEW_MOBILE ? 1.08 : 1.32;
     var MIN_MAP_SCALE = 1;
     var MAX_MAP_SCALE = 4.5;
     var mapScale = INITIAL_MAP_SCALE;
@@ -137,6 +138,7 @@
     }
 
     function isMobileViewport() {
+        if (PREVIEW_MOBILE) return true;
         return window.matchMedia ? window.matchMedia('(max-width: 768px)').matches : window.innerWidth <= 768;
     }
 

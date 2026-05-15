@@ -10,7 +10,7 @@
     <link rel="stylesheet" href="/static/css/theme.css">
     <link rel="stylesheet" href="/static/css/sales_route_map_view.css">
 </head>
-<body class="{% if embed %}srv-embed{% endif %}">
+<body class="{{ 'preview-mobile ' if preview_mode == 'mobile' else '' }}{% if embed %}srv-embed{% endif %}">
     <div class="srv-page">
         {% if not embed %}
         <header class="srv-header">

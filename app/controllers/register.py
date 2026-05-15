@@ -8539,6 +8539,7 @@ h1 {{ margin:0 0 8px; font-size:22px; }}
             routes=routes,
             hover_routes=hover_routes,
             embed=(request.args.get('embed', '') == '1'),
+            preview_mode=request.args.get('preview', '').strip().lower() or '',
         )
 
     @app.route('/customer/full-view/sales-map/<map_id>')
@@ -8568,6 +8569,7 @@ h1 {{ margin:0 0 8px; font-size:22px; }}
             hover_routes=hover_routes,
             fv_style=fv_style,
             embed=True,
+            preview_mode=request.args.get('preview', '').strip().lower() or '',
         )
 
     # ==================================================================
