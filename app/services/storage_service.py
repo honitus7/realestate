@@ -1044,11 +1044,17 @@ def delete_sales_flat360_from_s3(filename):
 # Gallery helpers (images + videos)
 # ---------------------------------------------------------------------------
 
-GALLERY_IMAGE_MAX_DIMENSION = 2400
 MAX_GALLERY_READ_BYTES = int(os.environ.get('MAX_GALLERY_READ_BYTES', str(100 * 1024 * 1024)))  # 100MB
 
 ALLOWED_GALLERY_IMAGE_EXT = {'png', 'jpg', 'jpeg', 'webp', 'gif'}
 ALLOWED_GALLERY_VIDEO_EXT = {'mp4', 'webm', 'mov'}
+GALLERY_IMAGE_CONTENT_TYPES = {
+    'png': 'image/png',
+    'jpg': 'image/jpeg',
+    'jpeg': 'image/jpeg',
+    'webp': 'image/webp',
+    'gif': 'image/gif',
+}
 
 
 def gallery_object_key(filename):
@@ -1058,40 +1064,31 @@ def gallery_object_key(filename):
     return safe_name
 
 
-def compress_gallery_image(raw_bytes):
-    """Compress gallery image to optimised JPEG.
-    Returns (jpeg_bytes, width, height) or (None, 0, 0).
+def compress_gallery_image(raw_bytes, source_ext=''):
+    """Lossless gallery image validation + passthrough.
+    Returns (raw_bytes, width, height, out_ext, out_content_type)
+    or (None, 0, 0, '', '').
     """
     if not raw_bytes or len(raw_bytes) > MAX_GALLERY_READ_BYTES:
-        return None, 0, 0
+        return None, 0, 0, '', ''
+    src_ext = str(source_ext or '').strip().lower().lstrip('.')
     try:
         img = Image.open(io.BytesIO(raw_bytes))
     except Exception:
-        return None, 0, 0
-    try:
-        exif = img.getexif()
-        orientation = exif.get(EXIF_ORIENTATION_TAG)
-        if orientation == 3:
-            img = img.rotate(180, expand=True)
-        elif orientation == 6:
-            img = img.rotate(270, expand=True)
-        elif orientation == 8:
-            img = img.rotate(90, expand=True)
-    except Exception:
-        pass
-    img = img.convert('RGB')
+        return None, 0, 0, '', ''
     w, h = img.size
-    if max(w, h) > GALLERY_IMAGE_MAX_DIMENSION:
-        ratio = GALLERY_IMAGE_MAX_DIMENSION / float(max(w, h))
-        w = max(1, int(w * ratio))
-        h = max(1, int(h * ratio))
-        img = img.resize((w, h), RESAMPLE_LANCZOS)
-    buf = io.BytesIO()
-    try:
-        img.save(buf, 'JPEG', quality=90, optimize=True, progressive=True)
-    except Exception:
-        return None, 0, 0
-    return buf.getvalue(), w, h
+    if w <= 0 or h <= 0:
+        return None, 0, 0, '', ''
+
+    fmt = str(getattr(img, 'format', '') or '').strip().lower()
+    if src_ext not in GALLERY_IMAGE_CONTENT_TYPES:
+        if fmt in ('jpeg', 'jpg'):
+            src_ext = 'jpg'
+        elif fmt in ('png', 'webp', 'gif'):
+            src_ext = fmt
+        else:
+            src_ext = 'jpg'
+    return raw_bytes, w, h, src_ext, GALLERY_IMAGE_CONTENT_TYPES.get(src_ext, 'image/jpeg')
 
 
 def _is_s3_tls_verification_error(exc):
