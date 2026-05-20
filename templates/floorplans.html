@@ -3069,6 +3069,7 @@
     var GAL_ALLOWED_EXTS = { png: true, jpg: true, jpeg: true, webp: true, gif: true, mp4: true, webm: true, mov: true };
     var GAL_MAX_UPLOAD_BYTES = Number(window.__MAX_GALLERY_READ_BYTES__ || 0) || 0;
     var GAL_UPLOAD_TIMEOUT_MS = 15 * 60 * 1000;
+    var GAL_UPLOAD_RETRY_LIMIT = 2;
 
     function galProgressParts() {
         return {
@@ -3132,6 +3133,11 @@
             return 'Server/storage error during upload. Please retry in a moment.';
         }
         return statusCode ? ('Upload failed (' + statusCode + ')') : 'Upload failed';
+    }
+
+    function galCanRetryUploadStatus(statusCode) {
+        var code = Number(statusCode || 0);
+        return code === 0 || code === 408 || code === 429 || code === 499 || code >= 500;
     }
 
     galUploadZone.addEventListener('click', function() { galFileInput.click(); });
@@ -3241,66 +3247,91 @@
         fd.append('name', name);
         fd.append('file', file);
         fd.append('is_360', is360 ? 'true' : 'false');
-
-        var xhr = new XMLHttpRequest();
         var headers = authHeaders();
 
-        xhr.upload.addEventListener('progress', function(ev) {
-            if (ev.lengthComputable && ev.total > 0) {
-                var pct = Math.round((ev.loaded / ev.total) * 100);
-                fill.style.width = pct + '%';
-                text.textContent = 'Uploading ' + (galPendingFileIndex + 1) + '/' + galPendingFiles.length + ' — ' + pct + '%';
-            } else {
-                fill.style.width = '35%';
-                text.textContent = 'Uploading ' + (galPendingFileIndex + 1) + '/' + galPendingFiles.length + '...';
-            }
-        });
+        function sendAttempt(attemptNo) {
+            var xhr = new XMLHttpRequest();
 
-        xhr.addEventListener('load', function() {
-            var ok = xhr.status >= 200 && xhr.status < 300;
-            if (ok) {
-                fill.style.width = '100%';
-                text.textContent = 'Saved.';
-                galPendingFileIndex++;
-                if (galPendingFileIndex < galPendingFiles.length) {
-                    setTimeout(function() {
-                        fill.style.width = '0%';
-                        galProcessNextFile();
-                    }, 300);
+            xhr.upload.addEventListener('progress', function(ev) {
+                if (ev.lengthComputable && ev.total > 0) {
+                    var pct = Math.round((ev.loaded / ev.total) * 100);
+                    fill.style.width = pct + '%';
+                    text.textContent = 'Uploading ' + (galPendingFileIndex + 1) + '/' + galPendingFiles.length + ' - ' + pct + '%';
                 } else {
-                    setTimeout(function() {
-                        progress.classList.remove('visible');
-                        fill.style.width = '0%';
-                    }, 500);
-                    loadGalItems();
+                    fill.style.width = '35%';
+                    text.textContent = 'Uploading ' + (galPendingFileIndex + 1) + '/' + galPendingFiles.length + '...';
                 }
-                return;
-            }
-            var msg = '';
-            try {
-                var payload = JSON.parse(xhr.responseText || '{}');
-                if (payload && payload.error) msg = String(payload.error);
-            } catch (e) {}
-            if (!msg) msg = galFriendlyUploadFailure(xhr.status || 0);
-            galShowUploadError(msg, true);
-        });
+            });
 
-        xhr.addEventListener('error', function() {
-            galShowUploadError(galFriendlyUploadFailure(xhr.status || 0), true);
-        });
+            xhr.addEventListener('load', function() {
+                var ok = xhr.status >= 200 && xhr.status < 300;
+                if (ok) {
+                    fill.style.width = '100%';
+                    text.textContent = 'Saved.';
+                    galPendingFileIndex++;
+                    if (galPendingFileIndex < galPendingFiles.length) {
+                        setTimeout(function() {
+                            fill.style.width = '0%';
+                            galProcessNextFile();
+                        }, 300);
+                    } else {
+                        setTimeout(function() {
+                            progress.classList.remove('visible');
+                            fill.style.width = '0%';
+                        }, 500);
+                        loadGalItems();
+                    }
+                    return;
+                }
 
-        xhr.addEventListener('timeout', function() {
-            galShowUploadError('Upload timed out. For large videos, try again or use a smaller file.', true);
-        });
+                var statusCode = xhr.status || 0;
+                if (attemptNo < GAL_UPLOAD_RETRY_LIMIT && galCanRetryUploadStatus(statusCode)) {
+                    fill.style.width = '0%';
+                    text.textContent = 'Retrying upload (' + (attemptNo + 1) + '/' + GAL_UPLOAD_RETRY_LIMIT + ')...';
+                    setTimeout(function() { sendAttempt(attemptNo + 1); }, 900 * attemptNo);
+                    return;
+                }
 
-        xhr.addEventListener('abort', function() {
-            galShowUploadError('Upload was cancelled before completion. Please retry.', true);
-        });
+                var msg = '';
+                try {
+                    var payload = JSON.parse(xhr.responseText || '{}');
+                    if (payload && payload.error) msg = String(payload.error);
+                } catch (e) {}
+                if (!msg) msg = galFriendlyUploadFailure(statusCode);
+                galShowUploadError(msg, true);
+            });
 
-        xhr.open('POST', '/api/galleries/' + currentGallery.id + '/items');
-        xhr.timeout = GAL_UPLOAD_TIMEOUT_MS;
-        if (headers.Authorization) xhr.setRequestHeader('Authorization', headers.Authorization);
-        xhr.send(fd);
+            xhr.addEventListener('error', function() {
+                if (attemptNo < GAL_UPLOAD_RETRY_LIMIT) {
+                    fill.style.width = '0%';
+                    text.textContent = 'Retrying upload (' + (attemptNo + 1) + '/' + GAL_UPLOAD_RETRY_LIMIT + ')...';
+                    setTimeout(function() { sendAttempt(attemptNo + 1); }, 900 * attemptNo);
+                    return;
+                }
+                galShowUploadError(galFriendlyUploadFailure(xhr.status || 0), true);
+            });
+
+            xhr.addEventListener('timeout', function() {
+                if (attemptNo < GAL_UPLOAD_RETRY_LIMIT) {
+                    fill.style.width = '0%';
+                    text.textContent = 'Upload timed out. Retrying...';
+                    setTimeout(function() { sendAttempt(attemptNo + 1); }, 900 * attemptNo);
+                    return;
+                }
+                galShowUploadError('Upload timed out. For large videos, try again or use a smaller file.', true);
+            });
+
+            xhr.addEventListener('abort', function() {
+                galShowUploadError('Upload was cancelled before completion. Please retry.', true);
+            });
+
+            xhr.open('POST', '/api/galleries/' + currentGallery.id + '/items');
+            xhr.timeout = GAL_UPLOAD_TIMEOUT_MS;
+            if (headers.Authorization) xhr.setRequestHeader('Authorization', headers.Authorization);
+            xhr.send(fd);
+        }
+
+        sendAttempt(1);
     }
 
     // Rename

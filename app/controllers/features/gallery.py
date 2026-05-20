@@ -23,9 +23,11 @@ from app.services.storage_service import (
     ALLOWED_GALLERY_IMAGE_EXT,
     ALLOWED_GALLERY_VIDEO_EXT,
     MAX_GALLERY_READ_BYTES,
+    buffer_uploaded_file,
     compress_gallery_image,
     delete_gallery_from_s3,
     get_gallery_s3_url,
+    read_uploaded_file_bytes,
     upload_gallery_to_s3,
 )
 from app.services.workspace_service import can_manage_workspace, get_workspace_by_id
@@ -162,12 +164,23 @@ def register_gallery_routes(app):
         is_image = ext in ALLOWED_GALLERY_IMAGE_EXT
         if not is_video and not is_image:
             return jsonify({'error': f'Invalid file type. Allowed: {", ".join(ALLOWED_GALLERY_IMAGE_EXT | ALLOWED_GALLERY_VIDEO_EXT)}'}), 400
-        raw_bytes = f.read()
-        if not raw_bytes or len(raw_bytes) > MAX_GALLERY_READ_BYTES:
-            max_mb = max(1, int(MAX_GALLERY_READ_BYTES / (1024 * 1024)))
+        max_cfg = int(current_app.config.get('MAX_CONTENT_LENGTH') or 0)
+        max_allowed = int(MAX_GALLERY_READ_BYTES)
+        if max_cfg > 0:
+            max_allowed = min(max_allowed, max_cfg)
+        declared_size = int(request.content_length or 0)
+        declared_limit = max_allowed + (1024 * 1024)
+        if max_allowed > 0 and declared_size and declared_size > declared_limit:
+            max_mb = max(1, int(max_allowed / (1024 * 1024)))
             return jsonify({'error': f'File too large (max {max_mb}MB)'}), 413
+
+        staged_stream = None
+        filename = ''
         try:
             if is_image:
+                raw_bytes = read_uploaded_file_bytes(f, max_allowed)
+                if not raw_bytes:
+                    return jsonify({'error': 'No file provided'}), 400
                 processed, w, h, out_ext, out_content_type = compress_gallery_image(raw_bytes, source_ext=ext)
                 if not processed:
                     return jsonify({'error': 'Failed to process image'}), 400
@@ -177,9 +190,14 @@ def register_gallery_routes(app):
             else:
                 content_types = {'mp4': 'video/mp4', 'webm': 'video/webm', 'mov': 'video/quicktime'}
                 filename = f"gal_{uuid.uuid4().hex[:16]}.{ext}"
-                upload_gallery_to_s3(filename, raw_bytes, content_types.get(ext, 'video/mp4'))
-                file_size = len(raw_bytes)
+                staged_stream, file_size = buffer_uploaded_file(f, max_allowed)
+                if not staged_stream or file_size <= 0:
+                    return jsonify({'error': 'No file provided'}), 400
+                upload_gallery_to_s3(filename, staged_stream, content_types.get(ext, 'video/mp4'))
                 w, h = 0, 0
+        except ValueError:
+            max_mb = max(1, int(max_allowed / (1024 * 1024)))
+            return jsonify({'error': f'File too large (max {max_mb}MB)'}), 413
         except RuntimeError as e:
             msg = str(e) or 'Upload failed'
             code = 503 if 'not configured' in msg.lower() else 502
@@ -189,6 +207,12 @@ def register_gallery_routes(app):
             return jsonify({
                 'error': 'Upload failed while processing or storing the file. Please retry. If this keeps happening, try a smaller file.'
             }), 500
+        finally:
+            if staged_stream:
+                try:
+                    staged_stream.close()
+                except Exception:
+                    pass
 
         if is_image:
             if raw_is_360 is not None and str(raw_is_360).strip() != '':
@@ -199,15 +223,23 @@ def register_gallery_routes(app):
             is_360 = False
 
         sort_order = gal_next_sort_order(sb, gallery_id)
-        item = gal_create_item(
-            sb, gallery_id, name, filename,
-            media_type='video' if is_video else 'image',
-            media_width=w, media_height=h,
-            file_size_bytes=file_size,
-            sort_order=sort_order,
-            is_360=is_360,
-        )
+        try:
+            item = gal_create_item(
+                sb, gallery_id, name, filename,
+                media_type='video' if is_video else 'image',
+                media_width=w, media_height=h,
+                file_size_bytes=file_size,
+                sort_order=sort_order,
+                is_360=is_360,
+            )
+        except Exception as e:
+            current_app.logger.exception('Gallery item DB create failed: %s', e)
+            if filename:
+                delete_gallery_from_s3(filename)
+            return jsonify({'error': 'File uploaded but metadata save failed. Please retry.'}), 500
         if not item:
+            if filename:
+                delete_gallery_from_s3(filename)
             return jsonify({'error': 'Failed to create item'}), 500
         item['media_url'] = get_gallery_s3_url(filename)
         return jsonify(item), 201

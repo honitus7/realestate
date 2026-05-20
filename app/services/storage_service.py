@@ -1055,6 +1055,8 @@ GALLERY_IMAGE_CONTENT_TYPES = {
     'webp': 'image/webp',
     'gif': 'image/gif',
 }
+GALLERY_UPLOAD_RETRY_ATTEMPTS = max(1, int(os.environ.get('GALLERY_UPLOAD_RETRY_ATTEMPTS', '3')))
+GALLERY_UPLOAD_RETRY_BASE_DELAY_SEC = max(0.1, float(os.environ.get('GALLERY_UPLOAD_RETRY_BASE_DELAY_SEC', '0.6')))
 
 
 def gallery_object_key(filename):
@@ -1102,31 +1104,105 @@ def _is_s3_tls_verification_error(exc):
     return 'certificate verify failed' in msg or 'ssl' in msg and 'cert' in msg
 
 
+def _is_transient_s3_error(exc):
+    msg = (str(exc) or '').lower()
+    markers = (
+        'timed out',
+        'timeout',
+        'temporar',
+        'service unavailable',
+        'slowdown',
+        'throttl',
+        'too many requests',
+        'requesttimeout',
+        'internalerror',
+        'connection',
+        'connection reset',
+        'connection aborted',
+        'connection refused',
+        'connection closed',
+        'broken pipe',
+        'reset by peer',
+        'bad gateway',
+        'gateway timeout',
+        '503',
+        '504',
+    )
+    if any(m in msg for m in markers):
+        return True
+    try:
+        response = getattr(exc, 'response', None) or {}
+        meta = response.get('ResponseMetadata') or {}
+        status = int(meta.get('HTTPStatusCode') or 0)
+        if status in (408, 429, 500, 502, 503, 504):
+            return True
+        err = response.get('Error') or {}
+        code = str(err.get('Code') or '').strip().lower()
+        if code in {
+            'slowdown',
+            'throttling',
+            'requesttimeout',
+            'requesttimeoutexception',
+            'internalerror',
+            'serviceunavailable',
+            'unavailable',
+            'gatewaytimeout',
+        }:
+            return True
+    except Exception:
+        pass
+    return False
+
+
 def upload_gallery_to_s3(filename, raw_bytes, content_type='image/jpeg'):
     client = get_s3_client()
     if not client:
         raise RuntimeError('S3 not configured')
     key = gallery_object_key(filename)
-    try:
-        client.put_object(
-            Bucket=app_config.SUPABASE_S3_BUCKET,
-            Key=key,
-            Body=raw_bytes,
-            ContentType=content_type,
-        )
-    except Exception as e:
-        if _is_s3_tls_verification_error(e):
-            raise RuntimeError(
-                'Storage upload failed: TLS certificate verification error. '
-                'Set SUPABASE_SSL_VERIFY=false for local dev behind a proxy, or SUPABASE_S3_CA_BUNDLE '
-                'to a PEM file with your corporate root CA, then restart the app.'
-            ) from None
-        msg = (str(e) or '').lower()
-        if 'timed out' in msg or 'timeout' in msg:
-            raise RuntimeError('Storage upload timed out. Please retry; for videos, try a smaller file if possible.') from None
-        if 'connection' in msg or 'endpoint' in msg or 'temporar' in msg or 'unavailable' in msg:
-            raise RuntimeError('Storage upload connection failed. Please check network/storage availability and retry.') from None
-        raise RuntimeError(f'Storage upload failed: {str(e) or "unknown error"}') from None
+    last_error = None
+    for attempt in range(1, GALLERY_UPLOAD_RETRY_ATTEMPTS + 1):
+        try:
+            if hasattr(raw_bytes, 'read'):
+                try:
+                    raw_bytes.seek(0)
+                except Exception:
+                    pass
+                if hasattr(client, 'upload_fileobj'):
+                    client.upload_fileobj(
+                        raw_bytes,
+                        app_config.SUPABASE_S3_BUCKET,
+                        key,
+                        ExtraArgs={'ContentType': content_type},
+                    )
+                    return
+            client.put_object(
+                Bucket=app_config.SUPABASE_S3_BUCKET,
+                Key=key,
+                Body=raw_bytes,
+                ContentType=content_type,
+            )
+            return
+        except Exception as e:
+            if _is_s3_tls_verification_error(e):
+                raise RuntimeError(
+                    'Storage upload failed: TLS certificate verification error. '
+                    'Set SUPABASE_SSL_VERIFY=false for local dev behind a proxy, or SUPABASE_S3_CA_BUNDLE '
+                    'to a PEM file with your corporate root CA, then restart the app.'
+                ) from None
+            last_error = e
+            if attempt < GALLERY_UPLOAD_RETRY_ATTEMPTS and _is_transient_s3_error(e):
+                time.sleep(GALLERY_UPLOAD_RETRY_BASE_DELAY_SEC * (2 ** (attempt - 1)))
+                continue
+            break
+
+    msg = (str(last_error) or '').lower()
+    if _is_transient_s3_error(last_error):
+        raise RuntimeError('Storage upload was temporarily unavailable after retries. Please retry.') from None
+    if 'timed out' in msg or 'timeout' in msg:
+        raise RuntimeError('Storage upload timed out. Please retry; for videos, try a smaller file if possible.') from None
+    if 'connection' in msg or 'endpoint' in msg or 'temporar' in msg or 'unavailable' in msg:
+        raise RuntimeError('Storage upload connection failed. Please check network/storage availability and retry.') from None
+    raise RuntimeError(f'Storage upload failed: {str(last_error) or "unknown error"}') from None
 
 
 def get_gallery_s3_url(filename):
