@@ -2048,6 +2048,7 @@ def register_routes(app):
         sb = get_supabase()
         if not sb:
             return jsonify({'error': 'Database not configured'}), 503
+        workspace_id = str(request.args.get('workspace_id') or '').strip() or None
         items = list_panoramas_for_user(sb, user_id)
         out = []
         for p in items:
@@ -2061,6 +2062,8 @@ def register_routes(app):
                 o['user_id'] = str(o['user_id'])
             if 'workspace_id' in o and o.get('workspace_id'):
                 o['workspace_id'] = str(o['workspace_id'])
+            if workspace_id and str(o.get('workspace_id') or '') != workspace_id:
+                continue
             out.append(o)
         return jsonify(out)
 
