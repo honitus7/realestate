@@ -16,7 +16,6 @@ from app.services.floorplan_service import (
 from app.services.full_view_service import (
     create_config as fv_create_config,
     create_tab as fv_create_tab,
-    delete_config as fv_delete_config,
     delete_tab as fv_delete_tab,
     get_config_for_workspace as fv_get_config,
     get_config_with_tabs as fv_get_config_with_tabs,
@@ -109,11 +108,8 @@ def register_full_view_routes(app):
     @app.route('/api/full-view/config/<config_id>', methods=['DELETE'])
     @require_admin
     def api_fv_delete_config(user_id, role, config_id):
-        sb = get_supabase()
-        if not sb:
-            return jsonify({'error': 'Database not configured'}), 503
-        fv_delete_config(sb, config_id)
-        return jsonify({'success': True})
+        # Global Full View config is edit-only to prevent accidental resets.
+        return jsonify({'error': 'Global Full View config is edit-only and cannot be deleted.'}), 403
 
     @app.route('/api/full-view/icon-upload', methods=['POST'])
     @require_admin

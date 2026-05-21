@@ -809,8 +809,8 @@ async function openWorkspace(wsId) {
     const shareTask = loadShareUrl(wsId);
 
     try {
-        // Fetch config (auto-creates if missing) and render immediately
-        const d = await apiFetch('/api/full-view/config?workspace_id=' + encodeURIComponent(wsId) + '&autocreate=1');
+        // Fetch config (do not auto-create). If missing, render default UI state.
+        const d = await apiFetch('/api/full-view/config?workspace_id=' + encodeURIComponent(wsId));
         currentConfigId = d.config ? d.config.id : null;
         currentConfigStyle = normalizeConfigStyle(d && d.config ? d.config.style : null);
         document.getElementById('fv-active-check').checked = d.config ? !!d.config.is_active : true;
@@ -1387,8 +1387,12 @@ function fallbackTabName(type) {
 async function ensureCurrentConfigId() {
     if (currentConfigId) return currentConfigId;
     if (!currentWorkspaceId) throw new Error('Please select a workspace first.');
-    const d = await apiFetch('/api/full-view/config?workspace_id=' + encodeURIComponent(currentWorkspaceId) + '&autocreate=1');
+    const d = await apiFetch('/api/full-view/config?workspace_id=' + encodeURIComponent(currentWorkspaceId));
     currentConfigId = (d && d.config && d.config.id) ? d.config.id : null;
+    if (!currentConfigId) {
+        const created = await apiPost('/api/full-view/config', { workspace_id: currentWorkspaceId });
+        currentConfigId = (created && created.config && created.config.id) ? created.config.id : null;
+    }
     if (!currentConfigId) throw new Error('Full View config is not ready. Please reopen the builder and try again.');
     return currentConfigId;
 }
