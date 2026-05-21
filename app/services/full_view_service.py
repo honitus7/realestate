@@ -2,6 +2,7 @@
 Full View Creator - CRUD for full_view_configs and full_view_tabs.
 """
 
+from datetime import datetime
 
 _ALL_REF_FIELDS = (
     'ref_panorama_id',
@@ -73,6 +74,30 @@ def _normalize_config_row(row):
     return config
 
 
+def _to_unix_ts(value):
+    if not value:
+        return 0.0
+    text = str(value).strip()
+    if not text:
+        return 0.0
+    try:
+        # Supabase commonly returns UTC timestamps with trailing Z.
+        return datetime.fromisoformat(text.replace('Z', '+00:00')).timestamp()
+    except Exception:
+        return 0.0
+
+
+def _config_sort_key(row):
+    style_blob = _as_style_data((row or {}).get('style'))
+    return (
+        1 if style_blob else 0,
+        1 if bool((row or {}).get('is_active')) else 0,
+        _to_unix_ts((row or {}).get('updated_at')),
+        _to_unix_ts((row or {}).get('created_at')),
+        str((row or {}).get('id') or ''),
+    )
+
+
 def _get_tab(sb, tab_id):
     resp = sb.table('full_view_tabs').select('*').eq('id', str(tab_id)).limit(1).execute()
     return resp.data[0] if resp.data else None
@@ -87,10 +112,13 @@ def get_config_for_workspace(sb, workspace_id):
         sb.table('full_view_configs')
         .select('*')
         .eq('workspace_id', str(workspace_id))
-        .limit(1)
         .execute()
     )
-    return _normalize_config_row(resp.data[0]) if resp.data else None
+    rows = [_normalize_config_row(row) for row in (resp.data or []) if row]
+    if not rows:
+        return None
+    rows.sort(key=_config_sort_key, reverse=True)
+    return rows[0]
 
 
 def create_config(sb, workspace_id, user_id, org_id=None, style=None):
@@ -113,6 +141,7 @@ def update_config(sb, config_id, **fields):
         clean['style'] = _as_style_data(fields.get('style'))
     if not clean:
         return None
+    clean['updated_at'] = datetime.utcnow().isoformat()
     resp = (
         sb.table('full_view_configs')
         .update(clean)

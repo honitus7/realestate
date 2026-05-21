@@ -7,6 +7,7 @@
 {% endblock %}
 {% block content %}
 <div class="fv-page" id="fv-page">
+    <div class="fv-toast-stack" id="fv-toast-stack" aria-live="polite" aria-atomic="true"></div>
     {% set active_page = 'fullview' %}
     {% include 'components/sidebar.html' %}
 
@@ -492,6 +493,51 @@ function setInlineStatus(id, message, kind) {
     if (kind === 'ok') el.className += ' fv-status--ok';
     if (kind === 'warn') el.className += ' fv-status--warn';
     if (kind === 'error') el.className += ' fv-status--error';
+}
+
+function dismissToast(toastEl) {
+    if (!toastEl || toastEl.dataset.closed === '1') return;
+    toastEl.dataset.closed = '1';
+    toastEl.classList.remove('is-visible');
+    toastEl.classList.add('is-hiding');
+    setTimeout(function () {
+        if (toastEl.parentNode) toastEl.parentNode.removeChild(toastEl);
+    }, 220);
+}
+
+function showToast(message, kind) {
+    var text = String(message || '').trim();
+    if (!text) return;
+    var host = document.getElementById('fv-toast-stack');
+    if (!host) return;
+    var tone = kind === 'error' ? 'error' : (kind === 'warn' ? 'warn' : 'ok');
+    var icon = tone === 'error' ? 'ph:warning-circle-fill' : (tone === 'warn' ? 'ph:warning-circle' : 'ph:check-circle-fill');
+
+    var toastEl = document.createElement('div');
+    toastEl.className = 'fv-toast fv-toast--' + tone;
+
+    var iconEl = document.createElement('iconify-icon');
+    iconEl.className = 'fv-toast-icon';
+    iconEl.setAttribute('icon', icon);
+    iconEl.setAttribute('aria-hidden', 'true');
+
+    var textEl = document.createElement('span');
+    textEl.className = 'fv-toast-text';
+    textEl.textContent = text;
+
+    toastEl.appendChild(iconEl);
+    toastEl.appendChild(textEl);
+    host.appendChild(toastEl);
+    while (host.children.length > 3) {
+        host.removeChild(host.firstElementChild);
+    }
+    requestAnimationFrame(function () { toastEl.classList.add('is-visible'); });
+    var ttlMs = tone === 'error' ? 4800 : 2400;
+    var timer = setTimeout(function () { dismissToast(toastEl); }, ttlMs);
+    toastEl.addEventListener('click', function () {
+        clearTimeout(timer);
+        dismissToast(toastEl);
+    });
 }
 
 /* ------------------------------------------------------------------ */
@@ -1403,6 +1449,7 @@ async function saveTab() {
     let name = document.getElementById('fv-tab-name').value.trim();
     const type = normalizeTabType(document.getElementById('fv-tab-type').value);
     const visible = document.getElementById('fv-tab-visible').checked;
+    const isEditing = !!editingTabId;
 
     if (!name) name = fallbackTabName(type);
     if (!name) { alert('Please enter a label.'); return; }
@@ -1482,8 +1529,13 @@ async function saveTab() {
         }
         closeTabDialog();
         renderTabs();
+        var successMessage = isEditing ? 'Tab updated successfully.' : 'Tab added successfully.';
+        setInlineStatus('fv-resource-status', successMessage, 'ok');
+        showToast(successMessage, 'ok');
     } catch (e) {
-        alert('Error saving: ' + e.message);
+        var saveErr = String((e && e.message) || 'Could not save tab');
+        setInlineStatus('fv-resource-status', 'Save failed: ' + saveErr, 'error');
+        showToast('Save failed: ' + saveErr, 'error');
     }
 }
 
@@ -1570,7 +1622,18 @@ function bindEvents() {
     // Active toggle
     document.getElementById('fv-active-check').addEventListener('change', async function () {
         if (!currentConfigId) return;
-        await apiPut('/api/full-view/config/' + currentConfigId, { is_active: this.checked });
+        var nextChecked = this.checked;
+        try {
+            await apiPut('/api/full-view/config/' + currentConfigId, { is_active: nextChecked });
+            var statusMsg = nextChecked ? 'Full View is now live for customers.' : 'Full View is now hidden from customers.';
+            setInlineStatus('fv-resource-status', statusMsg, 'ok');
+            showToast(statusMsg, 'ok');
+        } catch (e) {
+            this.checked = !nextChecked;
+            var activeErr = String((e && e.message) || 'Could not update Full View visibility');
+            setInlineStatus('fv-resource-status', 'Live toggle failed: ' + activeErr, 'error');
+            showToast('Live toggle failed: ' + activeErr, 'error');
+        }
     });
 
     // Preview button
