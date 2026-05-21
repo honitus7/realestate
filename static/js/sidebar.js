@@ -162,6 +162,15 @@
 
     // ---- Helper: apply cached sidebar state instantly ----
     function applySidebarState(state) {
+        var dashboardLink = document.querySelector('.sidebar-link[data-page="dashboard"]');
+        if (dashboardLink) {
+            var dashboardText = dashboardLink.querySelector('.sidebar-text');
+            var isClientOnly = !state.isAdmin && !!state.isClientMember;
+            var label = isClientOnly ? 'Edit Plots' : 'Plotted Development';
+            if (dashboardText) dashboardText.textContent = label;
+            dashboardLink.setAttribute('data-tooltip', label);
+        }
+
         // Avatar initials
         var avatarEl = document.getElementById('sidebar-avatar');
         if (avatarEl && state.avatarText) {
@@ -169,7 +178,8 @@
         }
         // Org name
         var orgNameEl = document.getElementById('org-name');
-        if (orgNameEl) orgNameEl.textContent = state.orgName || 'PropMark';
+        var displayOrgName = state.displayOrgName || state.orgName || 'PropMark';
+        if (orgNameEl) orgNameEl.textContent = displayOrgName;
         // User name
         var userNameEl = document.getElementById('sidebar-user-name');
         if (userNameEl) userNameEl.textContent = state.userName || '';
@@ -177,10 +187,9 @@
         show('nav-explore', state.isAdmin);
         show('nav-floorplans', state.isAdmin);
         show('nav-fullview', state.isAdmin);
+        show('nav-user-mgmt', state.isAdmin);
         show('nav-orgs', state.role === 'superadmin');
         show('sidebar-upload-wrap', state.isAdmin);
-        show('dropdown-add-user', state.isAdmin);
-        show('dropdown-user-mgmt', state.isAdmin);
         show('dropdown-client-mgmt', !state.isAdmin && !!state.isClientAdmin);
         show('nav-crm', state.showCrm);
     }
@@ -246,11 +255,11 @@
                 if (isAdmin) {
                     var state = {
                         role: role, isAdmin: isAdmin, showCrm: true,
-                        avatarText: avatarText, orgName: orgName, userName: userName
+                        avatarText: avatarText, orgName: orgName, displayOrgName: orgName, userName: userName
                     };
                     applySidebarState(state);
                     try { sessionStorage.setItem(CACHE_KEY, JSON.stringify(state)); } catch (e) { /* ignore */ }
-                    finishSidebar();
+                    finishSidebar(state);
                 } else {
                     fetch('/api/crm/me', {
                         headers: { 'Authorization': 'Bearer ' + accessToken }
@@ -259,34 +268,46 @@
                     .then(function (crmData) {
                         var hasCrm = crmData && crmData.has_crm_access;
                         var isClientAdmin = !!(crmData && crmData.is_client_admin);
+                        var isClientMember = !!(crmData && crmData.is_client_member);
+                        var clientGroupName = String((crmData && crmData.client_group_name) || '').trim();
+                        var isDashboardPath = currentPath === '/dashboard' || currentPath.indexOf('/dashboard/') === 0;
+                        var displayOrgName = (isDashboardPath && isClientMember && clientGroupName) ? clientGroupName : orgName;
                         var state = {
                             role: role, isAdmin: isAdmin, showCrm: hasCrm,
                             isClientAdmin: isClientAdmin,
-                            avatarText: avatarText, orgName: orgName, userName: userName
+                            isClientMember: isClientMember,
+                            clientGroupName: clientGroupName,
+                            avatarText: avatarText, orgName: orgName, displayOrgName: displayOrgName, userName: userName
                         };
                         applySidebarState(state);
                         try { sessionStorage.setItem(CACHE_KEY, JSON.stringify(state)); } catch (e) { /* ignore */ }
-                        finishSidebar();
+                        finishSidebar(state);
                     })
                     .catch(function () {
                         var state = {
                             role: role, isAdmin: isAdmin, showCrm: false,
                             isClientAdmin: false,
-                            avatarText: avatarText, orgName: orgName, userName: userName
+                            isClientMember: false,
+                            clientGroupName: '',
+                            avatarText: avatarText, orgName: orgName, displayOrgName: orgName, userName: userName
                         };
                         applySidebarState(state);
                         try { sessionStorage.setItem(CACHE_KEY, JSON.stringify(state)); } catch (e) { /* ignore */ }
-                        finishSidebar();
+                        finishSidebar(state);
                     });
                 }
 
-                function finishSidebar() {
+                function finishSidebar(state) {
+                    var resolved = state || {};
                     _resolve({
                         role: role,
                         profile: profile,
                         org: data && data.org ? data.org : null,
                         accessToken: accessToken,
-                        isAdmin: isAdmin
+                        isAdmin: isAdmin,
+                        clientGroupName: resolved.clientGroupName || '',
+                        isClientMember: !!resolved.isClientMember,
+                        displayOrgName: resolved.displayOrgName || orgName || ''
                     });
                 }
             })

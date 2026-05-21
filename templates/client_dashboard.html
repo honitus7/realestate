@@ -437,8 +437,10 @@
 
         // Apply org name
         var orgEl = document.getElementById('cd-org-name');
+        var clientGroupName = String(ctx.clientGroupName || '').trim();
         var orgName = ctx.org && ctx.org.name ? ctx.org.name : '';
-        if (orgEl && orgName) orgEl.textContent = orgName;
+        var displayName = String(ctx.displayOrgName || '').trim() || clientGroupName || orgName || '';
+        if (orgEl && displayName) orgEl.textContent = displayName;
 
         try { if (window.applyOrgTheme) window.applyOrgTheme(); } catch (e) {}
 

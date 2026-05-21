@@ -2269,9 +2269,19 @@
                 if (typeof showToast === 'function') showToast('No plots to export', 'info');
                 return;
             }
-            const cols = ['id', 'name', 'area', 'price', 'status', 'description', 'color', 'media_photo', 'media_video'];
-            const header = cols.map((c) => escapeCsvCell(c)).join(',');
-            const dataRows = rows.map((plot) => cols.map((c) => escapeCsvCell(plot[c])).join(','));
+            const headerCols = ['Plot Name', 'Area Size', 'Status'];
+            const header = headerCols.map((c) => escapeCsvCell(c)).join(',');
+            const dataRows = rows.map((plot) => {
+                const statusRaw = plot && Object.prototype.hasOwnProperty.call(plot, 'status') ? plot.status : '';
+                const statusKey = getStatusKey(statusRaw);
+                const statusLabel = statusLabels[statusKey] || statusLabels[normalizeStatus(statusRaw)] || String(statusRaw || '').trim();
+                const cells = [
+                    plot && Object.prototype.hasOwnProperty.call(plot, 'name') ? plot.name : '',
+                    plot && Object.prototype.hasOwnProperty.call(plot, 'area') ? plot.area : '',
+                    statusLabel
+                ];
+                return cells.map((value) => escapeCsvCell(value)).join(',');
+            });
             const csv = [header, ...dataRows].join('\r\n');
             const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
             const url = URL.createObjectURL(blob);

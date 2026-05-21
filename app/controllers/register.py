@@ -400,6 +400,16 @@ def register_routes(app):
         cached = _crm_access_cache_get(cache_key, ttl_seconds=8)
         if cached is not None:
             return list(cached)
+
+        def _crm_allows_access_type(access_type, client_member_id=None):
+            at = str(access_type or '').strip().lower()
+            if at in ('owner', 'client'):
+                return True
+            # Client groups can intentionally grant viewer access for shared CRM visibility.
+            if at == 'viewer' and client_member_id:
+                return True
+            return False
+
         if normalized_role in ('admin', 'superadmin'):
             try:
                 if normalized_role == 'superadmin':
@@ -432,24 +442,34 @@ def register_routes(app):
         def _fetch_panorama_access():
             result = set()
             try:
-                access_rows = sb.table('panorama_access').select('panorama_id, access_type').eq('user_id', user_id).execute()
+                access_rows = (
+                    sb.table('panorama_access')
+                    .select('panorama_id, access_type, client_member_id')
+                    .eq('user_id', user_id)
+                    .execute()
+                )
                 for row in (access_rows.data or []):
                     try:
-                        at = str(row.get('access_type') or '').lower()
-                        if at in ('owner', 'client'):
+                        if _crm_allows_access_type(row.get('access_type'), row.get('client_member_id')):
                             result.add(int(row.get('panorama_id')))
-                    except Exception: pass
-            except Exception: pass
+                    except Exception:
+                        pass
+            except Exception:
+                pass
             return result
 
         def _fetch_workspace_access():
             result = set()
             try:
-                ws_rows = sb.table('workspace_access').select('workspace_id, access_type').eq('user_id', user_id).execute()
+                ws_rows = (
+                    sb.table('workspace_access')
+                    .select('workspace_id, access_type, client_member_id')
+                    .eq('user_id', user_id)
+                    .execute()
+                )
                 ws_ids = []
                 for row in (ws_rows.data or []):
-                    at = str(row.get('access_type') or '').lower()
-                    if at in ('owner', 'client'):
+                    if _crm_allows_access_type(row.get('access_type'), row.get('client_member_id')):
                         wsid = row.get('workspace_id')
                         if wsid:
                             ws_ids.append(wsid)
@@ -484,13 +504,21 @@ def register_routes(app):
                 if not admin_ids:
                     return result
                 # panorama_access rows for those admins
-                pa = sb.table('panorama_access').select('panorama_id').in_('user_id', admin_ids).execute()
+                pa = sb.table('panorama_access').select('panorama_id, access_type, client_member_id').in_('user_id', admin_ids).execute()
                 for row in (pa.data or []):
-                    try: result.add(int(row.get('panorama_id')))
-                    except Exception: pass
+                    try:
+                        if _crm_allows_access_type(row.get('access_type'), row.get('client_member_id')):
+                            result.add(int(row.get('panorama_id')))
+                    except Exception:
+                        pass
                 # workspace_access rows for those admins -> panorama ids
-                wa = sb.table('workspace_access').select('workspace_id').in_('user_id', admin_ids).execute()
-                ws_ids = [r.get('workspace_id') for r in (wa.data or []) if r.get('workspace_id')]
+                wa = sb.table('workspace_access').select('workspace_id, access_type, client_member_id').in_('user_id', admin_ids).execute()
+                ws_ids = []
+                for row in (wa.data or []):
+                    if _crm_allows_access_type(row.get('access_type'), row.get('client_member_id')):
+                        wsid = row.get('workspace_id')
+                        if wsid:
+                            ws_ids.append(wsid)
                 if ws_ids:
                     wp = sb.table('panoramas').select('id').in_('workspace_id', ws_ids).execute()
                     for row in (wp.data or []):
@@ -6000,6 +6028,10 @@ h1 {{ margin:0 0 8px; font-size:22px; }}
         profile = get_profile(sb, user_id) or {}
         has_crm = False
         is_broker = False
+        is_client_member = False
+        client_group_name = ''
+        client_group_id = ''
+        client_group_names = []
         try:
             panorama_ids = _crm_panorama_ids(sb, user_id, role)
             has_crm = len(panorama_ids) > 0
@@ -6008,13 +6040,42 @@ h1 {{ margin:0 0 8px; font-size:22px; }}
             has_crm = normalized in ('admin', 'superadmin')
         is_client_admin = False
         try:
-            broker_check = sb.table('client_members').select('id, member_role').eq('user_id', user_id).execute()
-            for row in (broker_check.data or []):
+            member_rows = (
+                sb.table('client_members')
+                .select('client_id, member_role')
+                .eq('user_id', user_id)
+                .execute()
+            )
+            client_ids = []
+            seen_client_ids = set()
+            for row in (member_rows.data or []):
                 mr = row.get('member_role', '')
                 if mr == 'broker':
                     is_broker = True
                 if mr == 'client_admin':
                     is_client_admin = True
+                if mr in ('client_admin', 'client_user', 'broker'):
+                    cid = str(row.get('client_id') or '').strip()
+                    if cid and cid not in seen_client_ids:
+                        seen_client_ids.add(cid)
+                        client_ids.append(cid)
+            if client_ids:
+                is_client_member = True
+                clients_res = (
+                    sb.table('clients')
+                    .select('id, name')
+                    .in_('id', client_ids)
+                    .order('name')
+                    .execute()
+                )
+                for c in (clients_res.data or []):
+                    name = str(c.get('name') or '').strip()
+                    if name:
+                        client_group_names.append(name)
+                if clients_res.data:
+                    first = clients_res.data[0] or {}
+                    client_group_id = str(first.get('id') or '').strip()
+                    client_group_name = str(first.get('name') or '').strip()
         except Exception:
             pass
         return jsonify({
@@ -6025,6 +6086,10 @@ h1 {{ margin:0 0 8px; font-size:22px; }}
             'has_crm_access': has_crm,
             'is_broker': is_broker,
             'is_client_admin': is_client_admin,
+            'is_client_member': is_client_member,
+            'client_group_id': client_group_id,
+            'client_group_name': client_group_name,
+            'client_group_names': client_group_names,
         })
 
     @app.route('/api/crm/plots', methods=['GET'])

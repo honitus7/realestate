@@ -887,15 +887,6 @@
         if (userSearch) userSearch.addEventListener('input', renderUsers);
 
         document.getElementById('btn-invite-user').addEventListener('click', openInviteModal);
-        var dropdownAddUser = document.getElementById('dropdown-add-user');
-        if (dropdownAddUser) {
-            dropdownAddUser.addEventListener('click', function (e) {
-                e.preventDefault();
-                activateTab('users');
-                openInviteModal();
-                try { window.history.replaceState({}, document.title, '/user-management'); } catch (_e) { }
-            });
-        }
         document.getElementById('close-invite-modal').addEventListener('click', function () { closeModal(modalInvite); });
         document.getElementById('cancel-invite').addEventListener('click', function () { closeModal(modalInvite); });
         document.getElementById('confirm-invite').addEventListener('click', doInvite);
