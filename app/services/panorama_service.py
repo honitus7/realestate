@@ -13,15 +13,17 @@ _MOBILE_PANORAMA_FIELDS_BASE = 'id, user_id, org_id, workspace_id, panorama_pare
 def _access_rank(access_type):
     at = str(access_type or 'viewer').lower()
     if at == 'owner':
-        return 3
+        return 4
     if at == 'client':
+        return 3
+    if at == 'broker':
         return 2
     return 1
 
 
 def _normalize_access_type(access_type):
     at = str(access_type or 'viewer').lower().strip()
-    return at if at in ('owner', 'client', 'viewer') else 'viewer'
+    return at if at in ('owner', 'client', 'broker', 'viewer') else 'viewer'
 
 
 def _select_panorama_rows(sb, selector, values):
@@ -79,7 +81,7 @@ def _plot_counts_for_panoramas(sb, panorama_ids):
 def get_panorama_with_access(sb, panorama_id, user_id):
     """
     Return (panorama_dict, access_type) or (None, None).
-    access_type: 'owner' | 'client' | 'viewer'
+    access_type: 'owner' | 'client' | 'broker' | 'viewer'
     """
     try:
         r = sb.table('panoramas').select('*').eq('id', panorama_id).limit(1).execute()

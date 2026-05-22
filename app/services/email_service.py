@@ -21,14 +21,21 @@ def send_email(
     html_body=None,
     brevo_api_key=None,
 ):
-    if not from_email or not to_email:
-        raise ValueError("from_email and to_email are required")
+    resolved_to_email = str(to_email or "").strip()
+    resolved_from_email = str(from_email or "").strip()
+    smtp_user_email = str(smtp_username or "").strip()
+    if not resolved_from_email and "@" in smtp_user_email and " " not in smtp_user_email:
+        resolved_from_email = smtp_user_email
+    if not resolved_to_email:
+        raise ValueError("to_email is required")
+    if not resolved_from_email:
+        raise ValueError("from_email is required (set SMTP_FROM_EMAIL or a valid SMTP_USERNAME)")
 
     # Prefer Brevo API when key is configured.
     if brevo_api_key:
         payload = {
-            "sender": {"name": from_name or "", "email": from_email},
-            "to": [{"email": to_email}],
+            "sender": {"name": from_name or "", "email": resolved_from_email},
+            "to": [{"email": resolved_to_email}],
             "subject": subject or "",
             "textContent": text_body or "",
         }
@@ -66,8 +73,8 @@ def send_email(
     # Fallback to SMTP when Brevo API key is not configured.
     msg = EmailMessage()
     msg["Subject"] = subject
-    msg["From"] = f"{from_name} <{from_email}>" if from_name else from_email
-    msg["To"] = to_email
+    msg["From"] = f"{from_name} <{resolved_from_email}>" if from_name else resolved_from_email
+    msg["To"] = resolved_to_email
     msg.set_content(text_body or "")
     if html_body:
         msg.add_alternative(html_body, subtype="html")

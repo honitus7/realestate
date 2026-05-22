@@ -130,6 +130,7 @@
                 <label class="label" for="new-user-role">Role</label>
                 <select class="input" id="new-user-role">
                     <option value="user">User</option>
+                    <option value="external_broker">External Broker</option>
                     <option value="admin">Admin</option>
                 </select>
                 <div class="msg error" id="new-user-error" style="display:none;"></div>
@@ -335,6 +336,7 @@
                     var selectHtml = (
                         '<select class="input" data-role-select="' + escapeHtml(id) + '" style="padding:0.55rem 0.65rem;">' +
                         '<option value="user"' + (role === 'user' ? ' selected' : '') + '>user</option>' +
+                        '<option value="external_broker"' + (role === 'external_broker' ? ' selected' : '') + '>external_broker</option>' +
                         '<option value="admin"' + (role === 'admin' ? ' selected' : '') + '>admin</option>' +
                         '</select>'
                     );
@@ -483,7 +485,7 @@
                 var roleValue = String(newUserRole ? newUserRole.value : 'user').trim();
                 if (!email || email.indexOf('@') === -1) { setError(newUserError, 'Valid email is required.'); return; }
                 if (!password || password.length < 6) { setError(newUserError, 'Password must be at least 6 characters.'); return; }
-                if (roleValue !== 'admin') roleValue = 'user';
+                if (roleValue !== 'admin' && roleValue !== 'external_broker') roleValue = 'user';
                 var payload = {
                     email: email,
                     password: password,
@@ -514,7 +516,7 @@
 
             function saveRole(targetUserId, roleValue) {
                 var nextRole = String(roleValue || 'user').toLowerCase();
-                if (nextRole !== 'admin') nextRole = 'user';
+                if (nextRole !== 'admin' && nextRole !== 'external_broker') nextRole = 'user';
                 getAuthHeaders().then(function (h) {
                     return fetchJson('/api/profiles/' + encodeURIComponent(String(targetUserId)) + '/role', {
                         method: 'PUT',

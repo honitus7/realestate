@@ -158,7 +158,7 @@
     <main class="container">
         <div class="card">
             <h1>Manage access</h1>
-            <p>Grant client (edit plots) or viewer (view only) access to users for this panorama.</p>
+            <p>Grant client (edit plots), broker (CRM + customer sharing), or viewer (view only) access to users for this panorama.</p>
             <div class="form-row">
                 <div class="form-group">
                     <label class="form-label">User</label>
@@ -170,6 +170,7 @@
                     <label class="form-label">Access</label>
                     <select id="access-type" class="form-input">
                         <option value="client">Client (can edit plots)</option>
+                        <option value="broker">Broker (CRM + customer sharing)</option>
                         <option value="viewer">Viewer (view only)</option>
                     </select>
                 </div>
@@ -298,7 +299,8 @@
             accessList.innerHTML = access.map(function (a) {
                 var p = profiles.find(function (x) { return x.user_id === a.user_id; });
                 var label = escapeHtml(profileLabel(p) || a.user_id);
-                return '<li><span>' + (a.access_type === 'client' ? 'Client' : 'Viewer') + ' – ' + label + '</span><button type="button" class="btn btn-danger" data-user-id="' + escapeHtml(a.user_id) + '">Revoke</button></li>';
+                var accessLabel = a.access_type === 'client' ? 'Client' : (a.access_type === 'broker' ? 'Broker' : 'Viewer');
+                return '<li><span>' + accessLabel + ' – ' + label + '</span><button type="button" class="btn btn-danger" data-user-id="' + escapeHtml(a.user_id) + '">Revoke</button></li>';
             }).join('');
             accessList.querySelectorAll('.btn-danger').forEach(function (btn) {
                 btn.addEventListener('click', function () {

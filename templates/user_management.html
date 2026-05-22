@@ -1,5 +1,5 @@
 {% extends 'base.html' %}
-{% block title %}User Management – PropMark{% endblock %}
+{% block title %}User Management - PropMark{% endblock %}
 {% block head_css %}
 <link rel="stylesheet" href="/static/css/dashboard.css">
 <link rel="stylesheet" href="/static/css/user_management.css">
@@ -84,7 +84,7 @@
                             <div class="client-section-title">Members</div>
                             <div style="display:flex;gap:0.5rem;">
                                 <button class="btn btn-primary btn-sm" id="btn-add-member" type="button">Add Member</button>
-                                <button class="btn btn-secondary btn-sm" id="btn-invite-member" type="button">Invite External</button>
+                                <button class="btn btn-secondary btn-sm" id="btn-invite-member" type="button">Invite Member</button>
                             </div>
                         </div>
                         <div id="members-loading" style="color:var(--color-text-dim);font-size:0.85rem;display:none;">Loading...</div>
@@ -102,11 +102,16 @@
                         <div class="empty" id="members-empty" style="display:none;">No members yet.</div>
                     </div>
 
-                    <!-- Access section (admin only) -->
+                    <!-- Access section -->
                     <div class="client-section" id="client-access-section">
                         <div class="client-section-header">
                             <div class="client-section-title">Project Access</div>
-                            <button class="btn btn-primary btn-sm" id="btn-grant-access" type="button">Grant Access</button>
+                            <div class="client-access-toolbar">
+                                <select class="input access-target-select" id="access-target">
+                                    <option value="">Group (Internal + Sales)</option>
+                                </select>
+                                <button class="btn btn-primary btn-sm" id="btn-grant-access" type="button">Grant Access</button>
+                            </div>
                         </div>
                         <div id="access-loading" style="color:var(--color-text-dim);font-size:0.85rem;display:none;">Loading...</div>
                         <div id="access-list"></div>
@@ -162,6 +167,7 @@
                         <label class="label" for="invite-role">Role</label>
                         <select class="input" id="invite-role">
                             <option value="user">User</option>
+                            <option value="external_broker">External Broker</option>
                             <option value="admin">Admin</option>
                         </select>
                     </div>
@@ -235,10 +241,17 @@
                 <div id="edit-section-role">
                     <hr class="edit-divider">
                     <div class="edit-section">
-                        <div class="edit-section-title">Admin Access</div>
+                        <div class="edit-section-title">User Role</div>
                         <div class="edit-role-row">
-                            <span class="edit-role-label" id="edit-role-label">This user is a regular user.</span>
-                            <button class="btn btn-primary btn-sm" id="btn-toggle-admin" type="button">Make Admin</button>
+                            <span class="edit-role-label" id="edit-role-label">Choose this user's platform role.</span>
+                            <div style="display:flex; gap:0.5rem; align-items:center; flex-wrap:wrap;">
+                                <select class="input" id="edit-role-select" style="min-width:180px;">
+                                    <option value="user">User</option>
+                                    <option value="external_broker">External Broker</option>
+                                    <option value="admin">Admin</option>
+                                </select>
+                                <button class="btn btn-primary btn-sm" id="btn-save-role" type="button">Save Role</button>
+                            </div>
                         </div>
                         <div class="msg error" id="role-error" style="display:none;"></div>
                         <div class="msg success" id="role-success" style="display:none;"></div>
@@ -325,7 +338,9 @@
                         <label class="label" for="add-member-role">Role</label>
                         <select class="input" id="add-member-role">
                             <option value="client_admin">Client Admin</option>
-                            <option value="client_user" selected>Client User</option>
+                            <option value="client_user">Sales Agent</option>
+                            <option value="internal_broker">Internal Broker</option>
+                            <option value="external_broker">External Broker</option>
                         </select>
                     </div>
                     <div class="msg error" id="add-member-error" style="display:none;"></div>
@@ -338,11 +353,11 @@
         </div>
     </div>
 
-    <!-- Invite External User Modal -->
+    <!-- Invite Member Modal -->
     <div class="modal-backdrop" id="modal-invite-member">
-        <div class="modal modal--sm" role="dialog" aria-modal="true" aria-label="Invite external user">
+        <div class="modal modal--sm" role="dialog" aria-modal="true" aria-label="Invite member">
             <div class="modal-head">
-                <div class="modal-title">Invite External User</div>
+                <div class="modal-title">Invite Member</div>
                 <button class="btn btn-secondary" id="close-invite-member-modal" type="button">Close</button>
             </div>
             <div class="modal-body-edit">
@@ -358,8 +373,10 @@
                     <div class="form-field" style="margin-top:0.75rem;">
                         <label class="label" for="invite-member-role">Role</label>
                         <select class="input" id="invite-member-role">
-                            <option value="client_user" selected>Client User</option>
-                            <option value="broker">Broker</option>
+                            <option value="client_admin">Client Admin</option>
+                            <option value="client_user" selected>Sales Agent</option>
+                            <option value="internal_broker">Internal Broker</option>
+                            <option value="external_broker">External Broker</option>
                         </select>
                     </div>
                     <div class="msg error" id="invite-member-error" style="display:none;"></div>
@@ -397,6 +414,7 @@
                         <label class="label" for="grant-access-type">Access Level</label>
                         <select class="input" id="grant-access-type">
                             <option value="client" selected>Client (full viewer + CRM)</option>
+                            <option value="broker">Broker (share customer link + CRM)</option>
                             <option value="viewer">Viewer (view only)</option>
                         </select>
                     </div>
@@ -497,11 +515,11 @@
             return 'pill user';
         }
         function formatDate(dateStr) {
-            if (!dateStr) return '—';
+            if (!dateStr) return '-';
             try {
                 var d = new Date(dateStr);
                 return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-            } catch (e) { return '—'; }
+            } catch (e) { return '-'; }
         }
         function getAuthHeaders() {
             return supabase.auth.getSession().then(function (r) {
@@ -530,7 +548,7 @@
             if (target === 'invites') loadInvites();
         }
 
-        // ── Tabs ──
+        // -- Tabs --
         document.querySelectorAll('.tab-btn').forEach(function (btn) {
             btn.addEventListener('click', function () {
                 document.querySelectorAll('.tab-btn').forEach(function (b) { b.classList.remove('active'); });
@@ -542,7 +560,7 @@
             });
         });
 
-        // ── Render Users ──
+        // -- Render Users --
         function renderUsers() {
             if (!usersBody) return;
             var q = String(userSearch ? userSearch.value : '').trim().toLowerCase();
@@ -563,8 +581,8 @@
             if (usersEmpty) usersEmpty.style.display = 'none';
 
             usersBody.innerHTML = items.map(function (u) {
-                var name = escapeHtml(u.display_name || '—');
-                var email = escapeHtml(u.email || '—');
+                var name = escapeHtml(u.display_name || '-');
+                var email = escapeHtml(u.email || '-');
                 var role = String(u.role || 'user');
                 var id = String(u.user_id || '');
                 var isSelf = Boolean(u.is_self);
@@ -607,7 +625,7 @@
             });
         }
 
-        // ── Render Invites ──
+        // -- Render Invites --
         function renderInvites() {
             if (!invitesBody) return;
             var items = state.invites || [];
@@ -620,8 +638,8 @@
             invitesBody.innerHTML = items.map(function (inv) {
                 var statusClass = inv.status === 'accepted' ? 'pill admin' : (inv.status === 'expired' ? 'pill' : 'pill user');
                 return '<tr>' +
-                    '<td>' + escapeHtml(inv.display_name || '—') + '</td>' +
-                    '<td>' + escapeHtml(inv.email || '—') + '</td>' +
+                    '<td>' + escapeHtml(inv.display_name || '-') + '</td>' +
+                    '<td>' + escapeHtml(inv.email || '-') + '</td>' +
                     '<td><span class="' + pillClass(inv.role) + '">' + escapeHtml(inv.role || 'user') + '</span></td>' +
                     '<td><span class="' + statusClass + '">' + escapeHtml(inv.status || 'pending') + '</span></td>' +
                     '<td>' + formatDate(inv.created_at) + '</td>' +
@@ -629,7 +647,7 @@
             }).join('');
         }
 
-        // ── Load Data ──
+        // -- Load Data --
         function loadUsers() {
             return getAuthHeaders().then(function (h) {
                 return fetchJson('/api/admin/org-users', { headers: h });
@@ -654,7 +672,7 @@
             });
         }
 
-        // ── Invite User ──
+        // -- Invite User --
         function openInviteModal() {
             setError(document.getElementById('invite-error'), '');
             setError(document.getElementById('invite-success'), '');
@@ -689,7 +707,7 @@
             }).finally(function () { if (btn) btn.disabled = false; });
         }
 
-        // ── Edit Modal ──
+        // -- Edit Modal --
         var _editUid = '';
         var _editName = '';
         var _editIsSelf = false;
@@ -717,6 +735,9 @@
             var sectionPw = document.getElementById('edit-section-password');
             var sectionRole = document.getElementById('edit-section-role');
             var sectionDelete = document.getElementById('edit-section-delete');
+            var roleLabel = document.getElementById('edit-role-label');
+            var roleSelect = document.getElementById('edit-role-select');
+            var roleBtn = document.getElementById('btn-save-role');
 
             if (isSelf) {
                 titleEl.textContent = 'Edit Your Profile';
@@ -726,28 +747,25 @@
                 sectionRole.style.display = 'none';
                 sectionDelete.style.display = 'none';
             } else {
-                titleEl.textContent = 'Edit User — ' + escapeHtml(name || email || '');
+                titleEl.textContent = 'Edit User - ' + escapeHtml(name || email || '');
                 modalEl.classList.add('modal--wide');
                 modalEl.classList.remove('modal--sm');
                 sectionPw.style.display = '';
                 sectionDelete.style.display = '';
+                if (roleSelect) roleSelect.value = role || 'user';
+                if (roleBtn) roleBtn.className = 'btn btn-primary btn-sm';
 
-                // Role section visibility
-                var roleLabel = document.getElementById('edit-role-label');
-                var roleBtn = document.getElementById('btn-toggle-admin');
-
-                if (role === 'user') {
-                    roleLabel.textContent = 'This user is a regular user.';
-                    roleBtn.textContent = 'Make Admin';
-                    roleBtn.className = 'btn btn-primary btn-sm';
-                    sectionRole.style.display = '';
-                } else if (role === 'admin' && state.currentRole === 'superadmin') {
-                    roleLabel.textContent = 'This user has admin access.';
-                    roleBtn.textContent = 'Remove Admin';
-                    roleBtn.className = 'btn btn-secondary btn-sm';
-                    sectionRole.style.display = '';
-                } else {
+                if (role === 'admin' && state.currentRole !== 'superadmin') {
                     sectionRole.style.display = 'none';
+                } else {
+                    if (roleLabel) {
+                        roleLabel.textContent = role === 'external_broker'
+                            ? 'This user is currently an External Broker.'
+                            : (role === 'admin'
+                                ? 'This user currently has Admin access.'
+                                : 'This user is currently a regular User.');
+                    }
+                    sectionRole.style.display = '';
                 }
             }
 
@@ -820,8 +838,8 @@
             }).finally(function () { if (btn) btn.disabled = false; });
         }
 
-        // Toggle admin role
-        function doToggleAdmin() {
+        // Save platform role
+        function doSaveRole() {
             var errEl = document.getElementById('role-error');
             var successEl = document.getElementById('role-success');
             setError(errEl, '');
@@ -829,9 +847,15 @@
 
             var uid = document.getElementById('edit-user-id').value;
             var currentRole = document.getElementById('edit-user-role').value;
-            var newRole = currentRole === 'admin' ? 'user' : 'admin';
+            var roleSelect = document.getElementById('edit-role-select');
+            var newRole = roleSelect ? String(roleSelect.value || 'user') : 'user';
+            if (!newRole) newRole = 'user';
+            if (newRole === currentRole) {
+                setSuccessMsg(successEl, 'Role is already set to ' + newRole + '.');
+                return;
+            }
 
-            var btn = document.getElementById('btn-toggle-admin');
+            var btn = document.getElementById('btn-save-role');
             if (btn) btn.disabled = true;
 
             getAuthHeaders().then(function (h) {
@@ -844,20 +868,18 @@
                 setSuccessMsg(successEl, 'Role updated to ' + newRole + '.');
                 document.getElementById('edit-user-role').value = newRole;
                 var roleLabel = document.getElementById('edit-role-label');
-                if (newRole === 'admin') {
-                    roleLabel.textContent = 'This user has admin access.';
-                    btn.textContent = 'Remove Admin';
-                    btn.className = 'btn btn-secondary btn-sm';
-                } else {
-                    roleLabel.textContent = 'This user is a regular user.';
-                    btn.textContent = 'Make Admin';
-                    btn.className = 'btn btn-primary btn-sm';
+                if (roleLabel) {
+                    roleLabel.textContent = newRole === 'admin'
+                        ? 'This user currently has Admin access.'
+                        : (newRole === 'external_broker'
+                            ? 'This user is currently an External Broker.'
+                            : 'This user is currently a regular User.');
                 }
                 loadUsers();
             }).finally(function () { if (btn) btn.disabled = false; });
         }
 
-        // Delete user — open confirmation
+        // Delete user - open confirmation
         function openDeleteConfirm() {
             setError(document.getElementById('delete-error'), '');
             document.getElementById('delete-user-id').value = _editUid;
@@ -883,7 +905,7 @@
             }).finally(function () { if (btn) btn.disabled = false; });
         }
 
-        // ── Wire Up Events ──
+        // -- Wire Up Events --
         if (userSearch) userSearch.addEventListener('input', renderUsers);
 
         document.getElementById('btn-invite-user').addEventListener('click', openInviteModal);
@@ -895,7 +917,7 @@
         document.getElementById('close-edit-modal').addEventListener('click', function () { closeModal(modalEdit); });
         document.getElementById('btn-save-details').addEventListener('click', doSaveDetails);
         document.getElementById('btn-save-password').addEventListener('click', doSavePassword);
-        document.getElementById('btn-toggle-admin').addEventListener('click', doToggleAdmin);
+        document.getElementById('btn-save-role').addEventListener('click', doSaveRole);
         document.getElementById('btn-delete-user').addEventListener('click', openDeleteConfirm);
         modalEdit.addEventListener('click', function (e) { if (e.target === modalEdit) closeModal(modalEdit); });
 
@@ -904,13 +926,13 @@
         document.getElementById('confirm-delete').addEventListener('click', doDeleteUser);
         modalDelete.addEventListener('click', function (e) { if (e.target === modalDelete) closeModal(modalDelete); });
 
-        // ── Auth Guard + Boot ──
+        // -- Auth Guard + Boot --
         window.sidebarReady.then(function (ctx) {
             state.currentRole = ctx.role;
             state.currentUserId = ctx.profile ? ctx.profile.user_id : '';
 
             if (ctx.role !== 'admin' && ctx.role !== 'superadmin') {
-                // Non-platform-admins can still manage client users (via Clients tab flow below).
+                // Non-platform-admins can still manage Sales Agent/Internal Broker members via the Clients tab flow below.
                 if (usersLoading) usersLoading.style.display = 'none';
                 return;
             }
@@ -929,7 +951,7 @@
         });
     })();
 
-    // ── Clients Tab ──
+    // -- Clients Tab --
     (function () {
         'use strict';
         var supabase = window._supabase;
@@ -942,6 +964,9 @@
             orgUsers: [],
             workspaces: [],
             panoramas: [],
+            accessGrantWorkspaces: [],
+            accessGrantPanoramas: [],
+            selectedAccessTargetUserId: '',
             currentRole: '',
             currentUserId: '',
             isClientAdminOnly: false,
@@ -975,14 +1000,93 @@
         function openModal(el) { if (el) el.classList.add('visible'); }
         function closeModal(el) { if (el) el.classList.remove('visible'); }
 
-        var roleLabels = { client_admin: 'Client Admin', client_user: 'Client User', broker: 'Broker' };
+        var roleLabels = {
+            client_admin: 'Client Admin',
+            client_user: 'Sales Agent',
+            internal_broker: 'Internal Broker',
+            external_broker: 'External Broker'
+        };
         function rolePillClass(r) {
             if (r === 'client_admin') return 'pill admin';
-            if (r === 'broker') return 'pill superadmin';
+            if (r === 'external_broker') return 'pill superadmin';
+            if (r === 'internal_broker') return 'pill admin';
+            if (r === 'broker') return 'pill admin';
             return 'pill user';
         }
+        function normalizeMemberRole(role) {
+            var r = String(role || '').trim().toLowerCase();
+            if (r === 'broker') return 'external_broker';
+            return r;
+        }
+        function isPlatformAdminRole(role) {
+            return role === 'admin' || role === 'superadmin';
+        }
+        function getClientRoleChoicesForActor(isPlatformAdmin) {
+            return isPlatformAdmin
+                ? ['client_admin', 'external_broker']
+                : ['client_user', 'internal_broker'];
+        }
+        function isClientAdminTargetRole(memberRole) {
+            var r = normalizeMemberRole(memberRole);
+            return r === 'client_user' || r === 'internal_broker';
+        }
+        function getClientMemberByUserId(userId) {
+            var uid = String(userId || '');
+            if (!uid) return null;
+            var members = clientState.members || [];
+            for (var i = 0; i < members.length; i += 1) {
+                if (String(members[i].user_id || '') === uid) return members[i];
+            }
+            return null;
+        }
+        function isExternalBrokerTargetSelected() {
+            if (!isPlatformAdminRole(clientState.currentRole)) return false;
+            var targetUid = String(clientState.selectedAccessTargetUserId || '');
+            if (!targetUid) return false;
+            var member = getClientMemberByUserId(targetUid);
+            return normalizeMemberRole(member ? member.member_role : '') === 'external_broker';
+        }
+        function refreshAccessTargetOptions(clientId) {
+            var sel = document.getElementById('access-target');
+            if (!sel) return;
+            var isPlatformAdmin = isPlatformAdminRole(clientState.currentRole);
+            var prev = String(clientState.selectedAccessTargetUserId || '');
+            var options = ['<option value="">Group (Internal + Sales)</option>'];
+            (clientState.members || []).forEach(function (m) {
+                var role = normalizeMemberRole(m.member_role);
+                var uid = String(m.user_id || '');
+                if (!uid) return;
+                if (!isPlatformAdmin && !isClientAdminTargetRole(role)) return;
+                var label = (m.display_name || m.email || uid) + ' (' + (roleLabels[role] || role || '-') + ')';
+                options.push('<option value="' + escapeHtml(uid) + '">' + escapeHtml(label) + '</option>');
+            });
+            sel.innerHTML = options.join('');
+            if (prev) {
+                sel.value = prev;
+            }
+            if (!prev || sel.value !== prev) {
+                sel.value = '';
+                clientState.selectedAccessTargetUserId = '';
+            }
+        }
+        function loadAccessGrantPool(clientId) {
+            return getAuthHeaders().then(function (h) {
+                return fetchJson('/api/clients/' + encodeURIComponent(clientId) + '/access', { headers: h });
+            }).then(function (res) {
+                if (res.ok && res.data) {
+                    clientState.accessGrantWorkspaces = Array.isArray(res.data.workspaces) ? res.data.workspaces.slice() : [];
+                    clientState.accessGrantPanoramas = Array.isArray(res.data.panoramas) ? res.data.panoramas.slice() : [];
+                } else {
+                    clientState.accessGrantWorkspaces = [];
+                    clientState.accessGrantPanoramas = [];
+                }
+            }).catch(function () {
+                clientState.accessGrantWorkspaces = [];
+                clientState.accessGrantPanoramas = [];
+            });
+        }
 
-        // ── Load Clients ──
+        // -- Load Clients --
         function loadClients() {
             var loadingEl = document.getElementById('clients-loading');
             var emptyEl = document.getElementById('clients-empty');
@@ -1033,7 +1137,7 @@
             });
         }
 
-        // ── Client Detail ──
+        // -- Client Detail --
         function loadClientDetail(clientId) {
             var detail = document.getElementById('client-detail-panel');
             if (!detail) return;
@@ -1041,11 +1145,17 @@
             var client = clientState.clients.find(function (c) { return c.id === clientId; }) || {};
             document.getElementById('client-detail-name').textContent = client.name || '';
             document.getElementById('client-detail-desc').textContent = client.description || '';
-            loadMembers(clientId);
-            loadClientAccess(clientId);
+            loadMembers(clientId).then(function () {
+                refreshAccessTargetOptions(clientId);
+                return loadAccessGrantPool(clientId);
+            }).then(function () {
+                loadClientAccess(clientId);
+            }).catch(function () {
+                loadClientAccess(clientId);
+            });
         }
 
-        // ── Members ──
+        // -- Members --
         function loadMembers(clientId) {
             var loadingEl = document.getElementById('members-loading');
             var tableEl = document.getElementById('members-table');
@@ -1053,13 +1163,15 @@
             if (loadingEl) loadingEl.style.display = 'block';
             if (tableEl) tableEl.style.display = 'none';
             if (emptyEl) emptyEl.style.display = 'none';
-            getAuthHeaders().then(function (h) {
+            return getAuthHeaders().then(function (h) {
                 return fetchJson('/api/clients/' + encodeURIComponent(clientId) + '/members', { headers: h });
             }).then(function (res) {
                 if (loadingEl) loadingEl.style.display = 'none';
                 if (!res.ok) return;
                 clientState.members = Array.isArray(res.data) ? res.data : [];
                 renderMembers(clientId);
+            }).catch(function () {
+                if (loadingEl) loadingEl.style.display = 'none';
             });
         }
 
@@ -1076,25 +1188,40 @@
             }
             if (emptyEl) emptyEl.style.display = 'none';
             if (tableEl) tableEl.style.display = '';
+            var isPlatformAdmin = isPlatformAdminRole(clientState.currentRole);
             tbody.innerHTML = items.map(function (m) {
                 var uid = String(m.user_id || '');
                 var isSelf = uid === clientState.currentUserId;
-                // client_admins can switch member role between client_admin and client_user
-                var roleSelect = '<select class="member-role-select" data-uid="' + escapeHtml(uid) + '">' +
-                    ['client_admin', 'client_user'].map(function (r) {
-                        return '<option value="' + r + '"' + (m.member_role === r ? ' selected' : '') + '>' + escapeHtml(roleLabels[r] || r) + '</option>';
+                var memberRole = normalizeMemberRole(m.member_role);
+                var roleChoices = getClientRoleChoicesForActor(isPlatformAdmin);
+                var canEditRole = roleChoices.indexOf(memberRole) !== -1 && !isSelf;
+                if (roleChoices.indexOf(memberRole) === -1) roleChoices = [memberRole].concat(roleChoices);
+                var disableTitle = '';
+                if (isSelf) {
+                    disableTitle = ' title="You cannot change your own client-group role"';
+                } else if (!canEditRole) {
+                    disableTitle = isPlatformAdmin
+                        ? ' title="Sales Agent and Internal Broker roles are managed by the Client Admin team"'
+                        : ' title="Client Admin and External Broker roles are managed by platform admins"';
+                }
+                var roleSelect = '<select class="member-role-select" data-uid="' + escapeHtml(uid) + '"' +
+                    (canEditRole ? '' : (' disabled' + disableTitle)) +
+                    '>' +
+                    roleChoices.map(function (r) {
+                        return '<option value="' + r + '"' + (memberRole === r ? ' selected' : '') + '>' + escapeHtml(roleLabels[r] || r) + '</option>';
                     }).join('') + '</select>';
-                // both platform admins and client_admins can remove non-self members
-                var removeBtn = isSelf ? '' : '<button class="btn-sm btn-sm--danger" data-action="remove-member" data-uid="' + escapeHtml(uid) + '">Remove</button>';
+                var canRemove = !isSelf && (isPlatformAdmin || isClientAdminTargetRole(memberRole));
+                var removeBtn = canRemove ? '<button class="btn-sm btn-sm--danger" data-action="remove-member" data-uid="' + escapeHtml(uid) + '">Remove</button>' : '';
                 return '<tr>' +
-                    '<td>' + escapeHtml(m.display_name || '—') + '</td>' +
-                    '<td>' + escapeHtml(m.email || '—') + '</td>' +
+                    '<td>' + escapeHtml(m.display_name || '-') + '</td>' +
+                    '<td>' + escapeHtml(m.email || '-') + '</td>' +
                     '<td>' + roleSelect + '</td>' +
                     '<td>' + removeBtn + '</td>' +
                     '</tr>';
             }).join('');
             tbody.querySelectorAll('.member-role-select').forEach(function (sel) {
                 sel.addEventListener('change', function () {
+                    if (sel.disabled) return;
                     var uid = sel.getAttribute('data-uid');
                     var newRole = sel.value;
                     getAuthHeaders().then(function (h) {
@@ -1121,23 +1248,29 @@
                     });
                 });
             });
+            refreshAccessTargetOptions(clientId);
         }
-
-        // ── Access Section ──
+        // -- Access Section --
         function loadClientAccess(clientId) {
             var section = document.getElementById('client-access-section');
             if (!section) return;
-            var isAdmin = clientState.currentRole === 'admin' || clientState.currentRole === 'superadmin';
-            section.style.display = isAdmin ? '' : 'none';
-            if (!isAdmin) return;
+            var isAdmin = isPlatformAdminRole(clientState.currentRole);
+            var canManageAccess = isAdmin || clientState.isClientAdminOnly;
+            section.style.display = canManageAccess ? '' : 'none';
+            if (!canManageAccess) return;
             var loadingEl = document.getElementById('access-loading');
             var emptyEl = document.getElementById('access-empty');
             var listEl = document.getElementById('access-list');
+            var targetSelect = document.getElementById('access-target');
+            var targetUserId = targetSelect ? String(targetSelect.value || '').trim() : '';
+            clientState.selectedAccessTargetUserId = targetUserId;
             if (loadingEl) loadingEl.style.display = 'block';
             if (emptyEl) emptyEl.style.display = 'none';
             if (listEl) listEl.innerHTML = '';
             getAuthHeaders().then(function (h) {
-                return fetchJson('/api/clients/' + encodeURIComponent(clientId) + '/access', { headers: h });
+                var url = '/api/clients/' + encodeURIComponent(clientId) + '/access';
+                if (targetUserId) url += '?target_user_id=' + encodeURIComponent(targetUserId);
+                return fetchJson(url, { headers: h });
             }).then(function (res) {
                 if (loadingEl) loadingEl.style.display = 'none';
                 if (!res.ok || !res.data) return;
@@ -1171,18 +1304,24 @@
                         var rtype = btn.getAttribute('data-rtype');
                         var rid = btn.getAttribute('data-rid');
                         if (!confirm('Revoke access for this ' + rtype + '?')) return;
+                        var payload = { resource_type: rtype, resource_id: rid };
+                        if (targetUserId) payload.target_user_id = targetUserId;
                         getAuthHeaders().then(function (h) {
                             return fetchJson('/api/clients/' + encodeURIComponent(clientId) + '/access', {
                                 method: 'DELETE', headers: h,
-                                body: JSON.stringify({ resource_type: rtype, resource_id: rid })
+                                body: JSON.stringify(payload)
                             });
-                        }).then(function () { loadClientAccess(clientId); });
+                        }).then(function () {
+                            return loadAccessGrantPool(clientId).then(function () {
+                                loadClientAccess(clientId);
+                            });
+                        });
                     });
                 });
             });
         }
 
-        // ── New/Edit Client Modal ──
+        // -- New/Edit Client Modal --
         var modalClient = document.getElementById('modal-client');
         function openNewClientModal() {
             document.getElementById('client-modal-id').value = '';
@@ -1230,7 +1369,7 @@
             }).finally(function () { if (btn) btn.disabled = false; });
         }
 
-        // ── Delete Client ──
+        // -- Delete Client --
         var modalDeleteClient = document.getElementById('modal-delete-client');
         function openDeleteClientModal() {
             var client = clientState.clients.find(function (c) { return c.id === clientState.selectedClientId; });
@@ -1257,7 +1396,7 @@
             }).finally(function () { if (btn) btn.disabled = false; });
         }
 
-        // ── Add Member Modal ──
+        // -- Add Member Modal --
         var modalAddMember = document.getElementById('modal-add-member');
         function openAddMemberModal() {
             var sel = document.getElementById('add-member-user');
@@ -1270,7 +1409,14 @@
             if (!options.length) { alert('All org users are already members or no users available.'); return; }
             sel.innerHTML = options.join('');
             var roleOpts = document.getElementById('add-member-role');
-            if (roleOpts) roleOpts.value = 'client_user';
+            if (roleOpts) {
+                var isPlatformAdmin = isPlatformAdminRole(clientState.currentRole);
+                Array.prototype.forEach.call(roleOpts.options || [], function (opt) {
+                    var value = normalizeMemberRole(opt.value);
+                    opt.style.display = getClientRoleChoicesForActor(isPlatformAdmin).indexOf(value) !== -1 ? '' : 'none';
+                });
+                roleOpts.value = isPlatformAdmin ? 'client_admin' : 'client_user';
+            }
             openModal(modalAddMember);
         }
         function doAddMember() {
@@ -1292,12 +1438,20 @@
             }).finally(function () { if (btn) btn.disabled = false; });
         }
 
-        // ── Invite External Modal ──
+        // -- Invite Member Modal --
         var modalInviteMember = document.getElementById('modal-invite-member');
         function openInviteMemberModal() {
+            var isPlatformAdmin = isPlatformAdminRole(clientState.currentRole);
+            var roleSelect = document.getElementById('invite-member-role');
+            if (roleSelect) {
+                Array.prototype.forEach.call(roleSelect.options || [], function (opt) {
+                    var value = normalizeMemberRole(opt.value);
+                    opt.style.display = getClientRoleChoicesForActor(isPlatformAdmin).indexOf(value) !== -1 ? '' : 'none';
+                });
+            }
             document.getElementById('invite-member-name').value = '';
             document.getElementById('invite-member-email').value = '';
-            document.getElementById('invite-member-role').value = 'client_user';
+            document.getElementById('invite-member-role').value = isPlatformAdmin ? 'client_admin' : 'client_user';
             setError(document.getElementById('invite-member-error'), '');
             setError(document.getElementById('invite-member-success'), '');
             openModal(modalInviteMember);
@@ -1337,21 +1491,25 @@
             }).finally(function () { if (btn) btn.disabled = false; });
         }
 
-        // ── Grant Access Modal ──
+        // -- Grant Access Modal --
         var modalGrantAccess = document.getElementById('modal-grant-access');
         function loadGrantResources(type) {
             var sel = document.getElementById('grant-resource-id');
             if (!sel) return;
             sel.innerHTML = '<option value="">Loading...</option>';
+            var isAdmin = isPlatformAdminRole(clientState.currentRole);
+            var restrictToClientProjects = !isAdmin || isExternalBrokerTargetSelected();
             if (type === 'workspace') {
-                var items = clientState.workspaces;
+                var items = restrictToClientProjects ? clientState.accessGrantWorkspaces : clientState.workspaces;
                 sel.innerHTML = items.length ? items.map(function (w) {
-                    return '<option value="' + escapeHtml(String(w.id)) + '">' + escapeHtml(w.name || String(w.id)) + '</option>';
+                    var wid = String(w.id || w.workspace_id || '');
+                    return '<option value="' + escapeHtml(wid) + '">' + escapeHtml(w.name || wid) + '</option>';
                 }).join('') : '<option value="">No workspaces available</option>';
             } else {
-                var pitems = clientState.panoramas;
+                var pitems = restrictToClientProjects ? clientState.accessGrantPanoramas : clientState.panoramas;
                 sel.innerHTML = pitems.length ? pitems.map(function (p) {
-                    return '<option value="' + escapeHtml(String(p.id)) + '">' + escapeHtml(p.name || String(p.id)) + '</option>';
+                    var pid = String(p.id || p.panorama_id || '');
+                    return '<option value="' + escapeHtml(pid) + '">' + escapeHtml(p.name || pid) + '</option>';
                 }).join('') : '<option value="">No panoramas available</option>';
             }
         }
@@ -1359,30 +1517,37 @@
             setError(document.getElementById('grant-access-error'), '');
             var radios = document.querySelectorAll('input[name="grant-resource-type"]');
             radios.forEach(function (r) { if (r.value === 'workspace') r.checked = true; });
-            loadGrantResources('workspace');
-            openModal(modalGrantAccess);
+            loadAccessGrantPool(clientState.selectedClientId).finally(function () {
+                loadGrantResources('workspace');
+                openModal(modalGrantAccess);
+            });
         }
         function doGrantAccess() {
             var errEl = document.getElementById('grant-access-error');
             var rtype = (document.querySelector('input[name="grant-resource-type"]:checked') || {}).value || 'workspace';
             var rid = document.getElementById('grant-resource-id').value;
             var atype = document.getElementById('grant-access-type').value;
+            var targetUserId = String(clientState.selectedAccessTargetUserId || '');
             if (!rid) { setError(errEl, 'Please select a resource.'); return; }
             var btn = document.getElementById('confirm-grant-access');
             if (btn) btn.disabled = true;
+            var payload = { resource_type: rtype, resource_id: rid, access_type: atype };
+            if (targetUserId) payload.target_user_id = targetUserId;
             getAuthHeaders().then(function (h) {
                 return fetchJson('/api/clients/' + encodeURIComponent(clientState.selectedClientId) + '/access', {
                     method: 'POST', headers: h,
-                    body: JSON.stringify({ resource_type: rtype, resource_id: rid, access_type: atype })
+                    body: JSON.stringify(payload)
                 });
             }).then(function (res) {
                 if (!res.ok) { setError(errEl, (res.data && res.data.error) || 'Failed to grant access'); return; }
                 closeModal(modalGrantAccess);
-                loadClientAccess(clientState.selectedClientId);
+                return loadAccessGrantPool(clientState.selectedClientId).then(function () {
+                    loadClientAccess(clientState.selectedClientId);
+                });
             }).finally(function () { if (btn) btn.disabled = false; });
         }
 
-        // ── Wire up events ──
+        // -- Wire up events --
         document.getElementById('btn-new-client').addEventListener('click', openNewClientModal);
         document.getElementById('btn-edit-client').addEventListener('click', function () {
             var client = clientState.clients.find(function (c) { return c.id === clientState.selectedClientId; });
@@ -1392,6 +1557,17 @@
         document.getElementById('btn-add-member').addEventListener('click', openAddMemberModal);
         document.getElementById('btn-invite-member').addEventListener('click', openInviteMemberModal);
         document.getElementById('btn-grant-access').addEventListener('click', openGrantAccessModal);
+        var accessTargetSel = document.getElementById('access-target');
+        if (accessTargetSel) {
+            accessTargetSel.addEventListener('change', function () {
+                clientState.selectedAccessTargetUserId = String(accessTargetSel.value || '');
+                if (modalGrantAccess && modalGrantAccess.classList.contains('visible')) {
+                    var selectedType = (document.querySelector('input[name="grant-resource-type"]:checked') || {}).value || 'workspace';
+                    loadGrantResources(selectedType);
+                }
+                if (clientState.selectedClientId) loadClientAccess(clientState.selectedClientId);
+            });
+        }
 
         document.getElementById('close-client-modal').addEventListener('click', function () { closeModal(modalClient); });
         document.getElementById('cancel-client-modal').addEventListener('click', function () { closeModal(modalClient); });
@@ -1427,7 +1603,7 @@
         var clientSearch = document.getElementById('client-search');
         if (clientSearch) clientSearch.addEventListener('input', renderClientList);
 
-        // ── Boot ──
+        // -- Boot --
         window.sidebarReady.then(function (ctx) {
             clientState.currentRole = ctx.role;
             clientState.currentUserId = ctx.profile ? ctx.profile.user_id : '';

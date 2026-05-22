@@ -270,6 +270,12 @@
                                 <option value="Other">Other</option>
                             </select>
                         </div>
+                        <div class="cart-field">
+                            <label for="checkout-reference">Reference</label>
+                            <select id="checkout-reference">
+                                <option value="">Select reference</option>
+                            </select>
+                        </div>
                         <div class="cart-message" id="cart-message" aria-live="polite"></div>
                     </div>
                 </div>
@@ -708,10 +714,34 @@
         }
 
         function getProjectShareUrl() {
+            return buildProjectShareUrl('');
+        }
+
+        function buildProjectShareUrl(referenceUserId) {
+            let baseUrl = '';
             if (WORKSPACE_ID) {
-                return `${window.location.origin}/customer/project/${encodeURIComponent(WORKSPACE_ID)}`;
+                baseUrl = `${window.location.origin}/customer/project/${encodeURIComponent(WORKSPACE_ID)}`;
+            } else {
+                baseUrl = `${window.location.origin}${getPanoramaPathByMeta(getCurrentPanoramaId(), CURRENT_PANORAMA_IS_360)}`;
             }
-            return `${window.location.origin}${getPanoramaPathByMeta(getCurrentPanoramaId(), CURRENT_PANORAMA_IS_360)}`;
+            if (!referenceUserId) return baseUrl;
+            try {
+                const url = new URL(baseUrl);
+                url.searchParams.set('ref_user_id', String(referenceUserId).trim());
+                return url.toString();
+            } catch (e) {
+                const joiner = baseUrl.indexOf('?') >= 0 ? '&' : '?';
+                return `${baseUrl}${joiner}ref_user_id=${encodeURIComponent(String(referenceUserId).trim())}`;
+            }
+        }
+
+        function getRequestedReferenceUserId() {
+            try {
+                const params = new URLSearchParams(window.location.search || '');
+                return String(params.get('ref_user_id') || '').trim();
+            } catch (e) {
+                return '';
+            }
         }
 
         function syncProjectPanoramaUrlState(panoramaId) {
@@ -1094,6 +1124,7 @@
         const checkoutEmailEl = document.getElementById('checkout-email');
         const checkoutPhoneEl = document.getElementById('checkout-phone');
         const checkoutCategoryEl = document.getElementById('checkout-category');
+        const checkoutReferenceEl = document.getElementById('checkout-reference');
         const cartMessageEl = document.getElementById('cart-message');
         const plotSearchInput = document.getElementById('plot-search-input');
         const plotSearchShell = document.getElementById('plot-search-shell');
@@ -1134,6 +1165,8 @@
         let currentFullViewPanoramaId = PANORAMA_ID;
         let plotsCache = {};
         let markersCache = {};
+        let referenceUsersCache = [];
+        let referenceUsersPromise = null;
 
         async function loadPanoramaIndex() {
             if (panoramaIndexCache) return panoramaIndexCache;
@@ -2256,6 +2289,94 @@
             cartMessageEl.classList.toggle('error', type === 'error');
         }
 
+        function buildReferenceLabel(referenceUser) {
+            if (!referenceUser || typeof referenceUser !== 'object') return 'Reference';
+            const name = String(referenceUser.display_name || referenceUser.email || 'Reference').trim();
+            const roleLabel = String(referenceUser.member_role_label || '').trim();
+            const groupNames = Array.isArray(referenceUser.client_group_names)
+                ? referenceUser.client_group_names.map((x) => String(x || '').trim()).filter(Boolean)
+                : [];
+            const meta = [];
+            if (roleLabel) meta.push(roleLabel);
+            if (groupNames.length) meta.push(groupNames.join(', '));
+            return meta.length ? `${name} (${meta.join(' · ')})` : name;
+        }
+
+        function renderReferenceOptions(referenceUsers) {
+            if (!checkoutReferenceEl) return;
+            const users = Array.isArray(referenceUsers) ? referenceUsers.slice() : [];
+            const requestedRefUserId = getRequestedReferenceUserId();
+            const currentValue = String(checkoutReferenceEl.value || '').trim();
+            const selectedValue = users.some((row) => String(row && row.user_id) === requestedRefUserId)
+                ? requestedRefUserId
+                : (users.some((row) => String(row && row.user_id) === currentValue) ? currentValue : '');
+            checkoutReferenceEl.innerHTML = '';
+            const defaultOption = document.createElement('option');
+            defaultOption.value = '';
+            defaultOption.textContent = users.length ? 'Select reference' : 'No reference available';
+            checkoutReferenceEl.appendChild(defaultOption);
+            users.forEach((row) => {
+                if (!row || !row.user_id) return;
+                const option = document.createElement('option');
+                option.value = String(row.user_id);
+                option.textContent = buildReferenceLabel(row);
+                checkoutReferenceEl.appendChild(option);
+            });
+            checkoutReferenceEl.disabled = users.length === 0;
+            if (selectedValue) {
+                checkoutReferenceEl.value = selectedValue;
+            } else if (users.length === 1) {
+                checkoutReferenceEl.value = String(users[0].user_id || '');
+            } else {
+                checkoutReferenceEl.value = '';
+            }
+        }
+
+        async function loadReferenceUsers() {
+            if (referenceUsersPromise) return referenceUsersPromise;
+            referenceUsersPromise = (async () => {
+                let endpoint = '';
+                if (WORKSPACE_ID) {
+                    endpoint = `/api/public/workspaces/${encodeURIComponent(String(WORKSPACE_ID))}/reference-users`;
+                } else {
+                    endpoint = `/api/public/panoramas/${encodeURIComponent(String(PANORAMA_ID))}/reference-users`;
+                }
+                try {
+                    const response = await fetch(endpoint);
+                    if (!response.ok) throw new Error(`Failed to load references (${response.status})`);
+                    const payload = await response.json().catch(() => ({}));
+                    referenceUsersCache = Array.isArray(payload && payload.reference_users) ? payload.reference_users : [];
+                } catch (error) {
+                    referenceUsersCache = [];
+                }
+                renderReferenceOptions(referenceUsersCache);
+                return referenceUsersCache;
+            })();
+            return referenceUsersPromise;
+        }
+
+        async function getCurrentReferenceUserIdForSharing() {
+            const referenceUsers = await loadReferenceUsers().catch(() => []);
+            const requestedRefUserId = getRequestedReferenceUserId();
+            const requestedMatch = referenceUsers.some((row) => String(row && row.user_id) === requestedRefUserId);
+            try {
+                if (window._supabase && window._supabase.auth && typeof window._supabase.auth.getSession === 'function') {
+                    const result = await window._supabase.auth.getSession();
+                    const session = (((result || {}).data || {}).session || {});
+                    const sessionUserId = String((((session || {}).user || {}).id) || '').trim();
+                    if (sessionUserId && referenceUsers.some((row) => String(row && row.user_id) === sessionUserId)) {
+                        return sessionUserId;
+                    }
+                }
+            } catch (error) { }
+            return requestedMatch ? requestedRefUserId : '';
+        }
+
+        async function getSharableProjectUrl() {
+            const refUserId = await getCurrentReferenceUserIdForSharing();
+            return buildProjectShareUrl(refUserId);
+        }
+
         function escapeCsvCell(value) {
             if (value == null) return '';
             const s = String(value).trim();
@@ -2362,6 +2483,7 @@
             if (!cartModal) return;
             stopAutoRotate();
             setCartMessage('');
+            loadReferenceUsers().catch(() => { });
             cartModal.classList.add('visible');
             renderCartItems();
             syncCartBadge();
@@ -2416,18 +2538,23 @@
             const email = String(checkoutEmailEl ? checkoutEmailEl.value : '').trim();
             const phone = String(checkoutPhoneEl ? checkoutPhoneEl.value : '').trim();
             const category = String(checkoutCategoryEl ? checkoutCategoryEl.value : '').trim();
+            const referenceUserId = String(checkoutReferenceEl ? checkoutReferenceEl.value : '').trim();
 
             if (!cart || cart.length === 0) return { ok: false, error: 'Your cart is empty.' };
             if (!name) return { ok: false, error: 'Name is required.' };
             if (!email || !email.includes('@')) return { ok: false, error: 'Valid email is required.' };
             if (!phone) return { ok: false, error: 'Contact number is required.' };
             if (!category) return { ok: false, error: 'Category is required.' };
-            return { ok: true, payload: { name, email, phone, category } };
+            if (Array.isArray(referenceUsersCache) && referenceUsersCache.length > 0 && !referenceUserId) {
+                return { ok: false, error: 'Reference is required.' };
+            }
+            return { ok: true, payload: { name, email, phone, category, reference_user_id: referenceUserId } };
         }
 
         async function sendBuyInterest() {
             if (!sendBuyInterestBtn) return;
             setCartMessage('');
+            await loadReferenceUsers().catch(() => []);
             const v = validateCheckout();
             if (!v.ok) {
                 setCartMessage(v.error, 'error');
@@ -2443,6 +2570,7 @@
                     customer_email: v.payload.email,
                     customer_phone: v.payload.phone,
                     category: v.payload.category,
+                    reference_user_id: v.payload.reference_user_id,
                     items: cart.map((x) => ({ plot_id: x.plot_id, panorama_id: x.panorama_id || PANORAMA_ID })),
                 };
                 const r = await fetch('/api/public/buy-interests', {
@@ -2471,6 +2599,7 @@
 
         cart = loadCartFromStorage();
         syncCartBadge();
+        loadReferenceUsers().catch(() => { });
 
         function isMarkerPhotoLightboxVisible() {
             return Boolean(markerPhotoLightbox && markerPhotoLightbox.classList.contains('visible'));
@@ -4376,16 +4505,16 @@
         });
 
         if (shareBtn) {
-            shareBtn.addEventListener('click', () => {
+            shareBtn.addEventListener('click', async () => {
                 stopAutoRotate();
-                const viewUrl = getProjectShareUrl();
+                const viewUrl = await getSharableProjectUrl();
                 shareUrl.textContent = viewUrl;
                 shareModal.classList.add('visible');
             });
 
             if (copyBtn) {
-                copyBtn.addEventListener('click', () => {
-                    const viewUrl = getProjectShareUrl();
+                copyBtn.addEventListener('click', async () => {
+                    const viewUrl = await getSharableProjectUrl();
                     navigator.clipboard.writeText(viewUrl).then(() => {
                         copyBtn.textContent = 'Copied!';
                         setTimeout(() => {

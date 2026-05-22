@@ -1,5 +1,5 @@
 {% extends 'base.html' %}
-{% block title %}My Team – PropMark{% endblock %}
+{% block title %}My Team - PropMark{% endblock %}
 {% block head_css %}
 <link rel="stylesheet" href="/static/css/dashboard.css">
 <link rel="stylesheet" href="/static/css/user_management.css">
@@ -41,8 +41,8 @@
                     <div class="form-field" style="margin-top:0.75rem;">
                         <label class="label" for="invite-member-role">Role</label>
                         <select class="input" id="invite-member-role">
-                            <option value="client_user" selected>Client User</option>
-                            <option value="broker">Broker</option>
+                            <option value="client_user" selected>Sales Agent</option>
+                            <option value="internal_broker">Internal Broker</option>
                         </select>
                     </div>
                     <div class="msg error" id="invite-member-error" style="display:none;"></div>
@@ -52,6 +52,40 @@
             <div class="modal-actions">
                 <button class="btn btn-secondary" id="cancel-invite-member" type="button">Cancel</button>
                 <button class="btn btn-primary" id="confirm-invite-member" type="button">Send Invite</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-backdrop" id="modal-member-view">
+        <div class="modal modal--sm" role="dialog" aria-modal="true" aria-label="View member">
+            <div class="modal-head">
+                <div class="modal-title">Member Details</div>
+                <button class="btn btn-secondary" id="close-member-view-modal" type="button">Close</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-field">
+                    <label class="label">Name</label>
+                    <div class="delete-user-info" id="member-view-name">-</div>
+                </div>
+                <div class="form-field" style="margin-top:0.6rem;">
+                    <label class="label">Email</label>
+                    <div class="delete-user-info" id="member-view-email">-</div>
+                </div>
+                <div class="form-field" style="margin-top:0.6rem;">
+                    <label class="label">Role</label>
+                    <div class="delete-user-info" id="member-view-role">-</div>
+                </div>
+                <div class="form-field" style="margin-top:0.6rem;">
+                    <label class="label">Joined</label>
+                    <div class="delete-user-info" id="member-view-joined">-</div>
+                </div>
+                <div class="form-field" style="margin-top:0.6rem;">
+                    <label class="label">Status</label>
+                    <div class="delete-user-info">Active</div>
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" id="dismiss-member-view" type="button">Close</button>
             </div>
         </div>
     </div>
@@ -70,9 +104,21 @@
     var supabase = window._supabase;
     if (!supabase) return;
 
-    var roleLabels = { client_admin: 'Client Admin', client_user: 'Client User', broker: 'Broker' };
+    var roleLabels = {
+        client_admin: 'Client Admin',
+        client_user: 'Sales Agent',
+        internal_broker: 'Internal Broker',
+        external_broker: 'External Broker'
+    };
+    function normalizeMemberRole(role) {
+        var key = String(role || '').trim().toLowerCase();
+        if (key === 'broker') return 'external_broker';
+        return key;
+    }
     var inviteTargetGroupId = null;
     var modalInviteMember = null;
+    var modalMemberView = null;
+    var membersByGroup = {};
 
     function getAuthHeaders() {
         return supabase.auth.getSession().then(function (r) {
@@ -121,6 +167,32 @@
             return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
         } catch (e) { return '-'; }
     }
+    function formatDateTime(dateStr) {
+        if (!dateStr) return '-';
+        try {
+            var d = new Date(dateStr);
+            return d.toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' });
+        } catch (e) { return '-'; }
+    }
+    function formatRelativeTime(dateStr) {
+        if (!dateStr) return '-';
+        try {
+            var d = new Date(dateStr);
+            var diffMs = Date.now() - d.getTime();
+            if (!isFinite(diffMs)) return '-';
+            var mins = Math.floor(diffMs / 60000);
+            if (mins < 1) return 'Just now';
+            if (mins < 60) return mins + ' min ago';
+            var hours = Math.floor(mins / 60);
+            if (hours < 24) return hours + 'h ago';
+            var days = Math.floor(hours / 24);
+            if (days < 30) return days + ' day' + (days > 1 ? 's' : '') + ' ago';
+            var months = Math.floor(days / 30);
+            if (months < 12) return months + ' month' + (months > 1 ? 's' : '') + ' ago';
+            var years = Math.floor(months / 12);
+            return years + ' year' + (years > 1 ? 's' : '') + ' ago';
+        } catch (e) { return '-'; }
+    }
 
     function openInviteMemberModal(groupId, groupName) {
         inviteTargetGroupId = groupId;
@@ -159,8 +231,9 @@
                 return;
             }
             var inviteLink = (res.data && res.data.invite_link) ? String(res.data.invite_link) : '';
+            var emailErr = (res.data && res.data.email_error) ? String(res.data.email_error) : '';
             var sentMsg = (res.data && res.data.email_sent === false)
-                ? 'Invite created. Email could not be sent; share link manually.'
+                ? ('Invite created, but email could not be sent. Share link manually.' + (emailErr ? (' Reason: ' + emailErr) : ''))
                 : ('Invitation sent to ' + email + '!');
             setError(successEl, inviteLink ? (sentMsg + ' Invite Link: ' + inviteLink) : sentMsg);
             if (inviteLink && navigator.clipboard && navigator.clipboard.writeText) {
@@ -180,7 +253,7 @@
         });
     }
 
-    // ── Kick off data fetch immediately — don't wait for sidebarReady ──
+    // -- Kick off data fetch immediately - don't wait for sidebarReady --
     var dataPromise = getAuthHeaders().then(function (h) {
         return Promise.all([
             fetchJson('/api/clients/mine', { headers: h }),
@@ -188,8 +261,9 @@
         ]);
     });
 
-    // ── Render members table ──
+    // -- Render members table --
     function renderMembers(groupId, members) {
+        membersByGroup[String(groupId)] = Array.isArray(members) ? members.slice() : [];
         var tbody = document.getElementById('members-body-' + groupId);
         var tableEl = document.getElementById('members-table-' + groupId);
         var emptyEl = document.getElementById('members-empty-' + groupId);
@@ -204,46 +278,185 @@
 
         tbody.innerHTML = members.map(function (m) {
             var uid = String(m.user_id || '');
+            var normalizedRole = normalizeMemberRole(m.member_role);
+            var roleLabel = escapeHtml(roleLabels[normalizedRole] || normalizedRole || '-');
+            var createdAt = escapeHtml(formatRelativeTime(m.created_at));
+            var createdAtFull = escapeHtml(formatDateTime(m.created_at));
+            var canEditRole = normalizedRole !== 'external_broker';
+            var roleChoices = canEditRole ? ['client_admin', 'client_user', 'internal_broker'] : ['external_broker'];
             var roleSelect =
                 '<select class="member-role-select" data-group="' + escapeHtml(groupId) +
-                '" data-uid="' + escapeHtml(uid) + '" data-prev="' + escapeHtml(m.member_role || '') + '">' +
-                ['client_admin', 'client_user'].map(function (r) {
+                '" data-uid="' + escapeHtml(uid) + '" data-prev="' + escapeHtml(normalizedRole || '') + '"' +
+                (canEditRole ? '' : ' disabled title="External Broker role can only be changed by platform admin"') + '>' +
+                roleChoices.map(function (r) {
                     return '<option value="' + r + '"' +
-                        (m.member_role === r ? ' selected' : '') +
-                        '>' +
-                        escapeHtml(roleLabels[r] || r) + '</option>';
+                        ((normalizedRole === r) ? ' selected' : '') +
+                        '>' + escapeHtml(roleLabels[r] || r) + '</option>';
                 }).join('') + '</select>';
-            return '<tr>' +
-                '<td>' + escapeHtml(m.display_name || '—') + '</td>' +
-                '<td>' + escapeHtml(m.email || '—') + '</td>' +
-                '<td>' + roleSelect + '</td>' +
+            var roleCellHtml = canEditRole
+                ? (
+                    '<span class="member-role-label">' + roleLabel + '</span>' +
+                    '<div class="member-role-edit-wrap" style="display:none;">' + roleSelect + '</div>'
+                )
+                : '<span class="member-role-label">' + roleLabel + '</span>';
+            var actionButtons = canEditRole
+                ? (
+                    '<button class="btn-sm member-edit-btn" type="button" data-group="' + escapeHtml(groupId) + '" data-uid="' + escapeHtml(uid) + '" data-locked="0">Edit</button>' +
+                    '<button class="btn-sm btn-accent member-save-btn" type="button" data-group="' + escapeHtml(groupId) + '" data-uid="' + escapeHtml(uid) + '" style="display:none;">Save</button>' +
+                    '<button class="btn-sm member-cancel-btn" type="button" data-group="' + escapeHtml(groupId) + '" data-uid="' + escapeHtml(uid) + '" style="display:none;">Cancel</button>' +
+                    '<button class="btn-sm member-view-btn" type="button" data-group="' + escapeHtml(groupId) + '" data-uid="' + escapeHtml(uid) + '">View</button>' +
+                    '<button class="btn-sm btn-warn member-delete-btn" type="button" data-group="' + escapeHtml(groupId) + '" data-uid="' + escapeHtml(uid) + '" data-name="' + escapeHtml(m.display_name || m.email || 'member') + '">Delete</button>'
+                )
+                : (
+                    '<button class="btn-sm member-view-btn" type="button" data-group="' + escapeHtml(groupId) + '" data-uid="' + escapeHtml(uid) + '">View</button>'
+                );
+            return '<tr data-group="' + escapeHtml(groupId) + '" data-uid="' + escapeHtml(uid) + '">' +
+                '<td>' + escapeHtml(m.display_name || '-') + '</td>' +
+                '<td>' + escapeHtml(m.email || '-') + '</td>' +
+                '<td>' + roleCellHtml + '</td>' +
+                '<td title="' + createdAtFull + '">' + createdAt + '</td>' +
+                '<td><span class="pill member-status-pill">Active</span></td>' +
+                '<td class="actions-cell">' + actionButtons + '</td>' +
                 '</tr>';
         }).join('');
 
-        tbody.querySelectorAll('.member-role-select').forEach(function (sel) {
-            sel.addEventListener('change', function () {
-                var gid = sel.getAttribute('data-group');
-                var uid = sel.getAttribute('data-uid');
+        function getRow(gid, uid) {
+            return tbody.querySelector('tr[data-group="' + gid + '"][data-uid="' + uid + '"]');
+        }
+        function setRowEditMode(row, editing) {
+            if (!row) return;
+            var label = row.querySelector('.member-role-label');
+            var editWrap = row.querySelector('.member-role-edit-wrap');
+            var editBtn = row.querySelector('.member-edit-btn');
+            var saveBtn = row.querySelector('.member-save-btn');
+            var cancelBtn = row.querySelector('.member-cancel-btn');
+            var viewBtn = row.querySelector('.member-view-btn');
+            var deleteBtn = row.querySelector('.member-delete-btn');
+            if (label) label.style.display = editing ? 'none' : '';
+            if (editWrap) editWrap.style.display = editing ? '' : 'none';
+            if (editBtn) editBtn.style.display = editing ? 'none' : '';
+            if (saveBtn) saveBtn.style.display = editing ? '' : 'none';
+            if (cancelBtn) cancelBtn.style.display = editing ? '' : 'none';
+            if (viewBtn) viewBtn.style.display = editing ? 'none' : '';
+            if (deleteBtn) deleteBtn.style.display = editing ? 'none' : '';
+        }
+        function refreshMembers(gid) {
+            return getAuthHeaders().then(function (h) {
+                return fetchJson('/api/clients/' + encodeURIComponent(gid) + '/members', { headers: h });
+            }).then(function (res) {
+                if (!res.ok || !Array.isArray(res.data)) throw new Error((res.data && res.data.error) || 'Failed to reload members');
+                renderMembers(gid, res.data);
+            });
+        }
+
+        tbody.querySelectorAll('.member-edit-btn').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                if (btn.getAttribute('data-locked') === '1') return;
+                var gid = btn.getAttribute('data-group');
+                var uid = btn.getAttribute('data-uid');
+                var row = getRow(gid, uid);
+                var sel = row ? row.querySelector('.member-role-select') : null;
+                if (sel) {
+                    sel.value = sel.getAttribute('data-prev') || sel.value;
+                    sel.disabled = false;
+                }
+                setRowEditMode(row, true);
+            });
+        });
+
+        tbody.querySelectorAll('.member-cancel-btn').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                var gid = btn.getAttribute('data-group');
+                var uid = btn.getAttribute('data-uid');
+                var row = getRow(gid, uid);
+                var sel = row ? row.querySelector('.member-role-select') : null;
+                if (sel) {
+                    sel.value = sel.getAttribute('data-prev') || sel.value;
+                    sel.disabled = false;
+                }
+                setRowEditMode(row, false);
+            });
+        });
+
+        tbody.querySelectorAll('.member-save-btn').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                var gid = btn.getAttribute('data-group');
+                var uid = btn.getAttribute('data-uid');
+                var row = getRow(gid, uid);
+                var sel = row ? row.querySelector('.member-role-select') : null;
+                var label = row ? row.querySelector('.member-role-label') : null;
+                if (!sel) return;
+                if (sel.disabled) return;
                 var newRole = sel.value;
                 var prev = sel.getAttribute('data-prev') || newRole;
-                sel.setAttribute('data-prev', newRole);
                 sel.disabled = true;
+                btn.disabled = true;
                 getAuthHeaders().then(function (h) {
                     return fetchJson(
                         '/api/clients/' + encodeURIComponent(gid) + '/members/' + encodeURIComponent(uid),
                         { method: 'PATCH', headers: h, body: JSON.stringify({ member_role: newRole }) }
                     );
                 }).then(function (res) {
-                    if (!res.ok) {
-                        sel.value = prev;
-                        sel.setAttribute('data-prev', prev);
-                        alert((res.data && res.data.error) || 'Failed to update role');
-                    }
-                }).catch(function () {
+                    if (!res.ok) throw new Error((res.data && res.data.error) || 'Failed to update role');
+                    sel.setAttribute('data-prev', newRole);
+                    if (label) label.textContent = roleLabels[newRole] || newRole;
+                    setRowEditMode(row, false);
+                }).catch(function (err) {
                     sel.value = prev;
-                    sel.setAttribute('data-prev', prev);
-                    alert('Failed to update role');
-                }).finally(function () { sel.disabled = false; });
+                    alert(err && err.message ? err.message : 'Failed to update role');
+                }).finally(function () {
+                    sel.disabled = false;
+                    btn.disabled = false;
+                });
+            });
+        });
+
+        tbody.querySelectorAll('.member-view-btn').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                var gid = String(btn.getAttribute('data-group') || '');
+                var uid = String(btn.getAttribute('data-uid') || '');
+                var list = membersByGroup[gid] || [];
+                var member = null;
+                for (var i = 0; i < list.length; i += 1) {
+                    if (String(list[i].user_id || '') === uid) {
+                        member = list[i];
+                        break;
+                    }
+                }
+                if (!member) return;
+                var mvName = document.getElementById('member-view-name');
+                var mvEmail = document.getElementById('member-view-email');
+                var mvRole = document.getElementById('member-view-role');
+                var mvJoined = document.getElementById('member-view-joined');
+                if (mvName) mvName.textContent = member.display_name || '-';
+                if (mvEmail) mvEmail.textContent = member.email || '-';
+                var viewRole = normalizeMemberRole(member.member_role);
+                if (mvRole) mvRole.textContent = roleLabels[viewRole] || viewRole || '-';
+                if (mvJoined) mvJoined.textContent = formatDateTime(member.created_at);
+                openModal(modalMemberView);
+            });
+        });
+
+        tbody.querySelectorAll('.member-delete-btn').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                var gid = btn.getAttribute('data-group');
+                var uid = btn.getAttribute('data-uid');
+                var name = btn.getAttribute('data-name') || 'member';
+                if (!confirm('Remove ' + name + ' from this team?')) return;
+                btn.disabled = true;
+                getAuthHeaders().then(function (h) {
+                    return fetchJson(
+                        '/api/clients/' + encodeURIComponent(gid) + '/members/' + encodeURIComponent(uid),
+                        { method: 'DELETE', headers: h }
+                    );
+                }).then(function (res) {
+                    if (!res.ok) throw new Error((res.data && res.data.error) || 'Failed to remove member');
+                    return refreshMembers(gid);
+                }).catch(function (err) {
+                    alert(err && err.message ? err.message : 'Failed to remove member');
+                }).finally(function () {
+                    btn.disabled = false;
+                });
             });
         });
     }
@@ -271,7 +484,7 @@
             return '<tr>' +
                 '<td>' + escapeHtml(inv.display_name || '-') + '</td>' +
                 '<td>' + escapeHtml(inv.email || '-') + '</td>' +
-                '<td>' + escapeHtml(roleLabels[inv.member_role] || inv.member_role || '-') + '</td>' +
+                '<td>' + escapeHtml(roleLabels[normalizeMemberRole(inv.member_role)] || normalizeMemberRole(inv.member_role) || '-') + '</td>' +
                 '<td>' + escapeHtml(inv.status || '-') + '</td>' +
                 '<td>' + formatDate(inv.created_at) + '</td>' +
                 '<td>' + copyBtn + '</td>' +
@@ -297,7 +510,7 @@
         });
     }
 
-    // ── Render group cards then fetch all members in parallel ──
+    // -- Render group cards then fetch all members in parallel --
     function renderGroups(groups, headers) {
         var loadingEl = document.getElementById('groups-loading');
         var emptyEl   = document.getElementById('groups-empty');
@@ -329,9 +542,12 @@
                     '<div id="members-loading-' + gid + '" style="font-size:0.83rem;color:var(--color-text-dim);">Loading members...</div>' +
                     '<table class="table" id="members-table-' + gid + '" style="display:none;">' +
                         '<thead><tr>' +
-                            '<th style="width:28%;">Name</th>' +
-                            '<th style="width:34%;">Email</th>' +
-                            '<th style="width:38%;">Role</th>' +
+                            '<th style="width:22%;">Name</th>' +
+                            '<th style="width:24%;">Email</th>' +
+                            '<th style="width:14%;">Permission</th>' +
+                            '<th style="width:12%;">Created</th>' +
+                            '<th style="width:10%;">Status</th>' +
+                            '<th style="width:18%;">Actions</th>' +
                         '</tr></thead>' +
                         '<tbody id="members-body-' + gid + '"></tbody>' +
                     '</table>' +
@@ -402,17 +618,23 @@
         }));
     }
 
-    // ── sidebarReady: auth gate only (data already in-flight) ──
+    // -- sidebarReady: auth gate only (data already in-flight) --
     window.sidebarReady.then(function (ctx) {
         modalInviteMember = document.getElementById('modal-invite-member');
+        modalMemberView = document.getElementById('modal-member-view');
         var closeInviteBtn = document.getElementById('close-invite-member-modal');
         var cancelInviteBtn = document.getElementById('cancel-invite-member');
         var confirmInviteBtn = document.getElementById('confirm-invite-member');
+        var closeMemberViewBtn = document.getElementById('close-member-view-modal');
+        var dismissMemberViewBtn = document.getElementById('dismiss-member-view');
 
         if (closeInviteBtn) closeInviteBtn.addEventListener('click', function () { closeModal(modalInviteMember); });
         if (cancelInviteBtn) cancelInviteBtn.addEventListener('click', function () { closeModal(modalInviteMember); });
         if (confirmInviteBtn) confirmInviteBtn.addEventListener('click', doInviteMember);
         if (modalInviteMember) modalInviteMember.addEventListener('click', function (e) { if (e.target === modalInviteMember) closeModal(modalInviteMember); });
+        if (closeMemberViewBtn) closeMemberViewBtn.addEventListener('click', function () { closeModal(modalMemberView); });
+        if (dismissMemberViewBtn) dismissMemberViewBtn.addEventListener('click', function () { closeModal(modalMemberView); });
+        if (modalMemberView) modalMemberView.addEventListener('click', function (e) { if (e.target === modalMemberView) closeModal(modalMemberView); });
 
         if (ctx.role === 'admin' || ctx.role === 'superadmin') {
             window.location.replace('/user-management');
@@ -440,3 +662,4 @@
 })();
 </script>
 {% endblock %}
+

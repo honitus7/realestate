@@ -42,6 +42,14 @@
             var signinBtn = document.getElementById('signin-btn');
 
             function setStatus(msg) { statusEl.textContent = msg || ''; }
+            function roleLabel(role) {
+                var key = String(role || '').trim().toLowerCase();
+                if (key === 'client_admin') return 'Client Admin';
+                if (key === 'client_user') return 'Sales Agent';
+                if (key === 'internal_broker') return 'Internal Broker';
+                if (key === 'external_broker' || key === 'broker') return 'External Broker';
+                return role || 'Sales Agent';
+            }
 
             function savePendingToken() {
                 try { window.localStorage.setItem(PENDING_INVITE_KEY, TOKEN); } catch (e) {}
@@ -80,7 +88,7 @@
                         metaEl.innerHTML =
                             '<div><strong>Team:</strong> ' + (clientName || '-') + '</div>' +
                             '<div><strong>Email:</strong> ' + (d.email || '-') + '</div>' +
-                            '<div><strong>Role:</strong> ' + (d.member_role || 'client_user') + '</div>';
+                            '<div><strong>Role:</strong> ' + roleLabel(d.member_role || 'client_user') + '</div>';
                         signinBtn.textContent = d.invited_user_exists ? 'Sign in to continue' : 'Sign up to continue';
                         signinBtn.href = inviteAuthHref();
                     })

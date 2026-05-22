@@ -1,5 +1,11 @@
 """
 Register all Flask routes. Uses app.core and app.services only.
+
+Scaling policy:
+- If an API route in this file is edited, move the touched route(s) into
+  app/controllers/features/<domain>.py in the same change.
+- Do not add new long-term API routes here; add them in feature modules and
+  wire them via register_<feature>_routes(app).
 """
 import json
 import os
@@ -23,13 +29,24 @@ from app.controllers.features import (
     register_daynight_routes,
     register_full_view_routes,
     register_gallery_routes,
+    register_page_access_routes,
     register_sales_route_map_routes,
+    register_uam_routes,
 )
 from app.core.database import get_supabase
-from app.core.auth import get_profile, require_auth, require_admin, require_superadmin
+from app.services.uam_reference_service import (
+    CLIENT_MEMBER_ROLE_CLIENT_ADMIN,
+    CLIENT_MEMBER_ROLE_CLIENT_USER,
+    CLIENT_MEMBER_ROLE_EXTERNAL_BROKER,
+    CLIENT_MEMBER_ROLE_INTERNAL_BROKER,
+    _is_broker_member_role,
+    _normalize_client_member_role,
+    _project_reference_users,
+    _validate_project_reference_user,
+)
+from app.core.auth import get_profile, require_auth, require_admin
 from app.core.serializers import (
     page_access_serializer,
-    issue_page_access_token as _issue_page_access_token_impl,
     panorama_upload_serializer,
     plot_upload_serializer,
     marker_upload_serializer,
@@ -125,7 +142,7 @@ from app.services.storage_service import (
     delete_sales_flat360_from_s3,
     MAX_SALES_FLAT360_READ_BYTES,
 )
-from app.services.org_service import get_org_name_and_slug_for_panorama, slugify_org_name
+from app.services.org_service import get_org_name_and_slug_for_panorama
 from app.services.plot_service import fetch_plots, create_plot as plot_create, get_plot_panorama_id, delete_plot as plot_delete, update_plot as plot_update, update_plot_label_position as plot_update_label_position
 from app.services.daynight_service import (
     create_daynight_project as dn_create,
@@ -337,9 +354,6 @@ def register_routes(app):
         return {}
     secret_key = app.secret_key or app_config.SECRET_KEY
 
-    def _issue_page_access_token(user_id, panorama_id, mode):
-        return _issue_page_access_token_impl(secret_key, user_id, panorama_id, mode)
-
     def _load_panorama_for_page_mode(panorama_id, mode):
         sb = get_supabase()
         if not sb:
@@ -403,7 +417,7 @@ def register_routes(app):
 
         def _crm_allows_access_type(access_type, client_member_id=None):
             at = str(access_type or '').strip().lower()
-            if at in ('owner', 'client'):
+            if at in ('owner', 'client', 'broker'):
                 return True
             # Client groups can intentionally grant viewer access for shared CRM visibility.
             if at == 'viewer' and client_member_id:
@@ -495,7 +509,13 @@ def register_routes(app):
             """Brokers get CRM-only access to panoramas their client group admin can access."""
             result = set()
             try:
-                member_rows = sb.table('client_members').select('client_id').eq('user_id', user_id).eq('member_role', 'broker').execute()
+                member_rows = (
+                    sb.table('client_members')
+                    .select('client_id')
+                    .eq('user_id', user_id)
+                    .in_('member_role', ['internal_broker', 'external_broker', 'broker'])
+                    .execute()
+                )
                 client_ids = [r.get('client_id') for r in (member_rows.data or []) if r.get('client_id')]
                 if not client_ids:
                     return result
@@ -723,6 +743,33 @@ def register_routes(app):
             return None
         return query.in_(client_column, client_ids)
 
+    def _crm_interest_reference_scope_user_id(sb, user_id, role, client_ids=None):
+        if _is_admin_role(role):
+            return None
+        try:
+            q = (
+                sb.table('client_members')
+                .select('client_id, member_role')
+                .eq('user_id', str(user_id))
+            )
+            if client_ids:
+                q = q.in_('client_id', client_ids)
+            rows = q.execute().data or []
+        except Exception:
+            return None
+        has_reference_scope = False
+        for row in rows:
+            member_role = _normalize_client_member_role(row.get('member_role'))
+            if member_role == CLIENT_MEMBER_ROLE_CLIENT_ADMIN:
+                return None
+            if member_role in (
+                CLIENT_MEMBER_ROLE_CLIENT_USER,
+                CLIENT_MEMBER_ROLE_INTERNAL_BROKER,
+                CLIENT_MEMBER_ROLE_EXTERNAL_BROKER,
+            ):
+                has_reference_scope = True
+        return str(user_id) if has_reference_scope else None
+
     def _crm_profile_in_org(sb, user_id_to_check, org_id):
         if not org_id:
             return True
@@ -943,30 +990,6 @@ def register_routes(app):
     @app.route('/portal')
     def customer_portal():
         return render_template('portal.html', **auth_ctx())
-
-    @app.route('/organizations')
-    def organizations_page():
-        return render_template('organizations.html', **auth_ctx())
-
-    @app.route('/users')
-    def users_page():
-        return redirect('/user-management?open=invite')
-
-    @app.route('/user-management')
-    def user_management_page():
-        return render_template('user_management.html', **auth_ctx())
-
-    @app.route('/client-management')
-    def client_management_page():
-        return render_template('client_management.html', **auth_ctx())
-
-    @app.route('/panorama/<int:panorama_id>/access')
-    def panorama_access_page(panorama_id):
-        return render_template('panorama_access.html', panorama_id=panorama_id, **auth_ctx())
-
-    @app.route('/workspace/<workspace_id>/access')
-    def workspace_access_page(workspace_id):
-        return render_template('workspace_access.html', workspace_id=workspace_id, **auth_ctx())
 
     @app.route('/admin/<int:panorama_id>')
     def admin(panorama_id):
@@ -1515,6 +1538,36 @@ def register_routes(app):
                 return jsonify({'error': 'image_filename column missing. Run db/schema.sql in Supabase SQL Editor.'}), 503
             return jsonify({'error': msg}), 500
 
+    @app.route('/api/public/workspaces/<workspace_id>/reference-users', methods=['GET'])
+    def public_workspace_reference_users(workspace_id):
+        sb = get_supabase()
+        if not sb:
+            return jsonify({'error': 'Database not configured'}), 503
+        workspace = get_workspace_by_id(sb, workspace_id)
+        if not workspace or not workspace.get('is_published'):
+            return jsonify({'error': 'Project not found'}), 404
+        catalog = _project_reference_users(sb, workspace_id=workspace_id)
+        return jsonify({
+            'workspace_id': str(workspace_id),
+            'client_ids': catalog.get('client_ids') or [],
+            'reference_users': catalog.get('users') or [],
+        })
+
+    @app.route('/api/public/panoramas/<int:panorama_id>/reference-users', methods=['GET'])
+    def public_panorama_reference_users(panorama_id):
+        sb = get_supabase()
+        if not sb:
+            return jsonify({'error': 'Database not configured'}), 503
+        panorama = get_panorama_by_id(sb, panorama_id)
+        if not panorama:
+            return jsonify({'error': 'Panorama not found'}), 404
+        catalog = _project_reference_users(sb, panorama_id=panorama_id)
+        return jsonify({
+            'panorama_id': int(panorama_id),
+            'client_ids': catalog.get('client_ids') or [],
+            'reference_users': catalog.get('users') or [],
+        })
+
     @app.route('/api/public/plots/<int:plot_id>/image', methods=['GET'])
     def public_get_plot_image(plot_id):
         sb = get_supabase()
@@ -1776,6 +1829,7 @@ def register_routes(app):
         customer_email = str(data.get('customer_email') or data.get('email') or '').strip()
         customer_phone = str(data.get('customer_phone') or data.get('phone') or '').strip()
         category = str(data.get('category') or '').strip()
+        requested_reference_user_id = str(data.get('reference_user_id') or '').strip()
         items = data.get('items') or data.get('plots') or []
         if not isinstance(items, list):
             items = []
@@ -1792,6 +1846,13 @@ def register_routes(app):
         panorama = get_panorama_by_id(sb, panorama_id)
         if not panorama:
             return jsonify({'error': 'Panorama not found'}), 404
+        reference_user_id, reference_catalog, reference_row = _validate_project_reference_user(
+            sb,
+            reference_user_id=requested_reference_user_id,
+            panorama_id=panorama_id,
+        )
+        if requested_reference_user_id and not reference_user_id:
+            return jsonify({'error': 'Selected reference is not available for this project'}), 400
         plot_ids = []
         for item in items:
             if isinstance(item, (int, float, str)):
@@ -1839,10 +1900,21 @@ def register_routes(app):
             return jsonify({'error': msg}), 500
         if not plots_snapshot:
             return jsonify({'error': 'No valid plots found'}), 400
+        client_id = None
+        if reference_row:
+            reference_client_ids = list(reference_row.get('client_ids') or [])
+            if reference_client_ids:
+                client_id = str(reference_client_ids[0])
+        if not client_id:
+            project_client_ids = list(reference_catalog.get('client_ids') or [])
+            if len(project_client_ids) == 1:
+                client_id = str(project_client_ids[0])
         now = datetime.utcnow().isoformat()
         insert_row = {
             'panorama_id': panorama_id,
+            'client_id': client_id,
             'submitted_by': None,
+            'reference_user_id': reference_user_id,
             'customer_name': customer_name,
             'customer_email': customer_email,
             'customer_phone': customer_phone,
@@ -2094,33 +2166,6 @@ def register_routes(app):
                 continue
             out.append(o)
         return jsonify(out)
-
-    @app.route('/api/panoramas/<int:panorama_id>/page-token', methods=['POST'])
-    @require_auth
-    def create_panorama_page_token(user_id, role, panorama_id):
-        sb = get_supabase()
-        if not sb:
-            return jsonify({'error': 'Database not configured'}), 503
-        payload = request.get_json(silent=True) or {}
-        mode = str(payload.get('mode') or '').strip().lower()
-        if mode not in ('admin', 'client'):
-            return jsonify({'error': 'mode must be admin or client'}), 400
-        panorama, access_type = get_panorama_with_access(sb, panorama_id, user_id)
-        if not panorama:
-            return jsonify({'error': 'Panorama not found'}), 404
-        if mode == 'admin':
-            if access_type != 'owner':
-                return jsonify({'error': 'Only owner can open admin mode'}), 403
-        else:
-            if access_type not in ('owner', 'client'):
-                return jsonify({'error': 'Only owner or client can open client mode'}), 403
-        token = _issue_page_access_token(user_id, panorama_id, mode)
-        return jsonify({
-            'token': token,
-            'mode': mode,
-            'panorama_id': int(panorama_id),
-            'expires_in': int(PAGE_ACCESS_TOKEN_TTL),
-        })
 
     @app.route('/api/workspaces', methods=['GET'])
     @require_auth
@@ -2384,114 +2429,6 @@ def register_routes(app):
             return jsonify({'success': True, 'share': share})
         except ValueError as ve:
             return jsonify({'error': str(ve)}), 400
-        except Exception as e:
-            if is_workspace_schema_missing(e):
-                return _ws_error_response()
-            return jsonify({'error': str(e)}), 500
-
-    @app.route('/api/workspaces/<workspace_id>/access', methods=['GET'])
-    @require_auth
-    def get_workspace_access(user_id, role, workspace_id):
-        sb = get_supabase()
-        if not sb:
-            return jsonify({'error': 'Database not configured'}), 503
-        try:
-            workspace = get_workspace_by_id(sb, workspace_id)
-        except Exception as e:
-            if is_workspace_schema_missing(e):
-                return _ws_error_response()
-            return jsonify({'error': str(e)}), 500
-        if not workspace:
-            return jsonify({'error': 'Workspace not found'}), 404
-        if not can_manage_workspace(sb, workspace, user_id, role):
-            return jsonify({'error': 'Only owner or admin can list access'}), 403
-        try:
-            r = sb.table('workspace_access').select('*').eq('workspace_id', workspace_id).execute()
-        except Exception as e:
-            if is_workspace_schema_missing(e):
-                return _ws_error_response()
-            return jsonify({'error': str(e)}), 500
-        out = []
-        for row in (r.data or []):
-            item = dict(row)
-            if item.get('user_id'):
-                item['user_id'] = str(item.get('user_id'))
-            if item.get('workspace_id'):
-                item['workspace_id'] = str(item.get('workspace_id'))
-            if item.get('granted_by'):
-                item['granted_by'] = str(item.get('granted_by'))
-            if item.get('created_at'):
-                item['created_at'] = str(item.get('created_at'))
-            out.append(item)
-        return jsonify(out)
-
-    @app.route('/api/workspaces/<workspace_id>/access', methods=['POST'])
-    @require_auth
-    def grant_workspace_access(user_id, role, workspace_id):
-        sb = get_supabase()
-        if not sb:
-            return jsonify({'error': 'Database not configured'}), 503
-        data = request.get_json(silent=True) or {}
-        target_user_id = str(data.get('user_id') or '').strip()
-        access_type = str(data.get('access_type') or 'viewer').strip().lower()
-        if not target_user_id:
-            return jsonify({'error': 'user_id is required'}), 400
-        if access_type not in ('client', 'viewer'):
-            return jsonify({'error': 'access_type must be client or viewer'}), 400
-        if str(target_user_id) == str(user_id):
-            return jsonify({'error': 'Cannot grant access to yourself'}), 400
-        try:
-            workspace = get_workspace_by_id(sb, workspace_id)
-        except Exception as e:
-            if is_workspace_schema_missing(e):
-                return _ws_error_response()
-            return jsonify({'error': str(e)}), 500
-        if not workspace:
-            return jsonify({'error': 'Workspace not found'}), 404
-        if not can_manage_workspace(sb, workspace, user_id, role):
-            return jsonify({'error': 'Only owner or admin can grant access'}), 403
-        workspace_org = workspace.get('org_id')
-        if workspace_org and role != 'superadmin':
-            caller = get_profile(sb, user_id) or {}
-            target = get_profile(sb, target_user_id) or {}
-            caller_org = caller.get('org_id')
-            target_org = target.get('org_id')
-            if not caller_org or not target_org:
-                return jsonify({'error': 'User organization is not set. Ask a SuperAdmin to assign orgs.'}), 403
-            if str(caller_org) != str(workspace_org) or str(target_org) != str(workspace_org):
-                return jsonify({'error': 'You can only grant access to users in your organization'}), 403
-        try:
-            sb.table('workspace_access').upsert({
-                'workspace_id': workspace_id,
-                'user_id': target_user_id,
-                'access_type': access_type,
-                'granted_by': user_id,
-            }, on_conflict='workspace_id,user_id').execute()
-            return jsonify({'success': True}), 201
-        except Exception as e:
-            if is_workspace_schema_missing(e):
-                return _ws_error_response()
-            return jsonify({'error': str(e)}), 500
-
-    @app.route('/api/workspaces/<workspace_id>/access/<target_user_id>', methods=['DELETE'])
-    @require_auth
-    def revoke_workspace_access(user_id, role, workspace_id, target_user_id):
-        sb = get_supabase()
-        if not sb:
-            return jsonify({'error': 'Database not configured'}), 503
-        try:
-            workspace = get_workspace_by_id(sb, workspace_id)
-        except Exception as e:
-            if is_workspace_schema_missing(e):
-                return _ws_error_response()
-            return jsonify({'error': str(e)}), 500
-        if not workspace:
-            return jsonify({'error': 'Workspace not found'}), 404
-        if not can_manage_workspace(sb, workspace, user_id, role):
-            return jsonify({'error': 'Only owner or admin can revoke access'}), 403
-        try:
-            sb.table('workspace_access').delete().eq('workspace_id', workspace_id).eq('user_id', target_user_id).execute()
-            return jsonify({'success': True})
         except Exception as e:
             if is_workspace_schema_missing(e):
                 return _ws_error_response()
@@ -4026,480 +3963,6 @@ def register_routes(app):
             delete_marker_from_s3(old_filename)
         return jsonify({'success': True})
 
-    @app.route('/api/admin/users', methods=['POST'])
-    @require_auth
-    def admin_create_user(user_id, role):
-        if role not in ('admin', 'superadmin'):
-            return jsonify({'error': 'Only admins can create users'}), 403
-        if not app_config.SUPABASE_URL or not app_config.SUPABASE_SERVICE_ROLE_KEY:
-            return jsonify({'error': 'Server not configured for creating users'}), 503
-        data = request.get_json() or {}
-        email = (data.get('email') or '').strip()
-        password = data.get('password') or ''
-        display_name = (data.get('display_name') or '').strip() or None
-        requested_role = str(data.get('role') or 'user').strip().lower()
-        if requested_role not in ('admin', 'user', 'superadmin'):
-            requested_role = 'user'
-        if requested_role == 'superadmin' and role != 'superadmin':
-            return jsonify({'error': 'Only superadmins can create superadmin users'}), 403
-        as_admin = requested_role == 'admin'
-        if not email or not password:
-            return jsonify({'error': 'Email and password are required'}), 400
-        if len(password) < 6:
-            return jsonify({'error': 'Password must be at least 6 characters'}), 400
-        try:
-            from supabase import create_client
-            sb = create_client(app_config.SUPABASE_URL, app_config.SUPABASE_SERVICE_ROLE_KEY)
-            resp = sb.auth.admin.create_user({
-                'email': email,
-                'password': password,
-                'email_confirm': True,
-            })
-            uid = resp.user.id
-            org_id = None
-            try:
-                creator_profile = get_profile(sb, user_id) or {}
-                creator_org_id = creator_profile.get('org_id')
-            except Exception:
-                creator_org_id = None
-            if role == 'superadmin':
-                raw_org = data.get('org_id') if 'org_id' in data else data.get('orgId')
-                raw_org = None if raw_org is None else str(raw_org).strip()
-                org_id = raw_org or (str(creator_org_id) if creator_org_id else None)
-            else:
-                org_id = str(creator_org_id) if creator_org_id else None
-                if not org_id:
-                    return jsonify({'error': 'Your organization is not set. Ask a SuperAdmin to assign your org.'}), 403
-            profile_row = {
-                'user_id': uid,
-                'role': ('superadmin' if requested_role == 'superadmin' else ('admin' if as_admin else 'user')),
-                'email': getattr(resp.user, 'email', None) or email,
-                'display_name': display_name,
-                'org_id': org_id,
-            }
-            try:
-                sb.table('profiles').upsert(profile_row, on_conflict='user_id').execute()
-            except Exception as e:
-                if 'org_id' in str(e).lower():
-                    profile_row.pop('org_id', None)
-                    sb.table('profiles').upsert(profile_row, on_conflict='user_id').execute()
-                else:
-                    raise
-            return jsonify({'success': True, 'user': {'id': str(uid), 'email': resp.user.email, 'display_name': display_name}}), 201
-        except Exception as e:
-            err = str(e)
-            if 'already registered' in err.lower() or 'already exists' in err.lower():
-                return jsonify({'error': 'A user with this email already exists'}), 409
-            return jsonify({'error': err or 'Failed to create user'}), 400
-
-    @app.route('/api/profile/me', methods=['PUT', 'PATCH'])
-    @require_auth
-    def update_my_profile(user_id, role):
-        data = request.get_json() or {}
-        sb = get_supabase()
-        if not sb:
-            return jsonify({'error': 'Database not configured'}), 503
-        if 'display_name' not in data and 'email' not in data:
-            return jsonify({'error': 'Provide display_name and/or email'}), 400
-        display_name = (data.get('display_name') or '').strip() or None if 'display_name' in data else None
-        email = (data.get('email') or '').strip() or None if 'email' in data else None
-        updated_at = datetime.utcnow().isoformat()
-        existing = get_profile(sb, user_id)
-        payload = {'updated_at': updated_at}
-        if 'display_name' in data:
-            payload['display_name'] = display_name
-        if 'email' in data:
-            payload['email'] = email
-        try:
-            if existing:
-                sb.table('profiles').update(payload).eq('user_id', user_id).execute()
-            else:
-                full = {
-                    'user_id': user_id,
-                    'role': (existing.get('role') if existing else 'user'),
-                    'updated_at': updated_at,
-                }
-                if 'display_name' in data:
-                    full['display_name'] = display_name
-                if 'email' in data:
-                    full['email'] = email
-                sb.table('profiles').upsert(full, on_conflict='user_id').execute()
-            return jsonify({'success': True})
-        except Exception as e:
-            return jsonify({'error': str(e)}), 500
-
-    @app.route('/api/org/me', methods=['GET'])
-    @require_auth
-    def get_my_org(user_id, role):
-        sb = get_supabase()
-        if not sb:
-            return jsonify({'error': 'Database not configured'}), 503
-        profile = get_profile(sb, user_id) or {}
-        org_id = profile.get('org_id')
-        org = None
-        if org_id:
-            try:
-                r = sb.table('organizations').select('id, name, accent_color, created_at, updated_at').eq('id', org_id).limit(1).execute()
-                if r.data and len(r.data) > 0:
-                    org = dict(r.data[0])
-                    for k in ('created_at', 'updated_at'):
-                        if k in org and org[k]:
-                            org[k] = str(org[k])
-            except Exception as e:
-                msg = str(e)
-                if 'organizations' in msg and ('does not exist' in msg.lower() or 'relation' in msg.lower()):
-                    return jsonify({'error': 'organizations table not found. Run db/schema.sql in Supabase SQL Editor.'}), 503
-            if org and org.get('name'):
-                org['slug'] = slugify_org_name(org.get('name'))
-        out_profile = {
-            'user_id': str(profile.get('user_id') or user_id),
-            'role': str(profile.get('role') or role or 'user'),
-            'org_id': str(org_id) if org_id else None,
-            'display_name': profile.get('display_name'),
-            'email': profile.get('email'),
-        }
-        return jsonify({'profile': out_profile, 'org': org})
-
-    @app.route('/api/orgs', methods=['GET'])
-    @require_superadmin
-    def list_orgs(user_id, role):
-        sb = get_supabase()
-        if not sb:
-            return jsonify({'error': 'Database not configured'}), 503
-        try:
-            r = sb.table('organizations').select('id, name, accent_color, created_at, updated_at').order('created_at', desc=False).execute()
-            out = []
-            for row in (r.data or []):
-                o = dict(row)
-                for k in ('created_at', 'updated_at'):
-                    if k in o and o[k]:
-                        o[k] = str(o[k])
-                out.append(o)
-            return jsonify(out)
-        except Exception as e:
-            msg = str(e)
-            if 'organizations' in msg and ('does not exist' in msg.lower() or 'relation' in msg.lower()):
-                return jsonify({'error': 'organizations table not found. Run db/schema.sql in Supabase SQL Editor.'}), 503
-            return jsonify({'error': msg}), 500
-
-    @app.route('/api/orgs', methods=['POST'])
-    @require_superadmin
-    def create_org(user_id, role):
-        sb = get_supabase()
-        if not sb:
-            return jsonify({'error': 'Database not configured'}), 503
-        data = request.get_json(silent=True) or {}
-        name = str(data.get('name') or '').strip()
-        accent = str(data.get('accent_color') or '').strip() or '#c9a962'
-        if not name:
-            return jsonify({'error': 'name is required'}), 400
-        if len(name) > 120:
-            return jsonify({'error': 'name must be 120 characters or fewer'}), 400
-        if accent and (not accent.startswith('#') or len(accent) not in (4, 7)):
-            return jsonify({'error': 'accent_color must be a hex value like #c9a962'}), 400
-        now = datetime.utcnow().isoformat()
-        try:
-            r = sb.table('organizations').insert({
-                'name': name,
-                'accent_color': accent,
-                'created_at': now,
-                'updated_at': now,
-            }).execute()
-            row = (r.data or [None])[0]
-            return jsonify({'success': True, 'org': row}), 201
-        except Exception as e:
-            msg = str(e)
-            if 'organizations' in msg and ('does not exist' in msg.lower() or 'relation' in msg.lower()):
-                return jsonify({'error': 'organizations table not found. Run db/schema.sql in Supabase SQL Editor.'}), 503
-            if 'duplicate' in msg.lower() or 'already exists' in msg.lower() or 'unique' in msg.lower():
-                return jsonify({'error': 'Organization name already exists'}), 409
-            return jsonify({'error': msg}), 500
-
-    @app.route('/api/orgs/<org_id>', methods=['PATCH', 'PUT'])
-    @require_superadmin
-    def update_org(user_id, role, org_id):
-        sb = get_supabase()
-        if not sb:
-            return jsonify({'error': 'Database not configured'}), 503
-        data = request.get_json(silent=True) or {}
-        upd = {}
-        if 'name' in data:
-            name = str(data.get('name') or '').strip()
-            if not name:
-                return jsonify({'error': 'name cannot be empty'}), 400
-            if len(name) > 120:
-                return jsonify({'error': 'name must be 120 characters or fewer'}), 400
-            upd['name'] = name
-        if 'accent_color' in data:
-            accent = str(data.get('accent_color') or '').strip()
-            if accent and (not accent.startswith('#') or len(accent) not in (4, 7)):
-                return jsonify({'error': 'accent_color must be a hex value like #c9a962'}), 400
-            upd['accent_color'] = accent or '#c9a962'
-        if not upd:
-            return jsonify({'error': 'No fields to update'}), 400
-        upd['updated_at'] = datetime.utcnow().isoformat()
-        try:
-            r = sb.table('organizations').update(upd).eq('id', org_id).execute()
-            row = (r.data or [None])[0] if hasattr(r, 'data') else None
-            return jsonify({'success': True, 'org': row or {**upd, 'id': org_id}})
-        except Exception as e:
-            msg = str(e)
-            if 'organizations' in msg and ('does not exist' in msg.lower() or 'relation' in msg.lower()):
-                return jsonify({'error': 'organizations table not found. Run db/schema.sql in Supabase SQL Editor.'}), 503
-            return jsonify({'error': msg}), 500
-
-    # ----- Superadmin: assign org/role to users -----
-    @app.route('/api/profiles/<target_user_id>', methods=['PATCH'])
-    @require_auth
-    def superadmin_update_profile(user_id, role, target_user_id):
-        if role != 'superadmin':
-            return jsonify({'error': 'Forbidden'}), 403
-        sb = get_supabase()
-        if not sb:
-            return jsonify({'error': 'Database not configured'}), 503
-        data = request.get_json(silent=True) or {}
-        upd = {}
-        if 'role' in data:
-            new_role = str(data.get('role') or '').strip().lower()
-            if new_role not in ('superadmin', 'admin', 'user'):
-                return jsonify({'error': 'role must be superadmin, admin, or user'}), 400
-            upd['role'] = new_role
-        org_id = None
-        if 'org_id' in data or 'orgId' in data:
-            raw_org = data.get('org_id') if 'org_id' in data else data.get('orgId')
-            raw_org = None if raw_org is None else str(raw_org).strip()
-            org_id = raw_org or None
-            upd['org_id'] = org_id
-        if not upd:
-            return jsonify({'error': 'No fields to update'}), 400
-        upd['updated_at'] = datetime.utcnow().isoformat()
-        try:
-            sb.table('profiles').update(upd).eq('user_id', target_user_id).execute()
-        except Exception as e:
-            msg = str(e)
-            if 'profiles' in msg and ('does not exist' in msg.lower() or 'relation' in msg.lower()):
-                return jsonify({'error': 'profiles table not found'}), 503
-            if 'org_id' in msg.lower() and ('does not exist' in msg.lower() or 'column' in msg.lower()):
-                return jsonify({'error': 'org_id column missing. Run db/schema.sql in Supabase SQL Editor.'}), 503
-            if 'organizations' in msg and ('does not exist' in msg.lower() or 'relation' in msg.lower()):
-                return jsonify({'error': 'organizations table not found. Run db/schema.sql in Supabase SQL Editor.'}), 503
-            return jsonify({'error': msg}), 500
-        if 'org_id' in upd:
-            new_org_id = upd.get('org_id')
-
-            def _batches(values, size=200):
-                values = list(values or [])
-                for i in range(0, len(values), size):
-                    yield values[i:i + size]
-
-            try:
-                sb.table('panoramas').update({'org_id': new_org_id, 'updated_at': datetime.utcnow().isoformat()}).eq('user_id', target_user_id).execute()
-            except Exception:
-                pass
-            try:
-                shared = sb.table('panorama_access').select('panorama_id').eq('user_id', target_user_id).execute()
-                shared_ids = [row.get('panorama_id') for row in (shared.data or []) if row.get('panorama_id') is not None]
-                bad_shared_ids = []
-                if shared_ids:
-                    if new_org_id:
-                        panos = []
-                        for batch in _batches(shared_ids):
-                            r = sb.table('panoramas').select('id, org_id').in_('id', batch).execute()
-                            panos.extend(r.data or [])
-                        for p in panos:
-                            pid = p.get('id')
-                            if pid is None:
-                                continue
-                            if str(p.get('org_id') or '') != str(new_org_id):
-                                bad_shared_ids.append(pid)
-                    else:
-                        bad_shared_ids = list(shared_ids)
-                for batch in _batches(bad_shared_ids):
-                    sb.table('panorama_access').delete().eq('user_id', target_user_id).in_('panorama_id', batch).execute()
-            except Exception:
-                pass
-            try:
-                owned = sb.table('panoramas').select('id').eq('user_id', target_user_id).execute()
-                owned_ids = [row.get('id') for row in (owned.data or []) if row.get('id') is not None]
-                if owned_ids:
-                    if not new_org_id:
-                        for batch in _batches(owned_ids):
-                            sb.table('panorama_access').delete().in_('panorama_id', batch).execute()
-                    else:
-                        shared_user_ids = set()
-                        for batch in _batches(owned_ids):
-                            r = sb.table('panorama_access').select('user_id').in_('panorama_id', batch).execute()
-                            for row in (r.data or []):
-                                uid = row.get('user_id')
-                                if uid:
-                                    shared_user_ids.add(str(uid))
-                        if shared_user_ids:
-                            profs = []
-                            for batch in _batches(list(shared_user_ids)):
-                                r = sb.table('profiles').select('user_id, org_id').in_('user_id', batch).execute()
-                                profs.extend(r.data or [])
-                            user_to_org = {str(row.get('user_id')): row.get('org_id') for row in profs if row.get('user_id')}
-                            outside_users = [uid for uid in shared_user_ids if str(user_to_org.get(uid) or '') != str(new_org_id)]
-                            for outside_uid in outside_users:
-                                for batch in _batches(owned_ids):
-                                    sb.table('panorama_access').delete().eq('user_id', outside_uid).in_('panorama_id', batch).execute()
-            except Exception:
-                pass
-        return jsonify({'success': True})
-
-    @app.route('/api/profiles', methods=['GET'])
-    @require_auth
-    def list_profiles(user_id, role):
-        sb = get_supabase()
-        if not sb:
-            return jsonify({'error': 'Database not configured'}), 503
-        org_filter = (request.args.get('org_id') or request.args.get('orgId') or '').strip() or None
-        caller_profile = get_profile(sb, user_id) or {}
-        caller_org_id = caller_profile.get('org_id')
-        try:
-            query = sb.table('profiles').select('user_id, role, display_name, email, created_at, org_id')
-            if role != 'superadmin':
-                if not caller_org_id:
-                    return jsonify({'error': 'Your organization is not set. Ask a SuperAdmin to assign your org.'}), 403
-                query = query.eq('org_id', caller_org_id)
-            elif org_filter:
-                query = query.eq('org_id', org_filter)
-            r = query.order('created_at', desc=True).execute()
-            out = []
-            for row in (r.data or []):
-                o = dict(row)
-                o['user_id'] = str(o['user_id'])
-                if o.get('created_at'):
-                    o['created_at'] = str(o['created_at'])
-                if 'org_id' in o and o.get('org_id'):
-                    o['org_id'] = str(o['org_id'])
-                out.append(o)
-            return jsonify(out)
-        except Exception as e:
-            msg = str(e)
-            if 'org_id' in msg.lower() and ('does not exist' in msg.lower() or 'column' in msg.lower()):
-                return jsonify({'error': 'org_id column missing. Run db/schema.sql in Supabase SQL Editor.'}), 503
-            return jsonify({'error': msg}), 500
-
-    @app.route('/api/panoramas/<int:panorama_id>/access', methods=['GET'])
-    @require_auth
-    def get_panorama_access(user_id, role, panorama_id):
-        sb = get_supabase()
-        if not sb:
-            return jsonify({'error': 'Database not configured'}), 503
-        panorama, access_type = get_panorama_with_access(sb, panorama_id, user_id)
-        if not panorama:
-            return jsonify({'error': 'Panorama not found'}), 404
-        if access_type != 'owner' and role not in ('admin', 'superadmin'):
-            return jsonify({'error': 'Only owner or admin can list access'}), 403
-        try:
-            r = sb.table('panorama_access').select('*').eq('panorama_id', panorama_id).execute()
-            for row in (r.data or []):
-                row['user_id'] = str(row['user_id'])
-                if row.get('granted_by'):
-                    row['granted_by'] = str(row['granted_by'])
-            return jsonify(r.data or [])
-        except Exception as e:
-            return jsonify({'error': str(e)}), 500
-
-    @app.route('/api/panoramas/<int:panorama_id>/access', methods=['POST'])
-    @require_auth
-    def grant_panorama_access(user_id, role, panorama_id):
-        sb = get_supabase()
-        if not sb:
-            return jsonify({'error': 'Database not configured'}), 503
-        panorama, access_type = get_panorama_with_access(sb, panorama_id, user_id)
-        if not panorama:
-            return jsonify({'error': 'Panorama not found'}), 404
-        if access_type != 'owner' and role not in ('admin', 'superadmin'):
-            return jsonify({'error': 'Only owner or admin can grant access'}), 403
-        data = request.get_json() or {}
-        target_user_id = (data.get('user_id') or '').strip()
-        at = (data.get('access_type') or 'viewer').lower()
-        if at not in ('client', 'viewer'):
-            at = 'viewer'
-        if not target_user_id:
-            return jsonify({'error': 'user_id is required'}), 400
-        if target_user_id == user_id:
-            return jsonify({'error': 'Cannot grant access to yourself'}), 400
-        try:
-            panorama_org_id = panorama.get('org_id') if isinstance(panorama, dict) else None
-        except Exception:
-            panorama_org_id = None
-        if panorama_org_id and role != 'superadmin':
-            try:
-                caller = sb.table('profiles').select('org_id').eq('user_id', user_id).limit(1).execute()
-                target = sb.table('profiles').select('org_id').eq('user_id', target_user_id).limit(1).execute()
-                caller_org = (caller.data or [{}])[0].get('org_id') if hasattr(caller, 'data') else None
-                target_org = (target.data or [{}])[0].get('org_id') if hasattr(target, 'data') else None
-            except Exception as e:
-                msg = str(e).lower()
-                if 'org_id' in msg and ('does not exist' in msg or 'column' in msg):
-                    return jsonify({'error': 'org_id column missing. Run db/schema.sql in Supabase SQL Editor.'}), 503
-                caller_org = None
-                target_org = None
-            if not caller_org or not target_org:
-                return jsonify({'error': 'User organization is not set. Ask a SuperAdmin to assign orgs.'}), 403
-            if str(caller_org) != str(panorama_org_id) or str(target_org) != str(panorama_org_id):
-                return jsonify({'error': 'You can only grant access to users in your organization'}), 403
-        try:
-            sb.table('panorama_access').upsert({
-                'panorama_id': panorama_id,
-                'user_id': target_user_id,
-                'access_type': at,
-                'granted_by': user_id,
-            }, on_conflict='panorama_id,user_id').execute()
-            return jsonify({'success': True}), 201
-        except Exception as e:
-            return jsonify({'error': str(e)}), 500
-
-    @app.route('/api/panoramas/<int:panorama_id>/access/<target_user_id>', methods=['DELETE'])
-    @require_auth
-    def revoke_panorama_access(user_id, role, panorama_id, target_user_id):
-        sb = get_supabase()
-        if not sb:
-            return jsonify({'error': 'Database not configured'}), 503
-        panorama, access_type = get_panorama_with_access(sb, panorama_id, user_id)
-        if not panorama:
-            return jsonify({'error': 'Panorama not found'}), 404
-        if access_type != 'owner' and role not in ('admin', 'superadmin'):
-            return jsonify({'error': 'Only owner or admin can revoke access'}), 403
-        try:
-            sb.table('panorama_access').delete().eq('panorama_id', panorama_id).eq('user_id', target_user_id).execute()
-            return jsonify({'success': True})
-        except Exception as e:
-            return jsonify({'error': str(e)}), 500
-
-    @app.route('/api/profiles/<user_id>/role', methods=['PUT'])
-    @require_admin
-    def set_profile_role(admin_id, role, user_id):
-        data = request.get_json() or {}
-        new_role = (data.get('role') or 'user').lower()
-        if new_role not in ('superadmin', 'admin', 'user'):
-            return jsonify({'error': 'role must be superadmin, admin, or user'}), 400
-        if new_role == 'superadmin' and role != 'superadmin':
-            return jsonify({'error': 'Only superadmins can grant superadmin role'}), 403
-        sb = get_supabase()
-        if not sb:
-            return jsonify({'error': 'Database not configured'}), 503
-        try:
-            if role != 'superadmin':
-                caller = get_profile(sb, admin_id) or {}
-                caller_org = caller.get('org_id')
-                target = get_profile(sb, user_id) or {}
-                target_org = target.get('org_id')
-                if not caller_org or not target_org or str(caller_org) != str(target_org):
-                    return jsonify({'error': 'You can only manage users in your organization'}), 403
-            sb.table('profiles').update({'role': new_role, 'updated_at': datetime.utcnow().isoformat()}).eq('user_id', user_id).execute()
-            return jsonify({'success': True})
-        except Exception as e:
-            msg = str(e)
-            if 'org_id' in msg.lower() and ('does not exist' in msg.lower() or 'column' in msg.lower()):
-                return jsonify({'error': 'org_id column missing. Run db/schema.sql in Supabase SQL Editor.'}), 503
-            if 'role' in msg.lower() and 'check' in msg.lower():
-                return jsonify({'error': 'profiles.role constraint does not allow this value. Run db/schema.sql in Supabase SQL Editor.'}), 503
-            return jsonify({'error': msg}), 500
-
     @app.route('/api/crm/panoramas', methods=['GET'])
     @require_auth
     def list_crm_panoramas(user_id, role):
@@ -4586,6 +4049,7 @@ def register_routes(app):
         customer_email = str(data.get('customer_email') or data.get('email') or '').strip()
         customer_phone = str(data.get('customer_phone') or data.get('phone') or '').strip()
         category = str(data.get('category') or '').strip()
+        requested_reference_user_id = str(data.get('reference_user_id') or '').strip()
         items = data.get('items') or data.get('plots') or []
         if not isinstance(items, list):
             items = []
@@ -4659,11 +4123,27 @@ def register_routes(app):
         )
         if client_err:
             return client_err
+        reference_scope_user_id = _crm_interest_reference_scope_user_id(
+            sb,
+            user_id,
+            role,
+            client_ids=[client_id] if client_id else None,
+        )
+        resolved_reference_user_id = requested_reference_user_id or reference_scope_user_id or ''
+        reference_user_id, _reference_catalog, _reference_row = _validate_project_reference_user(
+            sb,
+            reference_user_id=resolved_reference_user_id,
+            panorama_id=panorama_id,
+            client_id=client_id,
+        )
+        if resolved_reference_user_id and not reference_user_id:
+            return jsonify({'error': 'Selected reference is not available for this project'}), 400
         now = datetime.utcnow().isoformat()
         insert_row = {
             'panorama_id': panorama_id,
             'client_id': client_id,
             'submitted_by': user_id,
+            'reference_user_id': reference_user_id,
             'customer_name': customer_name,
             'customer_email': customer_email,
             'customer_phone': customer_phone,
@@ -4699,6 +4179,7 @@ def register_routes(app):
         client_scope_ids = _crm_client_scope_ids(sb, user_id, role)
         if client_scope_ids is not None and not client_scope_ids:
             return jsonify([])
+        reference_scope_user_id = _crm_interest_reference_scope_user_id(sb, user_id, role, client_scope_ids)
         panorama_id = request.args.get('panorama_id')
         requested_client_id = (request.args.get('client_id') or '').strip() or None
         status = (request.args.get('status') or '').strip().lower()
@@ -4722,6 +4203,7 @@ def register_routes(app):
             str(role or ''),
             tuple(panorama_ids),
             tuple(client_scope_ids) if isinstance(client_scope_ids, list) else '__ALL__',
+            reference_scope_user_id or '',
             requested_client_id or '',
             panorama_id or 0,
             status,
@@ -4734,7 +4216,7 @@ def register_routes(app):
         try:
             query = (
                 sb.table('buy_interests')
-                .select('id, client_id, panorama_id, contact_id, customer_name, customer_email, customer_phone, category, plots, status, is_contacted, contacted_at, notes, created_at, updated_at, submitted_by, assigned_to, assigned_at')
+                .select('id, client_id, panorama_id, contact_id, reference_user_id, customer_name, customer_email, customer_phone, category, plots, status, is_contacted, contacted_at, notes, created_at, updated_at, submitted_by, assigned_to, assigned_at')
                 .in_('panorama_id', panorama_ids)
             )
             if requested_client_id:
@@ -4745,6 +4227,8 @@ def register_routes(app):
                 query = _crm_apply_client_scope(query, client_scope_ids)
                 if query is None:
                     return jsonify([])
+            if reference_scope_user_id:
+                query = query.eq('reference_user_id', reference_scope_user_id)
             if panorama_id and panorama_id in panorama_ids:
                 query = query.eq('panorama_id', panorama_id)
             if status in ('new', 'contacted'):
@@ -4777,6 +4261,8 @@ def register_routes(app):
                     o['submitted_by'] = str(o['submitted_by'])
                 if 'contact_id' in o and o['contact_id']:
                     o['contact_id'] = str(o['contact_id'])
+                if o.get('reference_user_id'):
+                    o['reference_user_id'] = str(o['reference_user_id'])
                 if o.get('assigned_to'):
                     o['assigned_to'] = str(o['assigned_to'])
                 if o.get('assigned_at'):
@@ -4805,6 +4291,7 @@ def register_routes(app):
         client_scope_ids = _crm_client_scope_ids(sb, user_id, role)
         if client_scope_ids is not None and not client_scope_ids:
             return jsonify({'error': 'Forbidden'}), 403
+        reference_scope_user_id = _crm_interest_reference_scope_user_id(sb, user_id, role, client_scope_ids)
         if 'assigned_to' in data:
             iq = (
                 sb.table('buy_interests')
@@ -4816,6 +4303,8 @@ def register_routes(app):
                 iq = _crm_apply_client_scope(iq, client_scope_ids)
                 if iq is None:
                     return jsonify({'error': 'Not found or access denied'}), 404
+            if reference_scope_user_id:
+                iq = iq.eq('reference_user_id', reference_scope_user_id)
             ir = iq.limit(1).execute()
             if not ir.data:
                 return jsonify({'error': 'Not found or access denied'}), 404
@@ -4856,6 +4345,8 @@ def register_routes(app):
                 uq = _crm_apply_client_scope(uq, client_scope_ids)
                 if uq is None:
                     return jsonify({'error': 'Not found or access denied'}), 404
+            if reference_scope_user_id:
+                uq = uq.eq('reference_user_id', reference_scope_user_id)
             r = uq.execute()
             if not r.data or len(r.data) == 0:
                 return jsonify({'error': 'Not found or access denied'}), 404
@@ -4879,6 +4370,7 @@ def register_routes(app):
         client_scope_ids = _crm_client_scope_ids(sb, user_id, role)
         if client_scope_ids is not None and not client_scope_ids:
             return jsonify({'error': 'Forbidden'}), 403
+        reference_scope_user_id = _crm_interest_reference_scope_user_id(sb, user_id, role, client_scope_ids)
         try:
             eq = (
                 sb.table('buy_interests')
@@ -4890,6 +4382,8 @@ def register_routes(app):
                 eq = _crm_apply_client_scope(eq, client_scope_ids)
                 if eq is None:
                     return jsonify({'error': 'Not found or access denied'}), 404
+            if reference_scope_user_id:
+                eq = eq.eq('reference_user_id', reference_scope_user_id)
             existing = eq.limit(1).execute()
             if not (existing.data or []):
                 return jsonify({'error': 'Not found or access denied'}), 404
@@ -4898,6 +4392,8 @@ def register_routes(app):
                 dq = _crm_apply_client_scope(dq, client_scope_ids)
                 if dq is None:
                     return jsonify({'error': 'Not found or access denied'}), 404
+            if reference_scope_user_id:
+                dq = dq.eq('reference_user_id', reference_scope_user_id)
             dq.execute()
             _crm_cache_bump()
             return jsonify({'success': True})
@@ -4907,13 +4403,13 @@ def register_routes(app):
                 return jsonify({'error': 'buy_interests table not found. Run db/schema.sql in Supabase SQL Editor.'}), 503
             return jsonify({'error': msg}), 500
 
-    def _get_interest_for_user(sb, interest_id, panorama_ids, client_ids=None):
+    def _get_interest_for_user(sb, interest_id, panorama_ids, client_ids=None, reference_user_id=None):
         if not panorama_ids:
             return None
         try:
             q = (
                 sb.table('buy_interests')
-                .select('id, client_id, panorama_id, contact_id, customer_name, customer_email, customer_phone, category, plots, notes, created_at, is_contacted, contacted_at, status, assigned_to, assigned_at')
+                .select('id, client_id, panorama_id, contact_id, reference_user_id, customer_name, customer_email, customer_phone, category, plots, notes, created_at, is_contacted, contacted_at, status, assigned_to, assigned_at')
                 .eq('id', str(interest_id))
                 .in_('panorama_id', panorama_ids)
             )
@@ -4921,6 +4417,8 @@ def register_routes(app):
                 q = _crm_apply_client_scope(q, client_ids)
                 if q is None:
                     return None
+            if reference_user_id:
+                q = q.eq('reference_user_id', str(reference_user_id))
             r = q.limit(1).execute()
             rows = r.data or []
             return rows[0] if rows else None
@@ -4959,6 +4457,7 @@ def register_routes(app):
         client_scope_ids = _crm_client_scope_ids(sb, user_id, role)
         if client_scope_ids is not None and not client_scope_ids:
             return jsonify([])
+        reference_scope_user_id = _crm_interest_reference_scope_user_id(sb, user_id, role, client_scope_ids)
         requested_client_id = (request.args.get('client_id') or '').strip() or None
         q = str(request.args.get('q') or '').strip().lower()
         include_counts = str(request.args.get('include_counts', '1')).strip() != '0'
@@ -4974,6 +4473,7 @@ def register_routes(app):
             str(role or ''),
             tuple(panorama_ids),
             tuple(client_scope_ids) if isinstance(client_scope_ids, list) else '__ALL__',
+            reference_scope_user_id or '',
             requested_client_id or '',
             q,
             int(include_counts),
@@ -5035,6 +4535,8 @@ def register_routes(app):
                     irq = irq.eq('client_id', requested_client_id)
                 elif client_scope_ids is not None:
                     irq = _crm_apply_client_scope(irq, client_scope_ids)
+                if irq is not None and reference_scope_user_id:
+                    irq = irq.eq('reference_user_id', reference_scope_user_id)
                 ir_rows = []
                 if irq is not None:
                     ir_rows = (irq.execute().data or [])
@@ -5187,7 +4689,14 @@ def register_routes(app):
         if not panorama_ids:
             return jsonify({'error': 'Forbidden'}), 403
         client_scope_ids = _crm_client_scope_ids(sb, user_id, role)
-        interest = _get_interest_for_user(sb, interest_id, panorama_ids, client_ids=client_scope_ids)
+        reference_scope_user_id = _crm_interest_reference_scope_user_id(sb, user_id, role, client_scope_ids)
+        interest = _get_interest_for_user(
+            sb,
+            interest_id,
+            panorama_ids,
+            client_ids=client_scope_ids,
+            reference_user_id=reference_scope_user_id,
+        )
         if not interest:
             return jsonify({'error': 'Interest not found'}), 404
         panorama_id = int(interest.get('panorama_id'))
@@ -5309,7 +4818,14 @@ def register_routes(app):
         if not panorama_ids:
             return jsonify({'error': 'Forbidden'}), 403
         client_scope_ids = _crm_client_scope_ids(sb, user_id, role)
-        interest = _get_interest_for_user(sb, interest_id, panorama_ids, client_ids=client_scope_ids)
+        reference_scope_user_id = _crm_interest_reference_scope_user_id(sb, user_id, role, client_scope_ids)
+        interest = _get_interest_for_user(
+            sb,
+            interest_id,
+            panorama_ids,
+            client_ids=client_scope_ids,
+            reference_user_id=reference_scope_user_id,
+        )
         if not interest:
             return jsonify({'error': 'Interest not found'}), 404
         panorama_id = int(interest.get('panorama_id'))
@@ -5410,7 +4926,14 @@ def register_routes(app):
         if not panorama_ids:
             return jsonify({'error': 'Forbidden'}), 403
         client_scope_ids = _crm_client_scope_ids(sb, user_id, role)
-        interest = _get_interest_for_user(sb, interest_id, panorama_ids, client_ids=client_scope_ids)
+        reference_scope_user_id = _crm_interest_reference_scope_user_id(sb, user_id, role, client_scope_ids)
+        interest = _get_interest_for_user(
+            sb,
+            interest_id,
+            panorama_ids,
+            client_ids=client_scope_ids,
+            reference_user_id=reference_scope_user_id,
+        )
         if not interest:
             return jsonify({'error': 'Interest not found'}), 404
         panorama_id = int(interest.get('panorama_id'))
@@ -6049,12 +5572,17 @@ h1 {{ margin:0 0 8px; font-size:22px; }}
             client_ids = []
             seen_client_ids = set()
             for row in (member_rows.data or []):
-                mr = row.get('member_role', '')
-                if mr == 'broker':
+                mr = _normalize_client_member_role(row.get('member_role', ''))
+                if _is_broker_member_role(mr):
                     is_broker = True
-                if mr == 'client_admin':
+                if mr == CLIENT_MEMBER_ROLE_CLIENT_ADMIN:
                     is_client_admin = True
-                if mr in ('client_admin', 'client_user', 'broker'):
+                if mr in (
+                    CLIENT_MEMBER_ROLE_CLIENT_ADMIN,
+                    CLIENT_MEMBER_ROLE_CLIENT_USER,
+                    CLIENT_MEMBER_ROLE_INTERNAL_BROKER,
+                    CLIENT_MEMBER_ROLE_EXTERNAL_BROKER,
+                ):
                     cid = str(row.get('client_id') or '').strip()
                     if cid and cid not in seen_client_ids:
                         seen_client_ids.add(cid)
@@ -7937,1287 +7465,15 @@ h1 {{ margin:0 0 8px; font-size:22px; }}
     # ==================================================================
     register_gallery_routes(app)
 
-    # ── User Management (admin-only) ──────────────────────────────────
-
-    def _get_caller_org_id(sb, user_id):
-        """Return the org_id for the calling user, or None."""
-        profile = get_profile(sb, user_id) or {}
-        return profile.get('org_id')
-
-    def _is_target_admin(sb, target_user_id):
-        """Check if a target user is admin or superadmin."""
-        target = get_profile(sb, target_user_id) or {}
-        return target.get('role') in ('admin', 'superadmin')
-
-    def _can_manage_target(sb, caller_id, caller_role, target_user_id):
-        """
-        Returns (ok, error_msg, status_code).
-        Admin cannot modify another admin. Superadmin can manage anyone.
-        Both must share the same org (unless superadmin).
-        """
-        caller_profile = get_profile(sb, caller_id) or {}
-        caller_org = caller_profile.get('org_id')
-        if not caller_org:
-            return False, 'Your organization is not set', 403
-
-        target_profile = get_profile(sb, target_user_id) or {}
-        target_org = target_profile.get('org_id')
-        target_role = target_profile.get('role', 'user')
-
-        if caller_role != 'superadmin':
-            if not target_org or str(target_org) != str(caller_org):
-                return False, 'User is not in your organization', 403
-            if target_role in ('admin', 'superadmin'):
-                return False, 'You cannot modify another admin user', 403
-            if str(target_user_id) == str(caller_id):
-                return False, 'You cannot modify your own account here', 403
-        return True, None, None
-
-    @app.route('/api/admin/org-users', methods=['GET'])
-    @require_admin
-    def admin_list_org_users(user_id, role):
-        """List all users in the admin's org, with role info."""
-        sb = get_supabase()
-        if not sb:
-            return jsonify({'error': 'Database not configured'}), 503
-        profile = get_profile(sb, user_id) or {}
-        org_id = profile.get('org_id')
-        if not org_id:
-            return jsonify({'error': 'Your organization is not set'}), 403
-        try:
-            r = sb.table('profiles').select(
-                'user_id, display_name, email, role, created_at'
-            ).eq('org_id', org_id).order('created_at', desc=True).execute()
-            users = []
-            for row in (r.data or []):
-                if not row.get('user_id') or not str(row['user_id']).strip():
-                    continue
-                o = dict(row)
-                o['user_id'] = str(o['user_id'])
-                o['is_self'] = str(o['user_id']) == str(user_id)
-                # Admin can't manage other admins (but superadmin can)
-                o['can_manage'] = (
-                    role == 'superadmin'
-                    or (o['role'] not in ('admin', 'superadmin') and not o['is_self'])
-                )
-                if o.get('created_at'):
-                    o['created_at'] = str(o['created_at'])
-                users.append(o)
-            return jsonify(users)
-        except Exception as e:
-            return jsonify({'error': str(e)}), 500
-
-    @app.route('/api/admin/invite-user', methods=['POST'])
-    @require_admin
-    def admin_invite_user(user_id, role):
-        """Send an email invite to a new user. display_name is required."""
-        if not app_config.SUPABASE_URL or not app_config.SUPABASE_SERVICE_ROLE_KEY:
-            return jsonify({'error': 'Server not configured for inviting users'}), 503
-        sb = get_supabase()
-        if not sb:
-            return jsonify({'error': 'Database not configured'}), 503
-        caller_profile = get_profile(sb, user_id) or {}
-        org_id = caller_profile.get('org_id')
-        if not org_id:
-            return jsonify({'error': 'Your organization is not set'}), 403
-
-        data = request.get_json() or {}
-        email = (data.get('email') or '').strip().lower()
-        display_name = (data.get('display_name') or '').strip()
-        invite_role = str(data.get('role') or 'user').strip().lower()
-        if invite_role not in ('admin', 'user'):
-            invite_role = 'user'
-        if not email or '@' not in email:
-            return jsonify({'error': 'Valid email is required'}), 400
-        if not display_name:
-            return jsonify({'error': 'Display name is required when inviting a user'}), 400
-
-        # Check if user already exists in this org
-        try:
-            existing = sb.table('profiles').select('user_id, email').eq('email', email).limit(1).execute()
-            if existing.data and len(existing.data) > 0:
-                return jsonify({'error': 'A user with this email already exists'}), 409
-        except Exception:
-            pass
-
-        try:
-            from supabase import create_client
-            admin_sb = create_client(app_config.SUPABASE_URL, app_config.SUPABASE_SERVICE_ROLE_KEY)
-
-            # Use invite_user_by_email to send the invite email
-            resp = admin_sb.auth.admin.invite_user_by_email(
-                email,
-                options={
-                    'data': {
-                        'display_name': display_name,
-                    }
-                }
-            )
-            new_uid = resp.user.id
-
-            # Create the profile immediately so display_name is stored
-            profile_row = {
-                'user_id': str(new_uid),
-                'role': invite_role,
-                'email': email,
-                'display_name': display_name,
-                'org_id': str(org_id),
-            }
-            try:
-                admin_sb.table('profiles').upsert(profile_row, on_conflict='user_id').execute()
-            except Exception:
-                pass
-
-            # Record the invite
-            try:
-                admin_sb.table('user_invites').insert({
-                    'org_id': str(org_id),
-                    'invited_by': str(user_id),
-                    'email': email,
-                    'display_name': display_name,
-                    'role': invite_role,
-                    'status': 'pending',
-                    'invited_user_id': str(new_uid),
-                }).execute()
-            except Exception:
-                pass  # invite tracking is best-effort
-
-            return jsonify({
-                'success': True,
-                'user': {
-                    'id': str(new_uid),
-                    'email': email,
-                    'display_name': display_name,
-                    'role': invite_role,
-                }
-            }), 201
-        except Exception as e:
-            err = str(e)
-            if 'already registered' in err.lower() or 'already exists' in err.lower():
-                return jsonify({'error': 'A user with this email already exists'}), 409
-            return jsonify({'error': err or 'Failed to invite user'}), 400
-
-    @app.route('/api/admin/users/<target_user_id>/details', methods=['PUT', 'PATCH'])
-    @require_admin
-    def admin_update_user_details(user_id, role, target_user_id):
-        """Update display_name and/or email for a user in the org."""
-        sb = get_supabase()
-        if not sb:
-            return jsonify({'error': 'Database not configured'}), 503
-
-        ok, err_msg, status = _can_manage_target(sb, user_id, role, target_user_id)
-        if not ok:
-            return jsonify({'error': err_msg}), status
-
-        data = request.get_json() or {}
-        payload = {'updated_at': datetime.utcnow().isoformat()}
-        if 'display_name' in data:
-            dn = (data.get('display_name') or '').strip()
-            if not dn:
-                return jsonify({'error': 'Display name cannot be empty'}), 400
-            payload['display_name'] = dn
-        if 'email' in data:
-            em = (data.get('email') or '').strip().lower()
-            if not em or '@' not in em:
-                return jsonify({'error': 'Valid email is required'}), 400
-            payload['email'] = em
-
-        if len(payload) <= 1:
-            return jsonify({'error': 'Provide display_name and/or email'}), 400
-
-        try:
-            sb.table('profiles').update(payload).eq('user_id', target_user_id).execute()
-
-            # Also update email in Supabase Auth if changed
-            if 'email' in data and app_config.SUPABASE_SERVICE_ROLE_KEY:
-                try:
-                    from supabase import create_client
-                    admin_sb = create_client(app_config.SUPABASE_URL, app_config.SUPABASE_SERVICE_ROLE_KEY)
-                    admin_sb.auth.admin.update_user_by_id(
-                        str(target_user_id),
-                        {'email': payload['email']}
-                    )
-                except Exception:
-                    pass
-
-            # Update display_name in Supabase Auth user_metadata
-            if 'display_name' in data and app_config.SUPABASE_SERVICE_ROLE_KEY:
-                try:
-                    from supabase import create_client
-                    admin_sb = create_client(app_config.SUPABASE_URL, app_config.SUPABASE_SERVICE_ROLE_KEY)
-                    admin_sb.auth.admin.update_user_by_id(
-                        str(target_user_id),
-                        {'user_metadata': {'display_name': payload['display_name']}}
-                    )
-                except Exception:
-                    pass
-
-            return jsonify({'success': True})
-        except Exception as e:
-            return jsonify({'error': str(e)}), 500
-
-    @app.route('/api/admin/users/<target_user_id>/password', methods=['PUT'])
-    @require_admin
-    def admin_reset_user_password(user_id, role, target_user_id):
-        """Reset password for a user in the org. Admin cannot reset another admin's password."""
-        if not app_config.SUPABASE_URL or not app_config.SUPABASE_SERVICE_ROLE_KEY:
-            return jsonify({'error': 'Server not configured'}), 503
-        sb = get_supabase()
-        if not sb:
-            return jsonify({'error': 'Database not configured'}), 503
-
-        ok, err_msg, status = _can_manage_target(sb, user_id, role, target_user_id)
-        if not ok:
-            return jsonify({'error': err_msg}), status
-
-        data = request.get_json() or {}
-        new_password = data.get('password') or ''
-        if len(new_password) < 6:
-            return jsonify({'error': 'Password must be at least 6 characters'}), 400
-
-        try:
-            from supabase import create_client
-            admin_sb = create_client(app_config.SUPABASE_URL, app_config.SUPABASE_SERVICE_ROLE_KEY)
-            admin_sb.auth.admin.update_user_by_id(
-                str(target_user_id),
-                {'password': new_password}
-            )
-            return jsonify({'success': True})
-        except Exception as e:
-            return jsonify({'error': str(e) or 'Failed to update password'}), 500
-
-    @app.route('/api/admin/users/<target_user_id>/role', methods=['PUT'])
-    @require_admin
-    def admin_toggle_user_role(user_id, role, target_user_id):
-        """Toggle a user's role between 'user' and 'admin'. Admin cannot change another admin."""
-        sb = get_supabase()
-        if not sb:
-            return jsonify({'error': 'Database not configured'}), 503
-
-        data = request.get_json() or {}
-        new_role = (data.get('role') or 'user').lower()
-        if new_role not in ('admin', 'user'):
-            return jsonify({'error': 'Role must be admin or user'}), 400
-
-        # Check target's current role
-        target_profile = get_profile(sb, target_user_id) or {}
-        target_current_role = target_profile.get('role', 'user')
-        target_org = target_profile.get('org_id')
-
-        caller_profile = get_profile(sb, user_id) or {}
-        caller_org = caller_profile.get('org_id')
-
-        if not caller_org:
-            return jsonify({'error': 'Your organization is not set'}), 403
-        if str(target_user_id) == str(user_id):
-            return jsonify({'error': 'You cannot change your own role'}), 403
-
-        if role != 'superadmin':
-            if not target_org or str(target_org) != str(caller_org):
-                return jsonify({'error': 'User is not in your organization'}), 403
-            # Admin can only promote/demote non-admin users
-            if target_current_role in ('admin', 'superadmin'):
-                return jsonify({'error': 'You cannot modify another admin user'}), 403
-
-        try:
-            sb.table('profiles').update({
-                'role': new_role,
-                'updated_at': datetime.utcnow().isoformat()
-            }).eq('user_id', target_user_id).execute()
-            return jsonify({'success': True, 'new_role': new_role})
-        except Exception as e:
-            return jsonify({'error': str(e)}), 500
-
-    @app.route('/api/admin/users/<target_user_id>', methods=['DELETE'])
-    @require_admin
-    def admin_delete_user(user_id, role, target_user_id):
-        """Delete a user from the org. Admin can only delete normal users."""
-        if not app_config.SUPABASE_URL or not app_config.SUPABASE_SERVICE_ROLE_KEY:
-            return jsonify({'error': 'Server not configured'}), 503
-        sb = get_supabase()
-        if not sb:
-            return jsonify({'error': 'Database not configured'}), 503
-
-        ok, err_msg, status = _can_manage_target(sb, user_id, role, target_user_id)
-        if not ok:
-            return jsonify({'error': err_msg}), status
-
-        try:
-            from supabase import create_client
-            admin_sb = create_client(app_config.SUPABASE_URL, app_config.SUPABASE_SERVICE_ROLE_KEY)
-            # Delete the profile first
-            admin_sb.table('profiles').delete().eq('user_id', target_user_id).execute()
-            # Delete the auth user (cascades related data via FK)
-            admin_sb.auth.admin.delete_user(str(target_user_id))
-            return jsonify({'success': True})
-        except Exception as e:
-            return jsonify({'error': str(e) or 'Failed to delete user'}), 500
-
-    @app.route('/api/admin/invites', methods=['GET'])
-    @require_admin
-    def admin_list_invites(user_id, role):
-        """List all invites sent for the admin's org."""
-        sb = get_supabase()
-        if not sb:
-            return jsonify({'error': 'Database not configured'}), 503
-        org_id = _get_caller_org_id(sb, user_id)
-        if not org_id:
-            return jsonify({'error': 'Your organization is not set'}), 403
-        try:
-            r = sb.table('user_invites').select(
-                'id, email, display_name, role, status, created_at'
-            ).eq('org_id', org_id).order('created_at', desc=True).execute()
-            out = []
-            for row in (r.data or []):
-                o = dict(row)
-                if o.get('created_at'):
-                    o['created_at'] = str(o['created_at'])
-                out.append(o)
-            return jsonify(out)
-        except Exception as e:
-            msg = str(e)
-            if 'user_invites' in msg and ('does not exist' in msg.lower() or 'relation' in msg.lower()):
-                return jsonify([])  # table not yet created, return empty
-            return jsonify({'error': msg}), 500
-
-    # ── Client Group Management ──────────────────────────────────────────────
-
-    def _get_client_org(sb, client_id, caller_id, caller_role):
-        """Return (client_row, error_response). Verifies org boundary."""
-        try:
-            r = sb.table('clients').select('*').eq('id', client_id).limit(1).execute()
-        except Exception as e:
-            return None, (jsonify({'error': str(e)}), 500)
-        if not r.data:
-            return None, (jsonify({'error': 'Client group not found'}), 404)
-        client = r.data[0]
-        if caller_role != 'superadmin':
-            caller_org = _get_caller_org_id(sb, caller_id)
-            if not caller_org or str(client.get('org_id')) != str(caller_org):
-                return None, (jsonify({'error': 'Forbidden'}), 403)
-        return client, None
-
-    def _is_client_admin_of(sb, user_id, client_id):
-        """Check if user is a client_admin in the given client group."""
-        try:
-            r = sb.table('client_members').select('id').eq('client_id', client_id).eq('user_id', user_id).eq('member_role', 'client_admin').limit(1).execute()
-            return bool(r.data and len(r.data) > 0)
-        except Exception:
-            return False
-
-    def _build_client_team_invite_link(invite_token):
-        base = (request.url_root or '').rstrip('/')
-        return f"{base}/client-invite/{invite_token}"
-
-    def _send_client_team_invite_email(to_email, inviter_name, client_name, invite_link):
-        subject = f"{inviter_name} invited you to join {client_name}"
-        body = (
-            f"Hi,\n\n"
-            f"{inviter_name} has invited you to join his team {client_name}.\n\n"
-            f"Accept invitation:\n{invite_link}\n\n"
-            f"If you don't have an account yet, sign up with this same email and the invite will be applied automatically.\n"
-            f"If you already have an account, sign in and accept.\n\n"
-            f"Regards,\nPropMark"
-        )
-        inviter_name_html = escape(str(inviter_name or "A teammate"))
-        client_name_html = escape(str(client_name or "Team"))
-        invite_link_html = escape(str(invite_link or ""))
-        html_body = f"""<!doctype html>
-<html>
-  <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width,initial-scale=1">
-    <title>Team Invite</title>
-  </head>
-  <body style="margin:0;padding:0;background:#f3f5f9;">
-    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:#f3f5f9;padding:24px 12px;">
-      <tr>
-        <td align="center">
-          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:620px;background:#ffffff;border:1px solid #e5eaf2;border-radius:16px;overflow:hidden;">
-            <tr>
-              <td style="padding:24px 28px;background:linear-gradient(135deg,#0f172a,#1e293b);color:#ffffff;">
-                <div style="font-size:13px;letter-spacing:0.08em;text-transform:uppercase;opacity:0.86;">PropMark</div>
-                <h1 style="margin:10px 0 0 0;font-size:24px;line-height:1.3;font-weight:700;">You are invited to join a client team</h1>
-              </td>
-            </tr>
-            <tr>
-              <td style="padding:26px 28px 18px 28px;color:#0f172a;font-family:Arial,Helvetica,sans-serif;">
-                <p style="margin:0 0 14px 0;font-size:15px;line-height:1.7;">
-                  <strong>{inviter_name_html}</strong> has invited you to join team
-                  <strong>{client_name_html}</strong>.
-                </p>
-                <p style="margin:0 0 18px 0;font-size:14px;line-height:1.7;color:#334155;">
-                  Use the button below to accept this invitation. If you already have an account, sign in. If not, sign up with this same email and you will be added automatically.
-                </p>
-                <table role="presentation" cellspacing="0" cellpadding="0" border="0" style="margin:0 0 18px 0;">
-                  <tr>
-                    <td align="center" bgcolor="#0f172a" style="border-radius:10px;">
-                      <a href="{invite_link_html}" style="display:inline-block;padding:12px 20px;font-size:14px;font-weight:700;line-height:1;color:#ffffff;text-decoration:none;border-radius:10px;">
-                        Accept Invitation
-                      </a>
-                    </td>
-                  </tr>
-                </table>
-                <div style="margin:0 0 4px 0;font-size:12px;color:#64748b;">Button not working? Copy and paste this link in your browser:</div>
-                <div style="font-size:12px;word-break:break-all;color:#1d4ed8;">
-                  <a href="{invite_link_html}" style="color:#1d4ed8;text-decoration:none;">{invite_link_html}</a>
-                </div>
-              </td>
-            </tr>
-            <tr>
-              <td style="padding:16px 28px 24px 28px;border-top:1px solid #e5eaf2;color:#64748b;font-size:12px;font-family:Arial,Helvetica,sans-serif;">
-                This invitation was sent by PropMark.
-              </td>
-            </tr>
-          </table>
-        </td>
-      </tr>
-    </table>
-  </body>
-</html>"""
-        send_smtp_email(
-            smtp_host=app_config.SMTP_HOST,
-            smtp_port=app_config.SMTP_PORT,
-            smtp_username=app_config.SMTP_USERNAME,
-            smtp_password=app_config.SMTP_PASSWORD,
-            smtp_use_tls=app_config.SMTP_USE_TLS,
-            from_email=app_config.SMTP_FROM_EMAIL,
-            from_name=app_config.SMTP_FROM_NAME,
-            to_email=to_email,
-            subject=subject,
-            text_body=body,
-            html_body=html_body,
-            brevo_api_key=app_config.BREVO_API_KEY,
-        )
-
-    def _accept_client_team_invite_token(sb, token, user_id):
-        token = (token or '').strip()
-        if not token:
-            return False, 'Invite token is required', 400
-
-        ir = (
-            sb.table('client_team_invites')
-            .select('*')
-            .eq('invite_token', token)
-            .limit(1)
-            .execute()
-        )
-        invite = (ir.data or [None])[0]
-        if not invite:
-            return False, 'Invite not found', 404
-        status = str(invite.get('status') or '').lower()
-        if status not in ('pending', 'accepted'):
-            return False, 'Invite is not active', 400
-        expires_at = invite.get('expires_at')
-        if expires_at:
-            try:
-                expiry = datetime.fromisoformat(str(expires_at).replace('Z', '+00:00'))
-                now = datetime.utcnow().replace(tzinfo=expiry.tzinfo)
-                if now > expiry:
-                    try:
-                        sb.table('client_team_invites').update({'status': 'expired', 'updated_at': datetime.utcnow().isoformat()}).eq('id', invite.get('id')).execute()
-                    except Exception:
-                        pass
-                    return False, 'Invite has expired', 400
-            except Exception:
-                pass
-
-        # Validate email ownership to prevent token misuse
-        profile = get_profile(sb, user_id) or {}
-        session_email = str(profile.get('email') or '').strip().lower()
-        invite_email = str(invite.get('email') or '').strip().lower()
-        if session_email and invite_email and session_email != invite_email:
-            return False, 'This invite belongs to a different email address', 403
-
-        client_id = str(invite.get('client_id') or '')
-        if not client_id:
-            return False, 'Invalid invite', 400
-        member_role = str(invite.get('member_role') or 'client_user')
-        if member_role not in ('client_user', 'broker'):
-            member_role = 'client_user'
-
-        # Already a member -> just mark accepted
-        existing_member = (
-            sb.table('client_members')
-            .select('id')
-            .eq('client_id', client_id)
-            .eq('user_id', str(user_id))
-            .limit(1)
-            .execute()
-        )
-        member_id = None
-        if existing_member.data:
-            member_id = existing_member.data[0].get('id')
-        else:
-            ins = (
-                sb.table('client_members')
-                .insert({
-                    'client_id': client_id,
-                    'user_id': str(user_id),
-                    'member_role': member_role,
-                    'invited_by': invite.get('invited_by'),
-                })
-                .execute()
-            )
-            member = (ins.data or [None])[0]
-            member_id = member.get('id') if member else None
-            if member_id:
-                _cascade_access_for_new_member(sb, client_id, member_id, user_id, member_role, invite.get('invited_by') or user_id)
-                _propagate_new_member_access_to_group(sb, client_id, member_id, user_id, member_role, invite.get('invited_by') or user_id)
-
-        # Ensure profile org is linked
-        try:
-            org_id = invite.get('org_id')
-            if org_id:
-                sb.table('profiles').update({'org_id': str(org_id), 'updated_at': datetime.utcnow().isoformat()}).eq('user_id', str(user_id)).execute()
-        except Exception:
-            pass
-
-        sb.table('client_team_invites').update({
-            'status': 'accepted',
-            'accepted_at': datetime.utcnow().isoformat(),
-            'accepted_user_id': str(user_id),
-            'updated_at': datetime.utcnow().isoformat(),
-        }).eq('id', invite.get('id')).execute()
-
-        return True, {
-            'client_id': client_id,
-            'member_role': member_role,
-            'member_id': member_id,
-        }, 200
-
-    def _propagate_new_member_access_to_group(sb, client_id, new_member_id, new_user_id, member_role, granter_id):
-        """When a new member with existing project access joins a group, grant those projects to all existing group members."""
-        if member_role not in ('client_admin', 'client_user'):
-            return
-        try:
-            # Get new user's existing panorama_access (all rows, not just client-tagged)
-            pa = sb.table('panorama_access').select('panorama_id, access_type').eq('user_id', str(new_user_id)).execute()
-            ws_a = sb.table('workspace_access').select('workspace_id, access_type').eq('user_id', str(new_user_id)).execute()
-            pano_rows = [(r.get('panorama_id'), r.get('access_type', 'client')) for r in (pa.data or []) if r.get('panorama_id')]
-            ws_rows = [(r.get('workspace_id'), r.get('access_type', 'client')) for r in (ws_a.data or []) if r.get('workspace_id')]
-            if not pano_rows and not ws_rows:
-                return
-            # Get all existing members (excluding the new one) with their client_member_id and user_id
-            existing = sb.table('client_members').select('id, user_id, member_role').eq('client_id', client_id).neq('id', new_member_id).execute()
-            siblings = [(r.get('id'), str(r.get('user_id') or ''), r.get('member_role')) for r in (existing.data or []) if r.get('id') and r.get('user_id')]
-            # Also include the new member themselves (tag their own access with client_member_id)
-            siblings.append((new_member_id, str(new_user_id), member_role))
-            for (mid, uid, mrole) in siblings:
-                if mrole not in ('client_admin', 'client_user'):
-                    continue
-                for (pid, atype) in pano_rows:
-                    if str(uid) == str(new_user_id):
-                        # New member: update their existing row to tag with client_member_id
-                        pass  # their personal row stays as-is; we don't overwrite it
-                    try:
-                        sb.table('panorama_access').upsert({
-                            'panorama_id': pid, 'user_id': str(uid),
-                            'access_type': atype, 'granted_by': str(granter_id),
-                            'client_member_id': mid,
-                        }, on_conflict='panorama_id,user_id').execute()
-                    except Exception:
-                        pass
-                for (wsid, atype) in ws_rows:
-                    try:
-                        sb.table('workspace_access').upsert({
-                            'workspace_id': str(wsid), 'user_id': str(uid),
-                            'access_type': atype, 'granted_by': str(granter_id),
-                            'client_member_id': mid,
-                        }, on_conflict='workspace_id,user_id').execute()
-                    except Exception:
-                        pass
-        except Exception:
-            pass
-
-    def _cascade_access_for_new_member(sb, client_id, new_member_id, new_user_id, member_role, granter_id):
-        """When adding a client_user, grant them access to all resources already accessible to this client group."""
-        if member_role not in ('client_admin', 'client_user'):
-            return
-        try:
-            existing = sb.table('client_members').select('id').eq('client_id', client_id).neq('id', new_member_id).execute()
-            sibling_ids = [r.get('id') for r in (existing.data or []) if r.get('id')]
-            if not sibling_ids:
-                return
-            pa = sb.table('panorama_access').select('panorama_id, access_type').in_('client_member_id', sibling_ids).execute()
-            seen_pano = set()
-            for row in (pa.data or []):
-                pid = row.get('panorama_id')
-                if pid in seen_pano:
-                    continue
-                seen_pano.add(pid)
-                try:
-                    sb.table('panorama_access').upsert({
-                        'panorama_id': pid, 'user_id': str(new_user_id),
-                        'access_type': row.get('access_type', 'client'),
-                        'granted_by': str(granter_id), 'client_member_id': new_member_id,
-                    }, on_conflict='panorama_id,user_id').execute()
-                except Exception:
-                    pass
-            wa = sb.table('workspace_access').select('workspace_id, access_type').in_('client_member_id', sibling_ids).execute()
-            seen_ws = set()
-            for row in (wa.data or []):
-                wsid = row.get('workspace_id')
-                if wsid in seen_ws:
-                    continue
-                seen_ws.add(wsid)
-                try:
-                    sb.table('workspace_access').upsert({
-                        'workspace_id': str(wsid), 'user_id': str(new_user_id),
-                        'access_type': row.get('access_type', 'client'),
-                        'granted_by': str(granter_id), 'client_member_id': new_member_id,
-                    }, on_conflict='workspace_id,user_id').execute()
-                except Exception:
-                    pass
-        except Exception:
-            pass
-
-    @app.route('/api/clients', methods=['GET'])
-    @require_admin
-    def list_clients(user_id, role):
-        sb = get_supabase()
-        if not sb:
-            return jsonify({'error': 'Database not configured'}), 503
-        org_id = _get_caller_org_id(sb, user_id)
-        if not org_id:
-            return jsonify({'error': 'Organization not set'}), 403
-        try:
-            r = sb.table('clients').select('id, name, description, created_by, created_at, updated_at').eq('org_id', org_id).order('name').execute()
-            out = []
-            for row in (r.data or []):
-                o = dict(row)
-                if o.get('created_at'):
-                    o['created_at'] = str(o['created_at'])
-                if o.get('updated_at'):
-                    o['updated_at'] = str(o['updated_at'])
-                try:
-                    cnt = sb.table('client_members').select('id', count='exact').eq('client_id', o['id']).execute()
-                    o['member_count'] = cnt.count if cnt.count is not None else len(cnt.data or [])
-                except Exception:
-                    o['member_count'] = 0
-                out.append(o)
-            return jsonify(out)
-        except Exception as e:
-            return jsonify({'error': str(e)}), 500
-
-    @app.route('/api/clients', methods=['POST'])
-    @require_admin
-    def create_client(user_id, role):
-        sb = get_supabase()
-        if not sb:
-            return jsonify({'error': 'Database not configured'}), 503
-        org_id = _get_caller_org_id(sb, user_id)
-        if not org_id:
-            return jsonify({'error': 'Organization not set'}), 403
-        data = request.get_json(silent=True) or {}
-        name = (data.get('name') or '').strip()
-        description = (data.get('description') or '').strip()
-        if not name:
-            return jsonify({'error': 'Client name is required'}), 400
-        try:
-            r = sb.table('clients').insert({
-                'org_id': str(org_id), 'name': name, 'description': description,
-                'created_by': str(user_id),
-            }).execute()
-            row = dict(r.data[0]) if r.data else {}
-            if row.get('created_at'):
-                row['created_at'] = str(row['created_at'])
-            row['member_count'] = 0
-            return jsonify(row), 201
-        except Exception as e:
-            msg = str(e)
-            if 'unique' in msg.lower() or '23505' in msg:
-                return jsonify({'error': 'A client with this name already exists'}), 409
-            return jsonify({'error': msg}), 500
-
-    @app.route('/api/clients/<client_id>', methods=['PATCH', 'PUT'])
-    @require_admin
-    def update_client(user_id, role, client_id):
-        sb = get_supabase()
-        if not sb:
-            return jsonify({'error': 'Database not configured'}), 503
-        _client, err = _get_client_org(sb, client_id, user_id, role)
-        if err:
-            return err
-        data = request.get_json(silent=True) or {}
-        updates = {}
-        if 'name' in data:
-            name = (data['name'] or '').strip()
-            if not name:
-                return jsonify({'error': 'Client name cannot be empty'}), 400
-            updates['name'] = name
-        if 'description' in data:
-            updates['description'] = (data.get('description') or '').strip()
-        if not updates:
-            return jsonify({'success': True})
-        try:
-            sb.table('clients').update(updates).eq('id', client_id).execute()
-            return jsonify({'success': True})
-        except Exception as e:
-            msg = str(e)
-            if 'unique' in msg.lower() or '23505' in msg:
-                return jsonify({'error': 'A client with this name already exists'}), 409
-            return jsonify({'error': msg}), 500
-
-    @app.route('/api/clients/<client_id>', methods=['DELETE'])
-    @require_admin
-    def delete_client(user_id, role, client_id):
-        sb = get_supabase()
-        if not sb:
-            return jsonify({'error': 'Database not configured'}), 503
-        _client, err = _get_client_org(sb, client_id, user_id, role)
-        if err:
-            return err
-        try:
-            sb.table('clients').delete().eq('id', client_id).execute()
-            return jsonify({'success': True})
-        except Exception as e:
-            return jsonify({'error': str(e)}), 500
-
-    @app.route('/api/clients/mine', methods=['GET'])
-    @require_auth
-    def list_my_client_groups(user_id, role):
-        """Return client groups where the caller is a client_admin."""
-        sb = get_supabase()
-        if not sb:
-            return jsonify({'error': 'Database not configured'}), 503
-        try:
-            rows = sb.table('client_members').select('client_id').eq('user_id', user_id).eq('member_role', 'client_admin').execute()
-            client_ids = [r.get('client_id') for r in (rows.data or []) if r.get('client_id')]
-            if not client_ids:
-                return jsonify([])
-            r = sb.table('clients').select('id, name, description, created_at').in_('id', client_ids).order('name').execute()
-            out = []
-            for row in (r.data or []):
-                o = dict(row)
-                if o.get('created_at'):
-                    o['created_at'] = str(o['created_at'])
-                try:
-                    cnt = sb.table('client_members').select('id', count='exact').eq('client_id', o['id']).execute()
-                    o['member_count'] = cnt.count if cnt.count is not None else len(cnt.data or [])
-                except Exception:
-                    o['member_count'] = 0
-                out.append(o)
-            return jsonify(out)
-        except Exception as e:
-            return jsonify({'error': str(e)}), 500
-
-    @app.route('/api/clients/<client_id>/members', methods=['GET'])
-    @require_auth
-    def list_client_members(user_id, role, client_id):
-        sb = get_supabase()
-        if not sb:
-            return jsonify({'error': 'Database not configured'}), 503
-        is_admin = role in ('admin', 'superadmin')
-        if not is_admin and not _is_client_admin_of(sb, user_id, client_id):
-            return jsonify({'error': 'Forbidden'}), 403
-        if is_admin:
-            _client, err = _get_client_org(sb, client_id, user_id, role)
-            if err:
-                return err
-        try:
-            rows = sb.table('client_members').select('id, user_id, member_role, invited_by, created_at').eq('client_id', client_id).order('created_at').execute()
-            member_user_ids = [r.get('user_id') for r in (rows.data or []) if r.get('user_id')]
-            profiles_map = {}
-            if member_user_ids:
-                pr = sb.table('profiles').select('user_id, display_name, email').in_('user_id', member_user_ids).execute()
-                for p in (pr.data or []):
-                    profiles_map[str(p.get('user_id'))] = p
-            out = []
-            for row in (rows.data or []):
-                o = dict(row)
-                uid = str(o.get('user_id') or '')
-                prof = profiles_map.get(uid, {})
-                o['display_name'] = prof.get('display_name') or prof.get('email') or uid
-                o['email'] = prof.get('email') or ''
-                if o.get('created_at'):
-                    o['created_at'] = str(o['created_at'])
-                out.append(o)
-            return jsonify(out)
-        except Exception as e:
-            return jsonify({'error': str(e)}), 500
-
-    @app.route('/api/clients/<client_id>/members', methods=['POST'])
-    @require_auth
-    def add_client_member(user_id, role, client_id):
-        sb = get_supabase()
-        if not sb:
-            return jsonify({'error': 'Database not configured'}), 503
-        is_admin = role in ('admin', 'superadmin')
-        is_client_admin = _is_client_admin_of(sb, user_id, client_id)
-        if not is_admin and not is_client_admin:
-            return jsonify({'error': 'Forbidden'}), 403
-        if is_admin:
-            client, err = _get_client_org(sb, client_id, user_id, role)
-            if err:
-                return err
-        else:
-            try:
-                r = sb.table('clients').select('id, org_id').eq('id', client_id).limit(1).execute()
-                client = r.data[0] if r.data else None
-            except Exception:
-                client = None
-            if not client:
-                return jsonify({'error': 'Client group not found'}), 404
-        data = request.get_json(silent=True) or {}
-        target_user_id = (data.get('user_id') or '').strip()
-        member_role = (data.get('member_role') or 'client_user').strip()
-        if member_role not in ('client_admin', 'client_user'):
-            return jsonify({'error': 'Invalid member_role'}), 400
-        if not target_user_id:
-            return jsonify({'error': 'user_id is required'}), 400
-        try:
-            tp = sb.table('profiles').select('user_id, org_id').eq('user_id', target_user_id).limit(1).execute()
-            if not tp.data:
-                return jsonify({'error': 'User not found'}), 404
-            target_org = tp.data[0].get('org_id')
-            client_org = str(client.get('org_id') or '')
-            if target_org and client_org and str(target_org) != client_org:
-                return jsonify({'error': 'User is not in your organization'}), 403
-        except Exception as e:
-            return jsonify({'error': str(e)}), 500
-        try:
-            r = sb.table('client_members').insert({
-                'client_id': str(client_id), 'user_id': str(target_user_id),
-                'member_role': member_role, 'invited_by': str(user_id),
-            }).execute()
-            new_member = r.data[0] if r.data else {}
-            new_member_id = new_member.get('id')
-            if new_member_id:
-                _cascade_access_for_new_member(sb, client_id, new_member_id, target_user_id, member_role, user_id)
-                _propagate_new_member_access_to_group(sb, client_id, new_member_id, target_user_id, member_role, user_id)
-            return jsonify({'success': True, 'member': new_member}), 201
-        except Exception as e:
-            msg = str(e)
-            if 'unique' in msg.lower() or '23505' in msg:
-                return jsonify({'error': 'User is already a member of this client group'}), 409
-            return jsonify({'error': msg}), 500
-
-    @app.route('/api/clients/<client_id>/members/<target_user_id>', methods=['PATCH', 'PUT'])
-    @require_auth
-    def update_client_member_role(user_id, role, client_id, target_user_id):
-        sb = get_supabase()
-        if not sb:
-            return jsonify({'error': 'Database not configured'}), 503
-        is_admin = role in ('admin', 'superadmin')
-        if not is_admin and not _is_client_admin_of(sb, user_id, client_id):
-            return jsonify({'error': 'Forbidden'}), 403
-        if is_admin:
-            _client, err = _get_client_org(sb, client_id, user_id, role)
-            if err:
-                return err
-        data = request.get_json(silent=True) or {}
-        new_role = (data.get('member_role') or '').strip()
-        if new_role not in ('client_admin', 'client_user'):
-            return jsonify({'error': 'Invalid member_role'}), 400
-        try:
-            sb.table('client_members').update({'member_role': new_role}).eq('client_id', client_id).eq('user_id', target_user_id).execute()
-            return jsonify({'success': True})
-        except Exception as e:
-            return jsonify({'error': str(e)}), 500
-
-    @app.route('/api/clients/<client_id>/members/<target_user_id>', methods=['DELETE'])
-    @require_auth
-    def remove_client_member(user_id, role, client_id, target_user_id):
-        sb = get_supabase()
-        if not sb:
-            return jsonify({'error': 'Database not configured'}), 503
-        is_admin = role in ('admin', 'superadmin')
-        if not is_admin and not _is_client_admin_of(sb, user_id, client_id):
-            return jsonify({'error': 'Forbidden'}), 403
-        if is_admin:
-            _client, err = _get_client_org(sb, client_id, user_id, role)
-            if err:
-                return err
-        try:
-            sb.table('client_members').delete().eq('client_id', client_id).eq('user_id', target_user_id).execute()
-            return jsonify({'success': True})
-        except Exception as e:
-            return jsonify({'error': str(e)}), 500
-
-    @app.route('/api/clients/<client_id>/invite', methods=['POST'])
-    @require_auth
-    def client_invite_user(user_id, role, client_id):
-        """Create team invite (email + share-link). User joins group after accepting."""
-        sb = get_supabase()
-        if not sb:
-            return jsonify({'error': 'Database not configured'}), 503
-        is_admin = role in ('admin', 'superadmin')
-        is_client_admin_flag = _is_client_admin_of(sb, user_id, client_id)
-        if not is_admin and not is_client_admin_flag:
-            return jsonify({'error': 'Forbidden'}), 403
-        try:
-            cr = sb.table('clients').select('id, org_id').eq('id', client_id).limit(1).execute()
-            if not cr.data:
-                return jsonify({'error': 'Client group not found'}), 404
-            client = cr.data[0]
-        except Exception as e:
-            return jsonify({'error': str(e)}), 500
-        org_id = str(client.get('org_id') or '')
-        if not org_id:
-            return jsonify({'error': 'Client group has no organization'}), 500
-        data = request.get_json(silent=True) or {}
-        email = (data.get('email') or '').strip().lower()
-        display_name = (data.get('display_name') or '').strip()
-        member_role = (data.get('member_role') or 'client_user').strip()
-        if member_role not in ('client_user', 'broker'):
-            return jsonify({'error': 'You can only invite client_user or broker'}), 400
-        if not email or '@' not in email:
-            return jsonify({'error': 'Valid email is required'}), 400
-        if not display_name:
-            return jsonify({'error': 'Display name is required'}), 400
-        try:
-            # Reuse active pending invite for same team/email if present, else create new token.
-            existing = (
-                sb.table('client_team_invites')
-                .select('id, invite_token, status, expires_at')
-                .eq('client_id', str(client_id))
-                .eq('email', email)
-                .order('created_at', desc=True)
-                .limit(1)
-                .execute()
-            )
-            token = None
-            invite_id = None
-            existing_row = (existing.data or [None])[0]
-            if existing_row and str(existing_row.get('status') or '').lower() == 'pending':
-                token = str(existing_row.get('invite_token') or '').strip()
-                invite_id = existing_row.get('id')
-            if not token:
-                token = secrets.token_urlsafe(24)
-            invite_link = _build_client_team_invite_link(token)
-            now_iso = datetime.utcnow().isoformat()
-            expires_iso = (datetime.utcnow() + timedelta(days=7)).isoformat()
-
-            if invite_id:
-                sb.table('client_team_invites').update({
-                    'display_name': display_name,
-                    'member_role': member_role,
-                    'invite_link': invite_link,
-                    'expires_at': expires_iso,
-                    'updated_at': now_iso,
-                }).eq('id', invite_id).execute()
-            else:
-                sb.table('client_team_invites').insert({
-                    'client_id': str(client_id),
-                    'org_id': str(org_id),
-                    'invited_by': str(user_id),
-                    'email': email,
-                    'display_name': display_name,
-                    'member_role': member_role,
-                    'invite_token': token,
-                    'invite_link': invite_link,
-                    'status': 'pending',
-                    'expires_at': expires_iso,
-                    'created_at': now_iso,
-                    'updated_at': now_iso,
-                }).execute()
-
-            # Keep legacy invite tracking visible in Invites tab
-            try:
-                sb.table('user_invites').insert({
-                    'org_id': str(org_id),
-                    'invited_by': str(user_id),
-                    'email': email,
-                    'display_name': display_name,
-                    'role': 'user',
-                    'status': 'pending',
-                }).execute()
-            except Exception:
-                pass
-
-            email_sent = False
-            email_error = None
-            try:
-                inviter_profile = get_profile(sb, user_id) or {}
-                inviter_name = str(inviter_profile.get('display_name') or inviter_profile.get('email') or 'Client').strip()
-                client_name = str(client.get('name') or 'Team').strip()
-                _send_client_team_invite_email(email, inviter_name, client_name, invite_link)
-                email_sent = True
-            except Exception as e:
-                email_error = str(e)
-
-            return jsonify({
-                'success': True,
-                'invite_link': invite_link,
-                'email_sent': email_sent,
-                'email_error': email_error,
-                'expires_at': expires_iso,
-            }), 201
-        except Exception as e:
-            return jsonify({'error': str(e)}), 500
-
-    @app.route('/api/public/client-invite/<invite_token>', methods=['GET'])
-    def get_public_client_invite(invite_token):
-        sb = get_supabase()
-        if not sb:
-            return jsonify({'error': 'Database not configured'}), 503
-        try:
-            r = (
-                sb.table('client_team_invites')
-                .select('id, client_id, invited_by, email, display_name, member_role, status, expires_at')
-                .eq('invite_token', str(invite_token).strip())
-                .limit(1)
-                .execute()
-            )
-            row = (r.data or [None])[0]
-            if not row:
-                return jsonify({'error': 'Invite not found'}), 404
-            client_name = ''
-            try:
-                cr = sb.table('clients').select('name').eq('id', str(row.get('client_id') or '')).limit(1).execute()
-                if cr.data:
-                    client_name = cr.data[0].get('name') or ''
-            except Exception:
-                pass
-            inviter_name = ''
-            try:
-                inviter_id = str(row.get('invited_by') or '').strip()
-                if inviter_id:
-                    pr = sb.table('profiles').select('display_name,email').eq('user_id', inviter_id).limit(1).execute()
-                    if pr.data:
-                        inviter_name = pr.data[0].get('display_name') or pr.data[0].get('email') or ''
-            except Exception:
-                pass
-            invited_user_exists = False
-            invite_email = str(row.get('email') or '').strip()
-            if invite_email:
-                try:
-                    ex = (
-                        sb.table('profiles')
-                        .select('user_id')
-                        .eq('email', invite_email)
-                        .limit(1)
-                        .execute()
-                    )
-                    invited_user_exists = bool(ex.data and len(ex.data) > 0)
-                    if not invited_user_exists and invite_email != invite_email.lower():
-                        ex2 = (
-                            sb.table('profiles')
-                            .select('user_id')
-                            .eq('email', invite_email.lower())
-                            .limit(1)
-                            .execute()
-                        )
-                        invited_user_exists = bool(ex2.data and len(ex2.data) > 0)
-                except Exception:
-                    invited_user_exists = False
-            return jsonify({
-                'client_name': client_name,
-                'inviter_name': inviter_name,
-                'display_name': row.get('display_name') or '',
-                'email': row.get('email') or '',
-                'member_role': row.get('member_role') or 'client_user',
-                'status': row.get('status') or 'pending',
-                'expires_at': row.get('expires_at'),
-                'invited_user_exists': invited_user_exists,
-            })
-        except Exception as e:
-            return jsonify({'error': str(e)}), 500
-
-    @app.route('/api/client-team-invites/accept', methods=['POST'])
-    @require_auth
-    def accept_client_team_invite(user_id, role):
-        sb = get_supabase()
-        if not sb:
-            return jsonify({'error': 'Database not configured'}), 503
-        data = request.get_json(silent=True) or {}
-        token = str(data.get('invite_token') or '').strip()
-        ok, payload, status = _accept_client_team_invite_token(sb, token, user_id)
-        if not ok:
-            return jsonify({'error': payload}), status
-        return jsonify({'success': True, 'result': payload})
-
-    @app.route('/api/clients/<client_id>/invites', methods=['GET'])
-    @require_auth
-    def list_client_team_invites(user_id, role, client_id):
-        sb = get_supabase()
-        if not sb:
-            return jsonify({'error': 'Database not configured'}), 503
-        is_admin = role in ('admin', 'superadmin')
-        if not is_admin and not _is_client_admin_of(sb, user_id, client_id):
-            return jsonify({'error': 'Forbidden'}), 403
-        if is_admin:
-            _client, err = _get_client_org(sb, client_id, user_id, role)
-            if err:
-                return err
-        try:
-            r = (
-                sb.table('client_team_invites')
-                .select('id, email, display_name, member_role, status, invite_link, expires_at, created_at')
-                .eq('client_id', str(client_id))
-                .order('created_at', desc=True)
-                .execute()
-            )
-            out = []
-            for row in (r.data or []):
-                o = dict(row)
-                if o.get('created_at'):
-                    o['created_at'] = str(o['created_at'])
-                if o.get('expires_at'):
-                    o['expires_at'] = str(o['expires_at'])
-                out.append(o)
-            return jsonify(out)
-        except Exception as e:
-            msg = str(e)
-            if 'client_team_invites' in msg and ('does not exist' in msg.lower() or 'relation' in msg.lower()):
-                return jsonify([])
-            return jsonify({'error': msg}), 500
-
-    @app.route('/client-invite/<invite_token>')
-    def client_team_invite_page(invite_token):
-        token = str(invite_token or '').strip()
-        mode = 'signup'
-        invite_email = ''
-        sb = get_supabase()
-        if sb and token:
-            try:
-                r = (
-                    sb.table('client_team_invites')
-                    .select('email')
-                    .eq('invite_token', token)
-                    .limit(1)
-                    .execute()
-                )
-                row = (r.data or [None])[0]
-                if row:
-                    invite_email = str(row.get('email') or '').strip()
-                    exists = False
-                    if invite_email:
-                        ex = (
-                            sb.table('profiles')
-                            .select('user_id')
-                            .eq('email', invite_email)
-                            .limit(1)
-                            .execute()
-                        )
-                        exists = bool(ex.data and len(ex.data) > 0)
-                        if not exists and invite_email != invite_email.lower():
-                            ex2 = (
-                                sb.table('profiles')
-                                .select('user_id')
-                                .eq('email', invite_email.lower())
-                                .limit(1)
-                                .execute()
-                            )
-                            exists = bool(ex2.data and len(ex2.data) > 0)
-                    mode = 'signin' if exists else 'signup'
-            except Exception:
-                pass
-        params = {'client_invite': token, 'mode': mode}
-        if invite_email:
-            params['email'] = invite_email
-        return redirect('/login?' + urlencode(params))
-
-    @app.route('/api/clients/<client_id>/access', methods=['GET'])
-    @require_auth
-    def get_client_access(user_id, role, client_id):
-        sb = get_supabase()
-        if not sb:
-            return jsonify({'error': 'Database not configured'}), 503
-        is_admin = role in ('admin', 'superadmin')
-        if not is_admin and not _is_client_admin_of(sb, user_id, client_id):
-            return jsonify({'error': 'Forbidden'}), 403
-        try:
-            member_rows = sb.table('client_members').select('id').eq('client_id', client_id).execute()
-            member_ids = [r.get('id') for r in (member_rows.data or []) if r.get('id')]
-            workspace_list, panorama_list = [], []
-            if member_ids:
-                wa = sb.table('workspace_access').select('workspace_id, access_type').in_('client_member_id', member_ids).execute()
-                seen_ws = set()
-                for row in (wa.data or []):
-                    wsid = row.get('workspace_id')
-                    if wsid not in seen_ws:
-                        seen_ws.add(wsid)
-                        try:
-                            wr = sb.table('workspaces').select('name').eq('id', wsid).limit(1).execute()
-                            ws_name = (wr.data[0].get('name') if wr.data else None) or str(wsid)
-                        except Exception:
-                            ws_name = str(wsid)
-                        workspace_list.append({'workspace_id': wsid, 'name': ws_name, 'access_type': row.get('access_type')})
-                pa = sb.table('panorama_access').select('panorama_id, access_type').in_('client_member_id', member_ids).execute()
-                seen_pa = set()
-                for row in (pa.data or []):
-                    pid = row.get('panorama_id')
-                    if pid not in seen_pa:
-                        seen_pa.add(pid)
-                        try:
-                            pr = sb.table('panoramas').select('name').eq('id', pid).limit(1).execute()
-                            p_name = (pr.data[0].get('name') if pr.data else None) or str(pid)
-                        except Exception:
-                            p_name = str(pid)
-                        panorama_list.append({'panorama_id': pid, 'name': p_name, 'access_type': row.get('access_type')})
-            return jsonify({'workspaces': workspace_list, 'panoramas': panorama_list})
-        except Exception as e:
-            return jsonify({'error': str(e)}), 500
-
-    @app.route('/api/clients/<client_id>/access', methods=['POST'])
-    @require_admin
-    def grant_client_access(user_id, role, client_id):
-        sb = get_supabase()
-        if not sb:
-            return jsonify({'error': 'Database not configured'}), 503
-        _client, err = _get_client_org(sb, client_id, user_id, role)
-        if err:
-            return err
-        data = request.get_json(silent=True) or {}
-        resource_type = (data.get('resource_type') or '').strip()
-        resource_id = data.get('resource_id')
-        access_type = (data.get('access_type') or 'client').strip()
-        if resource_type not in ('workspace', 'panorama'):
-            return jsonify({'error': 'resource_type must be workspace or panorama'}), 400
-        if not resource_id:
-            return jsonify({'error': 'resource_id is required'}), 400
-        if access_type not in ('client', 'viewer'):
-            access_type = 'client'
-        try:
-            members = sb.table('client_members').select('id, user_id').eq('client_id', client_id).in_('member_role', ['client_admin', 'client_user']).execute()
-            granted = 0
-            for member in (members.data or []):
-                member_id = member.get('id')
-                member_uid = str(member.get('user_id') or '')
-                if not member_uid:
-                    continue
-                try:
-                    if resource_type == 'workspace':
-                        sb.table('workspace_access').upsert({'workspace_id': str(resource_id), 'user_id': member_uid, 'access_type': access_type, 'granted_by': str(user_id), 'client_member_id': member_id}, on_conflict='workspace_id,user_id').execute()
-                    else:
-                        sb.table('panorama_access').upsert({'panorama_id': int(resource_id), 'user_id': member_uid, 'access_type': access_type, 'granted_by': str(user_id), 'client_member_id': member_id}, on_conflict='panorama_id,user_id').execute()
-                    granted += 1
-                except Exception:
-                    pass
-            return jsonify({'success': True, 'granted_count': granted})
-        except Exception as e:
-            return jsonify({'error': str(e)}), 500
-
-    @app.route('/api/clients/<client_id>/access', methods=['DELETE'])
-    @require_admin
-    def revoke_client_access(user_id, role, client_id):
-        sb = get_supabase()
-        if not sb:
-            return jsonify({'error': 'Database not configured'}), 503
-        _client, err = _get_client_org(sb, client_id, user_id, role)
-        if err:
-            return err
-        data = request.get_json(silent=True) or {}
-        resource_type = (data.get('resource_type') or '').strip()
-        resource_id = data.get('resource_id')
-        if resource_type not in ('workspace', 'panorama'):
-            return jsonify({'error': 'resource_type must be workspace or panorama'}), 400
-        if not resource_id:
-            return jsonify({'error': 'resource_id is required'}), 400
-        try:
-            member_rows = sb.table('client_members').select('id').eq('client_id', client_id).execute()
-            member_ids = [r.get('id') for r in (member_rows.data or []) if r.get('id')]
-            if not member_ids:
-                return jsonify({'success': True})
-            if resource_type == 'workspace':
-                sb.table('workspace_access').delete().in_('client_member_id', member_ids).eq('workspace_id', str(resource_id)).execute()
-            else:
-                sb.table('panorama_access').delete().in_('client_member_id', member_ids).eq('panorama_id', int(resource_id)).execute()
-            return jsonify({'success': True})
-        except Exception as e:
-            return jsonify({'error': str(e)}), 500
+    # ==================================================================
+    # Page Access Tokens
+    # ==================================================================
+    register_page_access_routes(app)
+
+    # ==================================================================
+    # User Access Management
+    # ==================================================================
+    register_uam_routes(app)
 
     # ==================================================================
     # Full View Creator
