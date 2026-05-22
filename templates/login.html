@@ -1,5 +1,5 @@
 {% extends 'base.html' %}
-{% block title %}Sign In – PropMark{% endblock %}
+{% block title %}Sign In – MarketoState{% endblock %}
 {% block head_css %}
 <link rel="stylesheet" href="/static/css/login.css">
 {% endblock %}
@@ -14,8 +14,7 @@
         <div class="login-orbit-dot"></div>
         <div class="login-left-content">
             <div class="login-left-logo">
-                <img src="/static/Logo.png" alt="">
-                <span>PropMark</span>
+                <img src="/static/marketostate-logo-v2.webp" alt="">
             </div>
             <h2>Immersive Property Visualization</h2>
             <p>Upload panoramas, mark interactive plots, and share stunning 360-degree property views with your clients.</p>
@@ -24,7 +23,7 @@
 
     <!-- Right auth panel -->
     <div class="login-right">
-        <a class="brand-pill brand-pill--login" href="/" aria-label="PropMark">PropMark</a>
+        <a class="brand-pill brand-pill--login" href="/" aria-label="MarketoState">MarketoState</a>
 
         <div class="auth-wrap">
             <div class="card" id="card">
@@ -141,8 +140,104 @@
     }
 
     var supabase = window.supabase.createClient(supabaseUrl, supabaseAnonKey);
+    var AUTH_FALLBACK_KEY = 'marketostate_auth_session_v1';
     var PENDING_SIGNUP_PROFILE_KEY = 'pending_signup_profile_v1';
     var PENDING_CLIENT_INVITE_KEY = 'pending_client_team_invite_token_v1';
+
+    function cacheAuthSession(session) {
+        if (!session || !session.access_token) return;
+        try {
+            window.localStorage.setItem(AUTH_FALLBACK_KEY, JSON.stringify({
+                access_token: session.access_token,
+                refresh_token: session.refresh_token || '',
+                expires_at: session.expires_at || 0,
+                user: session.user || null,
+                ts: Date.now()
+            }));
+        } catch (e) { }
+    }
+
+    function clearCachedAuthSession() {
+        try { window.localStorage.removeItem(AUTH_FALLBACK_KEY); } catch (e) { }
+    }
+
+    function readCachedAuthSession() {
+        try {
+            var raw = window.localStorage.getItem(AUTH_FALLBACK_KEY);
+            if (!raw) return null;
+            var parsed = JSON.parse(raw);
+            if (!parsed || !parsed.access_token) return null;
+            var expiresAtMs = Number(parsed.expires_at || 0) * 1000;
+            if (expiresAtMs && expiresAtMs < Date.now() + 30000) {
+                clearCachedAuthSession();
+                return null;
+            }
+            return parsed;
+        } catch (e) {
+            return null;
+        }
+    }
+
+    function isAbortError(err) {
+        var name = String(err && err.name || '').toLowerCase();
+        var msg = String(err && err.message || '').toLowerCase();
+        return name === 'aborterror' || msg.indexOf('signal is aborted') >= 0 || msg.indexOf('aborted') >= 0;
+    }
+
+    function safeSignOut(after) {
+        clearCachedAuthSession();
+        return supabase.auth.signOut()
+            .catch(function (err) {
+                if (!isAbortError(err)) {
+                    try { console.warn('signOut failed', err); } catch (e) { }
+                }
+            })
+            .finally(function () {
+                if (typeof after === 'function') after();
+            });
+    }
+
+    function waitForSession(maxAttempts, delayMs) {
+        var remaining = Math.max(0, Number(maxAttempts) || 0);
+        var waitMs = Math.max(60, Number(delayMs) || 180);
+        function readSession() {
+            return supabase.auth.getSession()
+                .then(function (r) {
+                    var session = (r && r.data && r.data.session) ? r.data.session : null;
+                    if (session) {
+                        cacheAuthSession(session);
+                        return session;
+                    }
+                    var cached = readCachedAuthSession();
+                    if (!cached) return null;
+                    if (cached.refresh_token && typeof supabase.auth.setSession === 'function') {
+                        return supabase.auth.setSession({
+                            access_token: cached.access_token,
+                            refresh_token: cached.refresh_token
+                        }).then(function (setResult) {
+                            var hydrated = setResult && setResult.data && setResult.data.session;
+                            if (hydrated) {
+                                cacheAuthSession(hydrated);
+                                return hydrated;
+                            }
+                            return cached;
+                        }).catch(function () { return cached; });
+                    }
+                    return cached;
+                })
+                .catch(function () { return readCachedAuthSession(); });
+        }
+        function step() {
+            return readSession().then(function (session) {
+                if (session || remaining <= 0) return session;
+                remaining -= 1;
+                return new Promise(function (resolve) {
+                    setTimeout(function () { resolve(step()); }, waitMs);
+                });
+            });
+        }
+        return step();
+    }
 
     function queryParam(name) {
         try {
@@ -255,37 +350,39 @@
         if (token) savePendingClientInviteToken(token);
     })();
 
-    supabase.auth.getSession().then(function (r) {
-        var session = r.data.session;
+    function redirectToDashboardFromSession(session) {
+        var uid = session.user && session.user.id ? session.user.id : '';
+        return applyPendingSignupProfile(session).then(function () {
+            return applyPendingClientInvite(session);
+        }).then(function (inv) {
+            if (inv && inv.attempted && !inv.applied) {
+                safeSignOut(function () {
+                    showAuthUI();
+                    setError(document.getElementById('signin-error'), inv.error || 'Invite acceptance failed. Please sign in with invited email.');
+                });
+                return;
+            }
+            window.location.replace(uid ? '/dashboard/' + encodeURIComponent(uid) : '/dashboard');
+        }).catch(function () {
+            window.location.replace(uid ? '/dashboard/' + encodeURIComponent(uid) : '/dashboard');
+        });
+    }
+
+    waitForSession(24, 200).then(function (session) {
         if (!session) { showAuthUI(); return; }
-        // Validate the token is actually usable before redirecting
+        // Validate token; only force sign-out on definitive auth failures.
         fetch('/api/org/me', {
             headers: { 'Authorization': 'Bearer ' + session.access_token }
         }).then(function (res) {
-            if (res.ok) {
-                // Token is valid — redirect to dashboard
-                var uid = session.user && session.user.id ? session.user.id : '';
-                applyPendingSignupProfile(session).then(function () {
-                    return applyPendingClientInvite(session);
-                }).then(function (inv) {
-                        if (inv && inv.attempted && !inv.applied) {
-                            supabase.auth.signOut().finally(function () {
-                                showAuthUI();
-                                setError(document.getElementById('signin-error'), inv.error || 'Invite acceptance failed. Please sign in with invited email.');
-                            });
-                            return;
-                        }
-                        window.location.replace(uid ? '/dashboard/' + encodeURIComponent(uid) : '/dashboard');
-                }).catch(function () {
-                    showAuthUI();
-                });
-            } else {
-                // Token rejected by server — clear stale session and show login
-                supabase.auth.signOut().then(function () { showAuthUI(); }).catch(function () { showAuthUI(); });
+            if (res.ok) return redirectToDashboardFromSession(session);
+            if (res.status === 401 || res.status === 403) {
+                safeSignOut(function () { showAuthUI(); });
+                return;
             }
+            // For transient backend responses, keep session and continue to dashboard.
+            return redirectToDashboardFromSession(session);
         }).catch(function () {
-            // Network error — show login rather than loop
-            showAuthUI();
+            return redirectToDashboardFromSession(session);
         });
     }).catch(function () { showAuthUI(); });
 
@@ -344,6 +441,7 @@
         })
             .then(function (res) {
                 if (res.error) throw res.error;
+                cacheAuthSession(res.data.session);
                 var uid = res.data.user && res.data.user.id ? res.data.user.id : '';
                 return applyPendingSignupProfile(res.data.session).then(function () {
                     return applyPendingClientInvite(res.data.session);
@@ -379,6 +477,7 @@
                     setError(errEl, 'Check your email to confirm your account.');
                     return;
                 }
+                cacheAuthSession(res.data.session);
                 var uid = res.data.user && res.data.user.id ? res.data.user.id : '';
                 return applyPendingSignupProfile(res.data.session).then(function () {
                     return applyPendingClientInvite(res.data.session);

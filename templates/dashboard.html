@@ -1,5 +1,5 @@
 {% extends 'base.html' %}
-{% block title %}Plotted Development – PropMark{% endblock %}
+{% block title %}Plotted Development – MarketoState{% endblock %}
 {% block head_css %}
 <link rel="stylesheet" href="/static/css/dashboard.css">
 {% endblock %}
@@ -13,7 +13,7 @@
         <!-- Top bar: org name + subtext (constant) -->
         <header class="dashboard-topbar">
             <div class="dashboard-topbar-title">
-                <h1 class="dashboard-org-name" id="org-name">PropMark</h1>
+                <h1 class="dashboard-org-name" id="org-name">MarketoState</h1>
                 <p class="dashboard-org-subtitle" id="org-subtitle">Plot Marker</p>
             </div>
             <div class="topbar-recents" id="topbar-recents">
@@ -662,7 +662,7 @@
                     if (session || remaining <= 0) return session;
                     remaining -= 1;
                     return new Promise(function (resolve) {
-                        setTimeout(function () { resolve(step()); }, Number(delayMs || 120));
+                        setTimeout(function () { resolve(step()); }, Number(delayMs || 180));
                     });
                 });
             }
@@ -670,11 +670,33 @@
         }
 
         function getAuthHeaders() {
-            return waitForAuthSession(4, 120).then(function (session) {
+            if (window.pmApi && typeof window.pmApi.getAuthHeaders === 'function') {
+                return window.pmApi.getAuthHeaders({
+                    waitAttempts: 24,
+                    waitDelayMs: 180
+                });
+            }
+            return waitForAuthSession(20, 180).then(function (session) {
                 var h = {};
                 if (session && session.access_token) h['Authorization'] = 'Bearer ' + session.access_token;
                 return h;
             });
+        }
+
+        async function ensureAuthHeadersOrRedirect() {
+            var headers = await getAuthHeaders();
+            if (headers && headers.Authorization) return headers;
+            var session = null;
+            if (window.pmApi && typeof window.pmApi.waitForSession === 'function') {
+                session = await window.pmApi.waitForSession(30, 200).catch(function () { return null; });
+            } else {
+                session = await waitForAuthSession(30, 200).catch(function () { return null; });
+            }
+            if (session && session.access_token) {
+                return { Authorization: 'Bearer ' + session.access_token };
+            }
+            window.location.replace('/login');
+            return null;
         }
 
         // State
@@ -989,7 +1011,7 @@
         }
 
         function getCurrentSessionUserId() {
-            return waitForAuthSession(4, 120).then(function (session) {
+            return waitForAuthSession(20, 180).then(function (session) {
                 return session && session.user && session.user.id ? String(session.user.id) : '';
             }).catch(function () {
                 return '';
@@ -1159,11 +1181,27 @@
                         waitDelayMs: 140
                     });
                 } else {
-                    const headers = await getAuthHeaders();
+                    const headers = await ensureAuthHeadersOrRedirect();
+                    if (!headers) return;
                     const response = await fetch('/api/workspaces', { headers });
                     if (response.status === 401) {
-                        window.location.replace('/login');
-                        return;
+                        const retryHeaders = await ensureAuthHeadersOrRedirect();
+                        if (!retryHeaders) return;
+                        const retryResponse = await fetch('/api/workspaces', { headers: retryHeaders });
+                        if (retryResponse.status === 401) {
+                            window.location.replace('/login');
+                            return;
+                        }
+                        if (!retryResponse.ok) {
+                            if (retryResponse.status === 503 || retryResponse.status === 404) {
+                                workspaceFeatureReady = false;
+                                if (createWorkspaceBtn) createWorkspaceBtn.style.display = 'none';
+                                workspaces = [];
+                                return;
+                            }
+                            throw new Error('Failed to load folders');
+                        }
+                        data = await retryResponse.json();
                     }
                     if (!response.ok) {
                         if (response.status === 503 || response.status === 404) {
@@ -1206,7 +1244,7 @@
                 if (res.ok) {
                     var data = await res.json();
                     if (data.org && data.org.slug) orgSlug = data.org.slug;
-                    else if (data.org && data.org.name) orgSlug = String(data.org.name).toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '') || 'propmark';
+                    else if (data.org && data.org.name) orgSlug = String(data.org.name).toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '') || 'marketostate';
                 }
             } catch (e) {}
         }
@@ -1321,11 +1359,8 @@
                 progressFill.style.width = '0%';
                 progressText.textContent = 'Preparing upload...';
 
-                const headers = await getAuthHeaders();
-                if (!headers || !headers.Authorization) {
-                    window.location.replace('/login');
-                    return;
-                }
+                const headers = await ensureAuthHeadersOrRedirect();
+                if (!headers) return;
 
                 const onCreated = function (project) {
                     showToast('Project created successfully!', 'success');
@@ -1652,11 +1687,8 @@
 
         async function uploadSingleFile(item, workspaceId, onProgress) {
             const { file, name, width, height, is360 } = item;
-            const headers = await getAuthHeaders();
-            if (!headers || !headers.Authorization) {
-                window.location.replace('/login');
-                throw new Error('Not authenticated');
-            }
+            const headers = await ensureAuthHeadersOrRedirect();
+            if (!headers) throw new Error('Not authenticated');
 
             let directInfo = null;
             let allowDynoFallback = false;
@@ -1828,10 +1860,25 @@
                     });
                     projects = Array.isArray(data) ? data : [];
                 } else {
-                    const headers = await getAuthHeaders();
+                    const headers = await ensureAuthHeadersOrRedirect();
+                    if (!headers) return;
                     const response = await fetch('/api/panoramas', { headers });
                     if (response.status === 401) {
-                        window.location.replace('/login');
+                        const retryHeaders = await ensureAuthHeadersOrRedirect();
+                        if (!retryHeaders) return;
+                        const retryResponse = await fetch('/api/panoramas', { headers: retryHeaders });
+                        if (retryResponse.status === 401) {
+                            window.location.replace('/login');
+                            return;
+                        }
+                        if (!retryResponse.ok) {
+                            let retryDetail = '';
+                            try { retryDetail = await retryResponse.text(); } catch (e) { }
+                            console.warn('Projects retry load failed', retryResponse.status, retryDetail.slice(0, 200));
+                            throw new Error(`Failed to load projects (${retryResponse.status})`);
+                        }
+                        projects = await retryResponse.json();
+                        updateCrmNavVisibility();
                         return;
                     }
                     if (!response.ok) {
@@ -2052,11 +2099,8 @@
                 return;
             }
             try {
-                const headers = await getAuthHeaders();
-                if (!headers || !headers.Authorization) {
-                    window.location.replace('/login');
-                    return;
-                }
+                const headers = await ensureAuthHeadersOrRedirect();
+                if (!headers) return;
                 const response = await fetch('/api/panoramas/' + id + '/page-token', {
                     method: 'POST',
                     headers: Object.assign({ 'Content-Type': 'application/json' }, headers),

@@ -174,6 +174,13 @@ def _is_client_admin_of(sb, user_id, client_id):
     except Exception:
         return False
 
+def _project_access_type_for_member_role(access_type, member_role):
+    normalized_role = _normalize_client_member_role(member_role)
+    if normalized_role in CLIENT_MEMBER_BROKER_ROLES:
+        return 'broker'
+    normalized_access = str(access_type or 'client').strip().lower()
+    return normalized_access if normalized_access in ('client', 'broker', 'viewer') else 'client'
+
 def _build_client_team_invite_link(invite_token):
     base = (request.url_root or '').rstrip('/')
     return f"{base}/client-invite/{invite_token}"
@@ -186,7 +193,7 @@ def _send_client_team_invite_email(to_email, inviter_name, client_name, invite_l
         f"Accept invitation:\n{invite_link}\n\n"
         f"If you don't have an account yet, sign up with this same email and the invite will be applied automatically.\n"
         f"If you already have an account, sign in and accept.\n\n"
-        f"Regards,\nPropMark"
+        f"Regards,\nMarketoState"
     )
     inviter_name_html = escape(str(inviter_name or "A teammate"))
     client_name_html = escape(str(client_name or "Team"))
@@ -205,7 +212,7 @@ def _send_client_team_invite_email(to_email, inviter_name, client_name, invite_l
       <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:620px;background:#ffffff;border:1px solid #e5eaf2;border-radius:16px;overflow:hidden;">
         <tr>
           <td style="padding:24px 28px;background:linear-gradient(135deg,#0f172a,#1e293b);color:#ffffff;">
-            <div style="font-size:13px;letter-spacing:0.08em;text-transform:uppercase;opacity:0.86;">PropMark</div>
+            <div style="font-size:13px;letter-spacing:0.08em;text-transform:uppercase;opacity:0.86;">MarketoState</div>
             <h1 style="margin:10px 0 0 0;font-size:24px;line-height:1.3;font-weight:700;">You are invited to join a client team</h1>
           </td>
         </tr>
@@ -235,7 +242,7 @@ def _send_client_team_invite_email(to_email, inviter_name, client_name, invite_l
         </tr>
         <tr>
           <td style="padding:16px 28px 24px 28px;border-top:1px solid #e5eaf2;color:#64748b;font-size:12px;font-family:Arial,Helvetica,sans-serif;">
-            This invitation was sent by PropMark.
+            This invitation was sent by MarketoState.
           </td>
         </tr>
       </table>
@@ -397,18 +404,20 @@ def _propagate_new_member_access_to_group(sb, client_id, new_member_id, new_user
                     # New member: update their existing row to tag with client_member_id
                     pass  # their personal row stays as-is; we don't overwrite it
                 try:
+                    member_access_type = _project_access_type_for_member_role(atype, mrole)
                     sb.table('panorama_access').upsert({
                         'panorama_id': pid, 'user_id': str(uid),
-                        'access_type': atype, 'granted_by': str(granter_id),
+                        'access_type': member_access_type, 'granted_by': str(granter_id),
                         'client_member_id': mid,
                     }, on_conflict='panorama_id,user_id').execute()
                 except Exception:
                     pass
             for (wsid, atype) in ws_rows:
                 try:
+                    member_access_type = _project_access_type_for_member_role(atype, mrole)
                     sb.table('workspace_access').upsert({
                         'workspace_id': str(wsid), 'user_id': str(uid),
-                        'access_type': atype, 'granted_by': str(granter_id),
+                        'access_type': member_access_type, 'granted_by': str(granter_id),
                         'client_member_id': mid,
                     }, on_conflict='workspace_id,user_id').execute()
                 except Exception:
@@ -438,9 +447,10 @@ def _cascade_access_for_new_member(sb, client_id, new_member_id, new_user_id, me
                 continue
             seen_pano.add(pid)
             try:
+                member_access_type = _project_access_type_for_member_role(row.get('access_type', 'client'), normalized_member_role)
                 sb.table('panorama_access').upsert({
                     'panorama_id': pid, 'user_id': str(new_user_id),
-                    'access_type': row.get('access_type', 'client'),
+                    'access_type': member_access_type,
                     'granted_by': str(granter_id), 'client_member_id': new_member_id,
                 }, on_conflict='panorama_id,user_id').execute()
             except Exception:
@@ -453,9 +463,10 @@ def _cascade_access_for_new_member(sb, client_id, new_member_id, new_user_id, me
                 continue
             seen_ws.add(wsid)
             try:
+                member_access_type = _project_access_type_for_member_role(row.get('access_type', 'client'), normalized_member_role)
                 sb.table('workspace_access').upsert({
                     'workspace_id': str(wsid), 'user_id': str(new_user_id),
-                    'access_type': row.get('access_type', 'client'),
+                    'access_type': member_access_type,
                     'granted_by': str(granter_id), 'client_member_id': new_member_id,
                 }, on_conflict='workspace_id,user_id').execute()
             except Exception:

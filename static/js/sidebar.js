@@ -9,6 +9,7 @@
     'use strict';
 
     var CACHE_KEY = 'sidebar_cache';
+    var AUTH_FALLBACK_KEY = 'marketostate_auth_session_v1';
 
     var url = window.__SUPABASE_URL__;
     var key = window.__SUPABASE_ANON_KEY__;
@@ -17,14 +18,89 @@
     var sb = window.supabase.createClient(url, key);
     window._supabase = sb;
 
+    function _pmCacheAuthSession(session) {
+        if (!session || !session.access_token) return;
+        try {
+            window.localStorage.setItem(AUTH_FALLBACK_KEY, JSON.stringify({
+                access_token: session.access_token,
+                refresh_token: session.refresh_token || '',
+                expires_at: session.expires_at || 0,
+                user: session.user || null,
+                ts: Date.now()
+            }));
+        } catch (e) { /* ignore */ }
+    }
+
+    function _pmClearCachedAuthSession() {
+        try { window.localStorage.removeItem(AUTH_FALLBACK_KEY); } catch (e) { /* ignore */ }
+    }
+
+    function _pmReadCachedAuthSession() {
+        try {
+            var raw = window.localStorage.getItem(AUTH_FALLBACK_KEY);
+            if (!raw) return null;
+            var parsed = JSON.parse(raw);
+            if (!parsed || !parsed.access_token) return null;
+            var expiresAtMs = Number(parsed.expires_at || 0) * 1000;
+            if (expiresAtMs && expiresAtMs < Date.now() + 30000) {
+                _pmClearCachedAuthSession();
+                return null;
+            }
+            return parsed;
+        } catch (e) {
+            return null;
+        }
+    }
+
+    function _pmIsAbortError(err) {
+        var name = String((err && err.name) || '').toLowerCase();
+        var msg = String((err && err.message) || '').toLowerCase();
+        return name === 'aborterror' || msg.indexOf('signal is aborted') >= 0 || msg.indexOf('aborted') >= 0;
+    }
+
+    function _pmSafeSignOut(after) {
+        _pmClearCachedAuthSession();
+        return sb.auth.signOut()
+            .catch(function (err) {
+                if (!_pmIsAbortError(err)) {
+                    try { console.warn('sidebar signOut failed', err); } catch (_e) { /* ignore */ }
+                }
+            })
+            .finally(function () {
+                if (typeof after === 'function') after();
+            });
+    }
+
     function _pmSleep(ms) {
         return new Promise(function (resolve) { setTimeout(resolve, Number(ms) || 0); });
     }
 
     function _pmGetSessionOnce() {
         return sb.auth.getSession()
-            .then(function (r) { return (r && r.data && r.data.session) ? r.data.session : null; })
-            .catch(function () { return null; });
+            .then(function (r) {
+                var session = (r && r.data && r.data.session) ? r.data.session : null;
+                if (session) {
+                    _pmCacheAuthSession(session);
+                    return session;
+                }
+                var cached = _pmReadCachedAuthSession();
+                if (!cached) return null;
+                if (cached.refresh_token && typeof sb.auth.setSession === 'function') {
+                    return sb.auth.setSession({
+                        access_token: cached.access_token,
+                        refresh_token: cached.refresh_token
+                    }).then(function (setResult) {
+                        var hydrated = setResult && setResult.data && setResult.data.session;
+                        if (hydrated) {
+                            _pmCacheAuthSession(hydrated);
+                            return hydrated;
+                        }
+                        return cached;
+                    }).catch(function () { return cached; });
+                }
+                return cached;
+            })
+            .catch(function () { return _pmReadCachedAuthSession(); });
     }
 
     function _pmWaitForSession(maxAttempts, delayMs) {
@@ -38,6 +114,36 @@
             });
         }
         return step();
+    }
+
+    function _pmWaitForSessionOrAuthEvent(maxAttempts, delayMs, eventTimeoutMs) {
+        return _pmWaitForSession(maxAttempts, delayMs).then(function (session) {
+            if (session && session.access_token) return session;
+            return new Promise(function (resolve) {
+                var finished = false;
+                var sub = null;
+                function done(nextSession) {
+                    if (finished) return;
+                    finished = true;
+                    try {
+                        if (sub && typeof sub.unsubscribe === 'function') sub.unsubscribe();
+                    } catch (e) { /* ignore */ }
+                    resolve((nextSession && nextSession.access_token) ? nextSession : null);
+                }
+                try {
+                    var listener = sb.auth.onAuthStateChange(function (_event, currentSession) {
+                        if (currentSession && currentSession.access_token) done(currentSession);
+                    });
+                    sub = (listener && listener.data && listener.data.subscription)
+                        ? listener.data.subscription
+                        : ((listener && listener.subscription) ? listener.subscription : null);
+                } catch (e2) {
+                    done(null);
+                    return;
+                }
+                setTimeout(function () { done(null); }, Math.max(600, Number(eventTimeoutMs) || 3000));
+            });
+        });
     }
 
     function _pmShouldRetryStatus(status) {
@@ -55,8 +161,8 @@
         var hasAuth = !!(headers.Authorization || headers.authorization);
         if (hasAuth) return headers;
         var session = await _pmWaitForSession(
-            opts && opts.waitAttempts != null ? opts.waitAttempts : 6,
-            opts && opts.waitDelayMs != null ? opts.waitDelayMs : 120
+            opts && opts.waitAttempts != null ? opts.waitAttempts : 14,
+            opts && opts.waitDelayMs != null ? opts.waitDelayMs : 140
         );
         if (session && session.access_token) {
             headers.Authorization = 'Bearer ' + session.access_token;
@@ -178,7 +284,7 @@
         }
         // Org name
         var orgNameEl = document.getElementById('org-name');
-        var displayOrgName = state.displayOrgName || state.orgName || 'PropMark';
+        var displayOrgName = state.displayOrgName || state.orgName || 'MarketoState';
         if (orgNameEl) orgNameEl.textContent = displayOrgName;
         // User name
         var userNameEl = document.getElementById('sidebar-user-name');
@@ -205,28 +311,35 @@
     var _resolve;
     window.sidebarReady = new Promise(function (resolve) { _resolve = resolve; });
 
-    sb.auth.getSession().then(function (r) {
-        if (!r.data.session) {
+    _pmWaitForSessionOrAuthEvent(30, 200, 3200).then(function (session) {
+        if (!session) {
             sessionStorage.removeItem(CACHE_KEY);
             window.location.replace('/login');
             return;
         }
-        var accessToken = r.data.session.access_token;
+        var accessToken = session.access_token;
         window.__ACCESS_TOKEN__ = accessToken;
 
-        fetch('/api/org/me', {
-            headers: { 'Authorization': 'Bearer ' + accessToken }
+        _pmFetchWithRetry('/api/org/me', {}, {
+            retries: 1,
+            retryAuth: true,
+            waitAttempts: 6,
+            waitDelayMs: 120,
+            baseDelayMs: 180
         })
             .then(function (res) {
                 if (res.status === 401 || res.status === 403) {
                     sessionStorage.removeItem(CACHE_KEY);
-                    sb.auth.signOut().finally(function () { window.location.replace('/login'); });
+                    _pmSafeSignOut(function () { window.location.replace('/login'); });
                     return null;
                 }
                 return res.ok ? res.json() : null;
             })
             .then(function (data) {
-                if (!data) return;
+                if (!data) {
+                    _resolve({ role: '', profile: null, org: null, accessToken: accessToken, isAdmin: false });
+                    return;
+                }
                 var profile = data && data.profile ? data.profile : null;
                 var role = profile && profile.role ? String(profile.role).toLowerCase() : '';
                 var isAdmin = role === 'admin' || role === 'superadmin';
@@ -261,10 +374,14 @@
                     try { sessionStorage.setItem(CACHE_KEY, JSON.stringify(state)); } catch (e) { /* ignore */ }
                     finishSidebar(state);
                 } else {
-                    fetch('/api/crm/me', {
-                        headers: { 'Authorization': 'Bearer ' + accessToken }
+                    _pmFetchWithRetry('/api/crm/me', {}, {
+                        retries: 1,
+                        retryAuth: true,
+                        waitAttempts: 6,
+                        waitDelayMs: 120,
+                        baseDelayMs: 180
                     })
-                    .then(function (r) { return r.ok ? r.json() : null; })
+                    .then(function (r) { return r && r.ok ? r.json() : null; })
                     .then(function (crmData) {
                         var hasCrm = crmData && crmData.has_crm_access;
                         var isClientAdmin = !!(crmData && crmData.is_client_admin);
@@ -329,13 +446,12 @@
             logoutEl.addEventListener('click', function (e) {
                 e.preventDefault();
                 sessionStorage.removeItem(CACHE_KEY);
-                sb.auth.signOut().then(function () {
-                    window.location.href = '/login';
-                });
+                _pmSafeSignOut(function () { window.location.href = '/login'; });
             });
         }
     }).catch(function () {
-        sb.auth.signOut().finally(function () { window.location.replace('/login'); });
+        sessionStorage.removeItem(CACHE_KEY);
+        window.location.replace('/login');
     });
 
     // ---- User dropdown toggle ----

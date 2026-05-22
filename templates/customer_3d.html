@@ -744,11 +744,21 @@
             }
         }
 
+        function appendRequestedReferenceParam(params) {
+            const refUserId = getRequestedReferenceUserId();
+            if (refUserId) params.set('ref_user_id', refUserId);
+            return params;
+        }
+
         function syncProjectPanoramaUrlState(panoramaId) {
             if (!WORKSPACE_ID || !history || typeof history.replaceState !== 'function') return;
             const pano = String(panoramaId || '').trim();
             const base = '/customer/project/' + encodeURIComponent(String(WORKSPACE_ID));
-            const next = pano ? (base + '?pano=' + encodeURIComponent(pano)) : base;
+            const params = new URLSearchParams();
+            if (pano) params.set('pano', pano);
+            appendRequestedReferenceParam(params);
+            const qs = params.toString();
+            const next = qs ? (base + '?' + qs) : base;
             try {
                 history.replaceState(null, '', next);
             } catch (e) { }
@@ -1303,6 +1313,7 @@
                 const params = new URLSearchParams();
                 params.set('from', getCurrentPanoramaId());
                 params.set('from_mode', getCurrentRouteMode());
+                appendRequestedReferenceParam(params);
                 window.location.href = `${basePath}?${params.toString()}`;
             };
 
@@ -2307,13 +2318,15 @@
             const users = Array.isArray(referenceUsers) ? referenceUsers.slice() : [];
             const requestedRefUserId = getRequestedReferenceUserId();
             const currentValue = String(checkoutReferenceEl.value || '').trim();
-            const selectedValue = users.some((row) => String(row && row.user_id) === requestedRefUserId)
+            const hasRequestedRef = Boolean(requestedRefUserId);
+            const requestedMatch = users.some((row) => String(row && row.user_id) === requestedRefUserId);
+            const selectedValue = hasRequestedRef
                 ? requestedRefUserId
                 : (users.some((row) => String(row && row.user_id) === currentValue) ? currentValue : '');
             checkoutReferenceEl.innerHTML = '';
             const defaultOption = document.createElement('option');
             defaultOption.value = '';
-            defaultOption.textContent = users.length ? 'Select reference' : 'No reference available';
+            defaultOption.textContent = users.length ? 'No reference' : 'No reference available';
             checkoutReferenceEl.appendChild(defaultOption);
             users.forEach((row) => {
                 if (!row || !row.user_id) return;
@@ -2322,11 +2335,15 @@
                 option.textContent = buildReferenceLabel(row);
                 checkoutReferenceEl.appendChild(option);
             });
-            checkoutReferenceEl.disabled = users.length === 0;
+            if (hasRequestedRef && !requestedMatch) {
+                const option = document.createElement('option');
+                option.value = requestedRefUserId;
+                option.textContent = 'Reference from link';
+                checkoutReferenceEl.appendChild(option);
+            }
+            checkoutReferenceEl.disabled = hasRequestedRef || users.length === 0;
             if (selectedValue) {
                 checkoutReferenceEl.value = selectedValue;
-            } else if (users.length === 1) {
-                checkoutReferenceEl.value = String(users[0].user_id || '');
             } else {
                 checkoutReferenceEl.value = '';
             }
@@ -2545,9 +2562,6 @@
             if (!email || !email.includes('@')) return { ok: false, error: 'Valid email is required.' };
             if (!phone) return { ok: false, error: 'Contact number is required.' };
             if (!category) return { ok: false, error: 'Category is required.' };
-            if (Array.isArray(referenceUsersCache) && referenceUsersCache.length > 0 && !referenceUserId) {
-                return { ok: false, error: 'Reference is required.' };
-            }
             return { ok: true, payload: { name, email, phone, category, reference_user_id: referenceUserId } };
         }
 
@@ -2570,7 +2584,7 @@
                     customer_email: v.payload.email,
                     customer_phone: v.payload.phone,
                     category: v.payload.category,
-                    reference_user_id: v.payload.reference_user_id,
+                    reference_user_id: v.payload.reference_user_id || null,
                     items: cart.map((x) => ({ plot_id: x.plot_id, panorama_id: x.panorama_id || PANORAMA_ID })),
                 };
                 const r = await fetch('/api/public/buy-interests', {
@@ -4779,11 +4793,12 @@
             if (!WORKSPACE_ID) return null;
             var t = String(type || '').trim();
             if (!t) return null;
-            var url = '/customer/full-view/' + encodeURIComponent(WORKSPACE_ID)
-                 + '?type=' + encodeURIComponent(t);
+            var params = new URLSearchParams();
+            params.set('type', t);
             var r = String(ref || '').trim();
-            if (r) url += '&ref=' + encodeURIComponent(r);
-            return url;
+            if (r) params.set('ref', r);
+            appendRequestedReferenceParam(params);
+            return '/customer/full-view/' + encodeURIComponent(WORKSPACE_ID) + '?' + params.toString();
         }
 
         function prefetchDocument(url) {
@@ -4875,8 +4890,11 @@
                 return true;
             }
             if (WORKSPACE_ID) {
+                var params = new URLSearchParams();
+                params.set('pano', id);
+                appendRequestedReferenceParam(params);
                 window.location.href = '/customer/project/' + encodeURIComponent(String(WORKSPACE_ID))
-                    + '?pano=' + encodeURIComponent(id);
+                    + '?' + params.toString();
                 return true;
             }
             return false;

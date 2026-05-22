@@ -24,6 +24,7 @@ from .shared import (
     _get_client_org,
     _is_client_admin_of,
     _normalize_client_member_role,
+    _project_access_type_for_member_role,
     _propagate_new_member_access_to_group,
     _resource_exists_for_client_access,
     _resource_exists_in_client_member_scope,
@@ -226,6 +227,46 @@ def register_uam_client_routes(app):
                 o['email'] = prof.get('email') or ''
                 if o.get('created_at'):
                     o['created_at'] = str(o['created_at'])
+                out.append(o)
+            return jsonify(out)
+        except Exception as e:
+            return jsonify({'error': str(e)}), 500
+
+    @app.route('/api/clients/<client_id>/available-users', methods=['GET'])
+    @require_auth
+    def list_client_available_users(user_id, role, client_id):
+        sb = get_supabase()
+        if not sb:
+            return jsonify({'error': 'Database not configured'}), 503
+        is_admin = role in ('admin', 'superadmin')
+        if not is_admin and not _is_client_admin_of(sb, user_id, client_id):
+            return jsonify({'error': 'Forbidden'}), 403
+        try:
+            cr = sb.table('clients').select('id, org_id').eq('id', client_id).limit(1).execute()
+            client = (cr.data or [None])[0]
+            if not client:
+                return jsonify({'error': 'Client group not found'}), 404
+            org_id = client.get('org_id')
+            if not org_id:
+                return jsonify([])
+            mr = sb.table('client_members').select('user_id').eq('client_id', client_id).execute()
+            member_ids = {str(row.get('user_id') or '') for row in (mr.data or []) if row.get('user_id')}
+            pr = (
+                sb.table('profiles')
+                .select('user_id, display_name, email, role')
+                .eq('org_id', org_id)
+                .order('display_name')
+                .execute()
+            )
+            out = []
+            for row in (pr.data or []):
+                uid = str(row.get('user_id') or '').strip()
+                if not uid or uid in member_ids or uid == str(user_id):
+                    continue
+                if str(row.get('role') or '').strip().lower() in ('admin', 'superadmin'):
+                    continue
+                o = dict(row)
+                o['user_id'] = uid
                 out.append(o)
             return jsonify(out)
         except Exception as e:
@@ -821,10 +862,11 @@ def register_uam_client_routes(app):
                 if not member_uid or not member_id:
                     continue
                 try:
+                    member_access_type = _project_access_type_for_member_role(access_type, member.get('member_role'))
                     if resource_type == 'workspace':
-                        sb.table('workspace_access').upsert({'workspace_id': str(resource_id), 'user_id': member_uid, 'access_type': access_type, 'granted_by': str(user_id), 'client_member_id': member_id}, on_conflict='workspace_id,user_id').execute()
+                        sb.table('workspace_access').upsert({'workspace_id': str(resource_id), 'user_id': member_uid, 'access_type': member_access_type, 'granted_by': str(user_id), 'client_member_id': member_id}, on_conflict='workspace_id,user_id').execute()
                     else:
-                        sb.table('panorama_access').upsert({'panorama_id': int(resource_id), 'user_id': member_uid, 'access_type': access_type, 'granted_by': str(user_id), 'client_member_id': member_id}, on_conflict='panorama_id,user_id').execute()
+                        sb.table('panorama_access').upsert({'panorama_id': int(resource_id), 'user_id': member_uid, 'access_type': member_access_type, 'granted_by': str(user_id), 'client_member_id': member_id}, on_conflict='panorama_id,user_id').execute()
                     granted += 1
                 except Exception:
                     pass

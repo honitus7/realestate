@@ -94,7 +94,7 @@ SMTP_USERNAME = os.environ.get('SMTP_USERNAME', '').strip()
 SMTP_PASSWORD = os.environ.get('SMTP_PASSWORD', '').strip()
 SMTP_USE_TLS = os.environ.get('SMTP_USE_TLS', 'true').strip().lower() not in ('0', 'false', 'no')
 SMTP_FROM_EMAIL = os.environ.get('SMTP_FROM_EMAIL', '').strip()
-SMTP_FROM_NAME = os.environ.get('SMTP_FROM_NAME', 'PropMark').strip()
+SMTP_FROM_NAME = os.environ.get('SMTP_FROM_NAME', 'MarketoState').strip()
 
 # Brevo transactional API (preferred when API key is present)
 BREVO_API_KEY = os.environ.get('BREVO_API_KEY', '').strip()

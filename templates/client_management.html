@@ -1,5 +1,5 @@
 {% extends 'base.html' %}
-{% block title %}My Team - PropMark{% endblock %}
+{% block title %}My Team - MarketoState{% endblock %}
 {% block head_css %}
 <link rel="stylesheet" href="/static/css/dashboard.css">
 <link rel="stylesheet" href="/static/css/user_management.css">
@@ -56,6 +56,35 @@
         </div>
     </div>
 
+    <div class="modal-backdrop" id="modal-add-member">
+        <div class="modal modal--sm" role="dialog" aria-modal="true" aria-label="Add existing user">
+            <div class="modal-head">
+                <div class="modal-title">Add User to <span id="add-group-name"></span></div>
+                <button class="btn btn-secondary" id="close-add-member-modal" type="button">Close</button>
+            </div>
+            <div class="modal-body-edit">
+                <div class="edit-section">
+                    <div class="form-field">
+                        <label class="label" for="add-member-user">User</label>
+                        <select class="input" id="add-member-user"></select>
+                    </div>
+                    <div class="form-field" style="margin-top:0.75rem;">
+                        <label class="label" for="add-member-role">Role</label>
+                        <select class="input" id="add-member-role">
+                            <option value="client_user" selected>Sales Agent</option>
+                            <option value="internal_broker">Internal Broker</option>
+                        </select>
+                    </div>
+                    <div class="msg error" id="add-member-error" style="display:none;"></div>
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" id="cancel-add-member" type="button">Cancel</button>
+                <button class="btn btn-primary" id="confirm-add-member" type="button">Add User</button>
+            </div>
+        </div>
+    </div>
+
     <div class="modal-backdrop" id="modal-member-view">
         <div class="modal modal--sm" role="dialog" aria-modal="true" aria-label="View member">
             <div class="modal-head">
@@ -89,6 +118,47 @@
             </div>
         </div>
     </div>
+
+    <div class="modal-backdrop" id="modal-member-access">
+        <div class="modal modal--sm" role="dialog" aria-modal="true" aria-label="Manage project access">
+            <div class="modal-head">
+                <div class="modal-title">Project Access: <span id="access-member-name"></span></div>
+                <button class="btn btn-secondary" id="close-member-access-modal" type="button">Close</button>
+            </div>
+            <div class="modal-body-edit">
+                <div class="edit-section">
+                    <div class="form-grid" style="grid-template-columns:1fr 1fr;">
+                        <div class="form-field">
+                            <label class="label" for="member-access-resource-type">Resource Type</label>
+                            <select class="input" id="member-access-resource-type">
+                                <option value="workspace">Workspace (Project)</option>
+                                <option value="panorama">Panorama</option>
+                            </select>
+                        </div>
+                        <div class="form-field">
+                            <label class="label" for="member-access-level">Access Level</label>
+                            <select class="input" id="member-access-level">
+                                <option value="client">Client</option>
+                                <option value="broker">Broker</option>
+                                <option value="viewer">Viewer</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-field" style="margin-top:0.75rem;">
+                        <label class="label" for="member-access-resource-id">Project</label>
+                        <select class="input" id="member-access-resource-id"></select>
+                    </div>
+                    <div class="msg error" id="member-access-error" style="display:none;"></div>
+                    <div class="access-list" id="member-access-list" style="margin-top:0.85rem;"></div>
+                    <div class="empty" id="member-access-empty" style="display:none;">No project access assigned yet.</div>
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" id="cancel-member-access" type="button">Cancel</button>
+                <button class="btn btn-primary" id="confirm-member-access" type="button">Grant Access</button>
+            </div>
+        </div>
+    </div>
 </div>
 {% endblock %}
 {% block scripts %}
@@ -116,9 +186,19 @@
         return key;
     }
     var inviteTargetGroupId = null;
+    var addTargetGroupId = null;
     var modalInviteMember = null;
+    var modalAddMember = null;
     var modalMemberView = null;
+    var modalMemberAccess = null;
     var membersByGroup = {};
+    var memberAccessState = {
+        groupId: '',
+        userId: '',
+        memberRole: '',
+        groupAccess: { workspaces: [], panoramas: [] },
+        memberAccess: { workspaces: [], panoramas: [] }
+    };
 
     function getAuthHeaders() {
         return supabase.auth.getSession().then(function (r) {
@@ -206,6 +286,59 @@
         setTimeout(function () { document.getElementById('invite-member-name').focus(); }, 20);
     }
 
+    function openAddMemberModal(groupId, groupName) {
+        addTargetGroupId = groupId;
+        document.getElementById('add-group-name').textContent = groupName || '';
+        setError(document.getElementById('add-member-error'), '');
+        var userSelect = document.getElementById('add-member-user');
+        var roleSelect = document.getElementById('add-member-role');
+        if (roleSelect) roleSelect.value = 'client_user';
+        if (userSelect) userSelect.innerHTML = '<option value="">Loading...</option>';
+        openModal(modalAddMember);
+        getAuthHeaders().then(function (h) {
+            return fetchJson('/api/clients/' + encodeURIComponent(groupId) + '/available-users', { headers: h });
+        }).then(function (res) {
+            if (!res.ok) throw new Error((res.data && res.data.error) || 'Failed to load users');
+            var users = Array.isArray(res.data) ? res.data : [];
+            userSelect.innerHTML = users.length ? users.map(function (u) {
+                return '<option value="' + escapeHtml(u.user_id) + '">' + escapeHtml(u.display_name || u.email || u.user_id) + '</option>';
+            }).join('') : '<option value="">No users available</option>';
+        }).catch(function (err) {
+            userSelect.innerHTML = '<option value="">No users available</option>';
+            setError(document.getElementById('add-member-error'), err && err.message ? err.message : 'Failed to load users');
+        });
+    }
+
+    function doAddMember() {
+        var errEl = document.getElementById('add-member-error');
+        var userSelect = document.getElementById('add-member-user');
+        var roleSelect = document.getElementById('add-member-role');
+        var targetUid = userSelect ? String(userSelect.value || '').trim() : '';
+        var memberRole = roleSelect ? String(roleSelect.value || 'client_user') : 'client_user';
+        var btn = document.getElementById('confirm-add-member');
+        if (!addTargetGroupId) { setError(errEl, 'Please pick a client group first.'); return; }
+        if (!targetUid) { setError(errEl, 'Please select a user.'); return; }
+        setError(errEl, '');
+        if (btn) btn.disabled = true;
+        getAuthHeaders().then(function (h) {
+            return fetchJson('/api/clients/' + encodeURIComponent(addTargetGroupId) + '/members', {
+                method: 'POST',
+                headers: h,
+                body: JSON.stringify({ user_id: targetUid, member_role: memberRole })
+            });
+        }).then(function (res) {
+            if (!res.ok) { setError(errEl, (res.data && res.data.error) || 'Failed to add user'); return; }
+            closeModal(modalAddMember);
+            return getAuthHeaders().then(function (h) {
+                return fetchJson('/api/clients/' + encodeURIComponent(addTargetGroupId) + '/members', { headers: h });
+            }).then(function (membersRes) {
+                if (membersRes.ok && Array.isArray(membersRes.data)) renderMembers(addTargetGroupId, membersRes.data);
+            });
+        }).finally(function () {
+            if (btn) btn.disabled = false;
+        });
+    }
+
     function doInviteMember() {
         var errEl = document.getElementById('invite-member-error');
         var successEl = document.getElementById('invite-member-success');
@@ -253,6 +386,130 @@
         });
     }
 
+    function projectAccessDefaultForRole(role) {
+        return normalizeMemberRole(role) === 'internal_broker' ? 'broker' : 'client';
+    }
+
+    function loadMemberAccessResources() {
+        var type = document.getElementById('member-access-resource-type').value || 'workspace';
+        var sel = document.getElementById('member-access-resource-id');
+        if (!sel) return;
+        var rows = type === 'workspace'
+            ? (memberAccessState.groupAccess.workspaces || [])
+            : (memberAccessState.groupAccess.panoramas || []);
+        sel.innerHTML = rows.length ? rows.map(function (row) {
+            var id = type === 'workspace' ? row.workspace_id : row.panorama_id;
+            return '<option value="' + escapeHtml(String(id || '')) + '">' + escapeHtml(row.name || id || '') + '</option>';
+        }).join('') : '<option value="">No projects available</option>';
+    }
+
+    function renderMemberAccessList() {
+        var listEl = document.getElementById('member-access-list');
+        var emptyEl = document.getElementById('member-access-empty');
+        if (!listEl) return;
+        var rows = [];
+        (memberAccessState.memberAccess.workspaces || []).forEach(function (w) {
+            rows.push({ type: 'workspace', id: w.workspace_id, name: w.name, access_type: w.access_type });
+        });
+        (memberAccessState.memberAccess.panoramas || []).forEach(function (p) {
+            rows.push({ type: 'panorama', id: p.panorama_id, name: p.name, access_type: p.access_type });
+        });
+        if (emptyEl) emptyEl.style.display = rows.length ? 'none' : 'block';
+        listEl.innerHTML = rows.map(function (row) {
+            return '<div class="access-row">' +
+                '<span class="pill user" style="font-size:0.7rem;">' + escapeHtml(row.type) + '</span>' +
+                '<span>' + escapeHtml(row.name || row.id || '') + '</span>' +
+                '<span class="pill admin" style="font-size:0.7rem;margin-left:auto;">' + escapeHtml(row.access_type || '') + '</span>' +
+                '<button class="btn-sm btn-sm--danger member-access-revoke" type="button" data-rtype="' + escapeHtml(row.type) + '" data-rid="' + escapeHtml(String(row.id || '')) + '">Revoke</button>' +
+            '</div>';
+        }).join('');
+        listEl.querySelectorAll('.member-access-revoke').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                var rtype = btn.getAttribute('data-rtype');
+                var rid = btn.getAttribute('data-rid');
+                if (!rtype || !rid || !confirm('Revoke access for this ' + rtype + '?')) return;
+                btn.disabled = true;
+                getAuthHeaders().then(function (h) {
+                    return fetchJson('/api/clients/' + encodeURIComponent(memberAccessState.groupId) + '/access', {
+                        method: 'DELETE',
+                        headers: h,
+                        body: JSON.stringify({ resource_type: rtype, resource_id: rid, target_user_id: memberAccessState.userId })
+                    });
+                }).then(function (res) {
+                    if (!res.ok) throw new Error((res.data && res.data.error) || 'Failed to revoke access');
+                    return refreshMemberAccess();
+                }).catch(function (err) {
+                    alert(err && err.message ? err.message : 'Failed to revoke access');
+                }).finally(function () {
+                    btn.disabled = false;
+                });
+            });
+        });
+    }
+
+    function refreshMemberAccess() {
+        return getAuthHeaders().then(function (h) {
+            return Promise.all([
+                fetchJson('/api/clients/' + encodeURIComponent(memberAccessState.groupId) + '/access', { headers: h }),
+                fetchJson('/api/clients/' + encodeURIComponent(memberAccessState.groupId) + '/access?target_user_id=' + encodeURIComponent(memberAccessState.userId), { headers: h })
+            ]);
+        }).then(function (results) {
+            if (!results[0].ok) throw new Error((results[0].data && results[0].data.error) || 'Failed to load group access');
+            if (!results[1].ok) throw new Error((results[1].data && results[1].data.error) || 'Failed to load member access');
+            memberAccessState.groupAccess = results[0].data || { workspaces: [], panoramas: [] };
+            memberAccessState.memberAccess = results[1].data || { workspaces: [], panoramas: [] };
+            loadMemberAccessResources();
+            renderMemberAccessList();
+        });
+    }
+
+    function openMemberAccessModal(groupId, userId, name, role) {
+        memberAccessState.groupId = String(groupId || '');
+        memberAccessState.userId = String(userId || '');
+        memberAccessState.memberRole = normalizeMemberRole(role);
+        document.getElementById('access-member-name').textContent = name || 'Member';
+        document.getElementById('member-access-resource-type').value = 'workspace';
+        var levelSelect = document.getElementById('member-access-level');
+        if (levelSelect) {
+            levelSelect.value = projectAccessDefaultForRole(role);
+            levelSelect.disabled = normalizeMemberRole(role) === 'internal_broker';
+        }
+        setError(document.getElementById('member-access-error'), '');
+        openModal(modalMemberAccess);
+        refreshMemberAccess().catch(function (err) {
+            setError(document.getElementById('member-access-error'), err && err.message ? err.message : 'Failed to load access');
+        });
+    }
+
+    function grantMemberAccess() {
+        var errEl = document.getElementById('member-access-error');
+        var rtype = document.getElementById('member-access-resource-type').value || 'workspace';
+        var rid = document.getElementById('member-access-resource-id').value;
+        var accessType = document.getElementById('member-access-level').value || projectAccessDefaultForRole(memberAccessState.memberRole);
+        var btn = document.getElementById('confirm-member-access');
+        if (!rid) { setError(errEl, 'Please select a project.'); return; }
+        if (normalizeMemberRole(memberAccessState.memberRole) === 'internal_broker') accessType = 'broker';
+        setError(errEl, '');
+        if (btn) btn.disabled = true;
+        getAuthHeaders().then(function (h) {
+            return fetchJson('/api/clients/' + encodeURIComponent(memberAccessState.groupId) + '/access', {
+                method: 'POST',
+                headers: h,
+                body: JSON.stringify({
+                    resource_type: rtype,
+                    resource_id: rid,
+                    access_type: accessType,
+                    target_user_id: memberAccessState.userId
+                })
+            });
+        }).then(function (res) {
+            if (!res.ok) { setError(errEl, (res.data && res.data.error) || 'Failed to grant access'); return; }
+            return refreshMemberAccess();
+        }).finally(function () {
+            if (btn) btn.disabled = false;
+        });
+    }
+
     // -- Kick off data fetch immediately - don't wait for sidebarReady --
     var dataPromise = getAuthHeaders().then(function (h) {
         return Promise.all([
@@ -264,25 +521,33 @@
     // -- Render members table --
     function renderMembers(groupId, members) {
         membersByGroup[String(groupId)] = Array.isArray(members) ? members.slice() : [];
-        var tbody = document.getElementById('members-body-' + groupId);
-        var tableEl = document.getElementById('members-table-' + groupId);
+        var listEl = document.getElementById('members-list-' + groupId);
         var emptyEl = document.getElementById('members-empty-' + groupId);
         var loadingEl = document.getElementById('members-loading-' + groupId);
         if (loadingEl) loadingEl.style.display = 'none';
+        if (emptyEl) emptyEl.style.display = 'none';
+        if (listEl) listEl.style.display = 'none';
         if (!members.length) {
             if (emptyEl) emptyEl.style.display = 'block';
             return;
         }
-        if (tableEl) tableEl.style.display = '';
-        if (!tbody) return;
+        if (listEl) listEl.style.display = '';
+        if (!listEl) return;
 
-        tbody.innerHTML = members.map(function (m) {
+        var iconUser = '<span class="member-icon member-icon--user"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21a8 8 0 0 0-16 0"></path><circle cx="12" cy="8" r="4"></circle></svg></span>';
+        var iconMail = '<span class="member-meta-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16v12H4z"></path><path d="m4 7 8 6 8-6"></path></svg></span>';
+        var iconRole = '<span class="member-meta-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m12 3 7 4v6c0 5-3.5 7.5-7 8-3.5-.5-7-3-7-8V7z"></path></svg></span>';
+        var iconClock = '<span class="member-meta-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v6l4 2"></path></svg></span>';
+        var iconStatus = '<span class="member-meta-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"></circle><path d="m8.5 12 2.2 2.2L15.5 9.5"></path></svg></span>';
+
+        listEl.innerHTML = members.map(function (m) {
             var uid = String(m.user_id || '');
             var normalizedRole = normalizeMemberRole(m.member_role);
             var roleLabel = escapeHtml(roleLabels[normalizedRole] || normalizedRole || '-');
             var createdAt = escapeHtml(formatRelativeTime(m.created_at));
             var createdAtFull = escapeHtml(formatDateTime(m.created_at));
             var canEditRole = normalizedRole !== 'external_broker';
+            var canManageProjectAccess = normalizedRole === 'client_user' || normalizedRole === 'internal_broker';
             var roleChoices = canEditRole ? ['client_admin', 'client_user', 'internal_broker'] : ['external_broker'];
             var roleSelect =
                 '<select class="member-role-select" data-group="' + escapeHtml(groupId) +
@@ -305,23 +570,33 @@
                     '<button class="btn-sm btn-accent member-save-btn" type="button" data-group="' + escapeHtml(groupId) + '" data-uid="' + escapeHtml(uid) + '" style="display:none;">Save</button>' +
                     '<button class="btn-sm member-cancel-btn" type="button" data-group="' + escapeHtml(groupId) + '" data-uid="' + escapeHtml(uid) + '" style="display:none;">Cancel</button>' +
                     '<button class="btn-sm member-view-btn" type="button" data-group="' + escapeHtml(groupId) + '" data-uid="' + escapeHtml(uid) + '">View</button>' +
+                    (canManageProjectAccess ? '<button class="btn-sm member-access-btn" type="button" data-group="' + escapeHtml(groupId) + '" data-uid="' + escapeHtml(uid) + '" data-name="' + escapeHtml(m.display_name || m.email || 'member') + '" data-role="' + escapeHtml(normalizedRole) + '">Access</button>' : '') +
                     '<button class="btn-sm btn-warn member-delete-btn" type="button" data-group="' + escapeHtml(groupId) + '" data-uid="' + escapeHtml(uid) + '" data-name="' + escapeHtml(m.display_name || m.email || 'member') + '">Delete</button>'
                 )
                 : (
                     '<button class="btn-sm member-view-btn" type="button" data-group="' + escapeHtml(groupId) + '" data-uid="' + escapeHtml(uid) + '">View</button>'
                 );
-            return '<tr data-group="' + escapeHtml(groupId) + '" data-uid="' + escapeHtml(uid) + '">' +
-                '<td>' + escapeHtml(m.display_name || '-') + '</td>' +
-                '<td>' + escapeHtml(m.email || '-') + '</td>' +
-                '<td>' + roleCellHtml + '</td>' +
-                '<td title="' + createdAtFull + '">' + createdAt + '</td>' +
-                '<td><span class="pill member-status-pill">Active</span></td>' +
-                '<td class="actions-cell">' + actionButtons + '</td>' +
-                '</tr>';
+            return '<div class="member-item" data-group="' + escapeHtml(groupId) + '" data-uid="' + escapeHtml(uid) + '">' +
+                '<div class="member-overview">' +
+                    '<div class="member-person">' +
+                        iconUser +
+                        '<div class="member-person-text">' +
+                            '<div class="member-name">' + escapeHtml(m.display_name || '-') + '</div>' +
+                            '<div class="member-email">' + iconMail + '<span>' + escapeHtml(m.email || '-') + '</span></div>' +
+                        '</div>' +
+                    '</div>' +
+                    '<div class="member-badges">' +
+                        '<div class="member-chip">' + iconRole + roleCellHtml + '</div>' +
+                        '<div class="member-chip" title="' + createdAtFull + '">' + iconClock + '<span>' + createdAt + '</span></div>' +
+                        '<div class="member-chip">' + iconStatus + '<span class="pill member-status-pill">Active</span></div>' +
+                    '</div>' +
+                '</div>' +
+                '<div class="actions-cell">' + actionButtons + '</div>' +
+                '</div>';
         }).join('');
 
         function getRow(gid, uid) {
-            return tbody.querySelector('tr[data-group="' + gid + '"][data-uid="' + uid + '"]');
+            return listEl.querySelector('.member-item[data-group="' + gid + '"][data-uid="' + uid + '"]');
         }
         function setRowEditMode(row, editing) {
             if (!row) return;
@@ -331,6 +606,7 @@
             var saveBtn = row.querySelector('.member-save-btn');
             var cancelBtn = row.querySelector('.member-cancel-btn');
             var viewBtn = row.querySelector('.member-view-btn');
+            var accessBtn = row.querySelector('.member-access-btn');
             var deleteBtn = row.querySelector('.member-delete-btn');
             if (label) label.style.display = editing ? 'none' : '';
             if (editWrap) editWrap.style.display = editing ? '' : 'none';
@@ -338,6 +614,7 @@
             if (saveBtn) saveBtn.style.display = editing ? '' : 'none';
             if (cancelBtn) cancelBtn.style.display = editing ? '' : 'none';
             if (viewBtn) viewBtn.style.display = editing ? 'none' : '';
+            if (accessBtn) accessBtn.style.display = editing ? 'none' : '';
             if (deleteBtn) deleteBtn.style.display = editing ? 'none' : '';
         }
         function refreshMembers(gid) {
@@ -349,7 +626,7 @@
             });
         }
 
-        tbody.querySelectorAll('.member-edit-btn').forEach(function (btn) {
+        listEl.querySelectorAll('.member-edit-btn').forEach(function (btn) {
             btn.addEventListener('click', function () {
                 if (btn.getAttribute('data-locked') === '1') return;
                 var gid = btn.getAttribute('data-group');
@@ -364,7 +641,7 @@
             });
         });
 
-        tbody.querySelectorAll('.member-cancel-btn').forEach(function (btn) {
+        listEl.querySelectorAll('.member-cancel-btn').forEach(function (btn) {
             btn.addEventListener('click', function () {
                 var gid = btn.getAttribute('data-group');
                 var uid = btn.getAttribute('data-uid');
@@ -378,7 +655,7 @@
             });
         });
 
-        tbody.querySelectorAll('.member-save-btn').forEach(function (btn) {
+        listEl.querySelectorAll('.member-save-btn').forEach(function (btn) {
             btn.addEventListener('click', function () {
                 var gid = btn.getAttribute('data-group');
                 var uid = btn.getAttribute('data-uid');
@@ -411,7 +688,7 @@
             });
         });
 
-        tbody.querySelectorAll('.member-view-btn').forEach(function (btn) {
+        listEl.querySelectorAll('.member-view-btn').forEach(function (btn) {
             btn.addEventListener('click', function () {
                 var gid = String(btn.getAttribute('data-group') || '');
                 var uid = String(btn.getAttribute('data-uid') || '');
@@ -437,7 +714,18 @@
             });
         });
 
-        tbody.querySelectorAll('.member-delete-btn').forEach(function (btn) {
+        listEl.querySelectorAll('.member-access-btn').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                openMemberAccessModal(
+                    btn.getAttribute('data-group'),
+                    btn.getAttribute('data-uid'),
+                    btn.getAttribute('data-name') || 'Member',
+                    btn.getAttribute('data-role') || ''
+                );
+            });
+        });
+
+        listEl.querySelectorAll('.member-delete-btn').forEach(function (btn) {
             btn.addEventListener('click', function () {
                 var gid = btn.getAttribute('data-group');
                 var uid = btn.getAttribute('data-uid');
@@ -531,7 +819,8 @@
                     (group.description
                         ? '<div style="font-size:0.78rem;color:var(--color-text-dim);margin-top:0.15rem;">' + escapeHtml(group.description) + '</div>'
                         : '') +
-                '</div><div>' +
+                '</div><div style="display:flex;gap:0.45rem;flex-wrap:wrap;justify-content:flex-end;">' +
+                    '<button class="btn btn-secondary btn-sm add-member-btn" data-group-id="' + gid + '" data-group-name="' + escapeHtml(group.name || '') + '" type="button">Add User</button>' +
                     '<button class="btn btn-secondary btn-sm invite-member-btn" data-group-id="' + gid + '" data-group-name="' + escapeHtml(group.name || '') + '" type="button">Invite User</button>' +
                 '</div></div>' +
                 '<div class="group-subtabs" data-group="' + gid + '">' +
@@ -540,17 +829,7 @@
                 '</div>' +
                 '<div id="group-panel-members-' + gid + '" class="group-subpanel">' +
                     '<div id="members-loading-' + gid + '" style="font-size:0.83rem;color:var(--color-text-dim);">Loading members...</div>' +
-                    '<table class="table" id="members-table-' + gid + '" style="display:none;">' +
-                        '<thead><tr>' +
-                            '<th style="width:22%;">Name</th>' +
-                            '<th style="width:24%;">Email</th>' +
-                            '<th style="width:14%;">Permission</th>' +
-                            '<th style="width:12%;">Created</th>' +
-                            '<th style="width:10%;">Status</th>' +
-                            '<th style="width:18%;">Actions</th>' +
-                        '</tr></thead>' +
-                        '<tbody id="members-body-' + gid + '"></tbody>' +
-                    '</table>' +
+                    '<div class="members-list" id="members-list-' + gid + '" style="display:none;"></div>' +
                     '<div class="empty" id="members-empty-' + gid + '" style="display:none;">No members in this group.</div>' +
                 '</div>' +
                 '<div id="group-panel-invites-' + gid + '" class="group-subpanel" style="display:none;">' +
@@ -574,6 +853,11 @@
         container.querySelectorAll('.invite-member-btn').forEach(function (btn) {
             btn.addEventListener('click', function () {
                 openInviteMemberModal(btn.getAttribute('data-group-id'), btn.getAttribute('data-group-name'));
+            });
+        });
+        container.querySelectorAll('.add-member-btn').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                openAddMemberModal(btn.getAttribute('data-group-id'), btn.getAttribute('data-group-name'));
             });
         });
 
@@ -621,20 +905,38 @@
     // -- sidebarReady: auth gate only (data already in-flight) --
     window.sidebarReady.then(function (ctx) {
         modalInviteMember = document.getElementById('modal-invite-member');
+        modalAddMember = document.getElementById('modal-add-member');
         modalMemberView = document.getElementById('modal-member-view');
+        modalMemberAccess = document.getElementById('modal-member-access');
         var closeInviteBtn = document.getElementById('close-invite-member-modal');
         var cancelInviteBtn = document.getElementById('cancel-invite-member');
         var confirmInviteBtn = document.getElementById('confirm-invite-member');
+        var closeAddBtn = document.getElementById('close-add-member-modal');
+        var cancelAddBtn = document.getElementById('cancel-add-member');
+        var confirmAddBtn = document.getElementById('confirm-add-member');
         var closeMemberViewBtn = document.getElementById('close-member-view-modal');
         var dismissMemberViewBtn = document.getElementById('dismiss-member-view');
+        var closeMemberAccessBtn = document.getElementById('close-member-access-modal');
+        var cancelMemberAccessBtn = document.getElementById('cancel-member-access');
+        var confirmMemberAccessBtn = document.getElementById('confirm-member-access');
+        var memberAccessTypeSel = document.getElementById('member-access-resource-type');
 
         if (closeInviteBtn) closeInviteBtn.addEventListener('click', function () { closeModal(modalInviteMember); });
         if (cancelInviteBtn) cancelInviteBtn.addEventListener('click', function () { closeModal(modalInviteMember); });
         if (confirmInviteBtn) confirmInviteBtn.addEventListener('click', doInviteMember);
         if (modalInviteMember) modalInviteMember.addEventListener('click', function (e) { if (e.target === modalInviteMember) closeModal(modalInviteMember); });
+        if (closeAddBtn) closeAddBtn.addEventListener('click', function () { closeModal(modalAddMember); });
+        if (cancelAddBtn) cancelAddBtn.addEventListener('click', function () { closeModal(modalAddMember); });
+        if (confirmAddBtn) confirmAddBtn.addEventListener('click', doAddMember);
+        if (modalAddMember) modalAddMember.addEventListener('click', function (e) { if (e.target === modalAddMember) closeModal(modalAddMember); });
         if (closeMemberViewBtn) closeMemberViewBtn.addEventListener('click', function () { closeModal(modalMemberView); });
         if (dismissMemberViewBtn) dismissMemberViewBtn.addEventListener('click', function () { closeModal(modalMemberView); });
         if (modalMemberView) modalMemberView.addEventListener('click', function (e) { if (e.target === modalMemberView) closeModal(modalMemberView); });
+        if (closeMemberAccessBtn) closeMemberAccessBtn.addEventListener('click', function () { closeModal(modalMemberAccess); });
+        if (cancelMemberAccessBtn) cancelMemberAccessBtn.addEventListener('click', function () { closeModal(modalMemberAccess); });
+        if (confirmMemberAccessBtn) confirmMemberAccessBtn.addEventListener('click', grantMemberAccess);
+        if (memberAccessTypeSel) memberAccessTypeSel.addEventListener('change', loadMemberAccessResources);
+        if (modalMemberAccess) modalMemberAccess.addEventListener('click', function (e) { if (e.target === modalMemberAccess) closeModal(modalMemberAccess); });
 
         if (ctx.role === 'admin' || ctx.role === 'superadmin') {
             window.location.replace('/user-management');

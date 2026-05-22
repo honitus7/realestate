@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ workspace_name or 'Full View' }} - PropMark</title>
+    <title>{{ workspace_name or 'Full View' }} - MarketoState</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Lora:wght@400;500;600;700&family=Merriweather:wght@400;700&family=Montserrat:wght@400;500;600;700&family=Oswald:wght@400;500;600&family=Poppins:wght@400;500;600;700&family=Syne:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -1147,6 +1147,21 @@
     var MAX_PRELOADED_FRAMES = 8;
     var editorPreviewMode = 'desktop';
 
+    function getRequestedReferenceUserId() {
+        try {
+            var params = new URLSearchParams(window.location.search || '');
+            return String(params.get('ref_user_id') || '').trim();
+        } catch (e) {
+            return '';
+        }
+    }
+
+    function appendRequestedReferenceParam(params) {
+        var refUserId = getRequestedReferenceUserId();
+        if (refUserId) params.set('ref_user_id', refUserId);
+        return params;
+    }
+
     function defaultModalStyle() {
         return {
             bg: '#1e1e1e',
@@ -1948,11 +1963,13 @@
 
     function panoramaEmbedUrl(panoramaId) {
         if (!WS_ID) return null;
-        var url = '/customer/project/' + encodeURIComponent(WS_ID) + '?embed=1';
+        var params = new URLSearchParams();
+        params.set('embed', '1');
         var panoRef = String(panoramaId || '').trim();
-        if (panoRef) url += '&pano=' + encodeURIComponent(panoRef);
-        url += editorPreviewQuerySuffix();
-        return url;
+        if (panoRef) params.set('pano', panoRef);
+        appendRequestedReferenceParam(params);
+        var url = '/customer/project/' + encodeURIComponent(WS_ID) + '?' + params.toString();
+        return url + editorPreviewQuerySuffix();
     }
 
     function embedUrl(type, ref, contentData) {
@@ -2265,9 +2282,12 @@
 
         if (!opts.skipPreload) scheduleFramePreload(meta);
         if (history.replaceState && WS_ID) {
+            var params = new URLSearchParams();
+            params.set('type', meta.type);
+            params.set('ref', meta.ref || '');
+            appendRequestedReferenceParam(params);
             history.replaceState(null, '', SHELL_BASE_PATH
-                + '?type=' + encodeURIComponent(meta.type)
-                + '&ref=' + encodeURIComponent(meta.ref || '')
+                + '?' + params.toString()
                 + editorPreviewQuerySuffix());
         }
     }

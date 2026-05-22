@@ -1,5 +1,5 @@
 {% extends 'base.html' %}
-{% block title %}Organizations – PropMark{% endblock %}
+{% block title %}Organizations – MarketoState{% endblock %}
 {% block head_css %}
 <link rel="stylesheet" href="/static/css/organizations.css">
 {% endblock %}
@@ -7,7 +7,7 @@
 <div class="organizations-page">
     <header class="header">
         <div class="header-left">
-            <a href="/dashboard" class="brand-pill" aria-label="PropMark">PropMark</a>
+            <a href="/dashboard" class="brand-pill" aria-label="MarketoState">MarketoState</a>
             <nav class="nav">
             <a href="/dashboard">Plotted Development</a>
             <a href="/user-management?open=invite">Add user</a>
@@ -190,11 +190,44 @@
                 el.style.display = msg ? 'block' : 'none';
             }
 
+            function waitForSession(maxAttempts, delayMs) {
+                var remaining = Math.max(0, Number(maxAttempts) || 0);
+                var waitMs = Math.max(60, Number(delayMs) || 180);
+                function readSession() {
+                    return supabase.auth.getSession()
+                        .then(function (r) { return (r && r.data && r.data.session) ? r.data.session : null; })
+                        .catch(function () { return null; });
+                }
+                function step() {
+                    return readSession().then(function (session) {
+                        if (session || remaining <= 0) return session;
+                        remaining -= 1;
+                        return new Promise(function (resolve) {
+                            setTimeout(function () { resolve(step()); }, waitMs);
+                        });
+                    });
+                }
+                return step();
+            }
+
             function getAuthHeaders() {
-                return supabase.auth.getSession().then(function (r) {
+                return waitForSession(20, 180).then(function (session) {
                     var h = { 'Content-Type': 'application/json' };
-                    if (r.data.session && r.data.session.access_token) h['Authorization'] = 'Bearer ' + r.data.session.access_token;
+                    if (session && session.access_token) h['Authorization'] = 'Bearer ' + session.access_token;
                     return h;
+                });
+            }
+
+            function ensureAuthHeadersOrRedirect() {
+                return getAuthHeaders().then(function (h) {
+                    if (h.Authorization) return h;
+                    return waitForSession(30, 200).then(function (session) {
+                        if (session && session.access_token) {
+                            return { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + session.access_token };
+                        }
+                        window.location.replace('/login');
+                        return null;
+                    });
                 });
             }
 
@@ -377,11 +410,19 @@
             }
 
             function loadOrgs() {
-                return getAuthHeaders().then(function (h) {
+                return ensureAuthHeadersOrRedirect().then(function (h) {
+                    if (!h) return { ok: false, status: 401, data: { error: 'Unauthorized' } };
                     return fetchJson('/api/orgs', { headers: h });
                 }).then(function (res) {
                     if (!res.ok) {
-                        if (res.status === 401) { window.location.replace('/login'); return; }
+                        if (res.status === 401) {
+                            return waitForSession(30, 200).then(function (session) {
+                                if (!session || !session.access_token) {
+                                    window.location.replace('/login');
+                                }
+                                return;
+                            });
+                        }
                         var msg = (res.data && res.data.error) ? res.data.error : 'Forbidden';
                         showBanner(msg);
                         throw new Error(msg);
@@ -634,15 +675,21 @@
             if (logoutEl) {
                 logoutEl.addEventListener('click', function (e) {
                     e.preventDefault();
-                    supabase.auth.signOut().then(function () { window.location.href = '/login'; });
+                    supabase.auth.signOut()
+                        .catch(function () { /* ignore transient signOut aborts */ })
+                        .finally(function () { window.location.href = '/login'; });
                 });
             }
 
             // Auth guard + boot
-            supabase.auth.getSession().then(function (r) {
-                if (!r.data.session) { window.location.replace('/login'); return; }
+            waitForSession(30, 200).then(function (session) {
+                if (!session) { window.location.replace('/login'); return; }
                 // Ensure we are superadmin
-                getAuthHeaders().then(function (h) { return fetchJson('/api/org/me', { headers: h }); }).then(function (res) {
+                ensureAuthHeadersOrRedirect().then(function (h) {
+                    if (!h) return null;
+                    return fetchJson('/api/org/me', { headers: h });
+                }).then(function (res) {
+                    if (!res) return;
                     var role = res && res.data && res.data.profile ? String(res.data.profile.role || '').toLowerCase() : '';
                     if (role !== 'superadmin') {
                         showBanner('Forbidden: SuperAdmin access required.');

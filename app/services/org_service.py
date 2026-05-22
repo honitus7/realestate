@@ -23,7 +23,7 @@ def get_org_name_and_slug_for_panorama(sb, panorama):
                 org_name = r.data[0].get('name')
         except Exception:
             org_name = None
-    org_name = str(org_name or 'PropMark')
+    org_name = str(org_name or 'MarketoState')
     return org_name, slugify_org_name(org_name)
 
 

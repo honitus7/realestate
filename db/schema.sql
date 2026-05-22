@@ -1,5 +1,5 @@
 -- ============================================================
--- PropMark - Full database DDL (Supabase/Postgres)
+-- MarketoState - Full database DDL (Supabase/Postgres)
 -- ============================================================
 -- Run in Supabase Plotted Development → SQL Editor → New query
 -- Single file: all tables, indexes, trigger. No ALTERs.
