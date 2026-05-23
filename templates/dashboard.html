@@ -4,12 +4,17 @@
 <link rel="stylesheet" href="/static/css/dashboard.css">
 {% endblock %}
 {% block content %}
-<div class="dashboard-page" id="dashboard-page">
+<div class="dashboard-page dashboard-page--booting" id="dashboard-page">
     {% set active_page = 'dashboard' %}
     {% include 'components/sidebar.html' %}
 
     <!-- Main content wrapper -->
     <div class="dashboard-main-wrap">
+        <div class="dashboard-boot-loader" id="dashboard-boot-loader" role="status" aria-live="polite">
+            <div class="dashboard-boot-spinner" aria-hidden="true"></div>
+            <div class="dashboard-boot-title">Loading dashboard</div>
+            <div class="dashboard-boot-subtitle">Preparing your projects...</div>
+        </div>
         <!-- Top bar: org name + subtext (constant) -->
         <header class="dashboard-topbar">
             <div class="dashboard-topbar-title">
@@ -411,6 +416,12 @@
         var supabase = window._supabase;
         if (!supabase) return;
 
+        function setDashboardBooting(isBooting) {
+            var page = document.getElementById('dashboard-page');
+            if (!page) return;
+            page.classList.toggle('dashboard-page--booting', !!isBooting);
+        }
+
         window.sidebarReady.then(function (ctx) {
             currentUserRole = ctx.role;
             var orgSubEl = document.getElementById('org-subtitle');
@@ -420,8 +431,11 @@
                 if (createBtn) createBtn.style.display = '';
             }
             try { if (window.applyOrgTheme) window.applyOrgTheme(); } catch (e) { }
-            updateCrmNavVisibility();
+            try { updateCrmNavVisibility(); } catch (e) { }
+            setDashboardBooting(false);
             startDashboardOnce();
+        }).catch(function () {
+            setDashboardBooting(false);
         });
 
             var changePwLink = document.getElementById('nav-change-password');
@@ -1255,12 +1269,16 @@
             } catch (e) {
                 // State already set by loadProjects/loadWorkspaces; single render below.
             }
-            renderWorkspaces();
-            renderRecents();
-            if (projectsLoadFailed) {
-                projectsContainer.innerHTML = '<div class="empty-state"><div class="empty-text">Failed to load projects</div></div>';
-            } else {
-                renderProjects();
+            try {
+                renderWorkspaces();
+                renderRecents();
+                if (projectsLoadFailed) {
+                    projectsContainer.innerHTML = '<div class="empty-state"><div class="empty-text">Failed to load projects</div></div>';
+                } else {
+                    renderProjects();
+                }
+            } finally {
+                setDashboardBooting(false);
             }
         }
 

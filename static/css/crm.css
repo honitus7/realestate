@@ -171,7 +171,7 @@
 .kpi-strip {
     display: flex;
     gap: 0.5rem;
-    margin-bottom: 1rem;
+    margin-bottom: 0.45rem;
     overflow-x: auto;
     scrollbar-width: none;
 }
@@ -440,28 +440,23 @@
 
 /* ── Filter Modal ── */
 .filter-modal-backdrop {
-    position: fixed;
-    inset: 0;
-    background: rgba(22, 35, 56, 0.18);
-    backdrop-filter: blur(3px);
-    z-index: 50;
-    display: none;
-    align-items: flex-start;
-    justify-content: center;
-    padding-top: 10vh;
+    position: static;
+    background: transparent;
+    z-index: 1;
+    display: block;
+    padding: 0;
 }
 
 .filter-modal-backdrop.visible {
-    display: flex;
+    display: block;
 }
 
 .filter-modal {
     background: var(--color-bg-elevated);
     border: 1px solid var(--color-border);
-    border-radius: 12px;
-    width: min(420px, 92vw);
-    box-shadow: 0 16px 48px rgba(22, 35, 56, 0.12);
-    animation: filterModalIn 0.2s ease-out;
+    border-radius: 6px;
+    width: 100%;
+    box-shadow: none;
 }
 
 @keyframes filterModalIn {
@@ -473,28 +468,41 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 0.85rem 1.15rem;
+    padding: 0.58rem 0.65rem;
     border-bottom: 1px solid var(--color-border);
 }
 
 .filter-modal-head h3 {
-    font-family: var(--font-display);
+    font-family: var(--font-body);
     font-weight: 700;
-    font-size: 0.95rem;
+    font-size: 0.72rem;
     color: var(--color-text);
     margin: 0;
 }
 
+.filter-modal-head h3 span {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 16px;
+    height: 16px;
+    margin-left: 0.3rem;
+    border-radius: 5px;
+    background: var(--color-surface);
+    color: var(--color-muted);
+    font-size: 0.62rem;
+}
+
 .filter-modal-close {
-    width: 28px;
-    height: 28px;
+    display: none;
+    width: 24px;
+    height: 24px;
     border-radius: 6px;
     border: 1px solid var(--color-border);
     background: var(--color-surface);
     color: var(--color-muted);
     font-size: 1rem;
     cursor: pointer;
-    display: inline-flex;
     align-items: center;
     justify-content: center;
     transition: background 0.15s;
@@ -506,12 +514,17 @@
 }
 
 .filter-modal-body {
-    padding: 1rem 1.15rem;
+    padding: 0.62rem 0.65rem;
     display: grid;
-    gap: 0.75rem;
+    gap: 0.55rem;
 }
 
 .filter-group {
+    display: grid;
+    gap: 0.22rem;
+}
+
+.filter-search-group {
     display: grid;
     gap: 0.25rem;
 }
@@ -525,14 +538,14 @@
 }
 
 .filter-group-select {
-    height: 36px;
+    height: 30px;
     width: 100%;
     border: 1px solid var(--color-border);
     border-radius: var(--radius-sm);
     background: var(--color-surface);
     color: var(--color-text);
-    padding: 0 0.75rem;
-    font-size: 0.82rem;
+    padding: 0 0.45rem;
+    font-size: 0.72rem;
     font-family: var(--font-body);
     font-weight: 500;
     outline: none;
@@ -548,11 +561,99 @@
 .filter-modal-foot {
     display: flex;
     justify-content: space-between;
-    gap: 0.65rem;
-    padding: 0.85rem 1.15rem;
+    gap: 0.45rem;
+    padding: 0.58rem 0.65rem;
     border-top: 1px solid var(--color-border);
     background: var(--color-surface-strong);
-    border-radius: 0 0 12px 12px;
+    border-radius: 0 0 6px 6px;
+}
+
+.filter-modal-foot .btn {
+    flex: 1;
+    justify-content: center;
+    height: 28px;
+    padding: 0 0.45rem;
+    font-size: 0.7rem;
+}
+
+.saved-filter-list {
+    display: grid;
+    gap: 0.12rem;
+    padding: 0.48rem 0.42rem;
+    border-bottom: 1px solid var(--color-border);
+}
+
+.saved-filter {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.4rem;
+    width: 100%;
+    min-height: 26px;
+    border: 0;
+    border-radius: 5px;
+    background: transparent;
+    color: var(--color-text);
+    padding: 0.22rem 0.32rem;
+    font-family: var(--font-body);
+    font-size: 0.72rem;
+    font-weight: 600;
+    cursor: pointer;
+    text-align: left;
+}
+
+.saved-filter:hover,
+.saved-filter.active {
+    background: var(--color-accent-hover);
+}
+
+.saved-filter strong {
+    min-width: 20px;
+    border-radius: 6px;
+    background: var(--color-surface);
+    color: var(--color-muted);
+    padding: 0.05rem 0.28rem;
+    font-size: 0.62rem;
+    font-weight: 700;
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+}
+
+.interest-list-shell {
+    display: grid;
+    gap: 0;
+}
+
+.interest-list-layout {
+    display: grid;
+    grid-template-columns: 188px minmax(0, 1fr);
+    gap: 0.5rem;
+    align-items: start;
+}
+
+.interest-list-main {
+    min-width: 0;
+}
+
+#sec-interests .kpi-strip {
+    display: none;
+}
+
+#sec-interests .filter-modal-backdrop {
+    position: sticky;
+    top: 50px;
+    align-self: start;
+    max-height: calc(100vh - 64px);
+    overflow: auto;
+}
+
+#sec-interests .filter-modal .toolbar-search {
+    width: 100%;
+    min-width: 0;
+    max-width: none;
+    height: 30px;
+    padding: 0 0.45rem;
+    font-size: 0.72rem;
 }
 
 /* ══════════════════════════════════════════
@@ -900,6 +1001,40 @@
     border-top: 1px solid var(--color-border);
 }
 
+#sec-interests .interest-table-wrap .card {
+    border-radius: 6px;
+    box-shadow: none;
+}
+
+#sec-interests .interest-table-wrap .card-header {
+    align-items: center;
+    padding: 0.42rem 0.65rem;
+}
+
+#sec-interests .interest-table-wrap .card-title {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+}
+
+#sec-interests .interest-table-wrap .card-title strong {
+    font-size: 0.78rem;
+}
+
+#sec-interests .interest-table-wrap .card-title span {
+    font-size: 0.7rem;
+}
+
+#sec-interests .interest-table-wrap .table-wrap {
+    overflow: auto;
+    max-height: calc(100vh - 132px);
+}
+
+#sec-interests .interest-table-wrap table {
+    min-width: 960px;
+    table-layout: fixed;
+}
+
 .crm-page .interest-table-wrap,
 .crm-page .interest-table-wrap table,
 .crm-page .interest-table-wrap th,
@@ -929,6 +1064,12 @@
     border-bottom: 1px solid var(--color-border);
 }
 
+#sec-interests .interest-table-wrap thead th {
+    padding: 0.36rem 0.5rem;
+    font-size: 0.62rem;
+    line-height: 1.15;
+}
+
 .crm-page tbody td {
     padding: 0.62rem 0.8rem;
     border-bottom: 1px solid var(--color-border);
@@ -936,6 +1077,12 @@
     font-size: 0.8rem;
     line-height: 1.35;
     color: var(--color-text);
+}
+
+#sec-interests .interest-table-wrap tbody td {
+    padding: 0.34rem 0.5rem;
+    font-size: 0.72rem;
+    line-height: 1.2;
 }
 
 .crm-page tbody tr {
@@ -958,15 +1105,32 @@
     margin-top: 0.15rem;
 }
 
+#sec-interests .interest-table-wrap .subtle {
+    font-size: 0.62rem;
+    margin-top: 0.06rem;
+    line-height: 1.15;
+}
+
 .crm-page .interest-primary {
     font-weight: 600;
     font-size: 0.8rem;
     line-height: 1.35;
 }
 
+#sec-interests .interest-table-wrap .interest-primary {
+    font-size: 0.72rem;
+    line-height: 1.2;
+}
+
 .crm-page .interest-secondary {
     font-weight: 500;
     font-size: 0.76rem;
+}
+
+#sec-interests .interest-table-wrap .interest-secondary {
+    font-size: 0.7rem;
+    line-height: 1.18;
+    overflow-wrap: anywhere;
 }
 
 /* ── Pills ── */
@@ -984,6 +1148,12 @@
     text-transform: uppercase;
     white-space: nowrap;
     color: var(--color-text);
+}
+
+#sec-interests .interest-table-wrap .pill {
+    gap: 0.25rem;
+    padding: 0.14rem 0.34rem;
+    font-size: 0.58rem;
 }
 
 .crm-page .dot {
@@ -1014,6 +1184,27 @@
 .status-pill--available { background: rgba(34,197,94,0.12); color: #16a34a; }
 .status-pill--hold { background: rgba(249,115,22,0.12); color: #ea580c; }
 .status-pill--sold { background: rgba(239,68,68,0.12); color: #dc2626; }
+
+.plot-status-swatch {
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    border-radius: 4px;
+    border: 1px solid rgba(22, 35, 56, 0.12);
+    vertical-align: middle;
+}
+
+.plot-status-swatch.status-pill--available { background: #22c55e; }
+.plot-status-swatch.status-pill--hold { background: #f97316; }
+.plot-status-swatch.status-pill--sold { background: #ef4444; }
+
+#sec-plots table {
+    min-width: 1120px;
+}
+
+#sec-plots .table-wrap {
+    overflow-x: auto;
+}
 
 /* Lock pill */
 .lock-pill {
@@ -1938,5 +2129,44 @@ body.deal-dragging .deal-col-cards {
     .crm-page .drawer-foot .btn {
         flex: 1 1 calc(50% - 0.45rem);
         justify-content: center;
+    }
+}
+
+@media (max-width: 900px) {
+    .interest-list-layout {
+        grid-template-columns: 1fr;
+    }
+
+    #sec-interests .filter-modal-backdrop {
+        position: fixed;
+        inset: 0;
+        display: none;
+        align-items: flex-start;
+        justify-content: flex-start;
+        width: auto;
+        max-height: none;
+        padding: 0.75rem;
+        background: rgba(22, 35, 56, 0.18);
+        z-index: 80;
+        overflow: auto;
+    }
+
+    #sec-interests .filter-modal-backdrop.visible {
+        display: flex;
+    }
+
+    #sec-interests .filter-modal {
+        width: min(300px, calc(100vw - 1.5rem));
+        max-height: calc(100vh - 1.5rem);
+        overflow: auto;
+        box-shadow: 0 16px 48px rgba(22, 35, 56, 0.12);
+    }
+
+    #sec-interests .filter-modal-close {
+        display: inline-flex;
+    }
+
+    #sec-interests .interest-table-wrap .table-wrap {
+        max-height: none;
     }
 }

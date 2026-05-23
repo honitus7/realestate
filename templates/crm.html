@@ -62,70 +62,85 @@
                     </div>
                 </div>
 
-                <!-- Toolbar -->
-                <div class="interest-toolbar">
-                    <div class="interest-toolbar-left">
-                        <div class="view-toggle">
-                            <button class="view-btn active" id="view-board" type="button" title="Board view">
-                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+                <div class="interest-list-shell">
+                    <!-- Toolbar -->
+                    <div class="interest-toolbar">
+                        <div class="interest-toolbar-left">
+                            <button class="filter-btn" id="btn-open-filters" type="button">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+                                <span>Filter</span>
+                                <span class="filter-badge" id="filter-badge" style="display:none;">0</span>
                             </button>
-                            <button class="view-btn" id="view-table" type="button" title="Table view">
-                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
-                            </button>
+                            <div class="view-toggle">
+                                <button class="view-btn active" id="view-board" type="button" title="Board view">
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+                                </button>
+                                <button class="view-btn" id="view-table" type="button" title="Table view">
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+                                </button>
+                            </div>
                         </div>
-                        <input class="toolbar-search" id="q" placeholder="Search leads..." autocomplete="off">
                     </div>
-                    <div class="interest-toolbar-right">
-                        <button class="filter-btn" id="btn-open-filters" type="button">
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
-                            <span>Filters</span>
-                            <span class="filter-badge" id="filter-badge" style="display:none;">0</span>
-                        </button>
-                    </div>
-                </div>
 
-                <!-- Filter Modal -->
-                <div class="filter-modal-backdrop" id="filter-modal-backdrop">
-                    <div class="filter-modal" id="filter-modal">
-                        <div class="filter-modal-head">
-                            <h3>Filters</h3>
-                            <button class="filter-modal-close" id="filter-modal-close" type="button">&times;</button>
-                        </div>
-                        <div class="filter-modal-body">
-                            <div class="filter-group">
-                                <label class="filter-group-label">Status</label>
-                                <select class="filter-group-select" id="filter-status">
-                                    <option value="">All Status</option>
-                                    <option value="new">New</option>
-                                    <option value="contacted">Contacted</option>
-                                </select>
+                    <div class="interest-list-layout">
+                        <!-- Filter Rail -->
+                        <aside class="filter-modal-backdrop" id="filter-modal-backdrop">
+                            <div class="filter-modal" id="filter-modal">
+                                <div class="filter-modal-head">
+                                    <h3>Saved Filters <span id="filter-saved-total">0</span></h3>
+                                    <button class="filter-modal-close" id="filter-modal-close" type="button">&times;</button>
+                                </div>
+                                <div class="saved-filter-list" aria-label="Saved filters">
+                                    <button class="saved-filter active" type="button" data-filter-preset="all">
+                                        <span>All Leads</span><strong id="filter-total-count">0</strong>
+                                    </button>
+                                    <button class="saved-filter" type="button" data-filter-preset="new">
+                                        <span>New Leads</span><strong id="filter-new-count">0</strong>
+                                    </button>
+                                    <button class="saved-filter" type="button" data-filter-preset="contacted">
+                                        <span>Contacted</span><strong id="filter-contacted-count">0</strong>
+                                    </button>
+                                </div>
+                                <div class="filter-modal-body">
+                                    <div class="filter-search-group">
+                                        <label class="filter-group-label" for="q">Filter Leads by</label>
+                                        <input class="toolbar-search" id="q" placeholder="Search" autocomplete="off">
+                                    </div>
+                                    <div class="filter-group">
+                                        <label class="filter-group-label">System Defined Filters</label>
+                                        <select class="filter-group-select" id="filter-status">
+                                            <option value="">All Status</option>
+                                            <option value="new">New</option>
+                                            <option value="contacted">Contacted</option>
+                                        </select>
+                                    </div>
+                                    <div class="filter-group">
+                                        <label class="filter-group-label">Category</label>
+                                        <select class="filter-group-select" id="filter-category"><option value="">All Categories</option></select>
+                                    </div>
+                                    <div class="filter-group">
+                                        <label class="filter-group-label">Project</label>
+                                        <select class="filter-group-select" id="filter-workspace"><option value="">All Projects</option></select>
+                                    </div>
+                                    <div class="filter-group">
+                                        <label class="filter-group-label">Panorama</label>
+                                        <select class="filter-group-select" id="filter-project"><option value="">All Panoramas</option></select>
+                                    </div>
+                                    <div class="filter-group">
+                                        <label class="filter-group-label">Plot</label>
+                                        <select class="filter-group-select" id="filter-plot"><option value="">All Plots</option></select>
+                                    </div>
+                                </div>
+                                <div class="filter-modal-foot">
+                                    <button class="btn" id="btn-clear" type="button">Clear</button>
+                                    <button class="btn primary" id="btn-apply-filters" type="button">Apply</button>
+                                </div>
                             </div>
-                            <div class="filter-group">
-                                <label class="filter-group-label">Category</label>
-                                <select class="filter-group-select" id="filter-category"><option value="">All Categories</option></select>
-                            </div>
-                            <div class="filter-group">
-                                <label class="filter-group-label">Project</label>
-                                <select class="filter-group-select" id="filter-workspace"><option value="">All Projects</option></select>
-                            </div>
-                            <div class="filter-group">
-                                <label class="filter-group-label">Panorama</label>
-                                <select class="filter-group-select" id="filter-project"><option value="">All Panoramas</option></select>
-                            </div>
-                            <div class="filter-group">
-                                <label class="filter-group-label">Plot</label>
-                                <select class="filter-group-select" id="filter-plot"><option value="">All Plots</option></select>
-                            </div>
-                        </div>
-                        <div class="filter-modal-foot">
-                            <button class="btn" id="btn-clear" type="button">Clear All</button>
-                            <button class="btn primary" id="btn-apply-filters" type="button">Apply Filters</button>
-                        </div>
-                    </div>
-                </div>
+                        </aside>
 
-                <!-- Board View (Kanban) -->
-                <div class="kanban" id="kanban-board">
+                        <div class="interest-list-main">
+                            <!-- Board View (Kanban) -->
+                            <div class="kanban" id="kanban-board">
                     <div class="kanban-col" data-stage="new">
                         <div class="kanban-col-header">
                             <span class="kanban-dot kanban-dot--new"></span>
@@ -166,10 +181,10 @@
                         </div>
                         <div class="kanban-cards" id="kb-lost"></div>
                     </div>
-                </div>
+                            </div>
 
-                <!-- Table View -->
-                <div class="interest-table-wrap" id="interest-table-view" style="display:none;">
+                            <!-- Table View -->
+                            <div class="interest-table-wrap" id="interest-table-view" style="display:none;">
                     <div class="card">
                         <div class="card-header">
                             <div class="card-title"><strong>All Leads</strong><span id="results-meta">0 results</span></div>
@@ -196,30 +211,33 @@
                             </div>
                         </div>
                     </div>
-                </div>
+                            </div>
 
-                <!-- Empty state for board -->
-                <div class="kanban-empty" id="kanban-empty" style="display:none;">
-                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" opacity="0.35"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-                    <strong>No leads yet</strong>
-                    <div>Once customers submit the cart checkout from a panorama, leads will appear here.</div>
-                </div>
+                            <!-- Empty state for board -->
+                            <div class="kanban-empty" id="kanban-empty" style="display:none;">
+                                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" opacity="0.35"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                                <strong>No leads yet</strong>
+                                <div>Once customers submit the cart checkout from a panorama, leads will appear here.</div>
+                            </div>
 
-                <!-- Report card (hidden by default) -->
-                <div class="card report-card" id="report-card" style="display:none;">
-                    <div class="card-header"><div class="card-title"><strong>Reports</strong><span>Print or save as PDF</span></div></div>
-                    <div style="padding:1.25rem 1.5rem;">
-                        <div class="report-toolbar">
-                            <label class="report-label">Report type</label>
-                            <select class="toolbar-select" id="report-type">
-                                <option value="pipeline">Pipeline summary</option>
-                                <option value="leads">Lead list</option>
-                            </select>
-                            <button class="btn" id="btn-print" type="button">Print</button>
-                            <button class="btn primary" id="btn-pdf" type="button">Save as PDF</button>
-                            <button class="btn" id="btn-close-report" type="button">Close</button>
+                            <!-- Report card (hidden by default) -->
+                            <div class="card report-card" id="report-card" style="display:none;">
+                                <div class="card-header"><div class="card-title"><strong>Reports</strong><span>Print or save as PDF</span></div></div>
+                                <div style="padding:1.25rem 1.5rem;">
+                                    <div class="report-toolbar">
+                                        <label class="report-label">Report type</label>
+                                        <select class="toolbar-select" id="report-type">
+                                            <option value="pipeline">Pipeline summary</option>
+                                            <option value="leads">Lead list</option>
+                                        </select>
+                                        <button class="btn" id="btn-print" type="button">Print</button>
+                                        <button class="btn primary" id="btn-pdf" type="button">Save as PDF</button>
+                                        <button class="btn" id="btn-close-report" type="button">Close</button>
+                                    </div>
+                                    <div id="report-print-area" class="report-print-area"></div>
+                                </div>
+                            </div>
                         </div>
-                        <div id="report-print-area" class="report-print-area"></div>
                     </div>
                 </div>
             </section>
@@ -393,10 +411,14 @@
                     <div class="table-wrap">
                         <table>
                             <thead><tr>
-                                <th>Name</th>
-                                <th>Panorama</th>
+                                <th>Plot Number</th>
+                                <th>Plot Size (Area)</th>
                                 <th>Status</th>
+                                <th style="width:44px"></th>
                                 <th>Description</th>
+                                <th>Number of Interest</th>
+                                <th>Sales Agent</th>
+                                <th>Broker</th>
                                 <th style="width:80px"></th>
                             </tr></thead>
                             <tbody id="plots-tbody"></tbody>
@@ -1526,6 +1548,7 @@
     function renderStats() {
         const src = filtered.length ? filtered : buildInterestGroups(interests);
         const c = countByStatus(src);
+        const allCounts = countByStatus(buildInterestGroups(interests));
         const t = Math.max(1, c.total);
         $('stat-total').textContent = c.total;
         $('stat-new').textContent = c.new;
@@ -1533,6 +1556,10 @@
         $('stat-qualified').textContent = c.qualified;
         $('stat-won').textContent = c.won;
         if($('stat-lost')) $('stat-lost').textContent = c.lost;
+        if($('filter-saved-total')) $('filter-saved-total').textContent = '3';
+        if($('filter-total-count')) $('filter-total-count').textContent = allCounts.total;
+        if($('filter-new-count')) $('filter-new-count').textContent = allCounts.new;
+        if($('filter-contacted-count')) $('filter-contacted-count').textContent = allCounts.contacted;
         ['new','contacted','qualified','won','lost'].forEach(key => {
             const bar = $('bar-'+key);
             if(bar) bar.style.width = Math.max((t > 0 ? ((c[key]||0)/t)*100 : 0), 2) + '%';
@@ -2157,8 +2184,18 @@
     const filterBackdrop = $('filter-modal-backdrop');
     function openFilterModal() { filterBackdrop.classList.add('visible'); }
     function closeFilterModal() { filterBackdrop.classList.remove('visible'); }
+    function syncSavedFilterState() {
+        document.querySelectorAll('[data-filter-preset]').forEach(btn => {
+            const preset = btn.getAttribute('data-filter-preset');
+            const status = String(statusEl.value || '');
+            const hasOtherFilters = !!(categoryEl.value || workspaceEl.value || projectEl.value || plotEl.value || qEl.value);
+            const active = (preset === 'all' && !status && !hasOtherFilters) || (preset && preset === status && !hasOtherFilters);
+            btn.classList.toggle('active', active);
+        });
+    }
     function updateFilterBadge() {
         let count = 0;
+        if(qEl.value) count++;
         if(statusEl.value) count++;
         if(categoryEl.value) count++;
         if(workspaceEl.value) count++;
@@ -2168,23 +2205,48 @@
         const btn = $('btn-open-filters');
         if(count > 0) { badge.textContent = count; badge.style.display = ''; btn.classList.add('filter-btn--active'); }
         else { badge.style.display = 'none'; btn.classList.remove('filter-btn--active'); }
+        syncSavedFilterState();
     }
 
     $('btn-open-filters').addEventListener('click', openFilterModal);
     $('filter-modal-close').addEventListener('click', closeFilterModal);
     filterBackdrop.addEventListener('click', e => { if(e.target === filterBackdrop) closeFilterModal(); });
+    document.querySelectorAll('[data-filter-preset]').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const preset = btn.getAttribute('data-filter-preset');
+            qEl.value = '';
+            statusEl.value = preset === 'all' ? '' : preset;
+            categoryEl.value = '';
+            workspaceEl.value = '';
+            projectEl.value = '';
+            plotEl.value = '';
+            renderProjectOptions();
+            updateFilterBadge();
+            refreshInterestsUI();
+            closeFilterModal();
+        });
+    });
 
     // Cascade workspace → panorama
-    workspaceEl.addEventListener('change', () => { renderProjectOptions(); projectEl.value = ''; });
+    workspaceEl.addEventListener('change', () => {
+        renderProjectOptions();
+        projectEl.value = '';
+        updateFilterBadge();
+        refreshInterestsUI();
+    });
 
     // Apply filters button
     $('btn-apply-filters').addEventListener('click', () => { closeFilterModal(); updateFilterBadge(); refreshInterestsUI(); });
 
     // Clear all
-    $('btn-clear').addEventListener('click', () => { statusEl.value=''; categoryEl.value=''; workspaceEl.value=''; projectEl.value=''; plotEl.value=''; renderProjectOptions(); updateFilterBadge(); refreshInterestsUI(); closeFilterModal(); });
+    $('btn-clear').addEventListener('click', () => { qEl.value=''; statusEl.value=''; categoryEl.value=''; workspaceEl.value=''; projectEl.value=''; plotEl.value=''; renderProjectOptions(); updateFilterBadge(); refreshInterestsUI(); closeFilterModal(); });
 
-    // Search is live (stays outside modal)
-    qEl.addEventListener('input', refreshInterestsUI);
+    // Filters are live in the left rail.
+    qEl.addEventListener('input', () => { updateFilterBadge(); refreshInterestsUI(); });
+    statusEl.addEventListener('change', () => { updateFilterBadge(); refreshInterestsUI(); });
+    categoryEl.addEventListener('change', () => { updateFilterBadge(); refreshInterestsUI(); });
+    projectEl.addEventListener('change', () => { renderPlotOptions(); updateFilterBadge(); refreshInterestsUI(); });
+    plotEl.addEventListener('change', () => { updateFilterBadge(); refreshInterestsUI(); });
 
     // -- Reports --
     function buildReportContent() {
@@ -2614,12 +2676,39 @@
         }
         renderPlotsTable();
     }
+    function findInterestsForPlot(plot) {
+        if (!plot) return [];
+        const plotId = String(plot.id || '');
+        const plotName = normalizeText(plot.name);
+        const panoId = String(plot.panorama_id || '');
+        return (Array.isArray(interests) ? interests : []).filter(i => {
+            if (panoId && String(i.panorama_id || '') !== panoId) return false;
+            const plots = Array.isArray(i.plots) ? i.plots : [];
+            return plots.some(ip => {
+                if (!ip) return false;
+                const ipId = String((ip.id != null ? ip.id : ip.plot_id) || '');
+                if (plotId && ipId && ipId === plotId) return true;
+                return plotName && normalizeText(ip.name) === plotName;
+            });
+        });
+    }
+    function uniqueUserNames(rows, field) {
+        const seen = new Set();
+        const names = [];
+        (rows || []).forEach(row => {
+            const uid = String(row && row[field] || '').trim();
+            if (!uid || seen.has(uid)) return;
+            seen.add(uid);
+            names.push(assigneeDisplayName(uid));
+        });
+        return names.length ? names.join(', ') : '-';
+    }
     function renderPlotsTable() {
         const q = String(plotSearch.value||'').trim().toLowerCase();
         const pano = String(plotPanoFilter.value||'');
         const status = String(plotStatusFilter.value||'').toLowerCase();
         let rows = allPlots;
-        if(q) rows = rows.filter(p => (p.name||'').toLowerCase().includes(q)||(p.description||'').toLowerCase().includes(q));
+        if(q) rows = rows.filter(p => [p.name, p.area, p.status, p.description, p.panorama_name].join(' ').toLowerCase().includes(q));
         if(pano) rows = rows.filter(p => String(p.panorama_id)===pano);
         if(status) rows = rows.filter(p => getStatusKey(p.status)===status);
         const tbody = $('plots-tbody');
@@ -2629,7 +2718,21 @@
         tbody.innerHTML = rows.map(p => {
             const sk = getStatusKey(p.status);
             const sc = sk==='sold'?'status-pill--sold':sk==='hold'?'status-pill--hold':'status-pill--available';
-            return '<tr><td><input class="inline-edit" value="'+esc(p.name||'')+'" data-field="name" data-pid="'+esc(p.id)+'"></td><td style="font-weight:600">'+esc(p.panorama_name||'#'+p.panorama_id)+'</td><td><select class="inline-edit-select" data-field="status" data-pid="'+esc(p.id)+'"><option value="available"'+(sk==='available'?' selected':'')+'>Available</option><option value="hold"'+(sk==='hold'?' selected':'')+'>Hold</option><option value="sold"'+(sk==='sold'?' selected':'')+'>Sold</option></select></td><td><input class="inline-edit" value="'+esc(p.description||'')+'" data-field="description" data-pid="'+esc(p.id)+'"></td><td><button class="btn" data-save-plot="'+esc(p.id)+'">Save</button></td></tr>';
+            const relatedInterests = findInterestsForPlot(p);
+            const interestCount = relatedInterests.length;
+            const salesAgents = uniqueUserNames(relatedInterests, 'assigned_to');
+            const brokers = uniqueUserNames(relatedInterests, 'reference_user_id');
+            return '<tr>' +
+                '<td><input class="inline-edit" value="'+esc(p.name||'')+'" data-field="name" data-pid="'+esc(p.id)+'" aria-label="Plot Number"></td>' +
+                '<td><input class="inline-edit" value="'+esc(p.area||'')+'" data-field="area" data-pid="'+esc(p.id)+'" aria-label="Plot Size Area"></td>' +
+                '<td><select class="inline-edit-select" data-field="status" data-pid="'+esc(p.id)+'"><option value="available"'+(sk==='available'?' selected':'')+'>Available</option><option value="hold"'+(sk==='hold'?' selected':'')+'>Hold</option><option value="sold"'+(sk==='sold'?' selected':'')+'>Sold</option></select></td>' +
+                '<td><span class="plot-status-swatch '+sc+'" aria-label="'+esc(p.status||'available')+'"></span></td>' +
+                '<td><input class="inline-edit" value="'+esc(p.description||'')+'" data-field="description" data-pid="'+esc(p.id)+'" aria-label="Description"></td>' +
+                '<td class="mono">'+esc(interestCount)+'</td>' +
+                '<td>'+esc(salesAgents)+'</td>' +
+                '<td>'+esc(brokers)+'</td>' +
+                '<td><button class="btn" data-save-plot="'+esc(p.id)+'">Save</button></td>' +
+            '</tr>';
         }).join('');
         tbody.querySelectorAll('[data-save-plot]').forEach(btn => {
             btn.addEventListener('click', async () => {

@@ -105,18 +105,10 @@ def update_plot(sb, plot_id, data):
     if not pl.data or len(pl.data) == 0:
         return None
     panorama_id = pl.data[0]['panorama_id']
-    upd = {
-        'name': data.get('name'),
-        'area': data.get('area', ''),
-        'price': data.get('price', ''),
-        'status': data.get('status', 'available'),
-        'description': data.get('description', ''),
-        'color': data.get('color', 'emerald'),
-        'media_photo': data.get('media_photo', ''),
-        'media_video': data.get('media_video', ''),
-        'points': data.get('points', []),
-        'updated_at': datetime.utcnow().isoformat(),
-    }
+    upd = {'updated_at': datetime.utcnow().isoformat()}
+    for key in ('name', 'area', 'price', 'status', 'description', 'color', 'media_photo', 'media_video', 'points'):
+        if key in data:
+            upd[key] = data.get(key)
     if 'linked_panorama_id' in data:
         raw = data.get('linked_panorama_id')
         upd['linked_panorama_id'] = int(raw) if raw is not None and str(raw).strip() else None
