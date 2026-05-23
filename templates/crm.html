@@ -1474,6 +1474,8 @@
     let projects = [];
     let projectById = new Map();
     let interests = [];
+    let interestsLoaded = false;
+    let interestsLoadPromise = null;
     let filteredRaw = [];
     let filtered = [];
     let interestGroupMap = new Map();
@@ -2534,6 +2536,14 @@
         renderCategoryOptions();
         renderPlotOptions();
         refreshInterestsUI();
+        interestsLoaded = true;
+    }
+    async function ensureInterestsLoaded() {
+        if (interestsLoaded) return;
+        if (!interestsLoadPromise) {
+            interestsLoadPromise = loadInterests().finally(() => { interestsLoadPromise = null; });
+        }
+        await interestsLoadPromise;
     }
 
     let workspaces = [];
@@ -2663,6 +2673,7 @@
     const plotStatusFilter = $('plot-status-filter');
 
     async function loadAllPlots() {
+        try { await ensureInterestsLoaded(); } catch(e) { console.warn('Interests load failed for plot counts:', e); }
         if(!plotsLoaded) {
             try {
                 const r = await api('/api/crm/plots');
@@ -2676,20 +2687,26 @@
         }
         renderPlotsTable();
     }
+    function interestPlotMatchesPlot(plot, interestPlot) {
+        if (!plot || !interestPlot) return false;
+        const plotId = String(plot.id || '').trim();
+        const interestPlotId = String((interestPlot.id != null ? interestPlot.id : interestPlot.plot_id) || '').trim();
+        if (plotId && interestPlotId && plotId === interestPlotId) return true;
+
+        const plotPanoId = String(plot.panorama_id || '').trim();
+        const interestPlotPanoId = String(interestPlot.panorama_id || '').trim();
+        const plotName = normalizeText(plot.name);
+        const interestPlotName = normalizeText(interestPlot.name);
+        if (plotName && interestPlotName && plotName === interestPlotName) {
+            return !plotPanoId || !interestPlotPanoId || plotPanoId === interestPlotPanoId;
+        }
+        return false;
+    }
     function findInterestsForPlot(plot) {
         if (!plot) return [];
-        const plotId = String(plot.id || '');
-        const plotName = normalizeText(plot.name);
-        const panoId = String(plot.panorama_id || '');
         return (Array.isArray(interests) ? interests : []).filter(i => {
-            if (panoId && String(i.panorama_id || '') !== panoId) return false;
             const plots = Array.isArray(i.plots) ? i.plots : [];
-            return plots.some(ip => {
-                if (!ip) return false;
-                const ipId = String((ip.id != null ? ip.id : ip.plot_id) || '');
-                if (plotId && ipId && ipId === plotId) return true;
-                return plotName && normalizeText(ip.name) === plotName;
-            });
+            return plots.some(ip => interestPlotMatchesPlot(plot, ip));
         });
     }
     function uniqueUserNames(rows, field) {
@@ -2954,7 +2971,7 @@
             await ensureAuthenticated();
             setView('table');
             // Fast first paint: load only what Interests tab needs.
-            const interestsP = loadCrmTeamUsers().then(function() { return loadInterests(); }).then(() => {
+            const interestsP = loadCrmTeamUsers().then(function() { return ensureInterestsLoaded(); }).then(() => {
                 if(interests.length === 0) $('table-empty').style.display = '';
             }).catch(e => {
                 $('table-empty').style.display = '';
