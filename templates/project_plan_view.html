@@ -82,8 +82,28 @@
         return n;
     }
 
-    function normalizeStyle(raw) {
+    function currentStyleMode(mode) {
+        var explicit = String(mode || '').trim().toLowerCase();
+        if (explicit === 'mobile' || explicit === 'desktop') return explicit;
+        try {
+            var preview = new URL(window.location.href).searchParams.get('preview');
+            if (String(preview || '').toLowerCase() === 'mobile') return 'mobile';
+        } catch (e) { }
+        try {
+            if (window.matchMedia && window.matchMedia('(max-width: 768px)').matches) return 'mobile';
+        } catch (e) { }
+        return 'desktop';
+    }
+
+    function styleForMode(raw, mode) {
         var style = raw && typeof raw === 'object' ? raw : {};
+        var key = currentStyleMode(mode);
+        if (style[key] && typeof style[key] === 'object') return style[key];
+        return style;
+    }
+
+    function normalizeStyle(raw, mode) {
+        var style = styleForMode(raw, mode);
         return {
             modal_padding_pct: clampInt(style.modal_padding_pct, 60, 160, DEFAULT_STYLE.modal_padding_pct)
         };
@@ -93,8 +113,8 @@
         document.documentElement.style.setProperty(name, value);
     }
 
-    function applyStyle(raw) {
-        var s = normalizeStyle(raw);
+    function applyStyle(raw, mode) {
+        var s = normalizeStyle(raw, mode);
         setCssVar('--fv-modal-padding-scale', String(s.modal_padding_pct / 100));
     }
 
@@ -104,7 +124,7 @@
         if (evt.origin !== window.location.origin) return;
         var data = evt.data || {};
         if (data.type === 'fv-style-preview' && data.style && typeof data.style === 'object') {
-            applyStyle(data.style);
+            applyStyle(data.style, data.mode);
         }
     });
 

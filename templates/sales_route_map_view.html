@@ -120,7 +120,28 @@
         return 'rgba(' + r + ', ' + g + ', ' + b + ', ' + alpha + ')';
     }
 
-    function normalizeModalStyle(raw) {
+    function currentStyleMode(mode) {
+        var explicit = String(mode || '').trim().toLowerCase();
+        if (explicit === 'mobile' || explicit === 'desktop') return explicit;
+        try {
+            var preview = new URL(window.location.href).searchParams.get('preview');
+            if (String(preview || '').toLowerCase() === 'mobile') return 'mobile';
+        } catch (e) { }
+        try {
+            if (window.matchMedia && window.matchMedia('(max-width: 768px)').matches) return 'mobile';
+        } catch (e) { }
+        return 'desktop';
+    }
+
+    function styleForMode(raw, mode) {
+        var style = raw && typeof raw === 'object' ? raw : {};
+        var key = currentStyleMode(mode);
+        if (style[key] && typeof style[key] === 'object') return style[key];
+        return style;
+    }
+
+    function normalizeModalStyle(raw, mode) {
+        raw = styleForMode(raw, mode);
         var modal = {};
         if (raw && raw.modal_sales_map && typeof raw.modal_sales_map === 'object') {
             modal = raw.modal_sales_map;
@@ -154,8 +175,8 @@
         document.documentElement.style.setProperty(name, value);
     }
 
-    function applyModalStyle(raw) {
-        var m = normalizeModalStyle(raw);
+    function applyModalStyle(raw, mode) {
+        var m = normalizeModalStyle(raw, mode);
         var bgAlpha = m.bg_opacity_pct / 100;
         var borderAlpha = Math.min(0.38, Math.max(0.10, 0.10 + (bgAlpha * 0.28)));
         var shadowAlpha = Math.min(0.35, Math.max(0.08, 0.06 + (bgAlpha * 0.29)));
@@ -186,7 +207,7 @@
         if (evt.origin !== window.location.origin) return;
         var data = evt.data || {};
         if (data.type === 'fv-style-preview' && data.style && typeof data.style === 'object') {
-            applyModalStyle(data.style);
+            applyModalStyle(data.style, data.mode);
         }
     });
 })();

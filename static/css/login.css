@@ -332,6 +332,52 @@
     box-shadow: 0 0 0 3px rgba(22, 35, 56, 0.08);
 }
 
+.login-page .password-field {
+    position: relative;
+}
+
+.login-page .password-field .form-input {
+    padding-right: 3rem;
+}
+
+.login-page .password-toggle {
+    position: absolute;
+    right: 0.55rem;
+    top: 50%;
+    transform: translateY(-50%);
+    border: 0;
+    background: transparent;
+    color: var(--color-muted);
+    cursor: pointer;
+    padding: 0;
+    width: 2.1rem;
+    height: 2.1rem;
+    border-radius: 6px;
+    display: none;
+    align-items: center;
+    justify-content: center;
+}
+
+.login-page .password-toggle.visible {
+    display: inline-flex;
+}
+
+.login-page .password-toggle:hover,
+.login-page .password-toggle:focus {
+    color: #162338;
+    background: rgba(22, 35, 56, 0.06);
+    outline: none;
+}
+
+.login-page .password-toggle .icon-eye-off,
+.login-page .password-toggle.is-visible .icon-eye {
+    display: none;
+}
+
+.login-page .password-toggle.is-visible .icon-eye-off {
+    display: block;
+}
+
 /* ── Buttons ── */
 .login-page .auth-wrap .btn {
     width: 100%;

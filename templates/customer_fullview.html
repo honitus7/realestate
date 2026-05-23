@@ -1697,9 +1697,12 @@
         return normalized;
     }
 
-    function normalizeStyle(raw) {
+    function normalizeStyleCore(raw) {
         var input = (raw && typeof raw === 'object') ? raw : {};
-        var merged = deepMerge(cloneObj(DEFAULT_STYLE), input);
+        var source = cloneObj(input);
+        delete source.desktop;
+        delete source.mobile;
+        var merged = deepMerge(cloneObj(DEFAULT_STYLE), source);
         if (!THEME_PRESETS[merged.menu_theme]) merged.menu_theme = 'blue';
         merged.header_logo_url = String(merged.header_logo_url || '').trim();
         merged.header_logo_size_pct = clampInt(merged.header_logo_size_pct, 60, 160, DEFAULT_STYLE.header_logo_size_pct);
@@ -1739,9 +1742,64 @@
         return merged;
     }
 
+    function baseStyleInput(raw) {
+        var input = (raw && typeof raw === 'object') ? cloneObj(raw) : {};
+        delete input.desktop;
+        delete input.mobile;
+        return input;
+    }
+
+    function normalizeStyle(raw) {
+        var input = (raw && typeof raw === 'object') ? raw : {};
+        var base = baseStyleInput(input);
+        var desktop = normalizeStyleCore(input.desktop && typeof input.desktop === 'object'
+            ? deepMerge(cloneObj(base), input.desktop)
+            : base);
+        var mobile = normalizeStyleCore(input.mobile && typeof input.mobile === 'object'
+            ? deepMerge(cloneObj(desktop), input.mobile)
+            : desktop);
+        var out = cloneObj(desktop);
+        out.desktop = desktop;
+        out.mobile = mobile;
+        return out;
+    }
+
+    function currentStyleMode() {
+        if (IS_EDITOR) return normalizePreviewMode(editorPreviewMode);
+        try {
+            if (window.matchMedia && window.matchMedia('(max-width: 768px)').matches) return 'mobile';
+        } catch (e) { }
+        return 'desktop';
+    }
+
+    function effectiveStyle(style, mode) {
+        var normalized = normalizeStyle(style);
+        var key = normalizePreviewMode(mode || currentStyleMode());
+        return normalizeStyleCore(normalized[key] || normalized.desktop || normalized);
+    }
+
+    function editStyleBucket() {
+        styleState = normalizeStyle(styleState);
+        var key = normalizePreviewMode(editorPreviewMode);
+        if (!styleState[key]) styleState[key] = normalizeStyleCore(styleState.desktop || styleState);
+        return styleState[key];
+    }
+
+    function applyActiveStyleEdit(setter, value) {
+        var bucket = editStyleBucket();
+        var root = styleState;
+        styleState = bucket;
+        setter(value, bucket);
+        bucket = styleState;
+        styleState = root;
+        styleState[normalizePreviewMode(editorPreviewMode)] = normalizeStyleCore(bucket);
+        styleState = normalizeStyle(styleState);
+    }
+
     function applyHeaderBranding(style) {
         if (!headerLogoShellEl || !headerLogoEl) return;
-        var logoUrl = String((style && style.header_logo_url) || '').trim();
+        var activeStyle = effectiveStyle(style);
+        var logoUrl = String((activeStyle && activeStyle.header_logo_url) || '').trim();
         if (!logoUrl) {
             headerLogoEl.removeAttribute('src');
             headerLogoShellEl.hidden = true;
@@ -1758,7 +1816,7 @@
     }
 
     function applyStyleConfig(style) {
-        var s = normalizeStyle(style);
+        var s = effectiveStyle(style);
         var menuMid = mixHexColor(s.sidebar.bg_start, s.sidebar.bg_end, 0.45);
         var menuBgAlpha = s.sidebar.bg_opacity_pct / 100;
         var menuGlowAlpha = s.sidebar.glow_opacity_pct / 100;
@@ -1828,7 +1886,8 @@
         if (!activeFrame || !activeFrame.contentWindow) return;
         activeFrame.contentWindow.postMessage({
             type: 'fv-style-preview',
-            style: normalizeStyle(styleState)
+            style: normalizeStyle(styleState),
+            mode: currentStyleMode()
         }, window.location.origin);
     }
 
@@ -1862,6 +1921,12 @@
         applyStyleConfig(styleState);
         applyHeaderBranding(styleState);
         if (IS_EDITOR) postStylePreview();
+    }
+
+    if (!IS_EDITOR) {
+        window.addEventListener('resize', function () {
+            applyAndBroadcastStyle();
+        });
     }
 
     function normalizeTabType(type) {
@@ -2428,6 +2493,8 @@
         var selectEl = document.getElementById('fv-style-preview-mode');
         if (selectEl && selectEl.value !== editorPreviewMode) selectEl.value = editorPreviewMode;
         syncEditorPreviewToggleUi();
+        syncEditorForm();
+        applyAndBroadcastStyle();
         try {
             if (window.localStorage) localStorage.setItem(PREVIEW_MODE_STORAGE_KEY, editorPreviewMode);
         } catch (e) { }
@@ -2472,7 +2539,8 @@
         var statusEl = document.getElementById('fv-style-logo-status');
         var removeBtn = document.getElementById('fv-style-logo-remove-btn');
         var defaultStatus = 'Appears on the left side of the Full View header. Use the size and spacing sliders to resize the logo box, logo shell padding, branding card, and modal spacing live. PNG, JPG, or WebP up to 5 MB.';
-        var logoUrl = String((styleState && styleState.header_logo_url) || '').trim();
+        var activeStyle = effectiveStyle(styleState, editorPreviewMode);
+        var logoUrl = String((activeStyle && activeStyle.header_logo_url) || '').trim();
 
         if (previewShell) previewShell.classList.toggle('is-empty', !logoUrl);
         if (previewEl) {
@@ -2493,7 +2561,7 @@
     }
 
     function syncEditorForm() {
-        var s = normalizeStyle(styleState);
+        var s = effectiveStyle(styleState, editorPreviewMode);
         var set = function (id, value) {
             var el = document.getElementById(id);
             if (!el) return;
@@ -2638,7 +2706,7 @@
             var el = document.getElementById(id);
             if (!el) return;
             el.addEventListener('input', function () {
-                setter(el.value);
+                applyActiveStyleEdit(setter, el.value);
                 applyAndBroadcastStyle();
             });
         }
@@ -2647,7 +2715,7 @@
             if (!el) return;
             el.addEventListener('input', function () {
                 var v = parseInt(el.value, 10) || 0;
-                setter(v);
+                applyActiveStyleEdit(setter, v);
                 var lbl = document.getElementById(valId);
                 if (lbl) lbl.textContent = v + unit;
                 applyAndBroadcastStyle();
@@ -2657,7 +2725,7 @@
             var el = document.getElementById(id);
             if (!el) return;
             el.addEventListener('change', function () {
-                setter(el.value);
+                applyActiveStyleEdit(setter, el.value);
                 applyAndBroadcastStyle();
             });
         }
@@ -2677,7 +2745,8 @@
                 syncHeaderLogoControls('Uploading logo...', false);
                 try {
                     var result = await uploadFullViewHeaderLogo(file);
-                    styleState.header_logo_url = String((result && result.url) || '').trim();
+                    editStyleBucket().header_logo_url = String((result && result.url) || '').trim();
+                    styleState = normalizeStyle(styleState);
                     syncEditorForm();
                     applyAndBroadcastStyle();
                     syncHeaderLogoControls('Logo uploaded. Click Save Style to keep it.', false);
@@ -2693,8 +2762,10 @@
         }
         if (logoRemoveBtn) {
             logoRemoveBtn.addEventListener('click', function () {
-                if (!styleState || !styleState.header_logo_url) return;
-                styleState.header_logo_url = '';
+                var bucket = editStyleBucket();
+                if (!bucket.header_logo_url) return;
+                bucket.header_logo_url = '';
+                styleState = normalizeStyle(styleState);
                 syncEditorForm();
                 applyAndBroadcastStyle();
                 syncHeaderLogoControls('Logo removed. Click Save Style to keep it.', false);
@@ -2706,14 +2777,16 @@
         if (themeSel) {
             themeSel.addEventListener('change', function () {
                 var preset = THEME_PRESETS[themeSel.value];
-                styleState.menu_theme = themeSel.value;
+                var bucket = editStyleBucket();
+                bucket.menu_theme = themeSel.value;
                 if (preset) {
-                    deepMerge(styleState.sidebar, preset.sidebar);
-                    deepMerge(styleState.modal, preset.modal);
-                    deepMerge(styleState.modal_floorplan, preset.modal);
-                    deepMerge(styleState.modal_gallery, preset.modal);
-                    deepMerge(styleState.modal_sales_map, preset.modal);
+                    deepMerge(bucket.sidebar, preset.sidebar);
+                    deepMerge(bucket.modal, preset.modal);
+                    deepMerge(bucket.modal_floorplan, preset.modal);
+                    deepMerge(bucket.modal_gallery, preset.modal);
+                    deepMerge(bucket.modal_sales_map, preset.modal);
                 }
+                styleState[normalizePreviewMode(editorPreviewMode)] = normalizeStyleCore(bucket);
                 styleState = normalizeStyle(styleState);
                 syncEditorForm();
                 applyAndBroadcastStyle();
