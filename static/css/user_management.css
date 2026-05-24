@@ -376,6 +376,10 @@
 .user-mgmt-page .modal.modal--sm {
     width: min(480px, 96vw);
 }
+.user-mgmt-page #modal-member-view .modal.modal--sm {
+    width: min(720px, 96vw) !important;
+    max-width: 720px !important;
+}
 
 /* Edit modal body — no padding, scrollable with hidden scrollbar */
 .user-mgmt-page .modal-body-edit {
@@ -694,13 +698,20 @@
     font-size: 0.84rem;
 }
 .actions-cell--icons {
-    display: inline-flex;
-    flex-direction: row;
+    display: flex !important;
+    flex-direction: row !important;
     justify-content: flex-start;
     align-items: center;
     gap: 0.42rem;
-    flex-wrap: nowrap;
+    flex-wrap: nowrap !important;
     white-space: nowrap;
+    width: max-content;
+    min-width: 0;
+}
+.members-table th:last-child,
+.members-table td:last-child {
+    min-width: 148px;
+    width: 148px;
 }
 .icon-action-btn {
     width: 32px;

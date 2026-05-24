@@ -86,7 +86,7 @@
     </div>
 
     <div class="modal-backdrop" id="modal-member-view">
-        <div class="modal modal--sm" role="dialog" aria-modal="true" aria-label="View member">
+        <div class="modal modal--sm modal--member-view" role="dialog" aria-modal="true" aria-label="View member" style="width:min(720px,96vw);max-width:720px;">
             <div class="modal-head">
                 <div class="modal-title">Member Details</div>
                 <button class="btn btn-secondary" id="close-member-view-modal" type="button">Close</button>
@@ -159,6 +159,36 @@
             </div>
         </div>
     </div>
+
+    <div class="modal-backdrop" id="modal-edit-member-role">
+        <div class="modal modal--sm" role="dialog" aria-modal="true" aria-label="Edit member role">
+            <div class="modal-head">
+                <div class="modal-title">Edit Member Role</div>
+                <button class="btn btn-secondary" id="close-edit-member-role-modal" type="button">Close</button>
+            </div>
+            <div class="modal-body-edit">
+                <div class="edit-section">
+                    <div class="form-field">
+                        <label class="label">Member</label>
+                        <div class="delete-user-info" id="edit-member-role-name">-</div>
+                    </div>
+                    <div class="form-field" style="margin-top:0.75rem;">
+                        <label class="label" for="edit-member-role-select">Role</label>
+                        <select class="input" id="edit-member-role-select">
+                            <option value="client_admin">Client Admin</option>
+                            <option value="client_user">Sales Agent</option>
+                            <option value="internal_broker">Internal Broker</option>
+                        </select>
+                    </div>
+                    <div class="msg error" id="edit-member-role-error" style="display:none;"></div>
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" id="cancel-edit-member-role" type="button">Cancel</button>
+                <button class="btn btn-primary" id="confirm-edit-member-role" type="button">Save Role</button>
+            </div>
+        </div>
+    </div>
 </div>
 {% endblock %}
 {% block scripts %}
@@ -191,7 +221,9 @@
     var modalAddMember = null;
     var modalMemberView = null;
     var modalMemberAccess = null;
+    var modalEditMemberRole = null;
     var membersByGroup = {};
+    var memberRoleEditState = { groupId: '', userId: '', currentRole: '' };
     var memberAccessState = {
         groupId: '',
         userId: '',
@@ -386,6 +418,58 @@
         });
     }
 
+    function openEditMemberRoleModal(groupId, userId, memberName, memberRole) {
+        memberRoleEditState.groupId = String(groupId || '');
+        memberRoleEditState.userId = String(userId || '');
+        memberRoleEditState.currentRole = normalizeMemberRole(memberRole || '');
+        var nameEl = document.getElementById('edit-member-role-name');
+        var roleEl = document.getElementById('edit-member-role-select');
+        if (nameEl) nameEl.textContent = memberName || '-';
+        if (roleEl) roleEl.value = memberRoleEditState.currentRole || 'client_user';
+        setError(document.getElementById('edit-member-role-error'), '');
+        openModal(modalEditMemberRole);
+    }
+
+    function doEditMemberRole() {
+        var groupId = memberRoleEditState.groupId;
+        var userId = memberRoleEditState.userId;
+        var roleEl = document.getElementById('edit-member-role-select');
+        var errEl = document.getElementById('edit-member-role-error');
+        var btn = document.getElementById('confirm-edit-member-role');
+        if (!groupId || !userId || !roleEl) {
+            setError(errEl, 'Invalid member selection');
+            return;
+        }
+        var newRole = normalizeMemberRole(roleEl.value || '');
+        if (!newRole) {
+            setError(errEl, 'Role is required');
+            return;
+        }
+        setError(errEl, '');
+        if (btn) btn.disabled = true;
+        getAuthHeaders().then(function (h) {
+            return fetchJson(
+                '/api/clients/' + encodeURIComponent(groupId) + '/members/' + encodeURIComponent(userId),
+                { method: 'PATCH', headers: h, body: JSON.stringify({ member_role: newRole }) }
+            );
+        }).then(function (res) {
+            if (!res.ok) throw new Error((res.data && res.data.error) || 'Failed to update role');
+            closeModal(modalEditMemberRole);
+            return getAuthHeaders().then(function (h) {
+                return fetchJson('/api/clients/' + encodeURIComponent(groupId) + '/members', { headers: h });
+            }).then(function (membersRes) {
+                if (!membersRes.ok || !Array.isArray(membersRes.data)) {
+                    throw new Error((membersRes.data && membersRes.data.error) || 'Failed to reload members');
+                }
+                renderMembers(groupId, membersRes.data);
+            });
+        }).catch(function (err) {
+            setError(errEl, err && err.message ? err.message : 'Failed to update role');
+        }).finally(function () {
+            if (btn) btn.disabled = false;
+        });
+    }
+
     function projectAccessDefaultForRole(role) {
         return normalizeMemberRole(role) === 'internal_broker' ? 'broker' : 'client';
     }
@@ -553,27 +637,10 @@
             var createdAtFull = escapeHtml(formatDateTime(m.created_at));
             var canEditRole = normalizedRole !== 'external_broker';
             var canManageProjectAccess = normalizedRole === 'client_user' || normalizedRole === 'internal_broker';
-            var roleChoices = canEditRole ? ['client_admin', 'client_user', 'internal_broker'] : ['external_broker'];
-            var roleSelect =
-                '<select class="member-role-select" data-group="' + escapeHtml(groupId) +
-                '" data-uid="' + escapeHtml(uid) + '" data-prev="' + escapeHtml(normalizedRole || '') + '"' +
-                (canEditRole ? '' : ' disabled title="External Broker role can only be changed by platform admin"') + '>' +
-                roleChoices.map(function (r) {
-                    return '<option value="' + r + '"' +
-                        ((normalizedRole === r) ? ' selected' : '') +
-                        '>' + escapeHtml(roleLabels[r] || r) + '</option>';
-                }).join('') + '</select>';
-            var roleCellHtml = canEditRole
-                ? (
-                    '<span class="member-role-label">' + roleLabel + '</span>' +
-                    '<div class="member-role-edit-wrap" style="display:none;">' + roleSelect + '</div>'
-                )
-                : '<span class="member-role-label">' + roleLabel + '</span>';
+            var roleCellHtml = '<span class="member-role-label">' + roleLabel + '</span>';
             var actionButtons = canEditRole
                 ? (
-                    '<button class="icon-action-btn member-edit-btn" title="Edit role" aria-label="Edit role" type="button" data-group="' + escapeHtml(groupId) + '" data-uid="' + escapeHtml(uid) + '" data-locked="0">' + actionIcon('edit') + '</button>' +
-                    '<button class="icon-action-btn icon-action-btn--accent member-save-btn" title="Save role" aria-label="Save role" type="button" data-group="' + escapeHtml(groupId) + '" data-uid="' + escapeHtml(uid) + '" style="display:none;">' + actionIcon('save') + '</button>' +
-                    '<button class="icon-action-btn member-cancel-btn" title="Cancel edit" aria-label="Cancel edit" type="button" data-group="' + escapeHtml(groupId) + '" data-uid="' + escapeHtml(uid) + '" style="display:none;">' + actionIcon('cancel') + '</button>' +
+                    '<button class="icon-action-btn member-edit-btn" title="Edit role" aria-label="Edit role" type="button" data-group="' + escapeHtml(groupId) + '" data-uid="' + escapeHtml(uid) + '" data-name="' + escapeHtml(m.display_name || m.email || 'member') + '" data-role="' + escapeHtml(normalizedRole) + '">' + actionIcon('edit') + '</button>' +
                     '<button class="icon-action-btn member-view-btn" title="View member" aria-label="View member" type="button" data-group="' + escapeHtml(groupId) + '" data-uid="' + escapeHtml(uid) + '">' + actionIcon('view') + '</button>' +
                     (canManageProjectAccess ? '<button class="icon-action-btn member-access-btn" title="Manage access" aria-label="Manage access" type="button" data-group="' + escapeHtml(groupId) + '" data-uid="' + escapeHtml(uid) + '" data-name="' + escapeHtml(m.display_name || m.email || 'member') + '" data-role="' + escapeHtml(normalizedRole) + '">' + actionIcon('access') + '</button>' : '') +
                     '<button class="icon-action-btn icon-action-btn--danger member-delete-btn" title="Remove member" aria-label="Remove member" type="button" data-group="' + escapeHtml(groupId) + '" data-uid="' + escapeHtml(uid) + '" data-name="' + escapeHtml(m.display_name || m.email || 'member') + '">' + actionIcon('delete') + '</button>'
@@ -595,28 +662,6 @@
                 '</tr>';
         }).join('');
 
-        function getRow(gid, uid) {
-            return listEl.querySelector('.member-row[data-group="' + gid + '"][data-uid="' + uid + '"]');
-        }
-        function setRowEditMode(row, editing) {
-            if (!row) return;
-            var label = row.querySelector('.member-role-label');
-            var editWrap = row.querySelector('.member-role-edit-wrap');
-            var editBtn = row.querySelector('.member-edit-btn');
-            var saveBtn = row.querySelector('.member-save-btn');
-            var cancelBtn = row.querySelector('.member-cancel-btn');
-            var viewBtn = row.querySelector('.member-view-btn');
-            var accessBtn = row.querySelector('.member-access-btn');
-            var deleteBtn = row.querySelector('.member-delete-btn');
-            if (label) label.style.display = editing ? 'none' : '';
-            if (editWrap) editWrap.style.display = editing ? '' : 'none';
-            if (editBtn) editBtn.style.display = editing ? 'none' : '';
-            if (saveBtn) saveBtn.style.display = editing ? '' : 'none';
-            if (cancelBtn) cancelBtn.style.display = editing ? '' : 'none';
-            if (viewBtn) viewBtn.style.display = editing ? 'none' : '';
-            if (accessBtn) accessBtn.style.display = editing ? 'none' : '';
-            if (deleteBtn) deleteBtn.style.display = editing ? 'none' : '';
-        }
         function refreshMembers(gid) {
             return getAuthHeaders().then(function (h) {
                 return fetchJson('/api/clients/' + encodeURIComponent(gid) + '/members', { headers: h });
@@ -628,63 +673,12 @@
 
         listEl.querySelectorAll('.member-edit-btn').forEach(function (btn) {
             btn.addEventListener('click', function () {
-                if (btn.getAttribute('data-locked') === '1') return;
-                var gid = btn.getAttribute('data-group');
-                var uid = btn.getAttribute('data-uid');
-                var row = getRow(gid, uid);
-                var sel = row ? row.querySelector('.member-role-select') : null;
-                if (sel) {
-                    sel.value = sel.getAttribute('data-prev') || sel.value;
-                    sel.disabled = false;
-                }
-                setRowEditMode(row, true);
-            });
-        });
-
-        listEl.querySelectorAll('.member-cancel-btn').forEach(function (btn) {
-            btn.addEventListener('click', function () {
-                var gid = btn.getAttribute('data-group');
-                var uid = btn.getAttribute('data-uid');
-                var row = getRow(gid, uid);
-                var sel = row ? row.querySelector('.member-role-select') : null;
-                if (sel) {
-                    sel.value = sel.getAttribute('data-prev') || sel.value;
-                    sel.disabled = false;
-                }
-                setRowEditMode(row, false);
-            });
-        });
-
-        listEl.querySelectorAll('.member-save-btn').forEach(function (btn) {
-            btn.addEventListener('click', function () {
-                var gid = btn.getAttribute('data-group');
-                var uid = btn.getAttribute('data-uid');
-                var row = getRow(gid, uid);
-                var sel = row ? row.querySelector('.member-role-select') : null;
-                var label = row ? row.querySelector('.member-role-label') : null;
-                if (!sel) return;
-                if (sel.disabled) return;
-                var newRole = sel.value;
-                var prev = sel.getAttribute('data-prev') || newRole;
-                sel.disabled = true;
-                btn.disabled = true;
-                getAuthHeaders().then(function (h) {
-                    return fetchJson(
-                        '/api/clients/' + encodeURIComponent(gid) + '/members/' + encodeURIComponent(uid),
-                        { method: 'PATCH', headers: h, body: JSON.stringify({ member_role: newRole }) }
-                    );
-                }).then(function (res) {
-                    if (!res.ok) throw new Error((res.data && res.data.error) || 'Failed to update role');
-                    sel.setAttribute('data-prev', newRole);
-                    if (label) label.textContent = roleLabels[newRole] || newRole;
-                    setRowEditMode(row, false);
-                }).catch(function (err) {
-                    sel.value = prev;
-                    alert(err && err.message ? err.message : 'Failed to update role');
-                }).finally(function () {
-                    sel.disabled = false;
-                    btn.disabled = false;
-                });
+                openEditMemberRoleModal(
+                    btn.getAttribute('data-group'),
+                    btn.getAttribute('data-uid'),
+                    btn.getAttribute('data-name') || 'Member',
+                    btn.getAttribute('data-role') || ''
+                );
             });
         });
 
@@ -920,6 +914,7 @@
         modalAddMember = document.getElementById('modal-add-member');
         modalMemberView = document.getElementById('modal-member-view');
         modalMemberAccess = document.getElementById('modal-member-access');
+        modalEditMemberRole = document.getElementById('modal-edit-member-role');
         var closeInviteBtn = document.getElementById('close-invite-member-modal');
         var cancelInviteBtn = document.getElementById('cancel-invite-member');
         var confirmInviteBtn = document.getElementById('confirm-invite-member');
@@ -932,6 +927,9 @@
         var cancelMemberAccessBtn = document.getElementById('cancel-member-access');
         var confirmMemberAccessBtn = document.getElementById('confirm-member-access');
         var memberAccessTypeSel = document.getElementById('member-access-resource-type');
+        var closeEditRoleBtn = document.getElementById('close-edit-member-role-modal');
+        var cancelEditRoleBtn = document.getElementById('cancel-edit-member-role');
+        var confirmEditRoleBtn = document.getElementById('confirm-edit-member-role');
 
         if (closeInviteBtn) closeInviteBtn.addEventListener('click', function () { closeModal(modalInviteMember); });
         if (cancelInviteBtn) cancelInviteBtn.addEventListener('click', function () { closeModal(modalInviteMember); });
@@ -949,6 +947,10 @@
         if (confirmMemberAccessBtn) confirmMemberAccessBtn.addEventListener('click', grantMemberAccess);
         if (memberAccessTypeSel) memberAccessTypeSel.addEventListener('change', loadMemberAccessResources);
         if (modalMemberAccess) modalMemberAccess.addEventListener('click', function (e) { if (e.target === modalMemberAccess) closeModal(modalMemberAccess); });
+        if (closeEditRoleBtn) closeEditRoleBtn.addEventListener('click', function () { closeModal(modalEditMemberRole); });
+        if (cancelEditRoleBtn) cancelEditRoleBtn.addEventListener('click', function () { closeModal(modalEditMemberRole); });
+        if (confirmEditRoleBtn) confirmEditRoleBtn.addEventListener('click', doEditMemberRole);
+        if (modalEditMemberRole) modalEditMemberRole.addEventListener('click', function (e) { if (e.target === modalEditMemberRole) closeModal(modalEditMemberRole); });
 
         if (ctx.role === 'admin' || ctx.role === 'superadmin') {
             window.location.replace('/user-management');
