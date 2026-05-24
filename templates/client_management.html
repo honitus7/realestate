@@ -120,37 +120,44 @@
     </div>
 
     <div class="modal-backdrop" id="modal-member-access">
-        <div class="modal modal--sm" role="dialog" aria-modal="true" aria-label="Manage project access">
+        <div class="modal modal--sm modal--member-access" role="dialog" aria-modal="true" aria-label="Manage project access">
             <div class="modal-head">
                 <div class="modal-title">Project Access: <span id="access-member-name"></span></div>
                 <button class="btn btn-secondary" id="close-member-access-modal" type="button">Close</button>
             </div>
             <div class="modal-body-edit">
-                <div class="edit-section">
-                    <div class="form-grid" style="grid-template-columns:1fr 1fr;">
-                        <div class="form-field">
-                            <label class="label" for="member-access-resource-type">Resource Type</label>
-                            <select class="input" id="member-access-resource-type">
-                                <option value="workspace">Workspace (Project)</option>
-                                <option value="panorama">Panorama</option>
-                            </select>
+                <div class="edit-section member-access-section">
+                    <div class="member-access-layout">
+                        <div class="member-access-pane member-access-pane--form">
+                            <div class="form-grid" style="grid-template-columns:1fr 1fr;">
+                                <div class="form-field">
+                                    <label class="label" for="member-access-resource-type">Resource Type</label>
+                                    <select class="input" id="member-access-resource-type">
+                                        <option value="workspace">Workspace (Project)</option>
+                                        <option value="panorama">Panorama</option>
+                                    </select>
+                                </div>
+                                <div class="form-field">
+                                    <label class="label" for="member-access-level">Access Level</label>
+                                    <select class="input" id="member-access-level">
+                                        <option value="client">Client</option>
+                                        <option value="broker">Broker</option>
+                                        <option value="viewer">Viewer</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="form-field" style="margin-top:0.75rem;">
+                                <label class="label" for="member-access-resource-id">Project</label>
+                                <select class="input" id="member-access-resource-id"></select>
+                            </div>
+                            <div class="msg error" id="member-access-error" style="display:none;"></div>
                         </div>
-                        <div class="form-field">
-                            <label class="label" for="member-access-level">Access Level</label>
-                            <select class="input" id="member-access-level">
-                                <option value="client">Client</option>
-                                <option value="broker">Broker</option>
-                                <option value="viewer">Viewer</option>
-                            </select>
+                        <div class="member-access-pane member-access-pane--list">
+                            <div class="member-access-list-title">Current Access</div>
+                            <div class="access-list" id="member-access-list"></div>
+                            <div class="empty" id="member-access-empty" style="display:none;">No project access assigned yet.</div>
                         </div>
                     </div>
-                    <div class="form-field" style="margin-top:0.75rem;">
-                        <label class="label" for="member-access-resource-id">Project</label>
-                        <select class="input" id="member-access-resource-id"></select>
-                    </div>
-                    <div class="msg error" id="member-access-error" style="display:none;"></div>
-                    <div class="access-list" id="member-access-list" style="margin-top:0.85rem;"></div>
-                    <div class="empty" id="member-access-empty" style="display:none;">No project access assigned yet.</div>
                 </div>
             </div>
             <div class="modal-actions">

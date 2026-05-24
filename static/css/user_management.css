@@ -380,6 +380,42 @@
     width: min(720px, 96vw) !important;
     max-width: 720px !important;
 }
+.user-mgmt-page #modal-member-access .modal.modal--member-access {
+    width: min(980px, 96vw) !important;
+    max-width: 980px !important;
+}
+.user-mgmt-page #modal-member-access .modal-body-edit {
+    max-height: 74vh;
+}
+.user-mgmt-page .member-access-section {
+    padding: 1.1rem 1.25rem;
+}
+.user-mgmt-page .member-access-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 1rem;
+    align-items: start;
+}
+.user-mgmt-page .member-access-pane {
+    border: 1px solid var(--color-border);
+    border-radius: 10px;
+    background: var(--color-bg-elevated);
+    padding: 0.9rem;
+}
+.user-mgmt-page .member-access-list-title {
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--color-text-dim);
+    margin-bottom: 0.55rem;
+}
+.user-mgmt-page #member-access-list {
+    margin-top: 0;
+}
+.user-mgmt-page .member-access-pane--list .empty {
+    padding: 0.6rem 0.1rem;
+}
 
 /* Edit modal body — no padding, scrollable with hidden scrollbar */
 .user-mgmt-page .modal-body-edit {
@@ -803,6 +839,7 @@
     .client-list-panel { width: 100%; }
     .client-access-toolbar { width: 100%; }
     .access-target-select { width: 100%; min-width: 0; }
+    .member-access-layout { grid-template-columns: 1fr; }
     .members-table-wrap {
         margin: 0 -0.2rem;
     }
