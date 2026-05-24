@@ -38,6 +38,9 @@
 
             <!-- Filters row -->
             <div class="dashboard-filters">
+                <select class="dashboard-filter-select" id="filter-client" aria-label="Client" style="display:none;">
+                    <option value="">All Clients</option>
+                </select>
                 <select class="dashboard-filter-select" id="filter-type" aria-label="Type">
                     <option value="">Type</option>
                     <option value="all">All</option>
@@ -494,6 +497,7 @@
             var cancelUploadEl = document.getElementById('cancel-upload');
             var searchInput = document.getElementById('dashboard-search');
             var filterType = document.getElementById('filter-type');
+            var filterClient = document.getElementById('filter-client');
             if (uploadBtn && uploadModal) {
                 uploadBtn.addEventListener('click', function (e) {
                     e.preventDefault();
@@ -545,6 +549,10 @@
             }
             if (searchInput) searchInput.addEventListener('input', onSearchInputDebounced);
             if (filterType) filterType.addEventListener('change', onSearchOrFilterChange);
+            if (filterClient) filterClient.addEventListener('change', function () {
+                if (typeof renderWorkspaces === 'function') renderWorkspaces();
+                onSearchOrFilterChange();
+            });
         })();
 
         function extractCoordsFromGoogleMapsLink(link) {
@@ -716,6 +724,7 @@
         // State
         let projects = [];
         let workspaces = [];
+        let clientOptions = [];
         let selectedWorkspaceKey = 'unfiled';
         let selectedFile = null;
         let selectedImageWidth = 0;
@@ -756,6 +765,7 @@
         const multiAll360 = document.getElementById('multi-all-360');
         const projectsContainer = document.getElementById('projects-container');
         const workspaceList = document.getElementById('workspace-list');
+        const filterClientSelect = document.getElementById('filter-client');
         const createWorkspaceBtn = document.getElementById('create-workspace-btn');
         const deleteModal = document.getElementById('delete-modal');
         const cancelDelete = document.getElementById('cancel-delete');
@@ -820,9 +830,17 @@
             var list = getVisibleProjects();
             var searchEl = document.getElementById('dashboard-search');
             var typeEl = document.getElementById('filter-type');
+            var clientEl = document.getElementById('filter-client');
             var q = (searchEl && searchEl.value) ? String(searchEl.value).trim().toLowerCase() : '';
             if (q) {
                 list = list.filter(function (p) { return (p.name || '').toLowerCase().indexOf(q) !== -1; });
+            }
+            var clientVal = clientEl ? String(clientEl.value || '').trim() : '';
+            if (clientVal) {
+                list = list.filter(function (p) {
+                    var ids = Array.isArray(p.client_ids) ? p.client_ids.map(String) : [];
+                    return ids.indexOf(clientVal) >= 0;
+                });
             }
             var typeVal = typeEl ? typeEl.value : '';
             if (typeVal === '360') list = list.filter(function (p) { return Boolean(p.is_360); });
@@ -911,9 +929,15 @@
                 return;
             }
 
-            var unfiledCount = projects.filter(function (p) { return !p.workspace_id; }).length;
+            var clientFilter = filterClientSelect ? String(filterClientSelect.value || '').trim() : '';
+            var countSource = projects.filter(function (p) {
+                if (!clientFilter) return true;
+                var ids = Array.isArray(p.client_ids) ? p.client_ids.map(String) : [];
+                return ids.indexOf(clientFilter) >= 0;
+            });
+            var unfiledCount = countSource.filter(function (p) { return !p.workspace_id; }).length;
             var countByWorkspace = {};
-            projects.forEach(function (p) {
+            countSource.forEach(function (p) {
                 if (!p.workspace_id) return;
                 var key = String(p.workspace_id);
                 countByWorkspace[key] = (countByWorkspace[key] || 0) + 1;
@@ -1251,6 +1275,64 @@
             }
         }
 
+        function renderClientOptions() {
+            if (!filterClientSelect) return;
+            var isExternalBroker = currentUserRole === 'external_broker';
+            var current = String(filterClientSelect.value || '').trim();
+            var options = Array.isArray(clientOptions) ? clientOptions.slice() : [];
+            if (!isExternalBroker || !options.length) {
+                filterClientSelect.value = '';
+                filterClientSelect.style.display = 'none';
+                return;
+            }
+            filterClientSelect.innerHTML = '<option value="">All Clients</option>' + options.map(function (client) {
+                var id = String(client.id || '');
+                var name = client.name || ('Client #' + id);
+                return '<option value="' + escapeHtml(id) + '">' + escapeHtml(name) + '</option>';
+            }).join('');
+            filterClientSelect.value = options.some(function (client) { return String(client.id || '') === current; }) ? current : '';
+            filterClientSelect.style.display = '';
+        }
+
+        async function loadClientOptions() {
+            if (currentUserRole !== 'external_broker') {
+                clientOptions = [];
+                renderClientOptions();
+                return;
+            }
+            try {
+                var data = null;
+                if (window.pmApi && typeof window.pmApi.fetchJsonWithRetry === 'function') {
+                    data = await window.pmApi.fetchJsonWithRetry('/api/access/client-options', {}, {
+                        retries: 1,
+                        baseDelayMs: 180,
+                        waitAttempts: 6,
+                        waitDelayMs: 120
+                    });
+                } else {
+                    var headers = await ensureAuthHeadersOrRedirect();
+                    if (!headers) return;
+                    var response = await fetch('/api/access/client-options', { headers: headers });
+                    data = response.ok ? await response.json() : [];
+                }
+                clientOptions = Array.isArray(data) ? data : [];
+            } catch (e) {
+                clientOptions = [];
+            }
+            renderClientOptions();
+        }
+
+        function ensureUsefulInitialWorkspaceSelection() {
+            var isDashboardAdmin = currentUserRole === 'admin' || currentUserRole === 'superadmin';
+            if (isDashboardAdmin || selectedWorkspaceKey !== 'unfiled') return;
+            var unfiledCount = projects.filter(function (p) { return !p.workspace_id; }).length;
+            if (unfiledCount > 0) return;
+            var firstWorkspace = (Array.isArray(workspaces) ? workspaces : []).find(function (ws) {
+                return ws && ws.id;
+            });
+            if (firstWorkspace) selectedWorkspaceKey = 'ws:' + String(firstWorkspace.id);
+        }
+
         async function loadOrgSlug() {
             try {
                 var headers = await getAuthHeaders();
@@ -1265,11 +1347,12 @@
 
         async function initializeDashboard() {
             try {
-                await Promise.all([loadProjects(), loadWorkspaces(), loadOrgSlug()]);
+                await Promise.all([loadProjects(), loadWorkspaces(), loadClientOptions(), loadOrgSlug()]);
             } catch (e) {
                 // State already set by loadProjects/loadWorkspaces; single render below.
             }
             try {
+                ensureUsefulInitialWorkspaceSelection();
                 renderWorkspaces();
                 renderRecents();
                 if (projectsLoadFailed) {

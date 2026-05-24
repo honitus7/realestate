@@ -36,7 +36,7 @@
 }
 
 .portal-nav-logo img {
-    width: 32px;
+    width: auto;
     height: 32px;
     object-fit: contain;
 }
@@ -1051,8 +1051,9 @@
 
 .portal-footer-brand img {
     filter: brightness(10);
-    width: 24px;
+    width: auto;
     height: 24px;
+    object-fit: contain;
 }
 
 .portal-footer-links {

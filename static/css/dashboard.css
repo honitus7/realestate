@@ -515,7 +515,7 @@
     font-family: var(--font-body);
     font-size: 0.8rem;
     cursor: pointer;
-    max-width: 140px;
+    max-width: 220px;
 }
 
 .dashboard-filter-btn {

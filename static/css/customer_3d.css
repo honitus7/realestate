@@ -2243,7 +2243,8 @@ body.overlays-hidden .psv-glass-marker .marker-photo-name {
 }
 
 .cart-modal .cart-field input,
-.cart-modal .cart-field select {
+.cart-modal .cart-field select,
+.cart-modal .cart-field textarea {
     width: 100%;
     min-height: 44px;
     padding: 0.65rem 0.875rem;
@@ -2258,7 +2259,8 @@ body.overlays-hidden .psv-glass-marker .marker-photo-name {
 }
 
 .cart-modal .cart-field input:focus,
-.cart-modal .cart-field select:focus {
+.cart-modal .cart-field select:focus,
+.cart-modal .cart-field textarea:focus {
     border-color: rgba(22, 35, 56, 0.3);
     box-shadow: 0 0 0 3px rgba(22, 35, 56, 0.05);
 }

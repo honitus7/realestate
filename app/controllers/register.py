@@ -26,11 +26,16 @@ from itsdangerous import BadSignature, SignatureExpired
 
 from app import config as app_config
 from app.controllers.features import (
+    register_crm_broker_routes,
+    register_crm_lock_routes,
+    register_crm_master_routes,
+    register_crm_plot_routes,
     register_crm_quote_routes,
     register_daynight_routes,
     register_full_view_routes,
     register_gallery_routes,
     register_page_access_routes,
+    register_resource_filters_routes,
     register_sales_route_map_routes,
     register_uam_routes,
 )
@@ -55,7 +60,6 @@ from app.core.serializers import (
 )
 from app.services.panorama_service import (
     get_panorama_with_access,
-    list_panoramas_for_user,
     get_panorama_by_id,
     get_mobile_panorama_by_parent_id,
     can_edit_plots,
@@ -66,7 +70,6 @@ from app.services.workspace_service import (
     serialize_workspace_row,
     clear_workspace_main_for_panorama,
     can_manage_workspace,
-    list_workspaces as ws_list_workspaces,
     create_workspace as ws_create_workspace,
     update_workspace as ws_update_workspace,
     delete_workspace as ws_delete_workspace,
@@ -1004,7 +1007,7 @@ def register_routes(app):
 
     @app.route('/favicon.ico')
     def favicon():
-        return redirect('/static/marketostate-logo-v2.webp', code=302)
+        return redirect('/static/Marketostate/Marketostate%20Favicon.svg', code=302)
 
     @app.route('/login')
     def login_page():
@@ -1873,6 +1876,21 @@ def register_routes(app):
         customer_name = str(data.get('customer_name') or data.get('name') or '').strip()
         customer_email = str(data.get('customer_email') or data.get('email') or '').strip()
         customer_phone = str(data.get('customer_phone') or data.get('phone') or '').strip()
+        customer_birthday = str(data.get('customer_birthday') or data.get('birthday') or '').strip()
+        customer_street = str(data.get('customer_street') or data.get('street') or '').strip()
+        customer_city = str(data.get('customer_city') or data.get('city') or '').strip()
+        customer_state = str(data.get('customer_state') or data.get('state') or '').strip()
+        customer_country = str(data.get('customer_country') or data.get('country') or '').strip()
+        customer_zip_code = str(data.get('customer_zip_code') or data.get('zip_code') or '').strip()
+        customer_address = str(data.get('customer_address') or data.get('address') or '').strip()
+        if not customer_address:
+            customer_address = ', '.join([x for x in [customer_street, customer_city, customer_state, customer_country, customer_zip_code] if x])
+        title = str(data.get('title') or '').strip()
+        if not title:
+            first = str(customer_name or '').strip().split(' ')[0].replace('.', '').lower() if customer_name else ''
+            if first in ('mr', 'mrs', 'ms', 'dr'):
+                title = 'Dr' if first == 'dr' else first.capitalize()
+        description = str(data.get('description') or '').strip()
         category = str(data.get('category') or '').strip()
         requested_reference_user_id = str(data.get('reference_user_id') or '').strip()
         items = data.get('items') or data.get('plots') or []
@@ -1886,6 +1904,8 @@ def register_routes(app):
             return jsonify({'error': 'Valid email is required'}), 400
         if not customer_phone:
             return jsonify({'error': 'Contact number is required'}), 400
+        if len(description) > 500:
+            return jsonify({'error': 'Description must be 500 characters or less'}), 400
         if not category:
             return jsonify({'error': 'Category is required'}), 400
         panorama = get_panorama_by_id(sb, panorama_id)
@@ -1963,6 +1983,15 @@ def register_routes(app):
             'customer_name': customer_name,
             'customer_email': customer_email,
             'customer_phone': customer_phone,
+            'customer_birthday': customer_birthday or None,
+            'customer_address': customer_address or None,
+            'customer_street': customer_street or None,
+            'customer_city': customer_city or None,
+            'customer_state': customer_state or None,
+            'customer_country': customer_country or None,
+            'customer_zip_code': customer_zip_code or None,
+            'title': title or None,
+            'description': description or None,
             'category': category,
             'plots': plots_snapshot,
             'status': 'new',
@@ -1979,6 +2008,24 @@ def register_routes(app):
             return jsonify({'success': True, 'buy_interest': row or insert_row}), 201
         except Exception as e:
             msg = str(e)
+            if any(col in msg for col in ('customer_birthday', 'customer_address', 'customer_street', 'customer_city', 'customer_state', 'customer_country', 'customer_zip_code', 'title', 'description')) and ('column' in msg.lower() or 'schema cache' in msg.lower()):
+                legacy_row = dict(insert_row)
+                legacy_row.pop('customer_birthday', None)
+                legacy_row.pop('customer_address', None)
+                legacy_row.pop('customer_street', None)
+                legacy_row.pop('customer_city', None)
+                legacy_row.pop('customer_state', None)
+                legacy_row.pop('customer_country', None)
+                legacy_row.pop('customer_zip_code', None)
+                legacy_row.pop('title', None)
+                legacy_row.pop('description', None)
+                try:
+                    r = sb.table('buy_interests').insert(legacy_row).execute()
+                    row = (r.data or [None])[0] if hasattr(r, 'data') else None
+                    _crm_cache_bump()
+                    return jsonify({'success': True, 'buy_interest': row or legacy_row}), 201
+                except Exception as legacy_error:
+                    msg = str(legacy_error)
             if 'buy_interests' in msg and ('does not exist' in msg.lower() or 'relation' in msg.lower()):
                 return jsonify({'error': 'buy_interests table not found. Run db/schema.sql in Supabase SQL Editor.'}), 503
             return jsonify({'error': msg}), 500
@@ -2187,46 +2234,6 @@ def register_routes(app):
         })
 
     # ----- API: require Authorization Bearer token -----
-    @app.route('/api/panoramas', methods=['GET'])
-    @require_auth
-    def get_panoramas(user_id, role):
-        sb = get_supabase()
-        if not sb:
-            return jsonify({'error': 'Database not configured'}), 503
-        workspace_id = str(request.args.get('workspace_id') or '').strip() or None
-        items = list_panoramas_for_user(sb, user_id)
-        out = []
-        for p in items:
-            o = dict(p)
-            o.pop('image_data', None)
-            o.pop('image_content_type', None)
-            for k in ('created_at', 'updated_at'):
-                if k in o and o[k]:
-                    o[k] = str(o[k])
-            if 'user_id' in o:
-                o['user_id'] = str(o['user_id'])
-            if 'workspace_id' in o and o.get('workspace_id'):
-                o['workspace_id'] = str(o['workspace_id'])
-            if workspace_id and str(o.get('workspace_id') or '') != workspace_id:
-                continue
-            out.append(o)
-        return jsonify(out)
-
-    @app.route('/api/workspaces', methods=['GET'])
-    @require_auth
-    def list_workspaces(user_id, role):
-        sb = get_supabase()
-        if not sb:
-            return jsonify({'error': 'Database not configured'}), 503
-        lightweight = _is_truthy(request.args.get('lightweight'))
-        try:
-            out = ws_list_workspaces(sb, user_id, lightweight=lightweight)
-            return jsonify(out)
-        except Exception as e:
-            if is_workspace_schema_missing(e):
-                return _ws_error_response()
-            return jsonify({'error': str(e)}), 500
-
     @app.route('/api/workspaces', methods=['POST'])
     @require_admin
     def create_workspace(user_id, role):
@@ -4093,6 +4100,21 @@ def register_routes(app):
         customer_name = str(data.get('customer_name') or data.get('name') or '').strip()
         customer_email = str(data.get('customer_email') or data.get('email') or '').strip()
         customer_phone = str(data.get('customer_phone') or data.get('phone') or '').strip()
+        customer_birthday = str(data.get('customer_birthday') or data.get('birthday') or '').strip()
+        customer_street = str(data.get('customer_street') or data.get('street') or '').strip()
+        customer_city = str(data.get('customer_city') or data.get('city') or '').strip()
+        customer_state = str(data.get('customer_state') or data.get('state') or '').strip()
+        customer_country = str(data.get('customer_country') or data.get('country') or '').strip()
+        customer_zip_code = str(data.get('customer_zip_code') or data.get('zip_code') or '').strip()
+        customer_address = str(data.get('customer_address') or data.get('address') or '').strip()
+        if not customer_address:
+            customer_address = ', '.join([x for x in [customer_street, customer_city, customer_state, customer_country, customer_zip_code] if x])
+        title = str(data.get('title') or '').strip()
+        if not title:
+            first = str(customer_name or '').strip().split(' ')[0].replace('.', '').lower() if customer_name else ''
+            if first in ('mr', 'mrs', 'ms', 'dr'):
+                title = 'Dr' if first == 'dr' else first.capitalize()
+        description = str(data.get('description') or '').strip()
         category = str(data.get('category') or '').strip()
         requested_reference_user_id = str(data.get('reference_user_id') or '').strip()
         items = data.get('items') or data.get('plots') or []
@@ -4106,6 +4128,8 @@ def register_routes(app):
             return jsonify({'error': 'Valid email is required'}), 400
         if not customer_phone:
             return jsonify({'error': 'Contact number is required'}), 400
+        if len(description) > 500:
+            return jsonify({'error': 'Description must be 500 characters or less'}), 400
         if not category:
             return jsonify({'error': 'Category is required'}), 400
         panorama, access_type = get_panorama_with_access(sb, panorama_id, user_id)
@@ -4192,6 +4216,15 @@ def register_routes(app):
             'customer_name': customer_name,
             'customer_email': customer_email,
             'customer_phone': customer_phone,
+            'customer_birthday': customer_birthday or None,
+            'customer_address': customer_address or None,
+            'customer_street': customer_street or None,
+            'customer_city': customer_city or None,
+            'customer_state': customer_state or None,
+            'customer_country': customer_country or None,
+            'customer_zip_code': customer_zip_code or None,
+            'title': title or None,
+            'description': description or None,
             'category': category,
             'plots': plots_snapshot,
             'status': 'new',
@@ -4208,6 +4241,24 @@ def register_routes(app):
             return jsonify({'success': True, 'buy_interest': row or insert_row}), 201
         except Exception as e:
             msg = str(e)
+            if any(col in msg for col in ('customer_birthday', 'customer_address', 'customer_street', 'customer_city', 'customer_state', 'customer_country', 'customer_zip_code', 'title', 'description')) and ('column' in msg.lower() or 'schema cache' in msg.lower()):
+                legacy_row = dict(insert_row)
+                legacy_row.pop('customer_birthday', None)
+                legacy_row.pop('customer_address', None)
+                legacy_row.pop('customer_street', None)
+                legacy_row.pop('customer_city', None)
+                legacy_row.pop('customer_state', None)
+                legacy_row.pop('customer_country', None)
+                legacy_row.pop('customer_zip_code', None)
+                legacy_row.pop('title', None)
+                legacy_row.pop('description', None)
+                try:
+                    r = sb.table('buy_interests').insert(legacy_row).execute()
+                    row = (r.data or [None])[0] if hasattr(r, 'data') else None
+                    _crm_cache_bump()
+                    return jsonify({'success': True, 'buy_interest': row or legacy_row}), 201
+                except Exception as legacy_error:
+                    msg = str(legacy_error)
             if 'buy_interests' in msg and ('does not exist' in msg.lower() or 'relation' in msg.lower()):
                 return jsonify({'error': 'buy_interests table not found. Run db/schema.sql in Supabase SQL Editor.'}), 503
             return jsonify({'error': msg}), 500
@@ -4261,7 +4312,7 @@ def register_routes(app):
         try:
             query = (
                 sb.table('buy_interests')
-                .select('id, client_id, panorama_id, contact_id, reference_user_id, customer_name, customer_email, customer_phone, category, plots, status, is_contacted, contacted_at, notes, created_at, updated_at, submitted_by, assigned_to, assigned_at')
+                .select('id, client_id, panorama_id, contact_id, reference_user_id, customer_name, customer_email, customer_phone, customer_birthday, customer_address, customer_street, customer_city, customer_state, customer_country, customer_zip_code, lead_source, lead_category, lead_status, campaign_type, campaign_status, deal_stage, title, description, category, plots, status, is_contacted, contacted_at, notes, created_at, updated_at, submitted_by, assigned_to, assigned_at')
                 .in_('panorama_id', panorama_ids)
             )
             if requested_client_id:
@@ -4281,7 +4332,7 @@ def register_routes(app):
                 token = q.replace('%', '').replace('(', '').replace(')', '').replace(',', '')
                 if token:
                     query = query.or_(
-                        f"customer_name.ilike.%{token}%,customer_email.ilike.%{token}%,customer_phone.ilike.%{token}%"
+                        f"customer_name.ilike.%{token}%,customer_email.ilike.%{token}%,customer_phone.ilike.%{token}%,customer_address.ilike.%{token}%,customer_city.ilike.%{token}%,customer_state.ilike.%{token}%"
                     )
             r = query.order('created_at', desc=True).limit(limit).execute()
             out = []
@@ -4372,6 +4423,31 @@ def register_routes(app):
             upd['contacted_at'] = now if status == 'contacted' else None
         if 'notes' in data:
             upd['notes'] = str(data.get('notes') or '').strip()
+        for key in (
+            'lead_source',
+            'lead_category',
+            'lead_status',
+            'campaign_type',
+            'campaign_status',
+            'deal_stage',
+            'title',
+            'description',
+            'customer_street',
+            'customer_city',
+            'customer_state',
+            'customer_country',
+            'customer_zip_code',
+            'customer_address',
+        ):
+            if key in data:
+                value = str(data.get(key) or '').strip()
+                if key in ('title', 'customer_zip_code') and len(value) > 40:
+                    return jsonify({'error': f'{key} must be 40 characters or less'}), 400
+                if key in ('description', 'customer_address') and len(value) > 500:
+                    return jsonify({'error': f'{key} must be 500 characters or less'}), 400
+                if key not in ('description', 'customer_address') and len(value) > 100:
+                    return jsonify({'error': f'{key} must be 100 characters or less'}), 400
+                upd[key] = value or None
         if not upd:
             return jsonify({'error': 'Nothing to update'}), 400
         upd['updated_at'] = now
@@ -4434,7 +4510,7 @@ def register_routes(app):
         try:
             q = (
                 sb.table('buy_interests')
-                .select('id, client_id, panorama_id, contact_id, reference_user_id, customer_name, customer_email, customer_phone, category, plots, notes, created_at, is_contacted, contacted_at, status, assigned_to, assigned_at')
+                .select('id, client_id, panorama_id, contact_id, reference_user_id, customer_name, customer_email, customer_phone, customer_birthday, customer_address, customer_street, customer_city, customer_state, customer_country, customer_zip_code, lead_source, lead_category, lead_status, campaign_type, campaign_status, deal_stage, title, description, category, plots, notes, created_at, is_contacted, contacted_at, status, assigned_to, assigned_at')
                 .eq('id', str(interest_id))
                 .in_('panorama_id', panorama_ids)
             )
@@ -5352,6 +5428,32 @@ def register_routes(app):
         get_contact_for_user=_get_contact_for_user,
         crm_cache_bump=_crm_cache_bump,
     )
+    register_crm_broker_routes(
+        app,
+        crm_panorama_ids=_crm_panorama_ids,
+        crm_client_scope_ids=_crm_client_scope_ids,
+    )
+    register_crm_plot_routes(
+        app,
+        crm_panorama_ids=_crm_panorama_ids,
+        crm_cache_get=_crm_cache_get,
+        crm_cache_set=_crm_cache_set,
+        crm_cache_version=_crm_cache_version,
+    )
+    register_crm_lock_routes(
+        app,
+        crm_panorama_ids=_crm_panorama_ids,
+        crm_client_scope_ids=_crm_client_scope_ids,
+        crm_cache_get=_crm_cache_get,
+        crm_cache_set=_crm_cache_set,
+        crm_cache_version=_crm_cache_version,
+        crm_cache_bump=_crm_cache_bump,
+    )
+    register_crm_master_routes(
+        app,
+        crm_client_scope_ids=_crm_client_scope_ids,
+        crm_cache_bump=_crm_cache_bump,
+    )
 
     @app.route('/api/crm/deals/<deal_id>/quotations', methods=['GET'])
     @require_auth
@@ -5604,45 +5706,6 @@ h1 {{ margin:0 0 8px; font-size:22px; }}
             'client_group_name': client_group_name,
             'client_group_names': client_group_names,
         })
-
-    @app.route('/api/crm/plots', methods=['GET'])
-    @require_auth
-    def list_crm_all_plots(user_id, role):
-        sb = get_supabase()
-        if not sb:
-            return jsonify({'error': 'Database not configured'}), 503
-        pano_ids = _crm_panorama_ids(sb, user_id, role)
-        if not pano_ids:
-            return jsonify([])
-        cache_key = (
-            'crm_plots',
-            _crm_cache_version.get('v', 1),
-            str(user_id),
-            str(role or ''),
-            tuple(pano_ids),
-        )
-        cached = _crm_cache_get(cache_key, ttl_seconds=5)
-        if cached is not None:
-            return jsonify(cached)
-        pano_names = {}
-        all_plots = []
-        for i in range(0, len(pano_ids), 100):
-            chunk = pano_ids[i:i+100]
-            try:
-                panos_r = sb.table('panoramas').select('id, name').in_('id', chunk).execute()
-                for p in (panos_r.data or []):
-                    pano_names[p['id']] = p.get('name') or ('Project #' + str(p['id']))
-            except Exception:
-                pass
-            try:
-                plots_r = sb.table('plots').select('id, panorama_id, name, area, price, status, description').in_('panorama_id', chunk).execute()
-                all_plots.extend(plots_r.data or [])
-            except Exception:
-                pass
-        for p in all_plots:
-            p['panorama_name'] = pano_names.get(p.get('panorama_id'), '')
-        _crm_cache_set(cache_key, all_plots)
-        return jsonify(all_plots)
 
     @app.route('/api/crm/panoramas/<int:panorama_id>/markers', methods=['GET'])
     @require_auth
@@ -5927,193 +5990,6 @@ h1 {{ margin:0 0 8px; font-size:22px; }}
         sb.table('crm_quote_templates').delete().eq('id', str(template_id)).execute()
         _crm_cache_bump()
         return jsonify({'success': True})
-
-    @app.route('/api/crm/lock-access', methods=['GET'])
-    @require_admin
-    def list_lock_access(user_id, role):
-        sb = get_supabase()
-        if not sb:
-            return jsonify({'error': 'Database not configured'}), 503
-        panorama_id = request.args.get('panorama_id')
-        if not panorama_id:
-            return jsonify({'error': 'panorama_id required'}), 400
-        try:
-            panorama_id = int(panorama_id)
-        except (ValueError, TypeError):
-            return jsonify({'error': 'Invalid panorama_id'}), 400
-        try:
-            r = sb.table('plot_lock_access').select('id, panorama_id, user_id, granted_by, created_at').eq('panorama_id', panorama_id).execute()
-            return jsonify(r.data or [])
-        except Exception as e:
-            msg = str(e)
-            if 'plot_lock_access' in msg and ('does not exist' in msg.lower() or 'relation' in msg.lower()):
-                return jsonify({'error': 'plot_lock_access table not found. Run db/schema.sql in Supabase SQL Editor.'}), 503
-            return jsonify({'error': msg}), 500
-
-    @app.route('/api/crm/lock-access', methods=['POST'])
-    @require_admin
-    def grant_lock_access(user_id, role):
-        sb = get_supabase()
-        if not sb:
-            return jsonify({'error': 'Database not configured'}), 503
-        data = request.get_json(silent=True) or {}
-        try:
-            panorama_id = int(data.get('panorama_id'))
-        except (ValueError, TypeError):
-            return jsonify({'error': 'panorama_id required'}), 400
-        target_user_id = str(data.get('user_id') or '').strip()
-        if not target_user_id:
-            return jsonify({'error': 'user_id required'}), 400
-        profile = get_profile(sb, user_id) or {}
-        org_id = profile.get('org_id')
-        try:
-            sb.table('plot_lock_access').upsert({
-                'panorama_id': panorama_id,
-                'user_id': target_user_id,
-                'granted_by': user_id,
-                'org_id': org_id,
-            }, on_conflict='panorama_id,user_id').execute()
-            _crm_cache_bump()
-            return jsonify({'success': True}), 201
-        except Exception as e:
-            msg = str(e)
-            if 'plot_lock_access' in msg and ('does not exist' in msg.lower() or 'relation' in msg.lower()):
-                return jsonify({'error': 'plot_lock_access table not found. Run db/schema.sql in Supabase SQL Editor.'}), 503
-            return jsonify({'error': msg}), 500
-
-    @app.route('/api/crm/lock-access', methods=['DELETE'])
-    @require_admin
-    def revoke_lock_access(user_id, role):
-        sb = get_supabase()
-        if not sb:
-            return jsonify({'error': 'Database not configured'}), 503
-        data = request.get_json(silent=True) or {}
-        try:
-            panorama_id = int(data.get('panorama_id'))
-        except (ValueError, TypeError):
-            return jsonify({'error': 'panorama_id required'}), 400
-        target_user_id = str(data.get('user_id') or '').strip()
-        if not target_user_id:
-            return jsonify({'error': 'user_id required'}), 400
-        try:
-            sb.table('plot_lock_access').delete().eq('panorama_id', panorama_id).eq('user_id', target_user_id).execute()
-            _crm_cache_bump()
-            return jsonify({'success': True})
-        except Exception as e:
-            return jsonify({'error': str(e)}), 500
-
-    @app.route('/api/crm/lockable-plots', methods=['GET'])
-    @require_auth
-    def list_lockable_plots(user_id, role):
-        sb = get_supabase()
-        if not sb:
-            return jsonify({'error': 'Database not configured'}), 503
-        try:
-            r = sb.table('plot_lock_access').select('panorama_id').eq('user_id', user_id).execute()
-            panorama_ids = [row['panorama_id'] for row in (r.data or [])]
-        except Exception:
-            panorama_ids = []
-        if not panorama_ids:
-            return jsonify([])
-        cache_key = (
-            'crm_lockable_plots',
-            _crm_cache_version.get('v', 1),
-            str(user_id),
-            tuple(sorted(int(x) for x in panorama_ids if x is not None)),
-        )
-        cached = _crm_cache_get(cache_key, ttl_seconds=5)
-        if cached is not None:
-            return jsonify(cached)
-        all_plots = []
-        pano_names = {}
-        for i in range(0, len(panorama_ids), 100):
-            chunk = panorama_ids[i:i+100]
-            try:
-                panos_r = sb.table('panoramas').select('id, name').in_('id', chunk).execute()
-                for p in (panos_r.data or []):
-                    pano_names[p['id']] = p.get('name') or ('Project #' + str(p['id']))
-            except Exception:
-                pass
-            try:
-                plots_r = sb.table('plots').select('id, panorama_id, name, area, price, status').in_('panorama_id', chunk).execute()
-                all_plots.extend(plots_r.data or [])
-            except Exception:
-                pass
-        locks_by_plot = {}
-        plot_ids = [p['id'] for p in all_plots]
-        if plot_ids:
-            for i in range(0, len(plot_ids), 100):
-                chunk = plot_ids[i:i+100]
-                try:
-                    locks_r = sb.table('plot_locks').select('*').in_('plot_id', chunk).execute()
-                    for lock in (locks_r.data or []):
-                        locks_by_plot[lock['plot_id']] = lock
-                except Exception:
-                    pass
-        result = []
-        for plot in all_plots:
-            lock = locks_by_plot.get(plot['id'])
-            result.append({
-                **plot,
-                'panorama_name': pano_names.get(plot.get('panorama_id'), ''),
-                'lock': lock,
-            })
-        _crm_cache_set(cache_key, result)
-        return jsonify(result)
-
-    @app.route('/api/crm/plots/<int:plot_id>/lock', methods=['POST'])
-    @require_auth
-    def lock_plot(user_id, role, plot_id):
-        sb = get_supabase()
-        if not sb:
-            return jsonify({'error': 'Database not configured'}), 503
-        try:
-            plot_r = sb.table('plots').select('panorama_id').eq('id', plot_id).limit(1).execute()
-            if not plot_r.data:
-                return jsonify({'error': 'Plot not found'}), 404
-            panorama_id = plot_r.data[0]['panorama_id']
-        except Exception:
-            return jsonify({'error': 'Plot not found'}), 404
-        try:
-            access_r = sb.table('plot_lock_access').select('id').eq('panorama_id', panorama_id).eq('user_id', user_id).limit(1).execute()
-            if not access_r.data:
-                return jsonify({'error': 'No lock access for this panorama'}), 403
-        except Exception:
-            return jsonify({'error': 'No lock access for this panorama'}), 403
-        data = request.get_json(silent=True) or {}
-        lock_row = {
-            'plot_id': plot_id,
-            'locked_by': user_id,
-            'locked_for_name': str(data.get('locked_for_name') or '').strip() or None,
-            'locked_for_email': str(data.get('locked_for_email') or '').strip() or None,
-        }
-        try:
-            sb.table('plot_locks').upsert(lock_row, on_conflict='plot_id').execute()
-            _crm_cache_bump()
-            return jsonify({'success': True}), 201
-        except Exception as e:
-            msg = str(e)
-            if 'plot_locks' in msg and ('does not exist' in msg.lower() or 'relation' in msg.lower()):
-                return jsonify({'error': 'plot_locks table not found. Run db/schema.sql in Supabase SQL Editor.'}), 503
-            return jsonify({'error': msg}), 500
-
-    @app.route('/api/crm/plots/<int:plot_id>/lock', methods=['DELETE'])
-    @require_auth
-    def unlock_plot(user_id, role, plot_id):
-        sb = get_supabase()
-        if not sb:
-            return jsonify({'error': 'Database not configured'}), 503
-        try:
-            lock_r = sb.table('plot_locks').select('id, locked_by').eq('plot_id', plot_id).limit(1).execute()
-            if not lock_r.data:
-                return jsonify({'error': 'Plot is not locked'}), 404
-            if str(lock_r.data[0].get('locked_by')) != str(user_id) and role not in ('admin', 'superadmin'):
-                return jsonify({'error': 'Only the user who locked this plot or an admin can unlock it'}), 403
-            sb.table('plot_locks').delete().eq('plot_id', plot_id).execute()
-            _crm_cache_bump()
-            return jsonify({'success': True})
-        except Exception as e:
-            return jsonify({'error': str(e)}), 500
 
     # ------------------------------------------------------------------
     # Day Night Projects
@@ -7454,6 +7330,11 @@ h1 {{ margin:0 0 8px; font-size:22px; }}
     # Page Access Tokens
     # ==================================================================
     register_page_access_routes(app)
+
+    # ==================================================================
+    # Shared Filter Resource Lists
+    # ==================================================================
+    register_resource_filters_routes(app)
 
     # ==================================================================
     # User Access Management

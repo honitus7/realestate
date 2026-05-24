@@ -1505,6 +1505,149 @@
     max-width: 220px;
 }
 
+/* -- CRM masters -- */
+.master-grid {
+    padding: 1rem;
+}
+
+.master-table-wrap {
+    border: 1px solid var(--color-border);
+    border-radius: 14px;
+    background: var(--color-bg-elevated);
+    overflow: hidden;
+}
+
+.master-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.master-table th {
+    padding: 0.72rem 0.9rem;
+    text-align: left;
+    font-size: 0.68rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--color-muted);
+    background: linear-gradient(135deg, rgba(22, 35, 56, 0.06), rgba(22, 35, 56, 0.01));
+    border-bottom: 1px solid var(--color-border);
+}
+
+.master-table td {
+    padding: 0.78rem 0.9rem;
+    border-bottom: 1px solid var(--color-border);
+    vertical-align: middle;
+}
+
+.master-table tr:last-child td {
+    border-bottom: none;
+}
+
+.master-table td:first-child {
+    min-width: 220px;
+}
+
+.master-table strong {
+    display: block;
+    font-size: 0.86rem;
+    color: var(--color-text);
+}
+
+.master-table td:first-child span {
+    display: block;
+    margin-top: 0.18rem;
+    color: var(--color-muted);
+    font-size: 0.68rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+}
+
+.master-mode-select {
+    min-width: 132px;
+    max-width: 160px;
+}
+
+.master-switch {
+    display: inline-flex;
+    align-items: center;
+    cursor: pointer;
+}
+
+.master-switch input {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.master-switch span {
+    position: relative;
+    display: inline-flex;
+    width: 48px;
+    height: 26px;
+    border-radius: 999px;
+    background: var(--color-border);
+    transition: background 0.2s ease;
+}
+
+.master-switch span::before {
+    content: '';
+    position: absolute;
+    width: 20px;
+    height: 20px;
+    top: 3px;
+    left: 3px;
+    border-radius: 50%;
+    background: #fff;
+    box-shadow: 0 2px 6px rgba(22, 35, 56, 0.2);
+    transition: transform 0.2s ease;
+}
+
+.master-switch input:checked + span {
+    background: #162338;
+}
+
+.master-switch input:checked + span::before {
+    transform: translateX(22px);
+}
+
+.drawer-master-fields {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.55rem;
+}
+
+.drawer-master-field {
+    display: grid;
+    gap: 0.25rem;
+    min-width: 0;
+}
+
+.drawer-master-field--wide {
+    grid-column: 1 / -1;
+}
+
+.drawer-master-field span {
+    font-size: 0.66rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--color-muted);
+}
+
+.drawer-master-field .toolbar-select,
+.drawer-master-field .toolbar-search {
+    width: 100%;
+    max-width: none;
+    min-width: 0;
+    min-height: 34px;
+    font-size: 0.76rem;
+}
+
+.drawer-master-field textarea.toolbar-search {
+    min-height: 72px;
+    resize: vertical;
+}
+
 /* ══════════════════════════════════════════
    DRAWER (Lead Detail)
    ══════════════════════════════════════════ */
@@ -1883,6 +2026,15 @@
         width: 96vw;
         max-height: 90vh;
     }
+    .master-grid {
+        padding: 0.75rem;
+    }
+    .master-table-wrap {
+        overflow-x: auto;
+    }
+    .drawer-master-fields {
+        grid-template-columns: 1fr;
+    }
 }
 
 /* CRM refactor compact surfaces */
@@ -2119,6 +2271,51 @@ body.deal-dragging .deal-col-cards {
 #d-notes {
     min-height: 72px !important;
     font-size: 0.78rem;
+}
+
+.crm-pagination {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.45rem;
+    padding: 0.75rem 0 0;
+    color: var(--color-muted);
+    font-size: 0.78rem;
+}
+
+.crm-pagination:empty {
+    display: none;
+}
+
+.crm-pagination .btn {
+    padding: 0.32rem 0.58rem;
+    font-size: 0.72rem;
+}
+
+.crm-pagination select {
+    min-height: 30px;
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    background: var(--color-surface);
+    color: var(--color-text);
+    font-size: 0.72rem;
+    padding: 0.2rem 0.45rem;
+}
+
+.plot-row-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+}
+
+.plot-lock-trigger.is-locked {
+    border-color: rgba(249, 115, 22, 0.26);
+    background: rgba(249, 115, 22, 0.1);
+    color: #c45a10;
+}
+
+#plot-lock-meta {
+    color: var(--color-muted);
 }
 
 @media (max-width: 768px) {

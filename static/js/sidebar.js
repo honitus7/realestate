@@ -272,7 +272,8 @@
         if (dashboardLink) {
             var dashboardText = dashboardLink.querySelector('.sidebar-text');
             var isClientOnly = !state.isAdmin && !!state.isClientMember;
-            var label = isClientOnly ? 'Edit Plots' : 'Plotted Development';
+            var isBroker = !!state.isBroker || state.role === 'external_broker';
+            var label = isBroker ? 'Available Plots' : (isClientOnly ? 'Edit Plots' : 'Plotted Development');
             if (dashboardText) dashboardText.textContent = label;
             dashboardLink.setAttribute('data-tooltip', label);
         }
@@ -384,6 +385,7 @@
                     .then(function (r) { return r && r.ok ? r.json() : null; })
                     .then(function (crmData) {
                         var hasCrm = crmData && crmData.has_crm_access;
+                        var isBroker = !!(crmData && crmData.is_broker) || role === 'external_broker';
                         var isClientAdmin = !!(crmData && crmData.is_client_admin);
                         var isClientMember = !!(crmData && crmData.is_client_member);
                         var clientGroupName = String((crmData && crmData.client_group_name) || '').trim();
@@ -391,6 +393,7 @@
                         var displayOrgName = (isDashboardPath && isClientMember && clientGroupName) ? clientGroupName : orgName;
                         var state = {
                             role: role, isAdmin: isAdmin, showCrm: hasCrm,
+                            isBroker: isBroker,
                             isClientAdmin: isClientAdmin,
                             isClientMember: isClientMember,
                             clientGroupName: clientGroupName,
@@ -403,6 +406,7 @@
                     .catch(function () {
                         var state = {
                             role: role, isAdmin: isAdmin, showCrm: false,
+                            isBroker: role === 'external_broker',
                             isClientAdmin: false,
                             isClientMember: false,
                             clientGroupName: '',
@@ -423,6 +427,7 @@
                         accessToken: accessToken,
                         isAdmin: isAdmin,
                         clientGroupName: resolved.clientGroupName || '',
+                        isBroker: !!resolved.isBroker,
                         isClientMember: !!resolved.isClientMember,
                         displayOrgName: resolved.displayOrgName || orgName || ''
                     });

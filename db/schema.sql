@@ -233,6 +233,21 @@ create table if not exists public.buy_interests (
   customer_name text not null,
   customer_email text not null,
   customer_phone text not null,
+  customer_birthday date,
+  customer_address text,
+  customer_street text,
+  customer_city text,
+  customer_state text,
+  customer_country text,
+  customer_zip_code text,
+  lead_source text,
+  lead_category text,
+  lead_status text,
+  campaign_type text,
+  campaign_status text,
+  deal_stage text,
+  title text,
+  description text,
   category text not null default '',
   plots jsonb not null default '[]',
   status text not null default 'new' check (status in ('new', 'contacted', 'qualified', 'won', 'lost')),
@@ -249,11 +264,43 @@ create index if not exists idx_buy_interests_panorama_id on public.buy_interests
 create index if not exists idx_buy_interests_client_id on public.buy_interests(client_id);
 create index if not exists idx_buy_interests_assigned_to on public.buy_interests(assigned_to);
 create index if not exists idx_buy_interests_reference_user_id on public.buy_interests(reference_user_id);
+create index if not exists idx_buy_interests_reference_client on public.buy_interests(reference_user_id, client_id);
+create index if not exists idx_buy_interests_reference_client_contact on public.buy_interests(reference_user_id, client_id, contact_id);
 create index if not exists idx_buy_interests_created_at on public.buy_interests(created_at desc);
 create index if not exists idx_buy_interests_status on public.buy_interests(status);
 create index if not exists idx_buy_interests_contact_id on public.buy_interests(contact_id);
 
--- 8b) CRM contacts
+-- 8b) CRM client-scoped masters
+create table if not exists public.crm_master_attributes (
+  id uuid primary key default gen_random_uuid(),
+  client_id uuid not null references public.clients(id) on delete cascade,
+  field_key text not null,
+  label text not null default '',
+  is_required boolean not null default false,
+  is_optional boolean not null default true,
+  is_enabled boolean not null default true,
+  sort_order integer not null default 0,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now(),
+  unique(client_id, field_key)
+);
+
+create table if not exists public.crm_master_values (
+  id uuid primary key default gen_random_uuid(),
+  client_id uuid not null references public.clients(id) on delete cascade,
+  field_key text not null,
+  value text not null,
+  is_enabled boolean not null default true,
+  sort_order integer not null default 0,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now(),
+  unique(client_id, field_key, value)
+);
+
+create index if not exists idx_crm_master_attributes_client on public.crm_master_attributes(client_id, sort_order);
+create index if not exists idx_crm_master_values_client_field on public.crm_master_values(client_id, field_key, sort_order);
+
+-- 8c) CRM contacts
 create table if not exists public.crm_contacts (
   id uuid primary key default gen_random_uuid(),
   org_id uuid references public.organizations(id) on delete set null,
@@ -273,6 +320,7 @@ create table if not exists public.crm_contacts (
 
 create index if not exists idx_crm_contacts_org on public.crm_contacts(org_id);
 create index if not exists idx_crm_contacts_client on public.crm_contacts(client_id);
+create index if not exists idx_crm_contacts_client_updated on public.crm_contacts(client_id, updated_at desc);
 create index if not exists idx_crm_contacts_panorama on public.crm_contacts(panorama_id);
 create index if not exists idx_crm_contacts_email_norm on public.crm_contacts(email_norm);
 create index if not exists idx_crm_contacts_phone_norm on public.crm_contacts(phone_norm);
@@ -292,7 +340,7 @@ create unique index if not exists uq_crm_contacts_org_client_phone_norm
   )
   where phone_norm <> '';
 
--- 8c) CRM deals
+-- 8d) CRM deals
 create table if not exists public.crm_deals (
   id uuid primary key default gen_random_uuid(),
   org_id uuid references public.organizations(id) on delete set null,
@@ -316,6 +364,7 @@ create table if not exists public.crm_deals (
 
 create index if not exists idx_crm_deals_org on public.crm_deals(org_id);
 create index if not exists idx_crm_deals_client on public.crm_deals(client_id);
+create index if not exists idx_crm_deals_client_updated on public.crm_deals(client_id, updated_at desc);
 create index if not exists idx_crm_deals_panorama on public.crm_deals(panorama_id);
 create index if not exists idx_crm_deals_contact on public.crm_deals(contact_id);
 create index if not exists idx_crm_deals_interest on public.crm_deals(interest_id);
@@ -325,7 +374,7 @@ create unique index if not exists uq_crm_deals_interest_active
   on public.crm_deals(interest_id)
   where interest_id is not null and is_active = true;
 
--- 8d) CRM quote templates (master)
+-- 8e) CRM quote templates (master)
 create table if not exists public.crm_quote_templates (
   id uuid primary key default gen_random_uuid(),
   org_id uuid references public.organizations(id) on delete cascade,
@@ -699,6 +748,12 @@ alter table public.workspace_access
 alter table public.panorama_access
   add column if not exists client_member_id bigint
     references public.client_members(id) on delete cascade;
+
+create index if not exists idx_workspace_access_client_member_workspace
+  on public.workspace_access(client_member_id, workspace_id);
+
+create index if not exists idx_panorama_access_client_member_panorama
+  on public.panorama_access(client_member_id, panorama_id);
 
 -- 27) Client Team Invites (email/share-link based join flow)
 create table if not exists public.client_team_invites (

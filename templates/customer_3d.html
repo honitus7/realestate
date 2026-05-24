@@ -260,6 +260,34 @@
                             <input id="checkout-phone" type="tel" placeholder="Phone number" autocomplete="tel">
                         </div>
                         <div class="cart-field">
+                            <label for="checkout-birthday">Birthday (Optional)</label>
+                            <input id="checkout-birthday" type="date" autocomplete="bday">
+                        </div>
+                        <div class="cart-field">
+                            <label for="checkout-street">Street (Optional)</label>
+                            <input id="checkout-street" type="text" placeholder="Street" autocomplete="street-address">
+                        </div>
+                        <div class="cart-field">
+                            <label for="checkout-city">City (Optional)</label>
+                            <input id="checkout-city" type="text" placeholder="City" autocomplete="address-level2">
+                        </div>
+                        <div class="cart-field">
+                            <label for="checkout-state">State (Optional)</label>
+                            <input id="checkout-state" type="text" placeholder="State" autocomplete="address-level1">
+                        </div>
+                        <div class="cart-field">
+                            <label for="checkout-country">Country (Optional)</label>
+                            <input id="checkout-country" type="text" placeholder="Country" autocomplete="country-name">
+                        </div>
+                        <div class="cart-field">
+                            <label for="checkout-zip-code">Zip Code (Optional)</label>
+                            <input id="checkout-zip-code" type="text" placeholder="Zip code" autocomplete="postal-code">
+                        </div>
+                        <div class="cart-field">
+                            <label for="checkout-description">Description (Optional)</label>
+                            <textarea id="checkout-description" placeholder="Requirement, notes, or preference" rows="3"></textarea>
+                        </div>
+                        <div class="cart-field">
                             <label for="checkout-category">Category</label>
                             <select id="checkout-category">
                                 <option value="">Select</option>
@@ -1133,6 +1161,13 @@
         const checkoutNameEl = document.getElementById('checkout-name');
         const checkoutEmailEl = document.getElementById('checkout-email');
         const checkoutPhoneEl = document.getElementById('checkout-phone');
+        const checkoutBirthdayEl = document.getElementById('checkout-birthday');
+        const checkoutStreetEl = document.getElementById('checkout-street');
+        const checkoutCityEl = document.getElementById('checkout-city');
+        const checkoutStateEl = document.getElementById('checkout-state');
+        const checkoutCountryEl = document.getElementById('checkout-country');
+        const checkoutZipCodeEl = document.getElementById('checkout-zip-code');
+        const checkoutDescriptionEl = document.getElementById('checkout-description');
         const checkoutCategoryEl = document.getElementById('checkout-category');
         const checkoutReferenceEl = document.getElementById('checkout-reference');
         const cartMessageEl = document.getElementById('cart-message');
@@ -2551,9 +2586,27 @@
         }
 
         function validateCheckout() {
+            function inferTitleFromName(fullName) {
+                const raw = String(fullName || '').trim();
+                if (!raw) return '';
+                const token = raw.split(/\s+/)[0].replace(/\./g, '').toLowerCase();
+                if (token === 'mr' || token === 'mrs' || token === 'ms' || token === 'dr') {
+                    return token === 'dr' ? 'Dr' : token.charAt(0).toUpperCase() + token.slice(1);
+                }
+                return '';
+            }
             const name = String(checkoutNameEl ? checkoutNameEl.value : '').trim();
             const email = String(checkoutEmailEl ? checkoutEmailEl.value : '').trim();
             const phone = String(checkoutPhoneEl ? checkoutPhoneEl.value : '').trim();
+            const birthday = String(checkoutBirthdayEl ? checkoutBirthdayEl.value : '').trim();
+            const street = String(checkoutStreetEl ? checkoutStreetEl.value : '').trim();
+            const city = String(checkoutCityEl ? checkoutCityEl.value : '').trim();
+            const state = String(checkoutStateEl ? checkoutStateEl.value : '').trim();
+            const country = String(checkoutCountryEl ? checkoutCountryEl.value : '').trim();
+            const zipCode = String(checkoutZipCodeEl ? checkoutZipCodeEl.value : '').trim();
+            const address = [street, city, state, country, zipCode].filter(Boolean).join(', ');
+            const description = String(checkoutDescriptionEl ? checkoutDescriptionEl.value : '').trim();
+            const title = inferTitleFromName(name);
             const category = String(checkoutCategoryEl ? checkoutCategoryEl.value : '').trim();
             const referenceUserId = String(checkoutReferenceEl ? checkoutReferenceEl.value : '').trim();
 
@@ -2561,8 +2614,9 @@
             if (!name) return { ok: false, error: 'Name is required.' };
             if (!email || !email.includes('@')) return { ok: false, error: 'Valid email is required.' };
             if (!phone) return { ok: false, error: 'Contact number is required.' };
+            if (description.length > 500) return { ok: false, error: 'Description must be 500 characters or less.' };
             if (!category) return { ok: false, error: 'Category is required.' };
-            return { ok: true, payload: { name, email, phone, category, reference_user_id: referenceUserId } };
+            return { ok: true, payload: { name, email, phone, birthday, address, street, city, state, country, zipCode, description, title, category, reference_user_id: referenceUserId } };
         }
 
         async function sendBuyInterest() {
@@ -2583,6 +2637,15 @@
                     customer_name: v.payload.name,
                     customer_email: v.payload.email,
                     customer_phone: v.payload.phone,
+                    customer_birthday: v.payload.birthday || null,
+                    customer_address: v.payload.address || null,
+                    customer_street: v.payload.street || null,
+                    customer_city: v.payload.city || null,
+                    customer_state: v.payload.state || null,
+                    customer_country: v.payload.country || null,
+                    customer_zip_code: v.payload.zipCode || null,
+                    title: v.payload.title || null,
+                    description: v.payload.description || null,
                     category: v.payload.category,
                     reference_user_id: v.payload.reference_user_id || null,
                     items: cart.map((x) => ({ plot_id: x.plot_id, panorama_id: x.panorama_id || PANORAMA_ID })),
@@ -2602,6 +2665,13 @@
                 if (checkoutNameEl) checkoutNameEl.value = '';
                 if (checkoutEmailEl) checkoutEmailEl.value = '';
                 if (checkoutPhoneEl) checkoutPhoneEl.value = '';
+                if (checkoutBirthdayEl) checkoutBirthdayEl.value = '';
+                if (checkoutStreetEl) checkoutStreetEl.value = '';
+                if (checkoutCityEl) checkoutCityEl.value = '';
+                if (checkoutStateEl) checkoutStateEl.value = '';
+                if (checkoutCountryEl) checkoutCountryEl.value = '';
+                if (checkoutZipCodeEl) checkoutZipCodeEl.value = '';
+                if (checkoutDescriptionEl) checkoutDescriptionEl.value = '';
                 if (checkoutCategoryEl) checkoutCategoryEl.value = '';
                 window.setTimeout(() => closeCart(), 750);
             } catch (e) {

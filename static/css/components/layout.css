@@ -7,7 +7,7 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    padding: 0.4rem 0.85rem;
+    padding: 0.3rem 0.5rem;
     background: var(--color-brand-pill-bg);
     color: var(--color-brand-pill-text);
     font-family: var(--font-display);
@@ -17,6 +17,13 @@
     text-decoration: none;
     border-radius: 4px;
     transition: opacity 0.2s ease;
+}
+
+.brand-pill img {
+    height: 24px;
+    width: auto;
+    object-fit: contain;
+    display: block;
 }
 
 .brand-pill:hover {
