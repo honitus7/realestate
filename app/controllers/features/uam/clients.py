@@ -461,6 +461,18 @@ def register_uam_client_routes(app):
             return jsonify({'error': 'Valid email is required'}), 400
         if not display_name:
             return jsonify({'error': 'Display name is required'}), 400
+        try:
+            existing_profile = (
+                sb.table('profiles')
+                .select('user_id')
+                .eq('email', email)
+                .limit(1)
+                .execute()
+            )
+            if existing_profile.data:
+                return jsonify({'error': 'User already exists. Contact admin.'}), 409
+        except Exception as e:
+            return jsonify({'error': str(e)}), 500
         if member_role == CLIENT_MEMBER_ROLE_EXTERNAL_BROKER:
             try:
                 existing_profile = (

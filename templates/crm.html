@@ -1,5 +1,5 @@
 {% extends 'base.html' %}
-{% block title %}CRM â€“ MarketoState{% endblock %}
+{% block title %}CRM - MarketoState{% endblock %}
 {% block head_css %}
 <link rel="stylesheet" href="/static/css/dashboard.css">
 <link rel="stylesheet" href="/static/css/crm.css">
@@ -610,7 +610,7 @@
                 <div style="display:grid;gap:0.65rem;">
                     <label class="drawer-field-label">Assigned to</label>
                     <select class="toolbar-select" id="d-assignee" style="max-width:100%;">
-                        <option value="">â€” Unassigned â€”</option>
+                        <option value="">- Unassigned -</option>
                     </select>
                     <label class="drawer-field-label">Status</label>
                     <select class="toolbar-select" id="d-status" style="max-width:100%;">
@@ -937,14 +937,14 @@
     function fmtDealQuoteDate(iso) {
         try {
             const d = new Date(iso);
-            return isNaN(d.getTime()) ? String(iso || 'â€”') : d.toLocaleString(undefined, { year: 'numeric', month: 'short', day: '2-digit' });
-        } catch (e2) { return String(iso || 'â€”'); }
+            return isNaN(d.getTime()) ? String(iso || '-') : d.toLocaleString(undefined, { year: 'numeric', month: 'short', day: '2-digit' });
+        } catch (e2) { return String(iso || '-'); }
     }
 
     async function loadDealQuotationsList(dealId) {
         const el = $('deal-quotes-list');
         if (!el || !dealId) return;
-        el.textContent = 'Loadingâ€¦';
+        el.textContent = 'Loading...';
         try {
             const r = await api('/api/crm/deals/' + encodeURIComponent(String(dealId)) + '/quotations');
             const data = await r.json().catch(() => []);
@@ -2481,7 +2481,7 @@
         const das = $('d-assignee');
         if (das) {
             const cur = String(item.assigned_to || '');
-            das.innerHTML = '<option value="">â€” Unassigned â€”</option>' + crmTeamUsers.map(function(u) {
+            das.innerHTML = '<option value="">- Unassigned -</option>' + crmTeamUsers.map(function(u) {
                 const uid = String(u.user_id || '').trim();
                 if (!uid) return '';
                 return '<option value="'+esc(uid)+'">'+esc(u.display_name || u.email || 'User')+'</option>';
@@ -2494,7 +2494,7 @@
                 else {
                     const opt = document.createElement('option');
                     opt.value = cur;
-                    opt.textContent = 'User ' + cur.slice(0, 8) + 'â€¦';
+                    opt.textContent = 'User ' + cur.slice(0, 8) + '...';
                     das.appendChild(opt);
                     das.value = cur;
                 }
@@ -3008,7 +3008,7 @@
         stageKeys.forEach((sk, si) => {
             const stageRows = rows.filter(i => String(i.status||'new').toLowerCase() === sk);
             const titleIdx = stageSheet.length;
-            stageSheet.push([stageNames[si].toUpperCase() + ' â€” ' + stageRows.length + ' lead' + (stageRows.length!==1?'s':'')]);
+            stageSheet.push([stageNames[si].toUpperCase() + ' - ' + stageRows.length + ' lead' + (stageRows.length!==1?'s':'')]);
             stageSheetHeaderRows.push(titleIdx);
             if(stageRows.length) {
                 stageSheetSubHeaders.push(stageSheet.length);
@@ -4048,7 +4048,7 @@
                 window.loadDealQuotationsList(dealId);
             }
             var w = window.open('', '_blank');
-            if (!w) { showQMsg('Pop-up blocked â€” please allow pop-ups for this site.', 'error'); return; }
+            if (!w) { showQMsg('Pop-up blocked - please allow pop-ups for this site.', 'error'); return; }
             w.document.write(pageHTML);
             w.document.close();
             qModal.classList.remove('visible');

@@ -319,7 +319,7 @@ def _accept_client_team_invite_token(sb, token, user_id):
     # Already a member -> just mark accepted
     existing_member = (
         sb.table('client_members')
-        .select('id')
+        .select('id, member_role')
         .eq('client_id', client_id)
         .eq('user_id', str(user_id))
         .limit(1)
@@ -327,7 +327,14 @@ def _accept_client_team_invite_token(sb, token, user_id):
     )
     member_id = None
     if existing_member.data:
-        member_id = existing_member.data[0].get('id')
+        member_row = existing_member.data[0]
+        member_id = member_row.get('id')
+        current_role = _normalize_client_member_role(member_row.get('member_role')) or CLIENT_MEMBER_ROLE_CLIENT_USER
+        if member_id and current_role != member_role:
+            sb.table('client_members').update({
+                'member_role': member_role,
+                'invited_by': invite.get('invited_by'),
+            }).eq('id', member_id).execute()
     else:
         ins = (
             sb.table('client_members')
