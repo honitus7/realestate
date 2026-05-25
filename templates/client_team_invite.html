@@ -46,8 +46,7 @@
                 var key = String(role || '').trim().toLowerCase();
                 if (key === 'client_admin') return 'Client Admin';
                 if (key === 'client_user') return 'Sales Agent';
-                if (key === 'internal_broker') return 'Internal Broker';
-                if (key === 'external_broker' || key === 'broker') return 'External Broker';
+                if (key === 'broker') return 'Broker';
                 return role || 'Sales Agent';
             }
 

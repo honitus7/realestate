@@ -167,7 +167,7 @@
                         <label class="label" for="invite-role">Role</label>
                         <select class="input" id="invite-role">
                             <option value="user">User</option>
-                            <option value="external_broker">External Broker</option>
+                            <option value="broker">Broker</option>
                             <option value="admin">Admin</option>
                         </select>
                     </div>
@@ -247,7 +247,7 @@
                             <div style="display:flex; gap:0.5rem; align-items:center; flex-wrap:wrap;">
                                 <select class="input" id="edit-role-select" style="min-width:180px;">
                                     <option value="user">User</option>
-                                    <option value="external_broker">External Broker</option>
+                                    <option value="broker">Broker</option>
                                     <option value="admin">Admin</option>
                                 </select>
                                 <button class="btn btn-primary btn-sm" id="btn-save-role" type="button">Save Role</button>
@@ -339,8 +339,7 @@
                         <select class="input" id="add-member-role">
                             <option value="client_admin">Client Admin</option>
                             <option value="client_user">Sales Agent</option>
-                            <option value="internal_broker">Internal Broker</option>
-                            <option value="external_broker">External Broker</option>
+                            <option value="broker">Broker</option>
                         </select>
                     </div>
                     <div class="msg error" id="add-member-error" style="display:none;"></div>
@@ -375,8 +374,7 @@
                         <select class="input" id="invite-member-role">
                             <option value="client_admin">Client Admin</option>
                             <option value="client_user" selected>Sales Agent</option>
-                            <option value="internal_broker">Internal Broker</option>
-                            <option value="external_broker">External Broker</option>
+                            <option value="broker">Broker</option>
                         </select>
                     </div>
                     <div class="msg error" id="invite-member-error" style="display:none;"></div>
@@ -759,8 +757,8 @@
                     sectionRole.style.display = 'none';
                 } else {
                     if (roleLabel) {
-                        roleLabel.textContent = role === 'external_broker'
-                            ? 'This user is currently an External Broker.'
+                        roleLabel.textContent = role === 'broker'
+                            ? 'This user is currently a Broker.'
                             : (role === 'admin'
                                 ? 'This user currently has Admin access.'
                                 : 'This user is currently a regular User.');
@@ -871,8 +869,8 @@
                 if (roleLabel) {
                     roleLabel.textContent = newRole === 'admin'
                         ? 'This user currently has Admin access.'
-                        : (newRole === 'external_broker'
-                            ? 'This user is currently an External Broker.'
+                        : (newRole === 'broker'
+                            ? 'This user is currently a Broker.'
                             : 'This user is currently a regular User.');
                 }
                 loadUsers();
@@ -932,7 +930,7 @@
             state.currentUserId = ctx.profile ? ctx.profile.user_id : '';
 
             if (ctx.role !== 'admin' && ctx.role !== 'superadmin') {
-                // Non-platform-admins can still manage Sales Agent/Internal Broker members via the Clients tab flow below.
+                // Non-platform-admins can still manage Sales Agent/Broker members via the Clients tab flow below.
                 if (usersLoading) usersLoading.style.display = 'none';
                 return;
             }
@@ -1003,19 +1001,15 @@
         var roleLabels = {
             client_admin: 'Client Admin',
             client_user: 'Sales Agent',
-            internal_broker: 'Internal Broker',
-            external_broker: 'External Broker'
+            broker: 'Broker'
         };
         function rolePillClass(r) {
             if (r === 'client_admin') return 'pill admin';
-            if (r === 'external_broker') return 'pill superadmin';
-            if (r === 'internal_broker') return 'pill admin';
             if (r === 'broker') return 'pill admin';
             return 'pill user';
         }
         function normalizeMemberRole(role) {
             var r = String(role || '').trim().toLowerCase();
-            if (r === 'broker') return 'external_broker';
             return r;
         }
         function isPlatformAdminRole(role) {
@@ -1023,12 +1017,12 @@
         }
         function getClientRoleChoicesForActor(isPlatformAdmin) {
             return isPlatformAdmin
-                ? ['client_admin', 'external_broker']
-                : ['client_user', 'internal_broker'];
+                ? ['client_admin', 'broker']
+                : ['client_user', 'broker'];
         }
         function isClientAdminTargetRole(memberRole) {
             var r = normalizeMemberRole(memberRole);
-            return r === 'client_user' || r === 'internal_broker';
+            return r === 'client_user' || r === 'broker';
         }
         function getClientMemberByUserId(userId) {
             var uid = String(userId || '');
@@ -1039,12 +1033,12 @@
             }
             return null;
         }
-        function isExternalBrokerTargetSelected() {
+        function isBrokerTargetSelected() {
             if (!isPlatformAdminRole(clientState.currentRole)) return false;
             var targetUid = String(clientState.selectedAccessTargetUserId || '');
             if (!targetUid) return false;
             var member = getClientMemberByUserId(targetUid);
-            return normalizeMemberRole(member ? member.member_role : '') === 'external_broker';
+            return normalizeMemberRole(member ? member.member_role : '') === 'broker';
         }
         function refreshAccessTargetOptions(clientId) {
             var sel = document.getElementById('access-target');
@@ -1201,8 +1195,8 @@
                     disableTitle = ' title="You cannot change your own client-group role"';
                 } else if (!canEditRole) {
                     disableTitle = isPlatformAdmin
-                        ? ' title="Sales Agent and Internal Broker roles are managed by the Client Admin team"'
-                        : ' title="Client Admin and External Broker roles are managed by platform admins"';
+                        ? ' title="Sales Agent roles are managed by the Client Admin team"'
+                        : ' title="Client Admin roles are managed by platform admins"';
                 }
                 var roleSelect = '<select class="member-role-select" data-uid="' + escapeHtml(uid) + '"' +
                     (canEditRole ? '' : (' disabled' + disableTitle)) +
@@ -1498,7 +1492,7 @@
             if (!sel) return;
             sel.innerHTML = '<option value="">Loading...</option>';
             var isAdmin = isPlatformAdminRole(clientState.currentRole);
-            var restrictToClientProjects = !isAdmin || isExternalBrokerTargetSelected();
+            var restrictToClientProjects = !isAdmin || isBrokerTargetSelected();
             if (type === 'workspace') {
                 var items = restrictToClientProjects ? clientState.accessGrantWorkspaces : clientState.workspaces;
                 sel.innerHTML = items.length ? items.map(function (w) {

@@ -105,8 +105,7 @@ def get_visible_client_options(sb, user_id, role):
     role_rank = {
         CLIENT_MEMBER_ROLE_CLIENT_ADMIN: 1,
         'client_user': 2,
-        'internal_broker': 3,
-        'external_broker': 4,
+        'broker': 3,
     }
     for row in memberships:
         cid = row.get('client_id')

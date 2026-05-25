@@ -9,10 +9,9 @@ from app.core.database import get_supabase
 from app.services.access_policy import _chunks, annotate_resource_rows_with_client_scope, get_client_memberships
 from app.services.email_service import send_email as send_smtp_email
 from app.services.uam_reference_service import (
+    CLIENT_MEMBER_ROLE_BROKER,
     CLIENT_MEMBER_ROLE_CLIENT_ADMIN,
     CLIENT_MEMBER_ROLE_CLIENT_USER,
-    CLIENT_MEMBER_ROLE_EXTERNAL_BROKER,
-    CLIENT_MEMBER_ROLE_INTERNAL_BROKER,
     _is_broker_member_role,
     _normalize_client_member_role,
 )
@@ -73,11 +72,11 @@ def register_crm_broker_routes(app, *, crm_panorama_ids, crm_client_scope_ids):
 
         memberships = [
             row for row in get_client_memberships(sb, user_id)
-            if _normalize_client_member_role(row.get('member_role')) == CLIENT_MEMBER_ROLE_EXTERNAL_BROKER
+            if _normalize_client_member_role(row.get('member_role')) == CLIENT_MEMBER_ROLE_BROKER
         ]
         if (
             not memberships
-            and _normalize_client_member_role(role) != CLIENT_MEMBER_ROLE_EXTERNAL_BROKER
+            and _normalize_client_member_role(role) != CLIENT_MEMBER_ROLE_BROKER
         ):
             return jsonify([])
 
@@ -292,7 +291,7 @@ def register_crm_lock_routes(
 
     def _is_auto_lock_eligible_member(member_role):
         normalized = _normalize_client_member_role(member_role)
-        if normalized in (CLIENT_MEMBER_ROLE_CLIENT_USER, CLIENT_MEMBER_ROLE_INTERNAL_BROKER, CLIENT_MEMBER_ROLE_EXTERNAL_BROKER):
+        if normalized in (CLIENT_MEMBER_ROLE_CLIENT_USER, CLIENT_MEMBER_ROLE_BROKER):
             return True
         return _is_broker_member_role(normalized)
 

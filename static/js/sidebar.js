@@ -272,10 +272,11 @@
         if (dashboardLink) {
             var dashboardText = dashboardLink.querySelector('.sidebar-text');
             var isClientOnly = !state.isAdmin && !!state.isClientMember;
-            var isBroker = !!state.isBroker || state.role === 'external_broker';
+            var isBroker = !!state.isBroker || state.role === 'broker';
             var label = isBroker ? 'Available Plots' : (isClientOnly ? 'Edit Plots' : 'Plotted Development');
             if (dashboardText) dashboardText.textContent = label;
             dashboardLink.setAttribute('data-tooltip', label);
+            dashboardLink.style.display = isBroker ? 'none' : '';
         }
 
         // Avatar initials
@@ -385,7 +386,7 @@
                     .then(function (r) { return r && r.ok ? r.json() : null; })
                     .then(function (crmData) {
                         var hasCrm = crmData && crmData.has_crm_access;
-                        var isBroker = !!(crmData && crmData.is_broker) || role === 'external_broker';
+                        var isBroker = !!(crmData && crmData.is_broker) || role === 'broker';
                         var isClientAdmin = !!(crmData && crmData.is_client_admin);
                         var isClientMember = !!(crmData && crmData.is_client_member);
                         var clientGroupName = String((crmData && crmData.client_group_name) || '').trim();
@@ -406,7 +407,7 @@
                     .catch(function () {
                         var state = {
                             role: role, isAdmin: isAdmin, showCrm: false,
-                            isBroker: role === 'external_broker',
+                            isBroker: role === 'broker',
                             isClientAdmin: false,
                             isClientMember: false,
                             clientGroupName: '',
@@ -431,6 +432,9 @@
                         isClientMember: !!resolved.isClientMember,
                         displayOrgName: resolved.displayOrgName || orgName || ''
                     });
+                    if (!isAdmin && resolved.isBroker && currentPath !== '/crm') {
+                        window.location.replace('/crm');
+                    }
                 }
             })
             .catch(function () {

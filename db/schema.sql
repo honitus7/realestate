@@ -15,12 +15,12 @@ create table if not exists public.organizations (
 
 create index if not exists idx_organizations_created_at on public.organizations(created_at desc);
 
--- 1) Profiles: app users with role (superadmin | admin | user | external_broker)
+-- 1) Profiles: app users with role (superadmin | admin | user | broker)
 create table if not exists public.profiles (
   id uuid primary key default gen_random_uuid(),
   user_id uuid unique not null references auth.users(id) on delete cascade,
   org_id uuid references public.organizations(id) on delete set null,
-  role text not null default 'user' check (role in ('superadmin', 'admin', 'user', 'external_broker')),
+  role text not null default 'user' check (role in ('superadmin', 'admin', 'user', 'broker')),
   display_name text,
   email text,
   created_at timestamptz default now(),
@@ -700,7 +700,7 @@ create table if not exists public.user_invites (
   email            text not null,
   display_name     text,
   role             text not null default 'user'
-                    check (role in ('admin', 'user', 'external_broker')),
+                    check (role in ('admin', 'user', 'broker')),
   status           text not null default 'pending' check (status in ('pending', 'accepted', 'expired')),
   created_at       timestamptz default now(),
   updated_at       timestamptz default now()
@@ -730,7 +730,7 @@ create table if not exists public.client_members (
   client_id    uuid not null references public.clients(id) on delete cascade,
   user_id      uuid not null references auth.users(id) on delete cascade,
   member_role  text not null default 'client_user'
-               check (member_role in ('client_admin', 'client_user', 'internal_broker', 'external_broker')),
+               check (member_role in ('client_admin', 'client_user', 'broker')),
   invited_by   uuid references auth.users(id) on delete set null,
   created_at   timestamptz default now(),
   unique(client_id, user_id)
@@ -764,11 +764,11 @@ create table if not exists public.client_team_invites (
   email             text not null,
   display_name      text not null default '',
   member_role       text not null default 'client_user'
-                    check (member_role in ('client_user', 'internal_broker', 'external_broker')),
+                    check (member_role in ('client_admin', 'client_user', 'broker')),
   invite_token      text not null unique,
   invite_link       text,
   status            text not null default 'pending'
-                    check (status in ('pending', 'accepted', 'expired', 'cancelled')),
+                    check (status in ('pending', 'accepted', 'expired', 'cancelled', 'rejected')),
   expires_at        timestamptz,
   accepted_at       timestamptz,
   accepted_user_id  uuid references auth.users(id) on delete set null,

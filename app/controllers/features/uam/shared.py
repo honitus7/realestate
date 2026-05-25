@@ -14,11 +14,9 @@ from app.services.uam_reference_service import (
     CLIENT_MEMBER_REFERENCE_ROLE_LABELS,
     CLIENT_MEMBER_REFERENCE_ROLES,
     CLIENT_MEMBER_ROLE_ALIASES,
+    CLIENT_MEMBER_ROLE_BROKER,
     CLIENT_MEMBER_ROLE_CLIENT_ADMIN,
     CLIENT_MEMBER_ROLE_CLIENT_USER,
-    CLIENT_MEMBER_ROLE_EXTERNAL_BROKER,
-    CLIENT_MEMBER_ROLE_INTERNAL_BROKER,
-    CLIENT_MEMBER_ROLE_LEGACY_BROKER,
     _is_broker_member_role,
     _normalize_client_member_role,
     _project_reference_client_ids,
@@ -310,9 +308,9 @@ def _accept_client_team_invite_token(sb, token, user_id):
         return False, 'Invalid invite', 400
     member_role = _normalize_client_member_role(invite.get('member_role')) or CLIENT_MEMBER_ROLE_CLIENT_USER
     if member_role not in (
+        CLIENT_MEMBER_ROLE_CLIENT_ADMIN,
         CLIENT_MEMBER_ROLE_CLIENT_USER,
-        CLIENT_MEMBER_ROLE_INTERNAL_BROKER,
-        CLIENT_MEMBER_ROLE_EXTERNAL_BROKER,
+        CLIENT_MEMBER_ROLE_BROKER,
     ):
         member_role = CLIENT_MEMBER_ROLE_CLIENT_USER
 
@@ -379,7 +377,7 @@ def _propagate_new_member_access_to_group(sb, client_id, new_member_id, new_user
     if normalized_member_role not in (
         CLIENT_MEMBER_ROLE_CLIENT_ADMIN,
         CLIENT_MEMBER_ROLE_CLIENT_USER,
-        CLIENT_MEMBER_ROLE_INTERNAL_BROKER,
+        CLIENT_MEMBER_ROLE_BROKER,
     ):
         return
     try:
@@ -403,7 +401,7 @@ def _propagate_new_member_access_to_group(sb, client_id, new_member_id, new_user
             if mrole not in (
                 CLIENT_MEMBER_ROLE_CLIENT_ADMIN,
                 CLIENT_MEMBER_ROLE_CLIENT_USER,
-                CLIENT_MEMBER_ROLE_INTERNAL_BROKER,
+                CLIENT_MEMBER_ROLE_BROKER,
             ):
                 continue
             for (pid, atype) in pano_rows:
@@ -438,7 +436,7 @@ def _cascade_access_for_new_member(sb, client_id, new_member_id, new_user_id, me
     if normalized_member_role not in (
         CLIENT_MEMBER_ROLE_CLIENT_ADMIN,
         CLIENT_MEMBER_ROLE_CLIENT_USER,
-        CLIENT_MEMBER_ROLE_INTERNAL_BROKER,
+        CLIENT_MEMBER_ROLE_BROKER,
     ):
         return
     try:

@@ -12,11 +12,11 @@ alter table public.client_members
 
 alter table public.client_members
   add constraint client_members_member_role_check
-  check (member_role in ('client_admin', 'client_user', 'internal_broker', 'external_broker'));
+  check (member_role in ('client_admin', 'client_user', 'broker'));
 
 alter table public.client_team_invites
   drop constraint if exists client_team_invites_member_role_check;
 
 alter table public.client_team_invites
   add constraint client_team_invites_member_role_check
-  check (member_role in ('client_user', 'internal_broker', 'external_broker'));
+  check (member_role in ('client_admin', 'client_user', 'broker'));

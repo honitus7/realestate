@@ -41,10 +41,9 @@ from app.controllers.features import (
 )
 from app.core.database import get_supabase
 from app.services.uam_reference_service import (
+    CLIENT_MEMBER_ROLE_BROKER,
     CLIENT_MEMBER_ROLE_CLIENT_ADMIN,
     CLIENT_MEMBER_ROLE_CLIENT_USER,
-    CLIENT_MEMBER_ROLE_EXTERNAL_BROKER,
-    CLIENT_MEMBER_ROLE_INTERNAL_BROKER,
     _is_broker_member_role,
     _normalize_client_member_role,
     _project_reference_users,
@@ -516,7 +515,7 @@ def register_routes(app):
                     sb.table('client_members')
                     .select('client_id')
                     .eq('user_id', user_id)
-                    .in_('member_role', ['internal_broker', 'external_broker', 'broker'])
+                    .in_('member_role', [CLIENT_MEMBER_ROLE_BROKER])
                     .execute()
                 )
                 client_ids = [r.get('client_id') for r in (member_rows.data or []) if r.get('client_id')]
@@ -765,10 +764,7 @@ def register_routes(app):
             member_role = _normalize_client_member_role(row.get('member_role'))
             if member_role == CLIENT_MEMBER_ROLE_CLIENT_ADMIN:
                 return None
-            if member_role in (
-                CLIENT_MEMBER_ROLE_INTERNAL_BROKER,
-                CLIENT_MEMBER_ROLE_EXTERNAL_BROKER,
-            ):
+            if member_role == CLIENT_MEMBER_ROLE_BROKER:
                 has_reference_scope = True
         return str(user_id) if has_reference_scope else None
 
@@ -5667,8 +5663,7 @@ h1 {{ margin:0 0 8px; font-size:22px; }}
                 if mr in (
                     CLIENT_MEMBER_ROLE_CLIENT_ADMIN,
                     CLIENT_MEMBER_ROLE_CLIENT_USER,
-                    CLIENT_MEMBER_ROLE_INTERNAL_BROKER,
-                    CLIENT_MEMBER_ROLE_EXTERNAL_BROKER,
+                    CLIENT_MEMBER_ROLE_BROKER,
                 ):
                     cid = str(row.get('client_id') or '').strip()
                     if cid and cid not in seen_client_ids:

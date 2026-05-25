@@ -10,10 +10,9 @@ from app.core.database import get_supabase
 from .shared import (
     CLIENT_MEMBER_CLIENT_ADMIN_ACCESS_TARGET_ROLES,
     CLIENT_MEMBER_GROUP_ACCESS_ROLES,
+    CLIENT_MEMBER_ROLE_BROKER,
     CLIENT_MEMBER_ROLE_CLIENT_ADMIN,
     CLIENT_MEMBER_ROLE_CLIENT_USER,
-    CLIENT_MEMBER_ROLE_EXTERNAL_BROKER,
-    CLIENT_MEMBER_ROLE_INTERNAL_BROKER,
     _accept_client_team_invite_token,
     _build_client_team_invite_link,
     _cascade_access_for_new_member,
@@ -299,15 +298,15 @@ def register_uam_client_routes(app):
         member_role = _normalize_client_member_role(data.get('member_role')) or CLIENT_MEMBER_ROLE_CLIENT_USER
         allowed_member_roles = (
             CLIENT_MEMBER_ROLE_CLIENT_ADMIN,
-            CLIENT_MEMBER_ROLE_EXTERNAL_BROKER,
+            CLIENT_MEMBER_ROLE_BROKER,
         ) if is_admin else (
             CLIENT_MEMBER_ROLE_CLIENT_USER,
-            CLIENT_MEMBER_ROLE_INTERNAL_BROKER,
+            CLIENT_MEMBER_ROLE_BROKER,
         )
         if member_role not in allowed_member_roles:
             if is_admin:
-                return jsonify({'error': 'Platform admins can only add Client Admin or External Broker members'}), 400
-            return jsonify({'error': 'Client Admin can only add Sales Agent or Internal Broker members'}), 400
+                return jsonify({'error': 'Platform admins can only add Client Admin or Broker members'}), 400
+            return jsonify({'error': 'Client Admin can only add Sales Agent or Broker members'}), 400
         if not target_user_id:
             return jsonify({'error': 'user_id is required'}), 400
         try:
@@ -316,8 +315,8 @@ def register_uam_client_routes(app):
                 return jsonify({'error': 'User not found'}), 404
             target_org = tp.data[0].get('org_id')
             client_org = str(client.get('org_id') or '')
-            if member_role == CLIENT_MEMBER_ROLE_EXTERNAL_BROKER and (not target_org or not client_org):
-                return jsonify({'error': 'External Broker must belong to the same organization as the client group'}), 403
+            if member_role == CLIENT_MEMBER_ROLE_BROKER and (not target_org or not client_org):
+                return jsonify({'error': 'Broker must belong to the same organization as the client group'}), 403
             if target_org and client_org and str(target_org) != client_org:
                 return jsonify({'error': 'User is not in your organization'}), 403
         except Exception as e:
@@ -356,15 +355,15 @@ def register_uam_client_routes(app):
         new_role = _normalize_client_member_role(data.get('member_role'))
         allowed_new_roles = (
             CLIENT_MEMBER_ROLE_CLIENT_ADMIN,
-            CLIENT_MEMBER_ROLE_EXTERNAL_BROKER,
+            CLIENT_MEMBER_ROLE_BROKER,
         ) if is_admin else (
             CLIENT_MEMBER_ROLE_CLIENT_USER,
-            CLIENT_MEMBER_ROLE_INTERNAL_BROKER,
+            CLIENT_MEMBER_ROLE_BROKER,
         )
         if new_role not in allowed_new_roles:
             if is_admin:
-                return jsonify({'error': 'Platform admins can only assign Client Admin or External Broker roles'}), 400
-            return jsonify({'error': 'Client Admin can only assign Sales Agent or Internal Broker roles'}), 400
+                return jsonify({'error': 'Platform admins can only assign Client Admin or Broker roles'}), 400
+            return jsonify({'error': 'Client Admin can only assign Sales Agent or Broker roles'}), 400
         try:
             existing = (
                 sb.table('client_members')
@@ -380,14 +379,12 @@ def register_uam_client_routes(app):
             current_role = _normalize_client_member_role(existing_row.get('member_role'))
             if is_admin and current_role in (
                 CLIENT_MEMBER_ROLE_CLIENT_USER,
-                CLIENT_MEMBER_ROLE_INTERNAL_BROKER,
             ):
-                return jsonify({'error': 'Sales Agent and Internal Broker roles are managed by the Client Admin team'}), 403
+                return jsonify({'error': 'Sales Agent roles are managed by the Client Admin team'}), 403
             if not is_admin and current_role in (
                 CLIENT_MEMBER_ROLE_CLIENT_ADMIN,
-                CLIENT_MEMBER_ROLE_EXTERNAL_BROKER,
             ):
-                return jsonify({'error': 'Client Admin or External Broker roles can only be changed by platform admins'}), 403
+                return jsonify({'error': 'Client Admin roles can only be changed by platform admins'}), 403
             sb.table('client_members').update({'member_role': new_role}).eq('client_id', client_id).eq('user_id', target_user_id).execute()
             return jsonify({'success': True})
         except Exception as e:
@@ -413,9 +410,9 @@ def register_uam_client_routes(app):
                     return jsonify({'error': 'Member not found'}), 404
                 if target_member.get('member_role') not in (
                     CLIENT_MEMBER_ROLE_CLIENT_USER,
-                    CLIENT_MEMBER_ROLE_INTERNAL_BROKER,
+                    CLIENT_MEMBER_ROLE_BROKER,
                 ):
-                    return jsonify({'error': 'Only Sales Agent or Internal Broker members can be removed by Client Admin'}), 403
+                    return jsonify({'error': 'Only Sales Agent or Broker members can be removed by Client Admin'}), 403
             sb.table('client_members').delete().eq('client_id', client_id).eq('user_id', target_user_id).execute()
             return jsonify({'success': True})
         except Exception as e:
@@ -448,32 +445,20 @@ def register_uam_client_routes(app):
         member_role = _normalize_client_member_role(data.get('member_role')) or CLIENT_MEMBER_ROLE_CLIENT_USER
         allowed_invite_roles = (
             CLIENT_MEMBER_ROLE_CLIENT_ADMIN,
-            CLIENT_MEMBER_ROLE_EXTERNAL_BROKER,
+            CLIENT_MEMBER_ROLE_BROKER,
         ) if is_admin else (
             CLIENT_MEMBER_ROLE_CLIENT_USER,
-            CLIENT_MEMBER_ROLE_INTERNAL_BROKER,
+            CLIENT_MEMBER_ROLE_BROKER,
         )
         if member_role not in allowed_invite_roles:
             if is_admin:
-                return jsonify({'error': 'Platform admins can only invite Client Admin or External Broker'}), 400
-            return jsonify({'error': 'Client Admin can only invite Sales Agent or Internal Broker'}), 400
+                return jsonify({'error': 'Platform admins can only invite Client Admin or Broker'}), 400
+            return jsonify({'error': 'Client Admin can only invite Sales Agent or Broker'}), 400
         if not email or '@' not in email:
             return jsonify({'error': 'Valid email is required'}), 400
         if not display_name:
             return jsonify({'error': 'Display name is required'}), 400
-        try:
-            existing_profile = (
-                sb.table('profiles')
-                .select('user_id')
-                .eq('email', email)
-                .limit(1)
-                .execute()
-            )
-            if existing_profile.data:
-                return jsonify({'error': 'User already exists. Contact admin.'}), 409
-        except Exception as e:
-            return jsonify({'error': str(e)}), 500
-        if member_role == CLIENT_MEMBER_ROLE_EXTERNAL_BROKER:
+        if member_role == CLIENT_MEMBER_ROLE_BROKER:
             try:
                 existing_profile = (
                     sb.table('profiles')
@@ -486,7 +471,7 @@ def register_uam_client_routes(app):
                 if existing_row:
                     existing_org = existing_row.get('org_id')
                     if not existing_org or str(existing_org) != str(org_id):
-                        return jsonify({'error': 'External Broker must belong to the same organization as the client group'}), 403
+                        return jsonify({'error': 'Broker must belong to the same organization as the client group'}), 403
             except Exception as e:
                 return jsonify({'error': str(e)}), 500
         try:
@@ -651,6 +636,86 @@ def register_uam_client_routes(app):
             return jsonify({'error': payload}), status
         return jsonify({'success': True, 'result': payload})
 
+    @app.route('/api/client-team-invites/mine', methods=['GET'])
+    @require_auth
+    def list_my_client_team_invites(user_id, role):
+        sb = get_supabase()
+        if not sb:
+            return jsonify({'error': 'Database not configured'}), 503
+        profile = get_profile(sb, user_id) or {}
+        email = str(profile.get('email') or '').strip().lower()
+        if not email:
+            return jsonify([])
+        try:
+            rows = (
+                sb.table('client_team_invites')
+                .select('id, client_id, invited_by, email, display_name, member_role, invite_token, status, expires_at, created_at')
+                .eq('email', email)
+                .eq('status', 'pending')
+                .order('created_at', desc=True)
+                .execute()
+                .data or []
+            )
+            client_ids = [str(row.get('client_id') or '') for row in rows if row.get('client_id')]
+            inviter_ids = [str(row.get('invited_by') or '') for row in rows if row.get('invited_by')]
+            clients = _id_name_map(sb, 'clients', client_ids)
+            inviters = {}
+            if inviter_ids:
+                pr = sb.table('profiles').select('user_id, display_name, email').in_('user_id', _unique_values(inviter_ids)).execute()
+                for row in (pr.data or []):
+                    uid = str(row.get('user_id') or '')
+                    if uid:
+                        inviters[uid] = row.get('display_name') or row.get('email') or uid
+            out = []
+            for row in rows:
+                o = dict(row)
+                cid = str(o.get('client_id') or '')
+                inviter_id = str(o.get('invited_by') or '')
+                o['client_name'] = clients.get(cid) or cid
+                o['inviter_name'] = inviters.get(inviter_id) or ''
+                o['member_role'] = _normalize_client_member_role(o.get('member_role')) or CLIENT_MEMBER_ROLE_CLIENT_USER
+                if o.get('created_at'):
+                    o['created_at'] = str(o['created_at'])
+                if o.get('expires_at'):
+                    o['expires_at'] = str(o['expires_at'])
+                out.append(o)
+            return jsonify(out)
+        except Exception as e:
+            return jsonify({'error': str(e)}), 500
+
+    @app.route('/api/client-team-invites/<invite_id>/reject', methods=['POST'])
+    @require_auth
+    def reject_client_team_invite(user_id, role, invite_id):
+        sb = get_supabase()
+        if not sb:
+            return jsonify({'error': 'Database not configured'}), 503
+        profile = get_profile(sb, user_id) or {}
+        email = str(profile.get('email') or '').strip().lower()
+        if not email:
+            return jsonify({'error': 'Your profile email is required'}), 403
+        try:
+            r = (
+                sb.table('client_team_invites')
+                .select('id, email, status')
+                .eq('id', str(invite_id))
+                .limit(1)
+                .execute()
+            )
+            invite = (r.data or [None])[0]
+            if not invite:
+                return jsonify({'error': 'Invite not found'}), 404
+            if str(invite.get('email') or '').strip().lower() != email:
+                return jsonify({'error': 'This invite belongs to a different email address'}), 403
+            if str(invite.get('status') or '').lower() != 'pending':
+                return jsonify({'error': 'Invite is not pending'}), 400
+            sb.table('client_team_invites').update({
+                'status': 'rejected',
+                'updated_at': datetime.utcnow().isoformat(),
+            }).eq('id', str(invite_id)).execute()
+            return jsonify({'success': True})
+        except Exception as e:
+            return jsonify({'error': str(e)}), 500
+
     @app.route('/api/clients/<client_id>/invites', methods=['GET'])
     @require_auth
     def list_client_team_invites(user_id, role, client_id):
@@ -762,13 +827,13 @@ def register_uam_client_routes(app):
                     return jsonify({'error': 'Member not found'}), 404
                 target_role = target_member.get('member_role') or ''
                 if not is_admin and target_role not in CLIENT_MEMBER_CLIENT_ADMIN_ACCESS_TARGET_ROLES:
-                    return jsonify({'error': 'Client admins can only manage Sales Agent and Internal Broker access'}), 403
+                    return jsonify({'error': 'Client admins can only manage Sales Agent and Broker access'}), 403
                 member_ids = [target_member.get('id')] if target_member.get('id') else []
             else:
                 visible_roles = CLIENT_MEMBER_GROUP_ACCESS_ROLES if is_admin else (
                     CLIENT_MEMBER_ROLE_CLIENT_ADMIN,
                     CLIENT_MEMBER_ROLE_CLIENT_USER,
-                    CLIENT_MEMBER_ROLE_INTERNAL_BROKER,
+                    CLIENT_MEMBER_ROLE_BROKER,
                 )
                 member_ids = [
                     m.get('id')
@@ -854,15 +919,15 @@ def register_uam_client_routes(app):
                 target_member = targets[0]
                 target_role = target_member.get('member_role') or ''
                 if not is_admin and target_role not in CLIENT_MEMBER_CLIENT_ADMIN_ACCESS_TARGET_ROLES:
-                    return jsonify({'error': 'Client admins can only manage Sales Agent and Internal Broker access'}), 403
-                if is_admin and target_role == CLIENT_MEMBER_ROLE_EXTERNAL_BROKER:
+                    return jsonify({'error': 'Client admins can only manage Sales Agent and Broker access'}), 403
+                if is_admin and target_role == CLIENT_MEMBER_ROLE_BROKER:
                     scoped_member_ids = [
                         m.get('id')
                         for m in all_members
                         if m.get('id') and m.get('member_role') in CLIENT_MEMBER_GROUP_ACCESS_ROLES
                     ]
                     if not _resource_exists_in_client_member_scope(sb, resource_type, resource_id, scoped_member_ids):
-                        return jsonify({'error': 'External Broker access can only be granted from projects already assigned to this client group'}), 400
+                        return jsonify({'error': 'Broker access can only be granted from projects already assigned to this client group'}), 400
                 members_to_update = [target_member]
             else:
                 target_roles = CLIENT_MEMBER_GROUP_ACCESS_ROLES if is_admin else CLIENT_MEMBER_CLIENT_ADMIN_ACCESS_TARGET_ROLES
@@ -926,7 +991,7 @@ def register_uam_client_routes(app):
                 target_member = targets[0]
                 target_role = target_member.get('member_role') or ''
                 if not is_admin and target_role not in CLIENT_MEMBER_CLIENT_ADMIN_ACCESS_TARGET_ROLES:
-                    return jsonify({'error': 'Client admins can only manage Sales Agent and Internal Broker access'}), 403
+                    return jsonify({'error': 'Client admins can only manage Sales Agent and Broker access'}), 403
                 member_ids = [target_member.get('id')] if target_member.get('id') else []
             else:
                 target_roles = CLIENT_MEMBER_GROUP_ACCESS_ROLES if is_admin else CLIENT_MEMBER_CLIENT_ADMIN_ACCESS_TARGET_ROLES

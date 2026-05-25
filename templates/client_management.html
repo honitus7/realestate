@@ -42,7 +42,7 @@
                         <label class="label" for="invite-member-role">Role</label>
                         <select class="input" id="invite-member-role">
                             <option value="client_user" selected>Sales Agent</option>
-                            <option value="internal_broker">Internal Broker</option>
+                            <option value="broker">Broker</option>
                         </select>
                     </div>
                     <div class="msg error" id="invite-member-error" style="display:none;"></div>
@@ -72,7 +72,7 @@
                         <label class="label" for="add-member-role">Role</label>
                         <select class="input" id="add-member-role">
                             <option value="client_user" selected>Sales Agent</option>
-                            <option value="internal_broker">Internal Broker</option>
+                            <option value="broker">Broker</option>
                         </select>
                     </div>
                     <div class="msg error" id="add-member-error" style="display:none;"></div>
@@ -184,7 +184,7 @@
                         <select class="input" id="edit-member-role-select">
                             <option value="client_admin">Client Admin</option>
                             <option value="client_user">Sales Agent</option>
-                            <option value="internal_broker">Internal Broker</option>
+                            <option value="broker">Broker</option>
                         </select>
                     </div>
                     <div class="msg error" id="edit-member-role-error" style="display:none;"></div>
@@ -214,12 +214,10 @@
     var roleLabels = {
         client_admin: 'Client Admin',
         client_user: 'Sales Agent',
-        internal_broker: 'Internal Broker',
-        external_broker: 'External Broker'
+        broker: 'Broker'
     };
     function normalizeMemberRole(role) {
         var key = String(role || '').trim().toLowerCase();
-        if (key === 'broker') return 'external_broker';
         return key;
     }
     var inviteTargetGroupId = null;
@@ -478,7 +476,7 @@
     }
 
     function projectAccessDefaultForRole(role) {
-        return normalizeMemberRole(role) === 'internal_broker' ? 'broker' : 'client';
+        return normalizeMemberRole(role) === 'broker' ? 'broker' : 'client';
     }
 
     function loadMemberAccessResources() {
@@ -563,7 +561,7 @@
         var levelSelect = document.getElementById('member-access-level');
         if (levelSelect) {
             levelSelect.value = projectAccessDefaultForRole(role);
-            levelSelect.disabled = normalizeMemberRole(role) === 'internal_broker';
+            levelSelect.disabled = normalizeMemberRole(role) === 'broker';
         }
         setError(document.getElementById('member-access-error'), '');
         openModal(modalMemberAccess);
@@ -579,7 +577,7 @@
         var accessType = document.getElementById('member-access-level').value || projectAccessDefaultForRole(memberAccessState.memberRole);
         var btn = document.getElementById('confirm-member-access');
         if (!rid) { setError(errEl, 'Please select a project.'); return; }
-        if (normalizeMemberRole(memberAccessState.memberRole) === 'internal_broker') accessType = 'broker';
+        if (normalizeMemberRole(memberAccessState.memberRole) === 'broker') accessType = 'broker';
         setError(errEl, '');
         if (btn) btn.disabled = true;
         getAuthHeaders().then(function (h) {
@@ -642,8 +640,8 @@
             var roleLabel = escapeHtml(roleLabels[normalizedRole] || normalizedRole || '-');
             var createdAt = escapeHtml(formatRelativeTime(m.created_at));
             var createdAtFull = escapeHtml(formatDateTime(m.created_at));
-            var canEditRole = normalizedRole !== 'external_broker';
-            var canManageProjectAccess = normalizedRole === 'client_user' || normalizedRole === 'internal_broker';
+            var canEditRole = true;
+            var canManageProjectAccess = normalizedRole === 'client_user' || normalizedRole === 'broker';
             var roleCellHtml = '<span class="member-role-label">' + roleLabel + '</span>';
             var actionButtons = canEditRole
                 ? (

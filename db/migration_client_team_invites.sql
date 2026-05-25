@@ -8,11 +8,11 @@ create table if not exists public.client_team_invites (
   email             text not null,
   display_name      text not null default '',
   member_role       text not null default 'client_user'
-                    check (member_role in ('client_user', 'broker')),
+                    check (member_role in ('client_admin', 'client_user', 'broker')),
   invite_token      text not null unique,
   invite_link       text,
   status            text not null default 'pending'
-                    check (status in ('pending', 'accepted', 'expired', 'cancelled')),
+                    check (status in ('pending', 'accepted', 'expired', 'cancelled', 'rejected')),
   expires_at        timestamptz,
   accepted_at       timestamptz,
   accepted_user_id  uuid references auth.users(id) on delete set null,

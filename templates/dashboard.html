@@ -339,7 +339,7 @@
             <div class="modal-title">Share Customer View</div>
             <div class="modal-text" style="margin-bottom: 0.6rem;">Default link uses this project folder. Add a custom endpoint to share a cleaner URL.</div>
             <div class="modal-text" id="workspace-referral-share-note" style="margin-bottom: 1rem; font-size: 0.92rem;">
-                If you are assigned here as an External Broker, Sales Agent, or Internal Broker, use your personal referral link so new interests are mapped to you.
+                If you are assigned here as a Broker or Sales Agent, use your personal referral link so new interests are mapped to you.
             </div>
             <div class="form-group" style="margin-bottom: 0.85rem;">
                 <label class="form-label" for="workspace-default-share-link">Default customer link</label>
@@ -1277,7 +1277,7 @@
 
         function renderClientOptions() {
             if (!filterClientSelect) return;
-            var isExternalBroker = currentUserRole === 'external_broker';
+            var isExternalBroker = currentUserRole === 'broker';
             var current = String(filterClientSelect.value || '').trim();
             var options = Array.isArray(clientOptions) ? clientOptions.slice() : [];
             if (!isExternalBroker || !options.length) {
@@ -1295,7 +1295,7 @@
         }
 
         async function loadClientOptions() {
-            if (currentUserRole !== 'external_broker') {
+            if (currentUserRole !== 'broker') {
                 clientOptions = [];
                 renderClientOptions();
                 return;

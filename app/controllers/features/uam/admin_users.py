@@ -22,7 +22,7 @@ def register_uam_admin_user_routes(app):
         password = data.get('password') or ''
         display_name = (data.get('display_name') or '').strip() or None
         requested_role = str(data.get('role') or 'user').strip().lower()
-        if requested_role not in ('admin', 'user', 'superadmin', 'external_broker'):
+        if requested_role not in ('admin', 'user', 'superadmin', 'broker'):
             requested_role = 'user'
         if requested_role == 'superadmin' and role != 'superadmin':
             return jsonify({'error': 'Only superadmins can create superadmin users'}), 403
@@ -127,7 +127,7 @@ def register_uam_admin_user_routes(app):
         email = (data.get('email') or '').strip().lower()
         display_name = (data.get('display_name') or '').strip()
         invite_role = str(data.get('role') or 'user').strip().lower()
-        if invite_role not in ('admin', 'user', 'external_broker'):
+        if invite_role not in ('admin', 'user', 'broker'):
             invite_role = 'user'
         if not email or '@' not in email:
             return jsonify({'error': 'Valid email is required'}), 400
@@ -291,15 +291,15 @@ def register_uam_admin_user_routes(app):
     @app.route('/api/admin/users/<target_user_id>/role', methods=['PUT'])
     @require_admin
     def admin_toggle_user_role(user_id, role, target_user_id):
-        """Set a user's role among user/admin/external_broker. Admin cannot change another admin."""
+        """Set a user's role among user/admin/broker. Admin cannot change another admin."""
         sb = get_supabase()
         if not sb:
             return jsonify({'error': 'Database not configured'}), 503
 
         data = request.get_json() or {}
         new_role = (data.get('role') or 'user').lower()
-        if new_role not in ('admin', 'user', 'external_broker'):
-            return jsonify({'error': 'Role must be admin, user, or external_broker'}), 400
+        if new_role not in ('admin', 'user', 'broker'):
+            return jsonify({'error': 'Role must be admin, user, or broker'}), 400
 
         # Check target's current role
         target_profile = get_profile(sb, target_user_id) or {}

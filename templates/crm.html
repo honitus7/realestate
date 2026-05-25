@@ -8,6 +8,16 @@
 <div class="crm-page">
     {% set active_page = 'crm' %}
     {% include 'components/sidebar.html' %}
+    <div class="crm-broker-account" id="crm-broker-account" style="display:none;">
+        <button class="crm-broker-user-btn" id="crm-broker-user-btn" type="button" aria-label="Account menu">
+            <span class="crm-broker-avatar" id="crm-broker-avatar">--</span>
+            <span class="crm-broker-name" id="crm-broker-name"></span>
+        </button>
+        <div class="crm-broker-dropdown" id="crm-broker-dropdown">
+            <button class="crm-broker-dropdown-item" id="crm-broker-invites" type="button">Invites</button>
+            <a class="crm-broker-dropdown-item crm-broker-dropdown-item--danger" href="/login" id="crm-broker-logout">Sign Out</a>
+        </div>
+    </div>
     <div class="crm-page-content">
     <!-- Tab Navigation -->
     <div class="crm-tabs" id="crm-tabs">
@@ -804,6 +814,16 @@
     </div>
     </div><!-- .crm-page-content -->
 </div>
+<div class="crm-invite-modal-backdrop" id="crm-invite-modal" style="display:none;">
+    <div class="crm-invite-modal" role="dialog" aria-modal="true" aria-label="Broker invites">
+        <div class="crm-invite-modal-head">
+            <h2>Invites</h2>
+            <button class="crm-invite-close" id="crm-invite-close" type="button">&times;</button>
+        </div>
+        <div class="crm-invite-list" id="crm-invite-list"></div>
+        <div class="crm-invite-empty" id="crm-invite-empty" style="display:none;">No pending invites.</div>
+    </div>
+</div>
 <div id="toast-container" style="position:fixed;top:1rem;right:1rem;z-index:9999;display:flex;flex-direction:column;gap:0.5rem;pointer-events:none;"></div>
 
 {% endblock %}
@@ -987,6 +1007,129 @@
             .replace(/'/g, '&#39;');
     }
 
+    function initials(name) {
+        const text = String(name || '').trim();
+        if (!text) return '--';
+        const parts = text.split(/\s+/).filter(Boolean);
+        return ((parts[0] || '')[0] || '') + ((parts[1] || '')[0] || (parts[0] || '')[1] || '');
+    }
+
+    function configureBrokerAccount(profile, isBroker) {
+        const page = document.querySelector('.crm-page');
+        const account = $('crm-broker-account');
+        if (!page || !account) return;
+        page.classList.toggle('crm-page--broker-only', !!isBroker);
+        account.style.display = isBroker ? '' : 'none';
+        if (!isBroker) return;
+
+        const displayName = String((profile && (profile.display_name || profile.name || profile.email)) || 'Broker').trim();
+        const avatar = $('crm-broker-avatar');
+        const nameEl = $('crm-broker-name');
+        if (avatar) avatar.textContent = initials(displayName).toUpperCase();
+        if (nameEl) nameEl.textContent = displayName;
+    }
+
+    function renderBrokerInvites(items) {
+        const list = $('crm-invite-list');
+        const empty = $('crm-invite-empty');
+        if (!list || !empty) return;
+        if (!items || !items.length) {
+            list.innerHTML = '';
+            empty.style.display = '';
+            return;
+        }
+        empty.style.display = 'none';
+        list.innerHTML = items.map(inv => {
+            const clientName = inv.client_name || 'Client Group';
+            const inviter = inv.inviter_name ? ('Invited by ' + inv.inviter_name) : 'Pending invitation';
+            return '<div class="crm-invite-card" data-invite-id="' + esc(inv.id) + '" data-token="' + esc(inv.invite_token || '') + '">' +
+                '<strong>' + esc(clientName) + '</strong>' +
+                '<span>' + esc(inviter) + '</span>' +
+                '<span>Role: Broker</span>' +
+                '<div class="crm-invite-actions">' +
+                    '<button class="btn" type="button" data-invite-action="reject">Reject</button>' +
+                    '<button class="btn primary" type="button" data-invite-action="accept">Accept</button>' +
+                '</div>' +
+            '</div>';
+        }).join('');
+        list.querySelectorAll('[data-invite-action]').forEach(btn => {
+            btn.addEventListener('click', async function () {
+                const card = btn.closest('.crm-invite-card');
+                const action = btn.getAttribute('data-invite-action');
+                if (!card || !action) return;
+                const inviteId = card.getAttribute('data-invite-id');
+                const token = card.getAttribute('data-token');
+                btn.disabled = true;
+                try {
+                    const response = action === 'accept'
+                        ? await api('/api/client-team-invites/accept', { method: 'POST', body: JSON.stringify({ invite_token: token }) })
+                        : await api('/api/client-team-invites/' + encodeURIComponent(inviteId) + '/reject', { method: 'POST' });
+                    const data = await response.json().catch(() => ({}));
+                    if (!response.ok) throw new Error(data.error || 'Invite update failed');
+                    toast(action === 'accept' ? 'Invite accepted.' : 'Invite rejected.', 'success');
+                    await loadBrokerInvites();
+                    if (action === 'accept') {
+                        await loadUserInfo();
+                        loadAllottedClients(true);
+                    }
+                } catch (e) {
+                    toast(e && e.message ? e.message : 'Invite update failed', 'error');
+                } finally {
+                    btn.disabled = false;
+                }
+            });
+        });
+    }
+
+    async function loadBrokerInvites() {
+        const r = await api('/api/client-team-invites/mine');
+        const data = await r.json().catch(() => []);
+        renderBrokerInvites(r.ok && Array.isArray(data) ? data : []);
+    }
+
+    const brokerUserBtn = $('crm-broker-user-btn');
+    const brokerDropdown = $('crm-broker-dropdown');
+    if (brokerUserBtn && brokerDropdown) {
+        brokerUserBtn.addEventListener('click', function (e) {
+            e.stopPropagation();
+            brokerDropdown.classList.toggle('visible');
+        });
+        document.addEventListener('click', function (e) {
+            if (!brokerDropdown.contains(e.target) && e.target !== brokerUserBtn) {
+                brokerDropdown.classList.remove('visible');
+            }
+        });
+    }
+    const brokerInvitesBtn = $('crm-broker-invites');
+    if (brokerInvitesBtn) {
+        brokerInvitesBtn.addEventListener('click', function () {
+            if (brokerDropdown) brokerDropdown.classList.remove('visible');
+            const modal = $('crm-invite-modal');
+            if (modal) modal.classList.add('visible');
+            loadBrokerInvites().catch(function () { renderBrokerInvites([]); });
+        });
+    }
+    const brokerInviteClose = $('crm-invite-close');
+    if (brokerInviteClose) brokerInviteClose.addEventListener('click', function () {
+        const modal = $('crm-invite-modal');
+        if (modal) modal.classList.remove('visible');
+    });
+    const brokerInviteModal = $('crm-invite-modal');
+    if (brokerInviteModal) brokerInviteModal.addEventListener('click', function (e) {
+        if (e.target === brokerInviteModal) brokerInviteModal.classList.remove('visible');
+    });
+    const brokerLogout = $('crm-broker-logout');
+    if (brokerLogout) brokerLogout.addEventListener('click', function (e) {
+        e.preventDefault();
+        const sb = window._supabase;
+        const finish = function () { window.location.href = '/login'; };
+        if (sb && sb.auth && typeof sb.auth.signOut === 'function') {
+            Promise.resolve(sb.auth.signOut()).catch(function () {}).finally(finish);
+        } else {
+            finish();
+        }
+    });
+
     function getContactName(contactId) {
         const c = contacts.find(x => String(x.id) === String(contactId));
         return c ? (c.full_name || c.email || c.phone || 'Contact') : 'Contact';
@@ -1021,7 +1164,7 @@
         try {
             const me = await api('/api/crm/me');
             const meData = await me.json().catch(() => ({}));
-            dealClientFiltersEnabled = !!(me.ok && (meData.is_broker || String(meData.role || '') === 'external_broker'));
+            dealClientFiltersEnabled = !!(me.ok && (meData.is_broker || String(meData.role || '') === 'broker'));
         } catch (e) {
             dealClientFiltersEnabled = !!window.__crmIsExternalBroker;
         }
@@ -1772,10 +1915,11 @@
                 const d = await r.json();
                 userRole = d.role || 'user';
                 const isAdminRole = userRole === 'admin' || userRole === 'superadmin';
-                const isExternalBroker = !!d.is_broker || userRole === 'external_broker';
+                const isExternalBroker = !!d.is_broker || userRole === 'broker';
                 isClientAdminUser = !!d.is_client_admin;
                 isExternalBrokerUser = !!isExternalBroker;
                 window.__crmIsExternalBroker = !!isExternalBroker;
+                configureBrokerAccount(d, isExternalBroker);
                 // Show admin-only CRM tabs
                 if (isAdminRole) {
                     $('tab-projects').style.display = '';
@@ -3255,7 +3399,9 @@
                 const panoSet = new Map();
                 allPlots.forEach(p => { if(p.panorama_id && p.panorama_name) panoSet.set(String(p.panorama_id), p.panorama_name); });
                 plotPanoFilter.innerHTML = '<option value="">All Panoramas</option>'+Array.from(panoSet.entries()).map(([id,name])=>'<option value="'+esc(id)+'">'+esc(name)+'</option>').join('');
-                await loadLockPlots().catch(err => console.warn('Lockable plots load failed:', err));
+                // Plot locking is temporarily hidden from the CRM Plots table.
+                // Restore this fetch with the Lock button block below when the feature returns.
+                // await loadLockPlots().catch(err => console.warn('Lockable plots load failed:', err));
             } catch(e) { console.warn(e); }
         }
         renderPlotsTable();
@@ -3317,8 +3463,9 @@
             const interestCount = relatedInterests.length;
             const salesAgents = uniqueUserNames(relatedInterests, 'assigned_to');
             const brokers = uniqueUserNames(relatedInterests, 'reference_user_id');
-            const lockData = getLockablePlot(p.id);
-            const isLocked = !!(lockData && lockData.lock);
+            // Plot locking is temporarily hidden from all users.
+            // const lockData = getLockablePlot(p.id);
+            // const isLocked = !!(lockData && lockData.lock);
             return '<tr>' +
                 '<td><input class="inline-edit" value="'+esc(p.name||'')+'" data-field="name" data-pid="'+esc(p.id)+'" aria-label="Plot Number"></td>' +
                 '<td><input class="inline-edit" value="'+esc(p.area||'')+'" data-field="area" data-pid="'+esc(p.id)+'" aria-label="Plot Size Area"></td>' +
@@ -3328,7 +3475,10 @@
                 '<td class="mono">'+esc(interestCount)+'</td>' +
                 '<td>'+esc(salesAgents)+'</td>' +
                 '<td>'+esc(brokers)+'</td>' +
-                '<td><div class="plot-row-actions"><button class="btn" data-save-plot="'+esc(p.id)+'">Save</button><button class="btn plot-lock-trigger'+(isLocked?' is-locked':'')+'" data-open-plot-lock="'+esc(p.id)+'">'+(isLocked?'Locked':'Lock')+'</button></div></td>' +
+                '<td><div class="plot-row-actions"><button class="btn" data-save-plot="'+esc(p.id)+'">Save</button>' +
+                    // Temporarily hidden; keep nearby so the lock feature can be restored later.
+                    // '<button class="btn plot-lock-trigger'+(isLocked?' is-locked':'')+'" data-open-plot-lock="'+esc(p.id)+'">'+(isLocked?'Locked':'Lock')+'</button>' +
+                '</div></td>' +
             '</tr>';
         }).join('');
         tbody.querySelectorAll('[data-save-plot]').forEach(btn => {
@@ -3346,20 +3496,21 @@
                 } catch(e) { btn.textContent='Error'; setTimeout(()=>{btn.textContent='Save'; btn.disabled=false;},2000); }
             });
         });
-        tbody.querySelectorAll('[data-open-plot-lock]').forEach(btn => {
-            btn.addEventListener('click', async () => {
-                const plotId = btn.getAttribute('data-open-plot-lock');
-                btn.disabled = true;
-                try {
-                    await loadLockPlots();
-                    await openPlotLockModal(plotId);
-                } catch (e) {
-                    toast(e.message || 'Failed to load lock details', 'error');
-                } finally {
-                    btn.disabled = false;
-                }
-            });
-        });
+        // Plot locking is temporarily hidden from the CRM Plots table.
+        // tbody.querySelectorAll('[data-open-plot-lock]').forEach(btn => {
+        //     btn.addEventListener('click', async () => {
+        //         const plotId = btn.getAttribute('data-open-plot-lock');
+        //         btn.disabled = true;
+        //         try {
+        //             await loadLockPlots();
+        //             await openPlotLockModal(plotId);
+        //         } catch (e) {
+        //             toast(e.message || 'Failed to load lock details', 'error');
+        //         } finally {
+        //             btn.disabled = false;
+        //         }
+        //     });
+        // });
     }
     plotSearch.addEventListener('input', renderPlotsTable);
     if (plotClientFilter) plotClientFilter.addEventListener('change', renderPlotsTable);

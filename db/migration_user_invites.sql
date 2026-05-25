@@ -8,7 +8,7 @@ create table if not exists public.user_invites (
   invited_by uuid not null references auth.users(id) on delete cascade,
   email text not null,
   display_name text not null,
-  role text not null default 'user' check (role in ('admin', 'user', 'external_broker')),
+  role text not null default 'user' check (role in ('admin', 'user', 'broker')),
   status text not null default 'pending' check (status in ('pending', 'accepted', 'expired')),
   invited_user_id uuid references auth.users(id) on delete set null,
   created_at timestamptz default now(),

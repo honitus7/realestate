@@ -177,8 +177,8 @@ def register_uam_profile_org_routes(app):
         upd = {}
         if 'role' in data:
             new_role = str(data.get('role') or '').strip().lower()
-            if new_role not in ('superadmin', 'admin', 'user', 'external_broker'):
-                return jsonify({'error': 'role must be superadmin, admin, user, or external_broker'}), 400
+            if new_role not in ('superadmin', 'admin', 'user', 'broker'):
+                return jsonify({'error': 'role must be superadmin, admin, user, or broker'}), 400
             upd['role'] = new_role
         org_id = None
         if 'org_id' in data or 'orgId' in data:
@@ -302,8 +302,8 @@ def register_uam_profile_org_routes(app):
     def set_profile_role(admin_id, role, user_id):
         data = request.get_json() or {}
         new_role = (data.get('role') or 'user').lower()
-        if new_role not in ('superadmin', 'admin', 'user', 'external_broker'):
-            return jsonify({'error': 'role must be superadmin, admin, user, or external_broker'}), 400
+        if new_role not in ('superadmin', 'admin', 'user', 'broker'):
+            return jsonify({'error': 'role must be superadmin, admin, user, or broker'}), 400
         if new_role == 'superadmin' and role != 'superadmin':
             return jsonify({'error': 'Only superadmins can grant superadmin role'}), 403
         sb = get_supabase()
