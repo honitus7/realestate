@@ -5,6 +5,7 @@ from app.core.database import get_supabase
 from app.services.access_policy import (
     annotate_resource_rows_with_client_scope,
     client_group_resource_ids_for_admin,
+    get_client_memberships,
     get_visible_client_options,
 )
 from app.services.panorama_service import list_panoramas_for_user
@@ -22,6 +23,37 @@ def _truthy(value):
 def _chunks(values, size=200):
     for i in range(0, len(values), size):
         yield values[i:i + size]
+
+
+def _client_member_workspace_access(sb, user_id):
+    try:
+        member_ids = [
+            row.get('id')
+            for row in get_client_memberships(sb, user_id)
+            if row.get('id')
+        ]
+    except Exception:
+        member_ids = []
+    if not member_ids:
+        return {}
+
+    out = {}
+    for chunk in _chunks(member_ids):
+        try:
+            rows = (
+                sb.table('workspace_access')
+                .select('workspace_id, access_type')
+                .in_('client_member_id', chunk)
+                .execute()
+                .data or []
+            )
+        except Exception:
+            continue
+        for row in rows:
+            wsid = row.get('workspace_id')
+            if wsid:
+                out[str(wsid)] = str(row.get('access_type') or 'viewer')
+    return out
 
 
 def register_resource_filters_routes(app):
@@ -92,27 +124,40 @@ def register_resource_filters_routes(app):
             return jsonify({'error': 'Database not configured'}), 503
         lightweight = _truthy(request.args.get('lightweight'))
         try:
-            direct = ws_list_workspaces(sb, user_id, lightweight=lightweight)
+            include_empty_shared = _truthy(request.args.get('include_empty_shared'))
+            direct = ws_list_workspaces(sb, user_id, lightweight=lightweight, include_empty_shared=include_empty_shared)
             by_id = {str(row.get('id')): row for row in (direct or []) if row.get('id') is not None}
-            client_ws_ids, _client_pano_ids = client_group_resource_ids_for_admin(sb, user_id)
+            try:
+                client_ws_ids, _client_pano_ids = client_group_resource_ids_for_admin(sb, user_id)
+            except Exception:
+                client_ws_ids = set()
+            try:
+                member_access = _client_member_workspace_access(sb, user_id)
+            except Exception:
+                member_access = {}
+            client_ws_ids.update(member_access.keys())
             missing = [wid for wid in client_ws_ids if wid not in by_id]
             for chunk in _chunks(missing):
-                wr = sb.table('workspaces').select('*').in_('id', chunk).execute()
+                try:
+                    wr = sb.table('workspaces').select('*').in_('id', chunk).execute()
+                except Exception:
+                    continue
                 for row in (wr.data or []):
                     wid = row.get('id')
                     if wid is None:
                         continue
+                    access_type = member_access.get(str(wid), 'client')
                     if lightweight:
                         by_id[str(wid)] = {
                             'id': str(wid),
-                            'name': row.get('name') or f'Workspace #{wid}',
-                            'access_type': 'client',
+                            'name': row.get('name') or f'Project #{wid}',
+                            'access_type': access_type,
                         }
                     else:
-                        by_id[str(wid)] = serialize_workspace_row(row, 'client')
+                        by_id[str(wid)] = serialize_workspace_row(row, access_type)
             out = annotate_resource_rows_with_client_scope(sb, list(by_id.values()), 'workspace')
             return jsonify(out)
         except Exception as e:
             if is_workspace_schema_missing(e):
-                return jsonify({'error': 'Workspace storage not configured. Please run db/schema.sql in Supabase SQL Editor.'}), 503
+                return jsonify({'error': 'Project storage not configured. Please run db/schema.sql in Supabase SQL Editor.'}), 503
             return jsonify({'error': str(e)}), 500

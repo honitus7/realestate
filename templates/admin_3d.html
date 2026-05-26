@@ -1850,13 +1850,13 @@
                 <select id="marker-linked-panorama" class="marker-form-select">
                     <option value="">None</option>
                 </select>
-                <div class="marker-form-helper">Optional. For Full View action, this can be left empty and the marker will open the current workspace Full View.</div>
+                <div class="marker-form-helper">Optional. For Full View action, this can be left empty and the marker will open the current project Full View.</div>
             </div>
             <div class="marker-form-row">
                 <label class="marker-form-label" for="marker-link-mode">Marker Link Action</label>
                 <select id="marker-link-mode" class="marker-form-select">
                     <option value="panorama">Open linked panorama</option>
-                    <option value="full_view">Open linked panorama workspace Full View (first tab)</option>
+                    <option value="full_view">Open linked panorama project Full View (first tab)</option>
                 </select>
             </div>
             <div class="marker-form-row" id="marker-style-row">
@@ -1972,7 +1972,7 @@
         const panoVisibilityCancel = document.getElementById('pano-visibility-cancel');
         const startViewCaptureBtn = document.getElementById('start-view-capture');
         const startViewPlayBtn = document.getElementById('start-view-play');
-        let panoVisibilityWorkspaceId = null;
+        let panoVisibilityProjectId = null;
         let panoVisibilityConfig = null;
 
         // (Collapse/Expand handled by tools-dropdown IIFE below)
@@ -2115,11 +2115,11 @@
         async function openPanoramaVisibility() {
             if (!panoVisibilityModal || !panoVisibilityBody) return;
             if (!WORKSPACE_ID || !Array.isArray(WORKSPACE_PANORAMAS) || !WORKSPACE_PANORAMAS.length) {
-                panoVisibilityWorkspaceId = null;
+                panoVisibilityProjectId = null;
                 panoVisibilityConfig = null;
-                panoVisibilityBody.innerHTML = '<div class="edit-instruction" style="font-style:italic;">No workspace panoramas found.</div>';
+                panoVisibilityBody.innerHTML = '<div class="edit-instruction" style="font-style:italic;">No project panoramas found.</div>';
             } else {
-                panoVisibilityWorkspaceId = String(WORKSPACE_ID);
+                panoVisibilityProjectId = String(WORKSPACE_ID);
                 panoVisibilityConfig = getCustomerViewConfigObject(CUSTOMER_VIEW_CONFIG);
                 const currentPanoId = String(PANORAMA_ID);
                 const hiddenByPano = panoVisibilityConfig.panoramaList.hiddenByPanorama || {};
@@ -2146,7 +2146,7 @@
                     panoVisibilityBody.appendChild(rowEl);
                 });
                 if (!panoVisibilityBody.querySelectorAll('.tool-item').length) {
-                    panoVisibilityBody.innerHTML += '<div class="edit-instruction" style="font-style:italic;">No other panoramas in workspace.</div>';
+                    panoVisibilityBody.innerHTML += '<div class="edit-instruction" style="font-style:italic;">No other panoramas in project.</div>';
                 }
             }
             panoVisibilityModal.classList.add('visible');
@@ -2191,7 +2191,7 @@
         }
         if (panoVisibilitySave) {
             panoVisibilitySave.addEventListener('click', async function () {
-                if (!panoVisibilityWorkspaceId || !panoVisibilityConfig) {
+                if (!panoVisibilityProjectId || !panoVisibilityConfig) {
                     if (panoVisibilityModal) {
                         panoVisibilityModal.classList.remove('visible');
                         panoVisibilityModal.setAttribute('hidden', '');
@@ -2210,7 +2210,7 @@
                 try {
                     const headers = await (window.getAuthHeaders ? window.getAuthHeaders() : Promise.resolve({}));
                     headers['Content-Type'] = 'application/json';
-                    const res = await fetch('/api/workspaces/' + encodeURIComponent(panoVisibilityWorkspaceId) + '/customer-config', {
+                    const res = await fetch('/api/workspaces/' + encodeURIComponent(panoVisibilityProjectId) + '/customer-config', {
                         method: 'PATCH',
                         headers: headers,
                         body: JSON.stringify({ config: panoVisibilityConfig })

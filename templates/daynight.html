@@ -133,12 +133,12 @@
     var videoFile = null;
     var deleteTargetId = null;
     var uploadTargetProjectId = null;
-    var activeWorkspaceFilter = '';
+    var activeProjectFilter = '';
     var activeSearchText = '';
 
     (function readEmbeddedFilters() {
         var qs = new URLSearchParams(window.location.search || '');
-        activeWorkspaceFilter = (qs.get('workspace_id') || '').trim();
+        activeProjectFilter = (qs.get('workspace_id') || '').trim();
         activeSearchText = (qs.get('q') || '').trim().toLowerCase();
     })();
 
@@ -378,7 +378,7 @@
         document.getElementById('dn-name').value = '';
         document.getElementById('dn-name').disabled = false;
         document.getElementById('dn-workspace').disabled = false;
-        if (activeWorkspaceFilter) document.getElementById('dn-workspace').value = activeWorkspaceFilter;
+        if (activeProjectFilter) document.getElementById('dn-workspace').value = activeProjectFilter;
         setSelectedMediaType('image', false);
         document.getElementById('dn-create-modal').classList.add('visible');
     }
@@ -480,7 +480,7 @@
         });
     }
 
-    async function loadWorkspaces() {
+    async function loadProjects() {
         try {
             var data = await apiJson('/api/workspaces', { headers: authHeaders() });
             workspaces = Array.isArray(data) ? data : [];
@@ -494,8 +494,8 @@
             sel.innerHTML = workspaces.map(function(w) {
                 return '<option value="' + escAttr(String(w.id || '')) + '">' + escHtml(w.name || 'Project') + '</option>';
             }).join('');
-            if (activeWorkspaceFilter) {
-                sel.value = activeWorkspaceFilter;
+            if (activeProjectFilter) {
+                sel.value = activeProjectFilter;
             }
             if (projects.length) renderProjects();
         } catch (err) {
@@ -512,7 +512,7 @@
             loading.textContent = 'Loading...';
         }
         try {
-            var query = activeWorkspaceFilter ? ('?workspace_id=' + encodeURIComponent(activeWorkspaceFilter)) : '';
+            var query = activeProjectFilter ? ('?workspace_id=' + encodeURIComponent(activeProjectFilter)) : '';
             var data = await apiJson('/api/daynight' + query, { headers: authHeaders() });
             projects = Array.isArray(data) ? data : [];
             if (activeSearchText) {
@@ -874,7 +874,7 @@
 
     window.sidebarReady.then(function(ctx) {
         window._accessToken = ctx.accessToken;
-        loadWorkspaces();
+        loadProjects();
         loadProjects();
     });
 })();

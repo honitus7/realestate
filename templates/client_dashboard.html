@@ -393,14 +393,14 @@
             ]);
         }).then(function (results) {
             var allProjects = Array.isArray(results[0]) ? results[0] : [];
-            var allWorkspaces = Array.isArray(results[1]) ? results[1] : [];
+            var allProjects = Array.isArray(results[1]) ? results[1] : [];
 
             // Only show projects with client or viewer access (not owner)
             projects = allProjects.filter(function (p) {
                 var at = String(p.access_type || '');
                 return at === 'client' || at === 'viewer';
             });
-            workspaces = allWorkspaces.filter(function (ws) {
+            workspaces = allProjects.filter(function (ws) {
                 var at = String(ws.access_type || '');
                 return at !== 'owner';
             });

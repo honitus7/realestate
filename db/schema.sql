@@ -30,7 +30,7 @@ create table if not exists public.profiles (
 create index if not exists idx_profiles_user_id on public.profiles(user_id);
 create index if not exists idx_profiles_org_id on public.profiles(org_id);
 
--- 2) Workspaces (folders) to organize panoramas + share as a bundle
+-- 2) Projects (folders) to organize panoramas + share as a bundle
 create table if not exists public.workspaces (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users(id) on delete cascade,

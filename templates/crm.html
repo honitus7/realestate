@@ -899,7 +899,7 @@
     const dealEditTitleEl = $('deal-edit-title');
     const dealEditStageEl = $('deal-edit-stage');
     const dealEditContactEl = $('deal-edit-contact');
-    const dealEditProjectEl = $('deal-edit-project');
+    const dealEditworkspaceEl = $('deal-edit-project');
     const dealEditAmountEl = $('deal-edit-amount');
     const dealEditNotesEl = $('deal-edit-notes');
     const dealEditMsgEl = $('deal-edit-msg');
@@ -1378,7 +1378,7 @@
         renderDealModalContactOptions(deal.contact_id);
         if (dealEditTitleEl) dealEditTitleEl.value = deal.title || '';
         if (dealEditStageEl) dealEditStageEl.value = String(deal.stage || 'new');
-        if (dealEditProjectEl) dealEditProjectEl.value = deal.project_name || '';
+        if (dealEditworkspaceEl) dealEditworkspaceEl.value = deal.project_name || '';
         if (dealEditAmountEl) dealEditAmountEl.value = deal.amount || '';
         if (dealEditNotesEl) dealEditNotesEl.value = deal.notes || '';
         showDealEditMsg('');
@@ -1400,7 +1400,7 @@
             title: String((dealEditTitleEl && dealEditTitleEl.value) || '').trim(),
             stage: String((dealEditStageEl && dealEditStageEl.value) || '').trim(),
             contact_id: String((dealEditContactEl && dealEditContactEl.value) || '').trim(),
-            project_name: String((dealEditProjectEl && dealEditProjectEl.value) || '').trim(),
+            project_name: String((dealEditworkspaceEl && dealEditworkspaceEl.value) || '').trim(),
             amount: String((dealEditAmountEl && dealEditAmountEl.value) || '').trim(),
             notes: String((dealEditNotesEl && dealEditNotesEl.value) || '').trim()
         };
@@ -1899,7 +1899,7 @@
             if (sec === 'deals') window.crmDealsLoad && window.crmDealsLoad();
             if (sec === 'contacts') window.crmContactsLoad && window.crmContactsLoad();
             if (sec === 'allotted-clients') loadAllottedClients();
-            if (sec === 'projects') loadWorkspaces();
+            if (sec === 'projects') loadProjects();
             if (sec === 'panoramas') loadPanoramas();
             if (sec === 'plots') loadAllPlots();
             if (sec === 'manage-lock') loadManageLock();
@@ -1926,7 +1926,10 @@
                     $('tab-panoramas').style.display = '';
                     $('tab-manage-lock').style.display = '';
                 } else {
-                    if (isExternalBroker && $('tab-allotted-clients')) $('tab-allotted-clients').style.display = '';
+                    if (isExternalBroker) {
+                        if ($('tab-allotted-clients')) $('tab-allotted-clients').style.display = '';
+                        if ($('tab-projects')) $('tab-projects').style.display = '';
+                    }
                     if (isClientAdminUser && $('tab-masters')) $('tab-masters').style.display = '';
                 }
             }
@@ -2059,7 +2062,7 @@
         const pid = String((project && project.id) || '');
         return interests.some(i => String(i.client_id || '') === clientId && String(i.panorama_id || '') === pid);
     }
-    function renderWorkspaceOptions() {
+    function renderProjectOptions() {
         const cur = workspaceEl.value;
         const wsMap = new Map();
         projects.forEach(p => {
@@ -2076,11 +2079,11 @@
     function renderProjectOptions() {
         const cur = projectEl.value;
         const wsFilter = String(workspaceEl.value||'').trim();
-        const filteredProjects = wsFilter
+        const filteredworkspaces = wsFilter
             ? projects.filter(p => String(p.workspace_id||'') === wsFilter)
             : projects;
-        const scopedProjects = filteredProjects.filter(projectMatchesSelectedClient);
-        const opts = [''].concat(scopedProjects.map(p => String(p.id)));
+        const scopedworkspaces = filteredworkspaces.filter(projectMatchesSelectedClient);
+        const opts = [''].concat(scopedworkspaces.map(p => String(p.id)));
         projectEl.innerHTML = opts.map(id => {
             if(!id) return '<option value="">All Panoramas</option>';
             const name = (projectById.get(String(id))||{}).name||('Panorama #'+id);
@@ -2115,7 +2118,7 @@
         if (!isExternalBrokerUser) {
             clientOptions = [];
             renderClientOptions();
-            renderWorkspaceOptions();
+            renderProjectOptions();
             renderProjectOptions();
             return;
         }
@@ -2127,7 +2130,7 @@
             clientOptions = [];
         }
         renderClientOptions();
-        renderWorkspaceOptions();
+        renderProjectOptions();
         renderProjectOptions();
     }
 
@@ -2955,7 +2958,7 @@
     qEl.addEventListener('input', () => { updateFilterBadge(); refreshInterestsUI(); });
     statusEl.addEventListener('change', () => { updateFilterBadge(); refreshInterestsUI(); });
     if (clientEl) clientEl.addEventListener('change', () => {
-        renderWorkspaceOptions();
+        renderProjectOptions();
         renderProjectOptions();
         renderPlotOptions();
         updateFilterBadge();
@@ -3057,7 +3060,7 @@
         }
         summary.push([]);
 
-        // Project breakdown
+        // workspace breakdown
         summary.push(['PROJECT BREAKDOWN']);
         const projMap = {};
         const projStatusMap = {};
@@ -3236,7 +3239,7 @@
         const all = await r.json();
         projects = Array.isArray(all)?all:[];
         projectById = new Map(projects.map(p=>[String(p.id),p]));
-        renderWorkspaceOptions();
+        renderProjectOptions();
         renderProjectOptions();
     }
     async function loadInterests() {
@@ -3263,18 +3266,18 @@
 
     let workspaces = [];
     let workspacesLoaded = false;
-    async function loadWorkspaces(force) {
+    async function loadProjects(force) {
         if(workspacesLoaded && !force) { renderProjectsTable(); return; }
         try {
-            const r = await api('/api/workspaces');
-            if(!r.ok) throw new Error('Failed to load workspaces');
+            const r = await api('/api/workspaces?include_empty_shared=1');
+            if(!r.ok) throw new Error('Failed to load Projects');
             const data = await r.json();
             workspaces = Array.isArray(data) ? data : [];
             workspacesLoaded = true;
             renderProjectsTable();
         } catch(e) { console.warn(e); workspaces = []; renderProjectsTable(); }
     }
-    window.loadWorkspaces = loadWorkspaces;
+    window.loadProjects = loadProjects;
     function renderProjectsTable() {
         const tbody = document.getElementById('projects-tbody');
         const empty = document.getElementById('projects-empty');
@@ -3282,8 +3285,11 @@
         if(!workspaces.length) { tbody.innerHTML=''; if(empty) empty.style.display=''; return; }
         if(empty) empty.style.display='none';
         tbody.innerHTML = workspaces.map(ws => {
+            const canEditProjects = userRole === 'admin' || userRole === 'superadmin' || String((ws && ws.access_type) || '') === 'owner';
             const pub = ws.is_published ? '<span style="color:var(--color-available);font-weight:600;font-size:0.75rem;">Yes</span>' : '<span style="color:var(--muted);font-size:0.75rem;">No</span>';
-            return '<tr><td style="font-weight:700">'+esc(ws.name||'Unnamed')+'</td><td>'+pub+'</td><td style="display:flex;gap:0.4rem;"><button class="btn" data-edit-project="'+esc(ws.id)+'">Edit Details</button></td></tr>';
+            const access = ws.access_type ? '<span style="color:var(--muted);font-size:0.75rem;">' + esc(ws.access_type) + '</span>' : '';
+            const action = canEditProjects ? '<button class="btn" data-edit-project="'+esc(ws.id)+'">Edit Details</button>' : access;
+            return '<tr><td style="font-weight:700">'+esc(ws.name||'Unnamed')+'</td><td>'+pub+'</td><td style="display:flex;gap:0.4rem;">'+action+'</td></tr>';
         }).join('');
         tbody.querySelectorAll('[data-edit-project]').forEach(btn => {
             btn.addEventListener('click', () => openEditProjectModal(btn.getAttribute('data-edit-project')));
@@ -4219,7 +4225,7 @@
     var errorEl = document.getElementById('edit-project-error');
     var mapsInput = document.getElementById('ep-google-maps-link');
     var mapsStatus = document.getElementById('ep-maps-status');
-    var editWorkspaceId = null;
+    var editProjectId = null;
 
     function extractCoords(link) {
         if (!link) return null;
@@ -4278,16 +4284,16 @@
         });
     }
 
-    function closeModal() { if (modal) modal.classList.remove('visible'); editWorkspaceId = null; }
+    function closeModal() { if (modal) modal.classList.remove('visible'); editProjectId = null; }
     if (closeBtn) closeBtn.addEventListener('click', closeModal);
     if (cancelBtn) cancelBtn.addEventListener('click', closeModal);
     if (modal) modal.addEventListener('click', function(e) { if (e.target === modal) closeModal(); });
 
-    window.openEditProjectModal = function(workspaceId) {
-        editWorkspaceId = workspaceId;
+    window.openEditProjectModal = function(ProjectId) {
+        editProjectId = ProjectId;
         if (errorEl) errorEl.style.display = 'none';
         window.getAuthHeaders().then(function(headers) {
-            return fetch('/api/workspaces/' + encodeURIComponent(workspaceId), { headers: headers });
+            return fetch('/api/workspaces/' + encodeURIComponent(ProjectId), { headers: headers });
         }).then(function(r) { return r.json(); }).then(function(p) {
             document.getElementById('ep-builder-name').value = p.builder_name || '';
             document.getElementById('ep-project-type').value = p.project_type || 'residential';
@@ -4316,7 +4322,7 @@
 
     if (saveBtn) {
         saveBtn.addEventListener('click', async function() {
-            if (!editWorkspaceId) return;
+            if (!editProjectId) return;
             if (errorEl) errorEl.style.display = 'none';
             saveBtn.disabled = true;
             saveBtn.textContent = 'Saving...';
@@ -4345,7 +4351,7 @@
                     is_published: document.getElementById('ep-is-published').checked,
                 };
                 if (coords) { body.location_lat = coords.lat; body.location_lng = coords.lng; }
-                var resp = await fetch('/api/workspaces/' + encodeURIComponent(editWorkspaceId), {
+                var resp = await fetch('/api/workspaces/' + encodeURIComponent(editProjectId), {
                     method: 'PATCH',
                     headers: headers,
                     body: JSON.stringify(body),
@@ -4355,7 +4361,7 @@
                     throw new Error(err.error || 'Save failed');
                 }
                 closeModal();
-                if (typeof window.loadWorkspaces === 'function') window.loadWorkspaces(true);
+                if (typeof window.loadProjects === 'function') window.loadProjects(true);
             } catch (e) {
                 if (errorEl) { errorEl.textContent = e.message || 'Failed to save'; errorEl.style.display = 'block'; }
             } finally {

@@ -64,7 +64,7 @@
 
     var maps = [];
     var workspaces = [];
-    var activeWorkspaceId = '';
+    var activeProjectId = '';
 
     function setStatus(message, kind) {
         var el = document.getElementById('srm-status');
@@ -125,7 +125,7 @@
             document.getElementById('srm-create-error').style.display = 'none';
             document.getElementById('srm-create-name').value = 'Sales Route Map';
             document.getElementById('srm-create-file').value = '';
-            document.getElementById('srm-create-workspace').value = activeWorkspaceId || '';
+            document.getElementById('srm-create-workspace').value = activeProjectId || '';
             showModal('srm-create-modal');
         });
         document.getElementById('srm-create-cancel').addEventListener('click', function () {
@@ -184,7 +184,7 @@
         }
     }
 
-    function renderWorkspaceOptions() {
+    function renderProjectOptions() {
         var filter = document.getElementById('srm-workspace-filter');
         var createSel = document.getElementById('srm-create-workspace');
         while (filter.options.length > 1) filter.remove(1);
@@ -200,7 +200,7 @@
             optCreate.textContent = workspace.name;
             createSel.appendChild(optCreate);
         });
-        filter.value = activeWorkspaceId;
+        filter.value = activeProjectId;
     }
 
     function mapCardHtml(mapItem) {
@@ -277,34 +277,34 @@
         bindCardActions();
     }
 
-    async function loadWorkspaces() {
+    async function loadProjects() {
         setStatus('Loading projects…');
         var response = await apiFetch('/api/workspaces');
         workspaces = response.workspaces || response || [];
-        renderWorkspaceOptions();
+        renderProjectOptions();
         setStatus('');
     }
 
     async function loadMaps() {
         setStatus('Loading route maps…');
-        var query = activeWorkspaceId ? ('?workspace_id=' + encodeURIComponent(activeWorkspaceId)) : '';
+        var query = activeProjectId ? ('?workspace_id=' + encodeURIComponent(activeProjectId)) : '';
         maps = await apiFetch('/api/sales-maps' + query);
         renderMaps();
         setStatus('');
     }
 
-    function bindWorkspaceFilter() {
+    function bindProjectFilter() {
         document.getElementById('srm-workspace-filter').addEventListener('change', async function () {
-            activeWorkspaceId = this.value || '';
+            activeProjectId = this.value || '';
             await loadMaps();
         });
     }
 
     async function init() {
         bindModalEvents();
-        bindWorkspaceFilter();
+        bindProjectFilter();
         try {
-            await loadWorkspaces();
+            await loadProjects();
             await loadMaps();
         } catch (error) {
             maps = [];

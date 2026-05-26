@@ -1173,7 +1173,7 @@ def register_routes(app):
             return "Database not configured", 503
         workspace = get_workspace_by_id(sb, workspace_id)
         if not workspace:
-            return "Workspace not found", 404
+            return "Project not found", 404
         main_id = workspace.get('main_panorama_id')
         panorama = None
         if main_id:
@@ -1186,7 +1186,7 @@ def register_routes(app):
             except Exception:
                 pass
         if not panorama:
-            return "No panorama in this workspace", 404
+            return "No panorama in this project", 404
         org_name, canonical_slug = get_org_name_and_slug_for_panorama(sb, panorama)
         workspace_panoramas = load_customer_workspace_panoramas(sb, workspace_id, main_id)
         return render_template(
@@ -2251,7 +2251,7 @@ def register_routes(app):
                 return _ws_error_response()
             msg = str(e).lower()
             if 'duplicate' in msg or 'unique' in msg or 'already exists' in msg:
-                return jsonify({'error': 'Workspace name already exists'}), 409
+                return jsonify({'error': 'Project name already exists'}), 409
             return jsonify({'error': str(e)}), 500
 
     @app.route('/api/workspaces/<workspace_id>', methods=['GET'])
@@ -2267,12 +2267,12 @@ def register_routes(app):
                 return _ws_error_response()
             return jsonify({'error': str(e)}), 500
         if not workspace:
-            return jsonify({'error': 'Workspace not found'}), 404
+            return jsonify({'error': 'Project not found'}), 404
         access = 'owner' if str(workspace.get('user_id') or '') == str(user_id) else None
         if access is None:
             shared = sb.table('workspace_access').select('access_type').eq('workspace_id', workspace_id).eq('user_id', user_id).limit(1).execute()
             if not (shared.data and len(shared.data) > 0):
-                return jsonify({'error': 'Workspace not found'}), 404
+                return jsonify({'error': 'Project not found'}), 404
             access = (shared.data[0].get('access_type') or 'viewer')
         ws = serialize_workspace_row(workspace, access)
         return jsonify(ws)
@@ -2303,9 +2303,9 @@ def register_routes(app):
                 return _ws_error_response()
             return jsonify({'error': str(e)}), 500
         if not workspace:
-            return jsonify({'error': 'Workspace not found'}), 404
+            return jsonify({'error': 'Project not found'}), 404
         if str(workspace.get('user_id') or '') != str(user_id):
-            return jsonify({'error': 'Only workspace owner can update'}), 403
+            return jsonify({'error': 'Only Project owner can update'}), 403
         try:
             ws = ws_update_workspace(sb, workspace_id, user_id, name=name, main_panorama_id=main_panorama_id, **project_fields)
             return jsonify({'success': True, 'workspace': ws})
@@ -2321,7 +2321,7 @@ def register_routes(app):
                 return _ws_error_response()
             msg = str(e).lower()
             if 'duplicate' in msg or 'unique' in msg or 'already exists' in msg:
-                return jsonify({'error': 'Workspace name already exists'}), 409
+                return jsonify({'error': 'Project name already exists'}), 409
             return jsonify({'error': str(e)}), 500
 
     @app.route('/api/workspaces/<workspace_id>', methods=['DELETE'])
@@ -2337,9 +2337,9 @@ def register_routes(app):
                 return _ws_error_response()
             return jsonify({'error': str(e)}), 500
         if not workspace:
-            return jsonify({'error': 'Workspace not found'}), 404
+            return jsonify({'error': 'Project not found'}), 404
         if str(workspace.get('user_id') or '') != str(user_id):
-            return jsonify({'error': 'Only workspace owner can delete'}), 403
+            return jsonify({'error': 'Only Project owner can delete'}), 403
         try:
             ok = ws_delete_workspace(sb, workspace_id, user_id)
             if ok:
@@ -2362,7 +2362,7 @@ def register_routes(app):
                 return _ws_error_response()
             return jsonify({'error': str(e)}), 500
         if not workspace:
-            return jsonify({'error': 'Workspace not found'}), 404
+            return jsonify({'error': 'Project not found'}), 404
         config = ws_get_customer_config(sb, workspace_id)
         return jsonify({'success': True, 'config': config or {}})
 
@@ -2379,7 +2379,7 @@ def register_routes(app):
                 return _ws_error_response()
             return jsonify({'error': str(e)}), 500
         if not workspace:
-            return jsonify({'error': 'Workspace not found'}), 404
+            return jsonify({'error': 'Project not found'}), 404
         if not can_manage_workspace(sb, workspace, user_id, role):
             return jsonify({'error': 'Forbidden'}), 403
         config = ws_get_customer_config(sb, workspace_id)
@@ -2402,7 +2402,7 @@ def register_routes(app):
                 return _ws_error_response()
             return jsonify({'error': str(e)}), 500
         if not result:
-            return jsonify({'error': 'Workspace not found or forbidden'}), 404
+            return jsonify({'error': 'Project not found or forbidden'}), 404
         return jsonify({'success': True, 'config': config})
 
     @app.route('/api/workspaces/share-endpoint/check', methods=['POST'])
@@ -2423,7 +2423,7 @@ def register_routes(app):
             if workspace_id:
                 workspace = get_workspace_by_id(sb, workspace_id)
                 if not workspace:
-                    return jsonify({'error': 'Workspace not found'}), 404
+                    return jsonify({'error': 'Project not found'}), 404
                 if not can_manage_workspace(sb, workspace, user_id, role):
                     return jsonify({'error': 'Forbidden'}), 403
             available = ws_is_workspace_share_endpoint_available(sb, normalized, workspace_id)
@@ -2442,8 +2442,8 @@ def register_routes(app):
         try:
             workspace = get_workspace_by_id(sb, workspace_id)
             if not workspace:
-                return jsonify({'error': 'Workspace not found'}), 404
-            # Allow owner/admin OR users with workspace access (client/viewer)
+                return jsonify({'error': 'Project not found'}), 404
+            # Allow owner/admin OR users with project access (client/viewer)
             has_access = can_manage_workspace(sb, workspace, user_id, role)
             if not has_access:
                 try:
@@ -2472,7 +2472,7 @@ def register_routes(app):
         try:
             result = ws_update_workspace_share_endpoint(sb, workspace_id, user_id, role, endpoint)
             if not result:
-                return jsonify({'error': 'Workspace not found or forbidden'}), 404
+                return jsonify({'error': 'Project not found or forbidden'}), 404
             share = _workspace_share_payload(workspace_id, result.get('endpoint'))
             return jsonify({'success': True, 'share': share})
         except ValueError as ve:
@@ -2661,12 +2661,12 @@ def register_routes(app):
                         return _ws_error_response()
                     return jsonify({'error': str(e)}), 500
                 if not workspace:
-                    return jsonify({'error': 'Workspace not found'}), 404
+                    return jsonify({'error': 'Project not found'}), 404
                 if str(workspace.get('user_id') or '') != str(user_id):
                     return jsonify({'error': 'You can only upload into your own workspace'}), 403
                 ws_org = workspace.get('org_id')
                 if org_id and ws_org and str(org_id) != str(ws_org):
-                    return jsonify({'error': 'Workspace organization does not match your profile'}), 403
+                    return jsonify({'error': 'Project organization does not match your profile'}), 403
             insert_row = {
                 'user_id': user_id,
                 'org_id': org_id,
@@ -3236,13 +3236,13 @@ def register_routes(app):
                     return _ws_error_response()
                 return jsonify({'error': str(e)}), 500
             if not workspace:
-                return jsonify({'error': 'Workspace not found'}), 404
+                return jsonify({'error': 'Project not found'}), 404
             if str(workspace.get('user_id') or '') != str(user_id):
                 return jsonify({'error': 'You can only move to your own workspace'}), 403
             panorama_org = panorama.get('org_id')
             workspace_org = workspace.get('org_id')
             if panorama_org and workspace_org and str(panorama_org) != str(workspace_org):
-                return jsonify({'error': 'Workspace organization mismatch'}), 403
+                return jsonify({'error': 'Project organization mismatch'}), 403
         clear_workspace_main_for_panorama(sb, panorama_id)
         try:
             r = (
@@ -4061,7 +4061,7 @@ def register_routes(app):
             if 'panoramas' in msg and ('does not exist' in msg.lower() or 'relation' in msg.lower()):
                 return jsonify({'error': 'panoramas table not found'}), 503
             return jsonify({'error': msg}), 500
-        # Fetch workspace names for project grouping
+        # Fetch Project names for project grouping
         ws_names = {}
         if ws_ids_needed:
             try:

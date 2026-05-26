@@ -8,11 +8,13 @@
     align-items: stretch;
 }
 
-/* CRM-specific sidebar behavior: keep sidebar in normal flow so it scrolls with page */
+/* CRM-specific sidebar behavior: keep navigation pinned while CRM content scrolls */
 .crm-page .dashboard-sidebar {
-    position: static;
-    height: auto;
-    min-height: 100vh;
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    align-self: flex-start;
+    overflow: visible;
 }
 
 /* CRM page content layout */
@@ -25,6 +27,16 @@
 
 .crm-page.crm-page--broker-only .dashboard-sidebar {
     display: none;
+}
+
+@media (max-width: 768px) {
+    .crm-page .dashboard-sidebar {
+        position: fixed;
+        left: 0;
+        top: 0;
+        height: 100vh;
+        align-self: auto;
+    }
 }
 
 .crm-broker-account {

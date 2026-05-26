@@ -400,7 +400,7 @@
                     <div class="form-field">
                         <label class="label">Resource Type</label>
                         <div style="display:flex;gap:0.75rem;margin-top:0.35rem;">
-                            <label style="display:flex;align-items:center;gap:0.4rem;cursor:pointer;"><input type="radio" name="grant-resource-type" value="workspace" checked> Workspace (Project)</label>
+                            <label style="display:flex;align-items:center;gap:0.4rem;cursor:pointer;"><input type="radio" name="grant-resource-type" value="workspace" checked> Project</label>
                             <label style="display:flex;align-items:center;gap:0.4rem;cursor:pointer;"><input type="radio" name="grant-resource-type" value="panorama"> Panorama</label>
                         </div>
                     </div>
@@ -962,7 +962,7 @@
             orgUsers: [],
             workspaces: [],
             panoramas: [],
-            accessGrantWorkspaces: [],
+            accessGrantworkspaces: [],
             accessGrantPanoramas: [],
             selectedAccessTargetUserId: '',
             currentRole: '',
@@ -1068,14 +1068,14 @@
                 return fetchJson('/api/clients/' + encodeURIComponent(clientId) + '/access', { headers: h });
             }).then(function (res) {
                 if (res.ok && res.data) {
-                    clientState.accessGrantWorkspaces = Array.isArray(res.data.workspaces) ? res.data.workspaces.slice() : [];
+                    clientState.accessGrantworkspaces = Array.isArray(res.data.workspaces) ? res.data.workspaces.slice() : [];
                     clientState.accessGrantPanoramas = Array.isArray(res.data.panoramas) ? res.data.panoramas.slice() : [];
                 } else {
-                    clientState.accessGrantWorkspaces = [];
+                    clientState.accessGrantworkspaces = [];
                     clientState.accessGrantPanoramas = [];
                 }
             }).catch(function () {
-                clientState.accessGrantWorkspaces = [];
+                clientState.accessGrantworkspaces = [];
                 clientState.accessGrantPanoramas = [];
             });
         }
@@ -1278,7 +1278,7 @@
                 var html = '';
                 workspaces.forEach(function (w) {
                     html += '<div class="access-row">' +
-                        '<span class="pill user" style="font-size:0.7rem;">workspace</span> ' +
+                        '<span class="pill user" style="font-size:0.7rem;">Project</span> ' +
                         '<span>' + escapeHtml(w.name) + '</span>' +
                         '<span class="' + rolePillClass(w.access_type) + '" style="font-size:0.7rem;margin-left:auto;">' + escapeHtml(w.access_type) + '</span>' +
                         '<button class="btn-sm btn-sm--danger" data-rtype="workspace" data-rid="' + escapeHtml(String(w.workspace_id)) + '">Revoke</button>' +
@@ -1492,15 +1492,15 @@
             if (!sel) return;
             sel.innerHTML = '<option value="">Loading...</option>';
             var isAdmin = isPlatformAdminRole(clientState.currentRole);
-            var restrictToClientProjects = !isAdmin || isBrokerTargetSelected();
+            var restrictToClientworkspaces = !isAdmin || isBrokerTargetSelected();
             if (type === 'workspace') {
-                var items = restrictToClientProjects ? clientState.accessGrantWorkspaces : clientState.workspaces;
+                var items = restrictToClientworkspaces ? clientState.accessGrantworkspaces : clientState.workspaces;
                 sel.innerHTML = items.length ? items.map(function (w) {
                     var wid = String(w.id || w.workspace_id || '');
                     return '<option value="' + escapeHtml(wid) + '">' + escapeHtml(w.name || wid) + '</option>';
-                }).join('') : '<option value="">No workspaces available</option>';
+                }).join('') : '<option value="">No Projects available</option>';
             } else {
-                var pitems = restrictToClientProjects ? clientState.accessGrantPanoramas : clientState.panoramas;
+                var pitems = restrictToClientworkspaces ? clientState.accessGrantPanoramas : clientState.panoramas;
                 sel.innerHTML = pitems.length ? pitems.map(function (p) {
                     var pid = String(p.id || p.panorama_id || '');
                     return '<option value="' + escapeHtml(pid) + '">' + escapeHtml(p.name || pid) + '</option>';

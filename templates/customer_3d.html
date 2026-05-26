@@ -1262,30 +1262,30 @@
             return null;
         }
 
-        function getWorkspaceContext() {
+        function getProjectContext() {
             if (workspaceContextPromise) return workspaceContextPromise;
             workspaceContextPromise = (async () => {
                 if (Array.isArray(WORKSPACE_PANORAMAS) && WORKSPACE_PANORAMAS.length > 0) {
                     const list = WORKSPACE_PANORAMAS.filter(function (p) { return p && p.id != null; });
                     const ids = list.map(function (p) { return String(p.id); });
-                    var inWorkspace = ids.indexOf(String(PANORAMA_ID)) !== -1 || ids.indexOf(String(currentFullViewPanoramaId)) !== -1;
-                    return { inWorkspace: inWorkspace, panoramas: list };
+                    var inProject = ids.indexOf(String(PANORAMA_ID)) !== -1 || ids.indexOf(String(currentFullViewPanoramaId)) !== -1;
+                    return { inProject: inProject, panoramas: list };
                 }
                 await loadPanoramaIndex().catch(function () { });
-                if (!Array.isArray(panoramaIndexCache)) return { inWorkspace: false, panoramas: [] };
+                if (!Array.isArray(panoramaIndexCache)) return { inProject: false, panoramas: [] };
                 var currentId = IN_WORKSPACE ? String(currentFullViewPanoramaId) : String(PANORAMA_ID);
                 var currentMeta = getPanoramaMeta(currentId);
-                var currentWorkspaceId = currentMeta && currentMeta.workspace_id != null ? String(currentMeta.workspace_id) : null;
-                if (!currentWorkspaceId) return { inWorkspace: false, panoramas: [] };
+                var currentProjectId = currentMeta && currentMeta.workspace_id != null ? String(currentMeta.workspace_id) : null;
+                if (!currentProjectId) return { inProject: false, panoramas: [] };
                 var list = panoramaIndexCache.filter(function (row) {
                     if (!row || !row.id) return false;
-                    var rowWorkspaceId = row.workspace_id != null ? String(row.workspace_id) : null;
-                    return rowWorkspaceId === currentWorkspaceId;
+                    var rowProjectId = row.workspace_id != null ? String(row.workspace_id) : null;
+                    return rowProjectId === currentProjectId;
                 }).map(function (row) {
                     return { id: row.id, name: (row.name || '').trim() || ('Panorama #' + String(row.id)), filename: row.filename || '', is_360: Boolean(row.is_360) };
                 });
                 var inWs = list.some(function (p) { return String(p.id) === currentId; });
-                return { inWorkspace: inWs, panoramas: list };
+                return { inProject: inWs, panoramas: list };
             })();
             return workspaceContextPromise;
         }
@@ -1384,13 +1384,13 @@
             return `Panorama #${id}`;
         }
 
-        function getWorkspacePanoramaById(panoramaId) {
+        function getProjectPanoramaById(panoramaId) {
             if (!Array.isArray(WORKSPACE_PANORAMAS)) return null;
             return WORKSPACE_PANORAMAS.find(function (p) { return p && String(p.id) === String(panoramaId); }) || null;
         }
 
         function getFullViewImageUrl(panoramaId) {
-            const p = getWorkspacePanoramaById(panoramaId);
+            const p = getProjectPanoramaById(panoramaId);
             if (!p || !p.filename) return null;
             return '/uploads/' + encodeURIComponent(p.filename) + '?size=optimized';
         }
@@ -1478,7 +1478,7 @@
             const id = String(targetId || '').trim();
             if (!id) return;
             if (isPanoramaHidden(id)) return;
-            if (IN_WORKSPACE && getWorkspacePanoramaById(id)) {
+            if (IN_WORKSPACE && getProjectPanoramaById(id)) {
                 fullViewHistoryStack.push(String(currentFullViewPanoramaId));
                 switchToPanoramaInView(id);
                 var btns = getCvConfig().buttons || {};
@@ -1493,12 +1493,12 @@
             return mode === MARKER_LINK_MODE_FULL_VIEW ? MARKER_LINK_MODE_FULL_VIEW : MARKER_LINK_MODE_PANORAMA;
         }
 
-        async function goToWorkspaceFullViewByPanorama(targetPanoramaId) {
+        async function goToProjectFullViewByPanorama(targetPanoramaId) {
             const id = normalizePanoramaId(targetPanoramaId);
             if (!id) return false;
 
             let workspaceId = null;
-            if (WORKSPACE_ID != null && getWorkspacePanoramaById(id)) {
+            if (WORKSPACE_ID != null && getProjectPanoramaById(id)) {
                 workspaceId = String(WORKSPACE_ID);
             }
             if (!workspaceId) {
@@ -1525,7 +1525,7 @@
                     fallbackId = normalizePanoramaId(getCurrentPanoramaId());
                 }
                 if (!fallbackId) return Promise.resolve(false);
-                return goToWorkspaceFullViewByPanorama(fallbackId).then((opened) => {
+                return goToProjectFullViewByPanorama(fallbackId).then((opened) => {
                     if (!opened) goToPanorama(fallbackId);
                     return true;
                 }).catch(() => {
@@ -1567,8 +1567,8 @@
                 return map;
             }
             map.set(currentId, { id: currentId, sources: new Set(['current']) });
-            const ctx = await getWorkspaceContext();
-            if (ctx.inWorkspace && Array.isArray(ctx.panoramas) && ctx.panoramas.length > 0) {
+            const ctx = await getProjectContext();
+            if (ctx.inProject && Array.isArray(ctx.panoramas) && ctx.panoramas.length > 0) {
                 ctx.panoramas.forEach(function (p) {
                     if (!p || p.id == null) return;
                     const id = String(p.id);
@@ -1860,7 +1860,7 @@
             await Promise.all(workers);
         }
 
-        async function preloadWorkspacePanoramas() {
+        async function preloadProjectPanoramas() {
             if (!IN_WORKSPACE || !Array.isArray(WORKSPACE_PANORAMAS) || !shouldPrefetchPanoramas()) return;
             const queue = WORKSPACE_PANORAMAS
                 .filter((p) => p && p.filename && String(p.id) !== String(PANORAMA_ID))
@@ -1879,7 +1879,7 @@
             await Promise.all(workers);
         }
 
-        async function preloadWorkspacePlotsAndMarkers() {
+        async function preloadProjectPlotsAndMarkers() {
             if (!IN_WORKSPACE || !Array.isArray(WORKSPACE_PANORAMAS)) return;
             const headers = await (window.getAuthHeaders ? window.getAuthHeaders() : Promise.resolve({}));
             const ids = WORKSPACE_PANORAMAS.filter((p) => p && p.id).map((p) => String(p.id));
@@ -4393,7 +4393,7 @@
         function switchToPanoramaInView(panoramaId) {
             const id = String(panoramaId || '').trim();
             if (!id) return Promise.resolve();
-            const workspaceMeta = getWorkspacePanoramaById(id) || {};
+            const workspaceMeta = getProjectPanoramaById(id) || {};
             playTransitionSound();
             const prevId = currentFullViewPanoramaId;
             const prevName = CURRENT_PANORAMA_NAME;
@@ -4468,15 +4468,15 @@
                 if (loading) loading.classList.add('hidden');
                 ensureCustomerViewConfigLoaded().then(function () {
                     loadCurrentPanoramaData(CURRENT_RENDER_PANORAMA_ID).then(function () {
-                        if (IN_WORKSPACE && INITIAL_PANORAMA_ID && INITIAL_PANORAMA_ID !== PANORAMA_ID && !isPanoramaHidden(INITIAL_PANORAMA_ID) && getWorkspacePanoramaById(INITIAL_PANORAMA_ID)) {
+                        if (IN_WORKSPACE && INITIAL_PANORAMA_ID && INITIAL_PANORAMA_ID !== PANORAMA_ID && !isPanoramaHidden(INITIAL_PANORAMA_ID) && getProjectPanoramaById(INITIAL_PANORAMA_ID)) {
                             switchToPanoramaInView(INITIAL_PANORAMA_ID);
                             return;
                         }
                         const runPrefetch = () => {
                             prefetchLinkedPanoramas().catch(() => { });
                             if (IN_WORKSPACE) {
-                                preloadWorkspacePanoramas().catch(() => { });
-                                preloadWorkspacePlotsAndMarkers().catch(() => { });
+                                preloadProjectPanoramas().catch(() => { });
+                                preloadProjectPlotsAndMarkers().catch(() => { });
                             }
                         };
                         if (typeof requestIdleCallback === 'function') requestIdleCallback(runPrefetch, { timeout: 2500 });

@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Manage folder access - MarketoState</title>
+    <title>Manage project access - MarketoState</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link
@@ -186,7 +186,7 @@
     <main class="container">
         <div class="card">
             <h1>Folder access</h1>
-            <p>Grant client, broker, or viewer access for all panoramas inside this workspace folder.</p>
+            <p>Grant client, broker, or viewer access for all panoramas inside this project.</p>
             <div class="form-row">
                 <div class="form-group">
                     <label class="form-label">User</label>
@@ -208,7 +208,7 @@
             <div id="grant-success" class="msg success hidden"></div>
         </div>
         <div class="card">
-            <h2 style="font-size:1.1rem; margin-bottom:0.75rem;">Current folder access</h2>
+            <h2 style="font-size:1.1rem; margin-bottom:0.75rem;">Current project access</h2>
             <ul class="list" id="access-list">
                 <li>Loading...</li>
             </ul>
@@ -316,7 +316,7 @@
                 });
 
                 if (!accessRows || accessRows.length === 0) {
-                    list.innerHTML = '<li>No users have folder access yet.</li>';
+                    list.innerHTML = '<li>No users have project access yet.</li>';
                     return;
                 }
 

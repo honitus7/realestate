@@ -61,7 +61,7 @@ def register_full_view_routes(app):
         if not config and autocreate:
             ws = get_workspace_by_id(sb, workspace_id)
             if not ws:
-                return jsonify({'error': 'Workspace not found'}), 404
+                return jsonify({'error': 'Project not found'}), 404
             profile = get_profile(sb, user_id)
             org_id = (profile or {}).get('org_id')
             config = fv_create_config(sb, workspace_id, user_id, org_id)
@@ -82,7 +82,7 @@ def register_full_view_routes(app):
             return jsonify({'error': 'workspace_id is required'}), 400
         ws = get_workspace_by_id(sb, workspace_id)
         if not ws:
-            return jsonify({'error': 'Workspace not found'}), 404
+            return jsonify({'error': 'Project not found'}), 404
         existing = fv_get_config(sb, workspace_id)
         if existing:
             return jsonify({'config': existing})
@@ -349,7 +349,7 @@ def register_full_view_routes(app):
             return "Database not configured", 503
         ws = get_workspace_by_id(sb, workspace_id)
         if not ws:
-            return "Workspace not found", 404
+            return "Project not found", 404
         fv_config = fv_get_config_with_tabs(sb, workspace_id)
         init_type = request.args.get('type', '').strip() or None
         init_ref = request.args.get('ref', '').strip() or None
@@ -375,7 +375,7 @@ def register_full_view_routes(app):
             return "Database not configured", 503
         ws = get_workspace_by_id(sb, workspace_id)
         if not ws:
-            return "Workspace not found", 404
+            return "Project not found", 404
 
         config = fv_get_config(sb, workspace_id)
         tabs = fv_list_tabs(sb, config['id']) if config else []

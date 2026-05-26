@@ -23,15 +23,15 @@
             <p class="fv-subtitle">Assemble a navigation sidebar your customers see on every page — panoramas, floor plans, galleries, maps and more — all in one place.</p>
         </div>
 
-        <!-- Step 1: Workspace selector -->
+        <!-- Step 1: Project selector -->
         <div class="fv-step">
             <div class="fv-step-heading">
                 <span class="fv-step-num">1</span>
-                <span class="fv-step-label">Select a Workspace</span>
+                <span class="fv-step-label">Select a Project</span>
             </div>
             <div class="fv-ws-row">
                 <select class="fv-select" id="fv-workspace-select">
-                    <option value="">— choose a workspace —</option>
+                    <option value="">— choose a project —</option>
                 </select>
                 <button class="btn btn-primary" id="fv-init-btn" disabled style="white-space:nowrap;">
                     <iconify-icon icon="ph:play-bold"></iconify-icon>
@@ -111,7 +111,7 @@
                         <div class="fv-branding-preview-logo-placeholder" id="fv-branding-preview-logo-placeholder">Logo</div>
                     </div>
                     <div class="fv-branding-preview-text">
-                        <div class="fv-branding-preview-title" id="fv-branding-preview-title">Workspace</div>
+                        <div class="fv-branding-preview-title" id="fv-branding-preview-title">Project</div>
                         <div class="fv-branding-preview-sub">Full View</div>
                     </div>
                 </div>
@@ -160,7 +160,7 @@
                         </div>
                     </div>
                     <input type="file" id="fv-logo-input" accept=".png,.jpg,.jpeg,.webp,image/png,image/jpeg,image/webp" hidden>
-                    <div class="fv-branding-status" id="fv-branding-status">Shows on the customer Full View header next to the workspace name. Logo shell padding, header, and modal spacing changes save automatically.</div>
+                    <div class="fv-branding-status" id="fv-branding-status">Shows on the customer Full View header next to the Project name. Logo shell padding, header, and modal spacing changes save automatically.</div>
                 </div>
             </div>
             <div class="fv-inline-status fv-inline-status--compact" id="fv-resource-status" style="display:none;"></div>
@@ -455,7 +455,7 @@ const ICON_CATALOG = [
 /* ------------------------------------------------------------------ */
 /*  State                                                              */
 /* ------------------------------------------------------------------ */
-let currentWorkspaceId = null;
+let currentProjectId = null;
 let currentConfigId = null;
 let currentTabs = [];
 let editingTabId = null;
@@ -469,7 +469,7 @@ let galleries = [];
 let projectPlans = [];
 let salesRouteMaps = [];
 let salesFlat360Views = [];
-let resourcesLoadedWorkspaceId = null;
+let resourcesLoadedProjectId = null;
 let resourceLoadPromise = null;
 
 function setInlineStatus(id, message, kind) {
@@ -680,7 +680,7 @@ function syncBrandingPreview(message, kind) {
     const builderNameEl = document.getElementById('fv-builder-ws-name');
     const sizeState = syncBrandingSizeControls(currentConfigStyle);
     const logoUrl = String((sizeState.style && sizeState.style.header_logo_url) || '').trim();
-    const workspaceName = String((builderNameEl && builderNameEl.textContent) || '').trim() || 'Workspace';
+    const workspaceName = String((builderNameEl && builderNameEl.textContent) || '').trim() || 'Project';
     const logoScale = sizeState.logoPct / 100;
     const logoPaddingScale = sizeState.logoPaddingPct / 100;
     const headerScale = sizeState.headerPct / 100;
@@ -716,7 +716,7 @@ function syncBrandingPreview(message, kind) {
     if (placeholderEl) placeholderEl.hidden = !!logoUrl;
     if (removeBtn) removeBtn.disabled = !logoUrl;
     if (statusEl) {
-        statusEl.textContent = message || 'Shows on the customer Full View header next to the workspace name. Logo shell padding, header, and modal spacing changes save automatically.';
+        statusEl.textContent = message || 'Shows on the customer Full View header next to the Project name. Logo shell padding, header, and modal spacing changes save automatically.';
         statusEl.classList.remove('is-error', 'is-ok');
         if (kind === 'error') statusEl.classList.add('is-error');
         if (kind === 'ok') statusEl.classList.add('is-ok');
@@ -745,7 +745,7 @@ async function uploadFullViewLogo(file) {
     var headers = await authHeaders(false);
     var formData = new FormData();
     formData.append('file', file);
-    if (currentWorkspaceId) formData.append('workspace_id', currentWorkspaceId);
+    if (currentProjectId) formData.append('workspace_id', currentProjectId);
     var res = await fetch('/api/full-view/logo-upload', {
         method: 'POST',
         headers: headers,
@@ -772,7 +772,7 @@ async function saveHeaderLogoUrl(url) {
 /*  Init                                                               */
 /* ------------------------------------------------------------------ */
 async function init() {
-    await loadWorkspaces();
+    await loadProjects();
     bindEvents();
     buildIconGrid(getFilteredIconCatalog(''));
     refreshDialogIconPreview();
@@ -781,9 +781,9 @@ async function init() {
 }
 
 /* ------------------------------------------------------------------ */
-/*  Workspaces                                                         */
+/*  Projects                                                         */
 /* ------------------------------------------------------------------ */
-function renderWorkspaceOptions(workspaces) {
+function renderProjectOptions(workspaces) {
     const sel = document.getElementById('fv-workspace-select');
     const current = sel.value;
     while (sel.options.length > 1) sel.remove(1);
@@ -796,7 +796,7 @@ function renderWorkspaceOptions(workspaces) {
     if (current) sel.value = current;
 }
 
-async function loadWorkspaces() {
+async function loadProjects() {
     const cacheKey = 'fv_workspaces_light_v1';
     let hadCachedRows = false;
     try {
@@ -804,7 +804,7 @@ async function loadWorkspaces() {
         if (raw) {
             const cached = JSON.parse(raw);
             if (Array.isArray(cached) && cached.length) {
-                renderWorkspaceOptions(cached);
+                renderProjectOptions(cached);
                 hadCachedRows = true;
             }
         }
@@ -814,7 +814,7 @@ async function loadWorkspaces() {
     try {
         const d = await apiFetch('/api/workspaces?lightweight=1');
         const rows = (d.workspaces || d || []);
-        renderWorkspaceOptions(rows);
+        renderProjectOptions(rows);
         try { sessionStorage.setItem(cacheKey, JSON.stringify(rows)); } catch (e) {}
         if (!rows.length) {
             setInlineStatus('fv-ws-status', 'No projects found yet.', 'warn');
@@ -822,7 +822,7 @@ async function loadWorkspaces() {
         }
         setInlineStatus('fv-ws-status', '');
     } catch (e) {
-        console.error('loadWorkspaces', e);
+        console.error('loadProjects', e);
         setInlineStatus(
             'fv-ws-status',
             hadCachedRows ? 'Showing cached projects. Refresh or retry if something looks outdated.' : 'Could not load projects right now. Please retry.',
@@ -834,14 +834,14 @@ async function loadWorkspaces() {
 /* ------------------------------------------------------------------ */
 /*  Open workspace config                                              */
 /* ------------------------------------------------------------------ */
-async function openWorkspace(wsId) {
-    currentWorkspaceId = wsId;
-    resourcesLoadedWorkspaceId = null;
+async function openProject(wsId) {
+    currentProjectId = wsId;
+    resourcesLoadedProjectId = null;
     resourceLoadPromise = null;
     document.getElementById('fv-builder').style.display = '';
     setInlineStatus('fv-resource-status', 'Loading builder data…', '');
 
-    // Workspace name
+    // Project name
     const sel = document.getElementById('fv-workspace-select');
     const opt = sel.querySelector(`option[value="${wsId}"]`);
     document.getElementById('fv-builder-ws-name').textContent = opt ? opt.textContent : wsId;
@@ -875,7 +875,7 @@ async function openWorkspace(wsId) {
 
     // Let background tasks settle without affecting first paint
     Promise.allSettled([resourceLoadPromise, shareTask]).then(function () {
-        if (!resourcesLoadedWorkspaceId) {
+        if (!resourcesLoadedProjectId) {
             setInlineStatus('fv-resource-status', 'Some linked lists are still unavailable. Open Add Tab again to retry.', 'warn');
         } else {
             setInlineStatus('fv-resource-status', '');
@@ -973,20 +973,20 @@ async function loadResources(wsId) {
     salesFlat360Views = values.salesflat360;
 
     if (failed.length) {
-        resourcesLoadedWorkspaceId = null;
+        resourcesLoadedProjectId = null;
         setInlineStatus('fv-resource-status', 'Some linked lists failed: ' + failed.map(function (x) { return x.label; }).join(', ') + '.', 'warn');
         return false;
     }
-    resourcesLoadedWorkspaceId = wsId;
+    resourcesLoadedProjectId = wsId;
     setInlineStatus('fv-resource-status', '');
     return true;
 }
 
 async function ensureResourcesLoaded() {
-    if (!currentWorkspaceId) return;
-    if (resourcesLoadedWorkspaceId === currentWorkspaceId) return;
+    if (!currentProjectId) return;
+    if (resourcesLoadedProjectId === currentProjectId) return;
     if (!resourceLoadPromise) {
-        resourceLoadPromise = loadResources(currentWorkspaceId).finally(function () {
+        resourceLoadPromise = loadResources(currentProjectId).finally(function () {
             resourceLoadPromise = null;
         });
     }
@@ -1432,11 +1432,11 @@ function fallbackTabName(type) {
 
 async function ensureCurrentConfigId() {
     if (currentConfigId) return currentConfigId;
-    if (!currentWorkspaceId) throw new Error('Please select a workspace first.');
-    const d = await apiFetch('/api/full-view/config?workspace_id=' + encodeURIComponent(currentWorkspaceId));
+    if (!currentProjectId) throw new Error('Please select a project first.');
+    const d = await apiFetch('/api/full-view/config?workspace_id=' + encodeURIComponent(currentProjectId));
     currentConfigId = (d && d.config && d.config.id) ? d.config.id : null;
     if (!currentConfigId) {
-        const created = await apiPost('/api/full-view/config', { workspace_id: currentWorkspaceId });
+        const created = await apiPost('/api/full-view/config', { workspace_id: currentProjectId });
         currentConfigId = (created && created.config && created.config.id) ? created.config.id : null;
     }
     if (!currentConfigId) throw new Error('Full View config is not ready. Please reopen the builder and try again.');
@@ -1522,7 +1522,7 @@ async function saveTab() {
             if (idx >= 0) currentTabs[idx] = r.tab;
         } else {
             body.config_id = await ensureCurrentConfigId();
-            body.workspace_id = currentWorkspaceId || null;
+            body.workspace_id = currentProjectId || null;
             body.sort_order = currentTabs.length;
             const r = await apiPost('/api/full-view/tabs', body);
             currentTabs.push(r.tab);
@@ -1587,7 +1587,7 @@ async function uploadFullViewIcon(file) {
     var headers = await authHeaders(false);
     var formData = new FormData();
     formData.append('file', file);
-    if (currentWorkspaceId) formData.append('workspace_id', currentWorkspaceId);
+    if (currentProjectId) formData.append('workspace_id', currentProjectId);
     var res = await fetch('/api/full-view/icon-upload', {
         method: 'POST',
         headers: headers,
@@ -1607,16 +1607,16 @@ async function uploadFullViewIcon(file) {
 /* ------------------------------------------------------------------ */
 function bindEvents() {
     function fullViewShellUrl() {
-        return currentWorkspaceId ? ('/customer/full-view/' + encodeURIComponent(currentWorkspaceId)) : null;
+        return currentProjectId ? ('/customer/full-view/' + encodeURIComponent(currentProjectId)) : null;
     }
 
-    // Workspace selector
+    // Project selector
     document.getElementById('fv-workspace-select').addEventListener('change', function () {
         document.getElementById('fv-init-btn').disabled = !this.value;
     });
     document.getElementById('fv-init-btn').addEventListener('click', function () {
         const wsId = document.getElementById('fv-workspace-select').value;
-        if (wsId) openWorkspace(wsId);
+        if (wsId) openProject(wsId);
     });
 
     // Active toggle
@@ -1645,8 +1645,8 @@ function bindEvents() {
 
     // Edit screen button
     document.getElementById('fv-edit-screen-btn').addEventListener('click', function () {
-        if (!currentWorkspaceId) return;
-        window.open('/customer/full-view/edit/' + encodeURIComponent(currentWorkspaceId), '_blank', 'noopener');
+        if (!currentProjectId) return;
+        window.open('/customer/full-view/edit/' + encodeURIComponent(currentProjectId), '_blank', 'noopener');
     });
 
     // Copy Link button
@@ -1684,7 +1684,7 @@ function bindEvents() {
     const headerPaddingInput = document.getElementById('fv-branding-header-padding');
     const modalPaddingInput = document.getElementById('fv-branding-modal-padding');
     document.getElementById('fv-logo-upload-btn').addEventListener('click', function () {
-        if (!currentWorkspaceId || !logoInput) return;
+        if (!currentProjectId || !logoInput) return;
         logoInput.click();
     });
     if (logoSizeInput) {
@@ -1835,7 +1835,7 @@ function bindEvents() {
         syncBrandingPreview('Removing logo...', null);
         try {
             await saveHeaderLogoUrl('');
-            syncBrandingPreview('Logo removed. The workspace name will remain in the header.', 'ok');
+            syncBrandingPreview('Logo removed. The Project name will remain in the header.', 'ok');
             setInlineStatus('fv-resource-status', 'Header logo removed.', 'ok');
         } catch (e) {
             const message = String((e && e.message) || 'Could not remove logo');

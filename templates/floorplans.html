@@ -13,7 +13,7 @@
     <div class="floorplans-main">
         <div class="fp-global-toolbar">
             <div class="fp-global-filter">
-                <label for="fp-global-workspace-filter">Select Workspace</label>
+                <label for="fp-global-workspace-filter">Select Project</label>
                 <select id="fp-global-workspace-filter" class="srm-select">
                     <option value="">All projects</option>
                 </select>
@@ -666,16 +666,16 @@
     var initialSalesTab = resolveInitialSalesTab();
     var pendingAuthLoads = Object.create(null);
     var salesTabManuallySelected = false;
-    var salesGlobalWorkspaces = [];
-    var salesWorkspaceNameMap = Object.create(null);
-    var salesGlobalWorkspaceId = resolveInitialWorkspaceFilter();
+    var salesGlobalProjects = [];
+    var salesProjectNameMap = Object.create(null);
+    var salesGlobalProjectId = resolveInitialProjectFilter();
     var salesGlobalSearchText = '';
 
     // Wait for sidebar auth then start
     window.sidebarReady.then(function(ctx) {
         accessToken = ctx.accessToken;
         bindGlobalFilters();
-        loadWorkspacesForModal();
+        loadProjectsForModal();
         if (!salesTabManuallySelected) {
             activateSalesTab(initialSalesTab);
         }
@@ -714,73 +714,73 @@
         });
     }
 
-    function normalizeWorkspaceList(data) {
+    function normalizeProjectList(data) {
         if (Array.isArray(data)) return data;
         if (data && Array.isArray(data.workspaces)) return data.workspaces;
         if (data && Array.isArray(data.projects)) return data.projects;
         return [];
     }
 
-    function resolveInitialWorkspaceFilter() {
+    function resolveInitialProjectFilter() {
         var qs = new URLSearchParams(window.location.search || '');
         return (qs.get('workspace_id') || qs.get('workspace') || '').trim();
     }
 
-    function buildWorkspaceNameMap(workspaces) {
-        salesWorkspaceNameMap = Object.create(null);
+    function buildProjectNameMap(workspaces) {
+        salesProjectNameMap = Object.create(null);
         (workspaces || []).forEach(function(ws) {
             var id = String(ws && ws.id ? ws.id : '').trim();
             if (!id) return;
-            salesWorkspaceNameMap[id] = ws.name || 'Project';
+            salesProjectNameMap[id] = ws.name || 'Project';
         });
     }
 
     function workspaceNameById(workspaceId) {
         var id = String(workspaceId || '').trim();
         if (!id) return '';
-        return salesWorkspaceNameMap[id] || '';
+        return salesProjectNameMap[id] || '';
     }
 
     function bindGlobalFilters() {
         var workspaceSel = document.getElementById('fp-global-workspace-filter');
 
         if (workspaceSel) {
-            workspaceSel.value = salesGlobalWorkspaceId || '';
+            workspaceSel.value = salesGlobalProjectId || '';
             workspaceSel.addEventListener('change', function() {
-                salesGlobalWorkspaceId = workspaceSel.value || '';
+                salesGlobalProjectId = workspaceSel.value || '';
                 applyGlobalFilters();
             });
         }
     }
 
-    function renderGlobalWorkspaceOptions() {
+    function renderGlobalProjectOptions() {
         var sel = document.getElementById('fp-global-workspace-filter');
         if (!sel) return;
         sel.innerHTML = '<option value="">All projects</option>';
-        salesGlobalWorkspaces.forEach(function(ws) {
+        salesGlobalProjects.forEach(function(ws) {
             var opt = document.createElement('option');
             opt.value = String(ws.id || '');
             opt.textContent = ws.name || 'Project';
             sel.appendChild(opt);
         });
-        if (salesGlobalWorkspaceId && !workspaceNameById(salesGlobalWorkspaceId)) {
-            salesGlobalWorkspaceId = '';
+        if (salesGlobalProjectId && !workspaceNameById(salesGlobalProjectId)) {
+            salesGlobalProjectId = '';
         }
-        sel.value = salesGlobalWorkspaceId || '';
+        sel.value = salesGlobalProjectId || '';
     }
 
-    function syncGlobalWorkspaceToLocalFilters() {
-        srmActiveWorkspaceId = salesGlobalWorkspaceId || '';
-        sf3ActiveWorkspaceId = salesGlobalWorkspaceId || '';
+    function syncGlobalProjectToLocalFilters() {
+        srmActiveProjectId = salesGlobalProjectId || '';
+        sf3ActiveProjectId = salesGlobalProjectId || '';
         var srmFilter = document.getElementById('srm-workspace-filter');
         var sf3Filter = document.getElementById('sf3-workspace-filter');
-        if (srmFilter) srmFilter.value = srmActiveWorkspaceId || '';
-        if (sf3Filter) sf3Filter.value = sf3ActiveWorkspaceId || '';
+        if (srmFilter) srmFilter.value = srmActiveProjectId || '';
+        if (sf3Filter) sf3Filter.value = sf3ActiveProjectId || '';
     }
 
     function updateSalesToolsUrlState() {
         var qs = new URLSearchParams(window.location.search || '');
-        if (salesGlobalWorkspaceId) qs.set('workspace_id', salesGlobalWorkspaceId);
+        if (salesGlobalProjectId) qs.set('workspace_id', salesGlobalProjectId);
         else qs.delete('workspace_id');
         qs.delete('q');
         qs.delete('search');
@@ -790,7 +790,7 @@
     }
 
     function applyGlobalFilters() {
-        syncGlobalWorkspaceToLocalFilters();
+        syncGlobalProjectToLocalFilters();
         updateSalesToolsUrlState();
         refreshDaynightEmbedFilters();
         if (fpLoaded && !currentCatalogue) loadCatalogues();
@@ -802,11 +802,11 @@
         if (galLoaded && !currentGallery) loadGalleries();
     }
 
-    function globalWorkspaceMatches(itemWorkspaceId) {
-        if (!salesGlobalWorkspaceId) return true;
-        if (itemWorkspaceId === undefined) return true;
-        if (itemWorkspaceId === null || itemWorkspaceId === '') return false;
-        return String(itemWorkspaceId) === String(salesGlobalWorkspaceId);
+    function globalProjectMatches(itemProjectId) {
+        if (!salesGlobalProjectId) return true;
+        if (itemProjectId === undefined) return true;
+        if (itemProjectId === null || itemProjectId === '') return false;
+        return String(itemProjectId) === String(salesGlobalProjectId);
     }
 
     function globalSearchMatches(values) {
@@ -821,19 +821,19 @@
         return false;
     }
 
-    function loadSalesGlobalWorkspaces() {
-        if (waitForAuthAndRetry('global-workspaces', loadSalesGlobalWorkspaces)) return Promise.resolve([]);
+    function loadSalesGlobalProjects() {
+        if (waitForAuthAndRetry('global-workspaces', loadSalesGlobalProjects)) return Promise.resolve([]);
         return apiJson('/api/workspaces', { headers: authHeaders() })
             .then(function(data) {
-                salesGlobalWorkspaces = normalizeWorkspaceList(data);
-                buildWorkspaceNameMap(salesGlobalWorkspaces);
-                renderGlobalWorkspaceOptions();
-                return salesGlobalWorkspaces;
+                salesGlobalProjects = normalizeProjectList(data);
+                buildProjectNameMap(salesGlobalProjects);
+                renderGlobalProjectOptions();
+                return salesGlobalProjects;
             })
             .catch(function() {
-                salesGlobalWorkspaces = [];
-                buildWorkspaceNameMap([]);
-                renderGlobalWorkspaceOptions();
+                salesGlobalProjects = [];
+                buildProjectNameMap([]);
+                renderGlobalProjectOptions();
                 return [];
             });
     }
@@ -844,7 +844,7 @@
 
     function loadCatalogues() {
         if (waitForAuthAndRetry('catalogues', loadCatalogues)) return;
-        var query = salesGlobalWorkspaceId ? ('?workspace_id=' + encodeURIComponent(salesGlobalWorkspaceId)) : '';
+        var query = salesGlobalProjectId ? ('?workspace_id=' + encodeURIComponent(salesGlobalProjectId)) : '';
         apiJson('/api/floorplans/catalogues' + query, { headers: authHeaders() })
             .then(function(data) {
                 catalogues = data;
@@ -863,7 +863,7 @@
         var grid = document.getElementById('fp-grid');
         var empty = document.getElementById('fp-empty');
         var visibleCatalogues = catalogues.filter(function(c) {
-            return globalWorkspaceMatches(c && c.workspace_id) &&
+            return globalProjectMatches(c && c.workspace_id) &&
                 globalSearchMatches([c && c.name, (c && c.item_names ? c.item_names.join(' ') : '')]);
         });
         if (loading) loading.style.display = 'none';
@@ -951,9 +951,9 @@
     // Create catalogue modal
     // ------------------------------------------------------------------
 
-    function loadWorkspacesForModal() {
-        if (waitForAuthAndRetry('workspace-options', loadWorkspacesForModal)) return;
-        return loadSalesGlobalWorkspaces()
+    function loadProjectsForModal() {
+        if (waitForAuthAndRetry('workspace-options', loadProjectsForModal)) return;
+        return loadSalesGlobalProjects()
             .then(function(workspaces) {
                 var selectors = [
                     document.getElementById('fp-cat-workspace'),
@@ -968,8 +968,8 @@
                     selectors.forEach(function(sel) {
                         sel.innerHTML = '<option value="">No projects found</option>';
                     });
-                    renderSrmWorkspaceOptions();
-                    renderSf3WorkspaceOptions();
+                    renderSrmProjectOptions();
+                    renderSf3ProjectOptions();
                     return;
                 }
                 var optionsHtml = workspaces.map(function(w) {
@@ -980,8 +980,8 @@
                     sel.innerHTML = (allowEmpty ? '<option value="">No project</option>' : '') + optionsHtml;
                 });
                 workspaceOptionsLoaded = true;
-                renderSrmWorkspaceOptions();
-                renderSf3WorkspaceOptions();
+                renderSrmProjectOptions();
+                renderSf3ProjectOptions();
             })
             .catch(function() {
                 workspaceOptionsLoaded = false;
@@ -989,8 +989,8 @@
                     var sel = document.getElementById(id);
                     if (sel) sel.innerHTML = '<option value="">Failed to load projects</option>';
                 });
-                renderSrmWorkspaceOptions();
-                renderSf3WorkspaceOptions();
+                renderSrmProjectOptions();
+                renderSf3ProjectOptions();
             });
     }
 
@@ -998,7 +998,7 @@
         showModal('fp-create-modal');
         document.getElementById('fp-create-error').style.display = 'none';
         var sel = document.getElementById('fp-cat-workspace');
-        if (sel && salesGlobalWorkspaceId) sel.value = salesGlobalWorkspaceId;
+        if (sel && salesGlobalProjectId) sel.value = salesGlobalProjectId;
     });
     document.getElementById('fp-modal-close').addEventListener('click', function() { hideModal('fp-create-modal'); });
     document.getElementById('fp-modal-cancel').addEventListener('click', function() { hideModal('fp-create-modal'); });
@@ -1417,12 +1417,12 @@
         }
         if (target === 'floorplans') {
             if (!fpLoaded) loadCatalogues();
-            if (!workspaceOptionsLoaded) loadWorkspacesForModal();
+            if (!workspaceOptionsLoaded) loadProjectsForModal();
             return;
         }
         if (target === 'building-maps') {
             if (!bmLoaded) loadBuildingMaps();
-            if (!workspaceOptionsLoaded) loadWorkspacesForModal();
+            if (!workspaceOptionsLoaded) loadProjectsForModal();
             return;
         }
         if (target === 'earth-views') {
@@ -1431,7 +1431,7 @@
         }
         if (target === 'project-plans') {
             if (!ppLoaded) loadProjectPlans();
-            if (!workspaceOptionsLoaded) loadWorkspacesForModal();
+            if (!workspaceOptionsLoaded) loadProjectsForModal();
             return;
         }
         if (target === 'route-maps') {
@@ -1444,7 +1444,7 @@
         }
         if (target === 'galleries') {
             if (!galLoaded) loadGalleries();
-            if (!workspaceOptionsLoaded) loadWorkspacesForModal();
+            if (!workspaceOptionsLoaded) loadProjectsForModal();
         }
     }
 
@@ -1452,7 +1452,7 @@
     function buildDaynightEmbedUrl() {
         var qs = new URLSearchParams();
         qs.set('embedded', '1');
-        if (salesGlobalWorkspaceId) qs.set('workspace_id', salesGlobalWorkspaceId);
+        if (salesGlobalProjectId) qs.set('workspace_id', salesGlobalProjectId);
         return '/daynight?' + qs.toString();
     }
 
@@ -1484,8 +1484,8 @@
     var srmEventsBound = false;
     var srmPendingAuthLoad = false;
     var srmMaps = [];
-    var srmWorkspaces = [];
-    var srmActiveWorkspaceId = salesGlobalWorkspaceId || '';
+    var srmProjects = [];
+    var srmActiveProjectId = salesGlobalProjectId || '';
 
     function loadSalesRouteMaps() {
         if (!accessToken) {
@@ -1503,7 +1503,7 @@
         bindSalesRouteMapEvents();
         var loading = document.getElementById('srm-loading');
         if (loading) loading.style.display = '';
-        loadSrmWorkspaces()
+        loadSrmProjects()
             .then(function() { return loadSrmMaps(); })
             .then(function() {
                 srmLoaded = true;
@@ -1536,7 +1536,7 @@
                 var wsInput = document.getElementById('srm-create-workspace');
                 if (nameInput) nameInput.value = 'Sales Route Map';
                 if (fileInput) fileInput.value = '';
-                if (wsInput) wsInput.value = srmActiveWorkspaceId || '';
+                if (wsInput) wsInput.value = srmActiveProjectId || '';
                 showModal('srm-create-modal');
             });
         }
@@ -1550,26 +1550,26 @@
         if (createSubmit) createSubmit.addEventListener('click', createSrmMap);
         if (workspaceFilter) {
             workspaceFilter.addEventListener('change', function() {
-                srmActiveWorkspaceId = workspaceFilter.value || '';
+                srmActiveProjectId = workspaceFilter.value || '';
                 loadSrmMaps();
             });
         }
     }
 
-    function loadSrmWorkspaces() {
-        return loadSalesGlobalWorkspaces()
+    function loadSrmProjects() {
+        return loadSalesGlobalProjects()
             .then(function(workspaces) {
-                srmWorkspaces = Array.isArray(workspaces) ? workspaces.slice() : [];
-                renderSrmWorkspaceOptions();
-                syncGlobalWorkspaceToLocalFilters();
+                srmProjects = Array.isArray(workspaces) ? workspaces.slice() : [];
+                renderSrmProjectOptions();
+                syncGlobalProjectToLocalFilters();
             })
             .catch(function() {
-                srmWorkspaces = [];
-                renderSrmWorkspaceOptions();
+                srmProjects = [];
+                renderSrmProjectOptions();
             });
     }
 
-    function renderSrmWorkspaceOptions() {
+    function renderSrmProjectOptions() {
         var filter = document.getElementById('srm-workspace-filter');
         var createSel = document.getElementById('srm-create-workspace');
         if (filter) {
@@ -1578,7 +1578,7 @@
         if (createSel) {
             createSel.innerHTML = '<option value="">Select project</option>';
         }
-        srmWorkspaces.forEach(function(ws) {
+        srmProjects.forEach(function(ws) {
             var name = ws.name || 'Project';
             if (filter) {
                 var optF = document.createElement('option');
@@ -1593,11 +1593,11 @@
                 createSel.appendChild(optC);
             }
         });
-        if (filter) filter.value = srmActiveWorkspaceId || '';
+        if (filter) filter.value = srmActiveProjectId || '';
     }
 
     function loadSrmMaps() {
-        var query = srmActiveWorkspaceId ? ('?workspace_id=' + encodeURIComponent(srmActiveWorkspaceId)) : '';
+        var query = srmActiveProjectId ? ('?workspace_id=' + encodeURIComponent(srmActiveProjectId)) : '';
         return apiJson('/api/sales-maps' + query, { headers: authHeaders() })
             .then(function(data) {
                 srmMaps = Array.isArray(data) ? data : [];
@@ -1613,7 +1613,7 @@
         var grid = document.getElementById('srm-grid');
         var empty = document.getElementById('srm-empty');
         var visibleMaps = srmMaps.filter(function(mapItem) {
-            return globalWorkspaceMatches(mapItem && mapItem.workspace_id) &&
+            return globalProjectMatches(mapItem && mapItem.workspace_id) &&
                 globalSearchMatches([mapItem && mapItem.name]);
         });
         if (!grid || !empty) return;
@@ -1776,8 +1776,8 @@
     var sf3EventsBound = false;
     var sf3PendingAuthLoad = false;
     var sf3Views = [];
-    var sf3Workspaces = [];
-    var sf3ActiveWorkspaceId = salesGlobalWorkspaceId || '';
+    var sf3Projects = [];
+    var sf3ActiveProjectId = salesGlobalProjectId || '';
 
     function loadSalesFlat360Views() {
         if (!accessToken) {
@@ -1795,7 +1795,7 @@
         bindSalesFlat360Events();
         var loading = document.getElementById('sf3-loading');
         if (loading) loading.style.display = '';
-        loadSf3Workspaces()
+        loadSf3Projects()
             .then(function() { return loadSf3Views(); })
             .then(function() {
                 sf3Loaded = true;
@@ -1828,7 +1828,7 @@
                 var wsInput = document.getElementById('sf3-create-workspace');
                 if (nameInput) nameInput.value = 'Sales 360 View';
                 if (fileInput) fileInput.value = '';
-                if (wsInput) wsInput.value = sf3ActiveWorkspaceId || '';
+                if (wsInput) wsInput.value = sf3ActiveProjectId || '';
                 showModal('sf3-create-modal');
             });
         }
@@ -1842,26 +1842,26 @@
         if (createSubmit) createSubmit.addEventListener('click', createSf3View);
         if (workspaceFilter) {
             workspaceFilter.addEventListener('change', function() {
-                sf3ActiveWorkspaceId = workspaceFilter.value || '';
+                sf3ActiveProjectId = workspaceFilter.value || '';
                 loadSf3Views();
             });
         }
     }
 
-    function loadSf3Workspaces() {
-        return loadSalesGlobalWorkspaces()
+    function loadSf3Projects() {
+        return loadSalesGlobalProjects()
             .then(function(workspaces) {
-                sf3Workspaces = Array.isArray(workspaces) ? workspaces.slice() : [];
-                renderSf3WorkspaceOptions();
-                syncGlobalWorkspaceToLocalFilters();
+                sf3Projects = Array.isArray(workspaces) ? workspaces.slice() : [];
+                renderSf3ProjectOptions();
+                syncGlobalProjectToLocalFilters();
             })
             .catch(function() {
-                sf3Workspaces = [];
-                renderSf3WorkspaceOptions();
+                sf3Projects = [];
+                renderSf3ProjectOptions();
             });
     }
 
-    function renderSf3WorkspaceOptions() {
+    function renderSf3ProjectOptions() {
         var filter = document.getElementById('sf3-workspace-filter');
         var createSel = document.getElementById('sf3-create-workspace');
         if (filter) {
@@ -1870,7 +1870,7 @@
         if (createSel) {
             createSel.innerHTML = '<option value="">Select project</option>';
         }
-        sf3Workspaces.forEach(function(ws) {
+        sf3Projects.forEach(function(ws) {
             var name = ws.name || 'Project';
             if (filter) {
                 var optF = document.createElement('option');
@@ -1885,11 +1885,11 @@
                 createSel.appendChild(optC);
             }
         });
-        if (filter) filter.value = sf3ActiveWorkspaceId || '';
+        if (filter) filter.value = sf3ActiveProjectId || '';
     }
 
     function loadSf3Views() {
-        var query = sf3ActiveWorkspaceId ? ('?workspace_id=' + encodeURIComponent(sf3ActiveWorkspaceId)) : '';
+        var query = sf3ActiveProjectId ? ('?workspace_id=' + encodeURIComponent(sf3ActiveProjectId)) : '';
         return apiJson('/api/sales-flat360' + query, { headers: authHeaders() })
             .then(function(data) {
                 sf3Views = Array.isArray(data) ? data : [];
@@ -1905,7 +1905,7 @@
         var grid = document.getElementById('sf3-grid');
         var empty = document.getElementById('sf3-empty');
         var visibleViews = sf3Views.filter(function(item) {
-            return globalWorkspaceMatches(item && item.workspace_id) &&
+            return globalProjectMatches(item && item.workspace_id) &&
                 globalSearchMatches([item && item.name]);
         });
         if (!grid || !empty) return;
@@ -2065,7 +2065,7 @@
 
     function loadBuildingMaps() {
         if (waitForAuthAndRetry('building-maps', loadBuildingMaps)) return;
-        var query = salesGlobalWorkspaceId ? ('?workspace_id=' + encodeURIComponent(salesGlobalWorkspaceId)) : '';
+        var query = salesGlobalProjectId ? ('?workspace_id=' + encodeURIComponent(salesGlobalProjectId)) : '';
         fetch('/api/building-maps' + query, { headers: authHeaders() })
             .then(function(r) {
                 if (!r.ok) throw new Error('Failed to load building maps');
@@ -2089,7 +2089,7 @@
         var empty = document.getElementById('bm-empty');
         var visibleMaps = buildingMaps.filter(function(m) {
             var workspaceName = workspaceNameById(m && m.workspace_id);
-            return globalWorkspaceMatches(m && m.workspace_id) &&
+            return globalProjectMatches(m && m.workspace_id) &&
                 globalSearchMatches([m && m.name, m && m.catalogue_name, workspaceName]);
         });
         if (loading) loading.style.display = 'none';
@@ -2208,7 +2208,7 @@
         bmClearPreview();
         populateBmCatalogueSelect();
         document.getElementById('bm-catalogue').value = '';
-        if (salesGlobalWorkspaceId) document.getElementById('bm-workspace').value = salesGlobalWorkspaceId;
+        if (salesGlobalProjectId) document.getElementById('bm-workspace').value = salesGlobalProjectId;
         document.getElementById('bm-create-error').style.display = 'none';
         document.getElementById('bm-upload-progress').style.display = 'none';
         showModal('bm-create-modal');
@@ -2288,7 +2288,7 @@
 
     function loadEarthViews() {
         if (waitForAuthAndRetry('earth-views', loadEarthViews)) return;
-        var query = salesGlobalWorkspaceId ? ('?workspace_id=' + encodeURIComponent(salesGlobalWorkspaceId)) : '';
+        var query = salesGlobalProjectId ? ('?workspace_id=' + encodeURIComponent(salesGlobalProjectId)) : '';
         fetch('/api/earth-views' + query, { headers: authHeaders() })
             .then(function(r) {
                 if (!r.ok) throw new Error('Failed to load earth views');
@@ -2312,7 +2312,7 @@
         var empty = document.getElementById('ev-empty');
         var visibleViews = earthViews.filter(function(v) {
             var workspaceName = workspaceNameById(v && v.workspace_id);
-            return globalWorkspaceMatches(v && v.workspace_id) &&
+            return globalProjectMatches(v && v.workspace_id) &&
                 globalSearchMatches([v && v.name, workspaceName]);
         });
         if (loading) loading.style.display = 'none';
@@ -2380,7 +2380,7 @@
 
     document.getElementById('new-ev-btn').addEventListener('click', function() {
         document.getElementById('ev-name').value = 'Earth View';
-        if (salesGlobalWorkspaceId) document.getElementById('ev-workspace').value = salesGlobalWorkspaceId;
+        if (salesGlobalProjectId) document.getElementById('ev-workspace').value = salesGlobalProjectId;
         document.getElementById('ev-create-error').style.display = 'none';
         showModal('ev-create-modal');
     });
@@ -2442,7 +2442,7 @@
 
     function loadProjectPlans() {
         if (waitForAuthAndRetry('project-plans', loadProjectPlans)) return;
-        var query = salesGlobalWorkspaceId ? ('?workspace_id=' + encodeURIComponent(salesGlobalWorkspaceId)) : '';
+        var query = salesGlobalProjectId ? ('?workspace_id=' + encodeURIComponent(salesGlobalProjectId)) : '';
         fetch('/api/project-plans' + query, { headers: authHeaders() })
             .then(function(r) {
                 if (!r.ok) throw new Error('Failed to load project plans');
@@ -2467,7 +2467,7 @@
         var manage = document.getElementById('pp-manage');
         var visiblePlans = projectPlans.filter(function(p) {
             var workspaceName = workspaceNameById(p && p.workspace_id);
-            return globalWorkspaceMatches(p && p.workspace_id) &&
+            return globalProjectMatches(p && p.workspace_id) &&
                 globalSearchMatches([p && p.name, (p && p.map_names ? p.map_names.join(' ') : ''), workspaceName]);
         });
         if (loading) loading.style.display = 'none';
@@ -2549,7 +2549,7 @@
     // Create project plan
     document.getElementById('new-pp-btn').addEventListener('click', function() {
         document.getElementById('pp-name').value = 'Project Plan';
-        if (salesGlobalWorkspaceId) document.getElementById('pp-workspace').value = salesGlobalWorkspaceId;
+        if (salesGlobalProjectId) document.getElementById('pp-workspace').value = salesGlobalProjectId;
         document.getElementById('pp-create-error').style.display = 'none';
         showModal('pp-create-modal');
     });
@@ -2736,7 +2736,7 @@
 
     function loadGalleries() {
         if (waitForAuthAndRetry('galleries', loadGalleries)) return;
-        var query = salesGlobalWorkspaceId ? ('?workspace_id=' + encodeURIComponent(salesGlobalWorkspaceId)) : '';
+        var query = salesGlobalProjectId ? ('?workspace_id=' + encodeURIComponent(salesGlobalProjectId)) : '';
         fetch('/api/galleries' + query, { headers: authHeaders() })
             .then(function(r) {
                 if (!r.ok) throw new Error('Failed to load galleries');
@@ -2760,7 +2760,7 @@
         var empty = document.getElementById('gal-empty');
         var visibleGalleries = galleries.filter(function(g) {
             var workspaceName = workspaceNameById(g && g.workspace_id);
-            return globalWorkspaceMatches(g && g.workspace_id) &&
+            return globalProjectMatches(g && g.workspace_id) &&
                 globalSearchMatches([g && g.name, (g && g.item_names ? g.item_names.join(' ') : ''), workspaceName]);
         });
         if (loading) loading.style.display = 'none';
@@ -2849,7 +2849,7 @@
     // Create gallery
     document.getElementById('new-gal-btn').addEventListener('click', function() {
         document.getElementById('gal-name').value = 'Gallery';
-        if (salesGlobalWorkspaceId) document.getElementById('gal-workspace').value = salesGlobalWorkspaceId;
+        if (salesGlobalProjectId) document.getElementById('gal-workspace').value = salesGlobalProjectId;
         document.getElementById('gal-create-error').style.display = 'none';
         showModal('gal-create-modal');
     });

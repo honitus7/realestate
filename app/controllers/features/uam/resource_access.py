@@ -30,7 +30,7 @@ def register_uam_resource_access_routes(app):
                 return _ws_error_response()
             return jsonify({'error': str(e)}), 500
         if not workspace:
-            return jsonify({'error': 'Workspace not found'}), 404
+            return jsonify({'error': 'Project not found'}), 404
         if not can_manage_workspace(sb, workspace, user_id, role):
             return jsonify({'error': 'Only owner or admin can list access'}), 403
         try:
@@ -75,7 +75,7 @@ def register_uam_resource_access_routes(app):
                 return _ws_error_response()
             return jsonify({'error': str(e)}), 500
         if not workspace:
-            return jsonify({'error': 'Workspace not found'}), 404
+            return jsonify({'error': 'Project not found'}), 404
         if not can_manage_workspace(sb, workspace, user_id, role):
             return jsonify({'error': 'Only owner or admin can grant access'}), 403
         workspace_org = workspace.get('org_id')
@@ -114,7 +114,7 @@ def register_uam_resource_access_routes(app):
                 return _ws_error_response()
             return jsonify({'error': str(e)}), 500
         if not workspace:
-            return jsonify({'error': 'Workspace not found'}), 404
+            return jsonify({'error': 'Project not found'}), 404
         if not can_manage_workspace(sb, workspace, user_id, role):
             return jsonify({'error': 'Only owner or admin can revoke access'}), 403
         try:

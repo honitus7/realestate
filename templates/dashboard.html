@@ -62,7 +62,7 @@
                         </div>
                     </div>
                 </aside>
-                <section class="dashboard-projects-col" aria-label="Projects">
+                <section class="dashboard-projects-col" aria-label="projects">
                     <h2 class="dashboard-section-title">360° Pano List</h2>
                     <div class="dashboard-projects-scroll">
                         <div id="projects-container" class="projects-container-transition">
@@ -208,7 +208,7 @@
         </div>
     </div>
 
-    <!-- Create Workspace Modal -->
+    <!-- Create Project Modal -->
     <div class="modal-backdrop" id="create-workspace-modal">
         <div class="modal" style="max-width: 640px; max-height: 90vh; overflow-y: auto;">
             <div class="modal-title">Create Project</div>
@@ -304,11 +304,11 @@
         </div>
     </div>
 
-    <!-- Rename Workspace Modal -->
+    <!-- Rename Project Modal -->
     <div class="modal-backdrop" id="rename-workspace-modal">
         <div class="modal">
             <div class="modal-title">Rename Folder</div>
-            <div class="modal-text" style="margin-bottom: 1rem;">Enter a new workspace folder name.</div>
+            <div class="modal-text" style="margin-bottom: 1rem;">Enter a new project folder name.</div>
             <div class="form-group" style="margin-bottom: 1rem;">
                 <label class="form-label" for="workspace-rename-input">Folder name</label>
                 <input type="text" id="workspace-rename-input" class="form-input" maxlength="120" placeholder="Folder name">
@@ -321,7 +321,7 @@
         </div>
     </div>
 
-    <!-- Delete Workspace Modal -->
+    <!-- Delete Project Modal -->
     <div class="modal-backdrop" id="delete-workspace-modal">
         <div class="modal">
             <div class="modal-title">Delete Folder?</div>
@@ -414,16 +414,16 @@
     </script>
     <script src="/static/js/sidebar.js"></script>
     <script>
-        // Plotted Development-specific init: waits for sidebar auth to complete
-        (function () {
-        var supabase = window._supabase;
-        if (!supabase) return;
-
         function setDashboardBooting(isBooting) {
             var page = document.getElementById('dashboard-page');
             if (!page) return;
             page.classList.toggle('dashboard-page--booting', !!isBooting);
         }
+
+        // Plotted Development-specific init: waits for sidebar auth to complete
+        (function () {
+        var supabase = window._supabase;
+        if (!supabase) return;
 
         window.sidebarReady.then(function (ctx) {
             currentUserRole = ctx.role;
@@ -435,6 +435,11 @@
             }
             try { if (window.applyOrgTheme) window.applyOrgTheme(); } catch (e) { }
             try { updateCrmNavVisibility(); } catch (e) { }
+            if (dashboardInitStarted) {
+                try { renderWorkspaces(); } catch (e) { }
+                try { renderProjects(); } catch (e) { }
+                try { renderRecents(); } catch (e) { }
+            }
             setDashboardBooting(false);
             startDashboardOnce();
         }).catch(function () {
@@ -515,7 +520,7 @@
                             }
                         });
                         // Pre-select the currently active folder
-                        var activeWsId = getSelectedOwnedWorkspaceId();
+                        var activeWsId = getSelectedOwnedProjectId();
                         wsSelect.value = activeWsId || '';
                     }
                     uploadModal.classList.add('visible');
@@ -541,7 +546,7 @@
             var _searchDebounceTimer = null;
             function onSearchOrFilterChange() {
                 if (typeof renderRecents === 'function') renderRecents();
-                if (typeof renderProjects === 'function') renderProjects();
+                if (typeof renderWorkspaces === 'function') renderWorkspaces();
             }
             function onSearchInputDebounced() {
                 clearTimeout(_searchDebounceTimer);
@@ -725,7 +730,7 @@
         let projects = [];
         let workspaces = [];
         let clientOptions = [];
-        let selectedWorkspaceKey = 'unfiled';
+        let selectedProjectKey = 'unfiled';
         let selectedFile = null;
         let selectedImageWidth = 0;
         let selectedImageHeight = 0;
@@ -733,13 +738,13 @@
         let selectedFiles = []; // multi-file: [{file, name, width, height, is360, objectUrl}]
         let deleteTargetId = null;
         let renameTargetId = null;
-        let renameWorkspaceTargetId = null;
-        let deleteWorkspaceTargetId = null;
-        let shareWorkspaceTargetId = null;
-        let currentWorkspaceShareData = null;
-        let currentWorkspaceReferralShareData = null;
+        let renameProjectTargetId = null;
+        let deleteProjectTargetId = null;
+        let shareProjectTargetId = null;
+        let currentProjectShareData = null;
+        let currentProjectReferralShareData = null;
         let draggingPanoramaId = null;
-        let workspaceFeatureReady = true;
+        let projectFeatureReady = true;
         let projectsLoadFailed = false;
         let currentUserRole = '';
         let orgSlug = '';
@@ -764,9 +769,9 @@
         const multiCancelUpload = document.getElementById('multi-cancel-upload');
         const multiAll360 = document.getElementById('multi-all-360');
         const projectsContainer = document.getElementById('projects-container');
-        const workspaceList = document.getElementById('workspace-list');
+        const projectList = document.getElementById('workspace-list');
         const filterClientSelect = document.getElementById('filter-client');
-        const createWorkspaceBtn = document.getElementById('create-workspace-btn');
+        const createProjectBtn = document.getElementById('create-workspace-btn');
         const deleteModal = document.getElementById('delete-modal');
         const cancelDelete = document.getElementById('cancel-delete');
         const confirmDelete = document.getElementById('confirm-delete');
@@ -780,32 +785,32 @@
         const confirmRename = document.getElementById('confirm-rename');
         const renameProjectInput = document.getElementById('rename-project-input');
         const renameProjectError = document.getElementById('rename-project-error');
-        const createWorkspaceModal = document.getElementById('create-workspace-modal');
-        const workspaceNameInput = document.getElementById('workspace-name-input');
-        const workspaceCreateError = document.getElementById('workspace-create-error');
-        const cancelCreateWorkspace = document.getElementById('cancel-create-workspace');
-        const confirmCreateWorkspace = document.getElementById('confirm-create-workspace');
-        const renameWorkspaceModal = document.getElementById('rename-workspace-modal');
-        const workspaceRenameInput = document.getElementById('workspace-rename-input');
-        const workspaceRenameError = document.getElementById('workspace-rename-error');
-        const cancelRenameWorkspace = document.getElementById('cancel-rename-workspace');
-        const confirmRenameWorkspace = document.getElementById('confirm-rename-workspace');
-        const deleteWorkspaceModal = document.getElementById('delete-workspace-modal');
-        const workspaceDeleteError = document.getElementById('workspace-delete-error');
-        const cancelDeleteWorkspace = document.getElementById('cancel-delete-workspace');
-        const confirmDeleteWorkspace = document.getElementById('confirm-delete-workspace');
-        const shareWorkspaceModal = document.getElementById('share-workspace-modal');
-        const workspaceDefaultShareLink = document.getElementById('workspace-default-share-link');
-        const workspaceCustomEndpointInput = document.getElementById('workspace-custom-endpoint-input');
+        const createProjectModal = document.getElementById('create-workspace-modal');
+        const projectNameInput = document.getElementById('workspace-name-input');
+        const projectCreateError = document.getElementById('workspace-create-error');
+        const cancelCreateProject = document.getElementById('cancel-create-workspace');
+        const confirmCreateProject = document.getElementById('confirm-create-workspace');
+        const renameProjectModal = document.getElementById('rename-workspace-modal');
+        const projectRenameInput = document.getElementById('workspace-rename-input');
+        const projectRenameError = document.getElementById('workspace-rename-error');
+        const cancelRenameProject = document.getElementById('cancel-rename-workspace');
+        const confirmRenameProject = document.getElementById('confirm-rename-workspace');
+        const deleteProjectModal = document.getElementById('delete-workspace-modal');
+        const projectDeleteError = document.getElementById('workspace-delete-error');
+        const cancelDeleteProject = document.getElementById('cancel-delete-workspace');
+        const confirmDeleteProject = document.getElementById('confirm-delete-workspace');
+        const shareProjectModal = document.getElementById('share-workspace-modal');
+        const projectDefaultShareLink = document.getElementById('workspace-default-share-link');
+        const projectCustomEndpointInput = document.getElementById('workspace-custom-endpoint-input');
         const checkCustomEndpointBtn = document.getElementById('check-custom-endpoint-btn');
-        const workspaceShareStatus = document.getElementById('workspace-share-status');
-        const workspaceEffectiveShareLink = document.getElementById('workspace-effective-share-link');
-        const workspaceReferralShareGroup = document.getElementById('workspace-referral-share-group');
-        const workspaceReferralShareLink = document.getElementById('workspace-referral-share-link');
-        const workspaceReferralShareMeta = document.getElementById('workspace-referral-share-meta');
-        const workspaceShareError = document.getElementById('workspace-share-error');
-        const cancelShareWorkspace = document.getElementById('cancel-share-workspace');
-        const saveShareWorkspace = document.getElementById('save-share-workspace');
+        const projectShareStatus = document.getElementById('workspace-share-status');
+        const projectEffectiveShareLink = document.getElementById('workspace-effective-share-link');
+        const projectReferralShareGroup = document.getElementById('workspace-referral-share-group');
+        const projectReferralShareLink = document.getElementById('workspace-referral-share-link');
+        const projectReferralShareMeta = document.getElementById('workspace-referral-share-meta');
+        const projectShareError = document.getElementById('workspace-share-error');
+        const cancelShareProject = document.getElementById('cancel-share-workspace');
+        const saveShareProject = document.getElementById('save-share-workspace');
         const copyDefaultShareLink = document.getElementById('copy-default-share-link');
         const copyEffectiveShareLink = document.getElementById('copy-effective-share-link');
         const copyReferralShareLink = document.getElementById('copy-referral-share-link');
@@ -854,27 +859,27 @@
             return list;
         }
 
-        function getWorkspaceById(workspaceId) {
-            if (!workspaceId) return null;
-            return workspaces.find(function (w) { return String(w.id) === String(workspaceId); }) || null;
+        function getProjectById(ProjectId) {
+            if (!ProjectId) return null;
+            return workspaces.find(function (w) { return String(w.id) === String(ProjectId); }) || null;
         }
 
-        function getMainPanoramaIdForWorkspace(workspaceId) {
-            var ws = getWorkspaceById(workspaceId);
+        function getMainPanoramaIdForProject(ProjectId) {
+            var ws = getProjectById(ProjectId);
             if (ws && ws.main_panorama_id) return parseInt(ws.main_panorama_id, 10);
-            var inWorkspace = projects.filter(function (p) { return String(p.workspace_id || '') === String(workspaceId); });
-            var first360 = inWorkspace.find(function (p) { return Boolean(p.is_360); });
+            var inProject = projects.filter(function (p) { return String(p.workspace_id || '') === String(ProjectId); });
+            var first360 = inProject.find(function (p) { return Boolean(p.is_360); });
             return first360 ? parseInt(first360.id, 10) : null;
         }
 
         async function setAsMain(projectId, event) {
             if (event) event.stopPropagation();
-            var workspaceId = getSelectedOwnedWorkspaceId();
-            if (!workspaceId) return;
+            var ProjectId = getSelectedOwnedProjectId();
+            if (!ProjectId) return;
             try {
                 var headers = await getAuthHeaders();
                 headers['Content-Type'] = 'application/json';
-                var res = await fetch('/api/workspaces/' + encodeURIComponent(workspaceId), {
+                var res = await fetch('/api/workspaces/' + encodeURIComponent(ProjectId), {
                     method: 'PATCH',
                     headers: headers,
                     body: JSON.stringify({ main_panorama_id: parseInt(projectId, 10) })
@@ -886,7 +891,7 @@
                 }
                 var data = await res.json();
                 if (data.workspace) {
-                    var idx = workspaces.findIndex(function (w) { return String(w.id) === String(workspaceId); });
+                    var idx = workspaces.findIndex(function (w) { return String(w.id) === String(ProjectId); });
                     if (idx >= 0) workspaces[idx] = data.workspace;
                 }
                 renderWorkspaces();
@@ -897,35 +902,35 @@
             }
         }
 
-        function getSelectedOwnedWorkspaceId() {
-            if (!selectedWorkspaceKey || selectedWorkspaceKey.indexOf('ws:') !== 0) return null;
-            var workspaceId = selectedWorkspaceKey.slice(3);
-            var ws = getWorkspaceById(workspaceId);
+        function getSelectedOwnedProjectId() {
+            if (!selectedProjectKey || selectedProjectKey.indexOf('ws:') !== 0) return null;
+            var ProjectId = selectedProjectKey.slice(3);
+            var ws = getProjectById(ProjectId);
             if (!ws) return null;
-            return (ws.access_type === 'owner') ? workspaceId : null;
+            return (ws.access_type === 'owner') ? ProjectId : null;
         }
 
         function getVisibleProjects() {
-            if (selectedWorkspaceKey === 'unfiled') {
+            if (selectedProjectKey === 'unfiled') {
                 return projects.filter(function (p) { return !p.workspace_id; });
             }
-            if (selectedWorkspaceKey.indexOf('ws:') === 0) {
-                var workspaceId = selectedWorkspaceKey.slice(3);
-                return projects.filter(function (p) { return String(p.workspace_id || '') === String(workspaceId); });
+            if (selectedProjectKey.indexOf('ws:') === 0) {
+                var ProjectId = selectedProjectKey.slice(3);
+                return projects.filter(function (p) { return String(p.workspace_id || '') === String(ProjectId); });
             }
             return projects.slice();
         }
 
-        function setWorkspaceSelection(key) {
-            selectedWorkspaceKey = key || 'unfiled';
+        function setProjectSelection(key) {
+            selectedProjectKey = key || 'unfiled';
             renderWorkspaces();
             renderProjects();
         }
 
         function renderWorkspaces() {
-            if (!workspaceList) return;
-            if (!workspaceFeatureReady) {
-                workspaceList.innerHTML = '<div class="empty-state" style="padding:0.8rem;"><div class="empty-text">Workspace schema required</div><div class="empty-hint">Run db/schema.sql in Supabase SQL Editor</div></div>';
+            if (!projectList) return;
+            if (!projectFeatureReady) {
+                projectList.innerHTML = '<div class="empty-state" style="padding:0.8rem;"><div class="empty-text">Project schema required</div><div class="empty-hint">Run db/schema.sql in Supabase SQL Editor</div></div>';
                 return;
             }
 
@@ -936,102 +941,102 @@
                 return ids.indexOf(clientFilter) >= 0;
             });
             var unfiledCount = countSource.filter(function (p) { return !p.workspace_id; }).length;
-            var countByWorkspace = {};
+            var countByProject = {};
             countSource.forEach(function (p) {
                 if (!p.workspace_id) return;
                 var key = String(p.workspace_id);
-                countByWorkspace[key] = (countByWorkspace[key] || 0) + 1;
+                countByProject[key] = (countByProject[key] || 0) + 1;
             });
 
             var items = '';
 
-            items += '<div class="folder-card folder-card--system ' + (selectedWorkspaceKey === 'unfiled' ? 'active' : '') + '" onclick="setWorkspaceSelection(\'unfiled\')" ondragover="onWorkspaceDragOver(event)" ondragleave="onWorkspaceDragLeave(event)" ondrop="onWorkspaceDrop(event,\'unfiled\')">';
+            items += '<div class="folder-card folder-card--system ' + (selectedProjectKey === 'unfiled' ? 'active' : '') + '" onclick="setProjectSelection(\'unfiled\')" ondragover="onProjectDragOver(event)" ondragleave="onProjectDragLeave(event)" ondrop="onProjectDrop(event,\'unfiled\')">';
             items += '<div class="folder-card-head"><span class="folder-card-title"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:6px;opacity:0.7"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>Unlinked Panoramas</span><span class="folder-card-count">' + unfiledCount + '</span></div>';
             items += '<p class="folder-card-subtitle">Not assigned to any project</p>';
             items += '</div>';
 
             workspaces.forEach(function (ws) {
-                var workspaceId = String(ws.id);
-                var wsKey = 'ws:' + workspaceId;
+                var ProjectId = String(ws.id);
+                var wsKey = 'ws:' + ProjectId;
                 var isOwner = String(ws.access_type || 'owner') === 'owner';
-                var count = countByWorkspace[workspaceId] || 0;
+                var count = countByProject[ProjectId] || 0;
                 if (!isOwner && count === 0) return;
                 var isDashboardAdmin = currentUserRole === 'admin' || currentUserRole === 'superadmin';
-                var dragDropAttr = (isOwner && isDashboardAdmin) ? ' ondragover="onWorkspaceDragOver(event)" ondragleave="onWorkspaceDragLeave(event)" ondrop="onWorkspaceDrop(event,\'' + wsKey + '\')"' : '';
-                items += '<div class="folder-card folder-card--owned ' + (selectedWorkspaceKey === wsKey ? 'active' : '') + '" onclick="setWorkspaceSelection(\'' + wsKey + '\')"' + dragDropAttr + '>';
-                items += '<div class="folder-card-head"><span class="folder-card-title">' + escapeHtml(ws.name || 'Workspace') + '</span><span class="folder-card-count">' + count + '</span></div>';
+                var dragDropAttr = (isOwner && isDashboardAdmin) ? ' ondragover="onProjectDragOver(event)" ondragleave="onProjectDragLeave(event)" ondrop="onProjectDrop(event,\'' + wsKey + '\')"' : '';
+                items += '<div class="folder-card folder-card--owned ' + (selectedProjectKey === wsKey ? 'active' : '') + '" onclick="setProjectSelection(\'' + wsKey + '\')"' + dragDropAttr + '>';
+                items += '<div class="folder-card-head"><span class="folder-card-title">' + escapeHtml(ws.name || 'Project') + '</span><span class="folder-card-count">' + count + '</span></div>';
                 items += '<p class="folder-card-subtitle">' + (isOwner ? 'Owned folder' : ('Shared: ' + escapeHtml(ws.access_type || 'viewer'))) + '</p>';
                 var isClient = String(ws.access_type || '') === 'client';
                 var isBroker = String(ws.access_type || '') === 'broker';
-                var hasMainPano = !!getMainPanoramaIdForWorkspace(workspaceId);
+                var hasMainPano = !!getMainPanoramaIdForProject(ProjectId);
                 if ((isOwner && isDashboardAdmin) || isClient || isBroker) {
                     items += '<div class="folder-card-actions">';
                     if (hasMainPano) {
                         if (isOwner && isDashboardAdmin) {
-                            items += '<button type="button" class="folder-card-btn" onclick="event.stopPropagation(); window.location.href=\'/customer/edit/' + workspaceId + '\'">Set Customer View</button>';
+                            items += '<button type="button" class="folder-card-btn" onclick="event.stopPropagation(); window.location.href=\'/customer/edit/' + ProjectId + '\'">Set Customer View</button>';
                         }
-                        items += '<button type="button" class="folder-card-btn" onclick="event.stopPropagation(); showWorkspaceShareModal(\'' + workspaceId + '\')">Share Customer Link</button>';
+                        items += '<button type="button" class="folder-card-btn" onclick="event.stopPropagation(); showProjectShareModal(\'' + ProjectId + '\')">Share Customer Link</button>';
                     }
                     if (isOwner && isDashboardAdmin) {
-                        items += '<button type="button" class="folder-card-btn" onclick="event.stopPropagation(); window.location.href=\'/workspace/' + workspaceId + '/access\'">Manage access</button>';
-                        items += '<button type="button" class="folder-card-btn" onclick="event.stopPropagation(); showRenameWorkspaceModal(\'' + workspaceId + '\')">Rename</button>';
-                        items += '<button type="button" class="folder-card-btn folder-card-btn--danger" onclick="event.stopPropagation(); showDeleteWorkspaceModal(\'' + workspaceId + '\')">Delete</button>';
+                        items += '<button type="button" class="folder-card-btn" onclick="event.stopPropagation(); window.location.href=\'/workspace/' + ProjectId + '/access\'">Manage access</button>';
+                        items += '<button type="button" class="folder-card-btn" onclick="event.stopPropagation(); showRenameProjectModal(\'' + ProjectId + '\')">Rename</button>';
+                        items += '<button type="button" class="folder-card-btn folder-card-btn--danger" onclick="event.stopPropagation(); showDeleteProjectModal(\'' + ProjectId + '\')">Delete</button>';
                     }
                     items += '</div>';
                 }
                 items += '</div>';
             });
 
-            workspaceList.innerHTML = items;
+            projectList.innerHTML = items;
         }
 
-        function showWorkspaceCreateError(message) {
-            if (!workspaceCreateError) return;
-            workspaceCreateError.textContent = message || '';
-            workspaceCreateError.style.display = message ? 'block' : 'none';
+        function showProjectCreateError(message) {
+            if (!projectCreateError) return;
+            projectCreateError.textContent = message || '';
+            projectCreateError.style.display = message ? 'block' : 'none';
         }
 
-        function showWorkspaceRenameError(message) {
-            if (!workspaceRenameError) return;
-            workspaceRenameError.textContent = message || '';
-            workspaceRenameError.style.display = message ? 'block' : 'none';
+        function showProjectRenameError(message) {
+            if (!projectRenameError) return;
+            projectRenameError.textContent = message || '';
+            projectRenameError.style.display = message ? 'block' : 'none';
         }
 
-        function showWorkspaceDeleteError(message) {
-            if (!workspaceDeleteError) return;
-            workspaceDeleteError.textContent = message || '';
-            workspaceDeleteError.style.display = message ? 'block' : 'none';
+        function showProjectDeleteError(message) {
+            if (!projectDeleteError) return;
+            projectDeleteError.textContent = message || '';
+            projectDeleteError.style.display = message ? 'block' : 'none';
         }
 
-        function showWorkspaceShareError(message) {
-            if (!workspaceShareError) return;
-            workspaceShareError.textContent = message || '';
-            workspaceShareError.style.display = message ? 'block' : 'none';
+        function showProjectShareError(message) {
+            if (!projectShareError) return;
+            projectShareError.textContent = message || '';
+            projectShareError.style.display = message ? 'block' : 'none';
         }
 
-        function showWorkspaceShareStatus(message, type) {
-            if (!workspaceShareStatus) return;
-            workspaceShareStatus.textContent = message || '';
-            workspaceShareStatus.className = 'workspace-share-status ' + (type || '');
-            workspaceShareStatus.style.display = message ? 'block' : 'none';
+        function showProjectShareStatus(message, type) {
+            if (!projectShareStatus) return;
+            projectShareStatus.textContent = message || '';
+            projectShareStatus.className = 'workspace-share-status ' + (type || '');
+            projectShareStatus.style.display = message ? 'block' : 'none';
         }
 
         function normalizeEndpointInput(value) {
             return String(value || '').trim().toLowerCase().replace(/[^a-z0-9-]+/g, '-').replace(/-+/g, '-').replace(/^-+|-+$/g, '');
         }
 
-        function setWorkspaceShareData(share) {
-            currentWorkspaceShareData = share || null;
-            if (workspaceDefaultShareLink) workspaceDefaultShareLink.value = (share && share.default_url) ? share.default_url : '';
-            if (workspaceEffectiveShareLink) workspaceEffectiveShareLink.value = (share && share.effective_url) ? share.effective_url : '';
-            if (workspaceCustomEndpointInput) workspaceCustomEndpointInput.value = (share && share.custom_endpoint) ? share.custom_endpoint : '';
+        function setProjectShareData(share) {
+            currentProjectShareData = share || null;
+            if (projectDefaultShareLink) projectDefaultShareLink.value = (share && share.default_url) ? share.default_url : '';
+            if (projectEffectiveShareLink) projectEffectiveShareLink.value = (share && share.effective_url) ? share.effective_url : '';
+            if (projectCustomEndpointInput) projectCustomEndpointInput.value = (share && share.custom_endpoint) ? share.custom_endpoint : '';
         }
 
-        function setWorkspaceReferralShareData(referral) {
-            currentWorkspaceReferralShareData = referral || null;
-            if (workspaceReferralShareLink) workspaceReferralShareLink.value = (referral && referral.url) ? referral.url : '';
-            if (workspaceReferralShareMeta) workspaceReferralShareMeta.textContent = (referral && referral.meta) ? referral.meta : '';
-            if (workspaceReferralShareGroup) workspaceReferralShareGroup.style.display = (referral && referral.url) ? 'block' : 'none';
+        function setProjectReferralShareData(referral) {
+            currentProjectReferralShareData = referral || null;
+            if (projectReferralShareLink) projectReferralShareLink.value = (referral && referral.url) ? referral.url : '';
+            if (projectReferralShareMeta) projectReferralShareMeta.textContent = (referral && referral.meta) ? referral.meta : '';
+            if (projectReferralShareGroup) projectReferralShareGroup.style.display = (referral && referral.url) ? 'block' : 'none';
         }
 
         function buildShareUrlWithReference(baseUrl, referenceUserId) {
@@ -1056,19 +1061,19 @@
             });
         }
 
-        async function refreshWorkspaceReferralShareData(workspaceId) {
-            setWorkspaceReferralShareData(null);
+        async function refreshProjectReferralShareData(ProjectId) {
+            setProjectReferralShareData(null);
             var baseShareUrl = '';
-            if (currentWorkspaceShareData && currentWorkspaceShareData.effective_url) {
-                baseShareUrl = String(currentWorkspaceShareData.effective_url || '').trim();
-            } else if (currentWorkspaceShareData && currentWorkspaceShareData.default_url) {
-                baseShareUrl = String(currentWorkspaceShareData.default_url || '').trim();
+            if (currentProjectShareData && currentProjectShareData.effective_url) {
+                baseShareUrl = String(currentProjectShareData.effective_url || '').trim();
+            } else if (currentProjectShareData && currentProjectShareData.default_url) {
+                baseShareUrl = String(currentProjectShareData.default_url || '').trim();
             }
-            if (!workspaceId || !baseShareUrl) return;
+            if (!ProjectId || !baseShareUrl) return;
             try {
                 var sessionUserId = await getCurrentSessionUserId();
                 if (!sessionUserId) return;
-                var response = await fetch('/api/public/workspaces/' + encodeURIComponent(workspaceId) + '/reference-users');
+                var response = await fetch('/api/public/workspaces/' + encodeURIComponent(ProjectId) + '/reference-users');
                 var payload = await response.json().catch(function () { return {}; });
                 if (!response.ok) return;
                 var rows = Array.isArray(payload && payload.reference_users) ? payload.reference_users : [];
@@ -1080,25 +1085,25 @@
                     : [];
                 var meta = roleLabel;
                 if (groupNames.length) meta += ' for ' + groupNames.join(', ');
-                setWorkspaceReferralShareData({
+                setProjectReferralShareData({
                     url: buildShareUrlWithReference(baseShareUrl, sessionUserId),
                     meta: meta + '. Leads from this link will be assigned to you in CRM.',
                 });
             } catch (e) {
-                setWorkspaceReferralShareData(null);
+                setProjectReferralShareData(null);
             }
         }
 
-        function closeWorkspaceShareModal() {
-            if (!shareWorkspaceModal) return;
-            shareWorkspaceModal.classList.remove('visible');
-            shareWorkspaceTargetId = null;
-            currentWorkspaceShareData = null;
-            setWorkspaceShareData(null);
-            setWorkspaceReferralShareData(null);
-            showWorkspaceShareError('');
-            showWorkspaceShareStatus('', '');
-            if (saveShareWorkspace) saveShareWorkspace.disabled = false;
+        function closeProjectShareModal() {
+            if (!shareProjectModal) return;
+            shareProjectModal.classList.remove('visible');
+            shareProjectTargetId = null;
+            currentProjectShareData = null;
+            setProjectShareData(null);
+            setProjectReferralShareData(null);
+            showProjectShareError('');
+            showProjectShareStatus('', '');
+            if (saveShareProject) saveShareProject.disabled = false;
             if (checkCustomEndpointBtn) checkCustomEndpointBtn.disabled = false;
         }
 
@@ -1127,88 +1132,88 @@
             }
         }
 
-        async function showWorkspaceShareModal(workspaceId) {
-            shareWorkspaceTargetId = workspaceId;
-            showWorkspaceShareError('');
-            showWorkspaceShareStatus('', '');
-            setWorkspaceShareData(null);
-            // Determine if user is owner of this workspace
-            var ws = getWorkspaceById(workspaceId);
+        async function showProjectShareModal(ProjectId) {
+            shareProjectTargetId = ProjectId;
+            showProjectShareError('');
+            showProjectShareStatus('', '');
+            setProjectShareData(null);
+            // Determine if user is owner of this project
+            var ws = getProjectById(ProjectId);
             var isWsOwner = ws && String(ws.access_type || 'owner') === 'owner' && (currentUserRole === 'admin' || currentUserRole === 'superadmin');
             // Fetch link data BEFORE opening modal so it appears instantly
             try {
                 const headers = await getAuthHeaders();
-                const response = await fetch('/api/workspaces/' + encodeURIComponent(workspaceId) + '/share-endpoint', { headers });
+                const response = await fetch('/api/workspaces/' + encodeURIComponent(ProjectId) + '/share-endpoint', { headers });
                 if (!response.ok) {
                     const err = await response.json().catch(function () { return null; });
                     throw new Error((err && err.error) || 'Failed to load share link');
                 }
                 const data = await response.json();
-                setWorkspaceShareData(data && data.share ? data.share : null);
-                await refreshWorkspaceReferralShareData(workspaceId);
+                setProjectShareData(data && data.share ? data.share : null);
+                await refreshProjectReferralShareData(ProjectId);
             } catch (error) {
-                showWorkspaceShareError(error.message || 'Failed to load share link');
+                showProjectShareError(error.message || 'Failed to load share link');
             }
             // Now open the modal with data already populated
-            if (shareWorkspaceModal) {
-                shareWorkspaceModal.querySelectorAll('.share-owner-only').forEach(function (el) {
+            if (shareProjectModal) {
+                shareProjectModal.querySelectorAll('.share-owner-only').forEach(function (el) {
                     el.style.display = isWsOwner ? '' : 'none';
                 });
-                shareWorkspaceModal.classList.add('visible');
+                shareProjectModal.classList.add('visible');
             }
-            if (isWsOwner && workspaceCustomEndpointInput) workspaceCustomEndpointInput.focus();
+            if (isWsOwner && projectCustomEndpointInput) projectCustomEndpointInput.focus();
         }
 
-        function openCreateWorkspaceModal() {
-            if (!createWorkspaceModal) return;
-            if (workspaceNameInput) workspaceNameInput.value = '';
+        function openCreateProjectModal() {
+            if (!createProjectModal) return;
+            if (projectNameInput) projectNameInput.value = '';
             clearCreateProjectOptionalFields();
-            showWorkspaceCreateError('');
-            createWorkspaceModal.classList.add('visible');
-            if (workspaceNameInput) workspaceNameInput.focus();
+            showProjectCreateError('');
+            createProjectModal.classList.add('visible');
+            if (projectNameInput) projectNameInput.focus();
         }
 
-        function closeCreateWorkspaceModal() {
-            if (!createWorkspaceModal) return;
-            createWorkspaceModal.classList.remove('visible');
-            showWorkspaceCreateError('');
+        function closeCreateProjectModal() {
+            if (!createProjectModal) return;
+            createProjectModal.classList.remove('visible');
+            showProjectCreateError('');
         }
 
-        function showRenameWorkspaceModal(workspaceId) {
-            renameWorkspaceTargetId = workspaceId;
-            var ws = getWorkspaceById(workspaceId);
-            if (workspaceRenameInput) {
-                workspaceRenameInput.value = ws && ws.name ? ws.name : '';
-                workspaceRenameInput.focus();
-                workspaceRenameInput.select();
+        function showRenameProjectModal(ProjectId) {
+            renameProjectTargetId = ProjectId;
+            var ws = getProjectById(ProjectId);
+            if (projectRenameInput) {
+                projectRenameInput.value = ws && ws.name ? ws.name : '';
+                projectRenameInput.focus();
+                projectRenameInput.select();
             }
-            showWorkspaceRenameError('');
-            if (renameWorkspaceModal) renameWorkspaceModal.classList.add('visible');
+            showProjectRenameError('');
+            if (renameProjectModal) renameProjectModal.classList.add('visible');
         }
 
-        function closeRenameWorkspaceModal() {
-            if (!renameWorkspaceModal) return;
-            renameWorkspaceModal.classList.remove('visible');
-            renameWorkspaceTargetId = null;
-            if (workspaceRenameInput) workspaceRenameInput.value = '';
-            showWorkspaceRenameError('');
+        function closeRenameProjectModal() {
+            if (!renameProjectModal) return;
+            renameProjectModal.classList.remove('visible');
+            renameProjectTargetId = null;
+            if (projectRenameInput) projectRenameInput.value = '';
+            showProjectRenameError('');
         }
 
-        function showDeleteWorkspaceModal(workspaceId) {
-            deleteWorkspaceTargetId = workspaceId;
-            showWorkspaceDeleteError('');
-            if (deleteWorkspaceModal) deleteWorkspaceModal.classList.add('visible');
+        function showDeleteProjectModal(ProjectId) {
+            deleteProjectTargetId = ProjectId;
+            showProjectDeleteError('');
+            if (deleteProjectModal) deleteProjectModal.classList.add('visible');
         }
 
-        function closeDeleteWorkspaceModal() {
-            if (!deleteWorkspaceModal) return;
-            deleteWorkspaceModal.classList.remove('visible');
-            deleteWorkspaceTargetId = null;
-            showWorkspaceDeleteError('');
+        function closeDeleteProjectModal() {
+            if (!deleteProjectModal) return;
+            deleteProjectModal.classList.remove('visible');
+            deleteProjectTargetId = null;
+            showProjectDeleteError('');
         }
 
         async function loadWorkspaces() {
-            if (!workspaceList) return;
+            if (!projectList) return;
             try {
                 let data = null;
                 if (window.pmApi && typeof window.pmApi.fetchJsonWithRetry === 'function') {
@@ -1232,8 +1237,8 @@
                         }
                         if (!retryResponse.ok) {
                             if (retryResponse.status === 503 || retryResponse.status === 404) {
-                                workspaceFeatureReady = false;
-                                if (createWorkspaceBtn) createWorkspaceBtn.style.display = 'none';
+                                projectFeatureReady = false;
+                                if (createProjectBtn) createProjectBtn.style.display = 'none';
                                 workspaces = [];
                                 return;
                             }
@@ -1243,8 +1248,8 @@
                     }
                     if (!response.ok) {
                         if (response.status === 503 || response.status === 404) {
-                            workspaceFeatureReady = false;
-                            if (createWorkspaceBtn) createWorkspaceBtn.style.display = 'none';
+                            projectFeatureReady = false;
+                            if (createProjectBtn) createProjectBtn.style.display = 'none';
                             workspaces = [];
                             return;
                         }
@@ -1253,23 +1258,23 @@
                     data = await response.json();
                 }
 
-                workspaceFeatureReady = true;
+                projectFeatureReady = true;
                 var isDashboardAdminForBtn = currentUserRole === 'admin' || currentUserRole === 'superadmin';
-                if (createWorkspaceBtn) createWorkspaceBtn.style.display = isDashboardAdminForBtn ? '' : 'none';
+                if (createProjectBtn) createProjectBtn.style.display = isDashboardAdminForBtn ? '' : 'none';
                 workspaces = Array.isArray(data) ? data : [];
-                if (selectedWorkspaceKey.indexOf('ws:') === 0) {
-                    var existing = getWorkspaceById(selectedWorkspaceKey.slice(3));
-                    if (!existing) selectedWorkspaceKey = 'unfiled';
+                if (selectedProjectKey.indexOf('ws:') === 0) {
+                    var existing = getProjectById(selectedProjectKey.slice(3));
+                    if (!existing) selectedProjectKey = 'unfiled';
                 }
             } catch (error) {
                 if (error && (error.status === 503 || error.status === 404)) {
-                    workspaceFeatureReady = false;
-                    if (createWorkspaceBtn) createWorkspaceBtn.style.display = 'none';
+                    projectFeatureReady = false;
+                    if (createProjectBtn) createProjectBtn.style.display = 'none';
                     workspaces = [];
                     return;
                 }
-                workspaceFeatureReady = false;
-                if (createWorkspaceBtn) createWorkspaceBtn.style.display = 'none';
+                projectFeatureReady = false;
+                if (createProjectBtn) createProjectBtn.style.display = 'none';
                 // Preserve last successful state when possible to avoid empty flicker on transient failures.
                 if (!Array.isArray(workspaces)) workspaces = [];
             }
@@ -1322,15 +1327,15 @@
             renderClientOptions();
         }
 
-        function ensureUsefulInitialWorkspaceSelection() {
+        function ensureUsefulInitialProjectSelection() {
             var isDashboardAdmin = currentUserRole === 'admin' || currentUserRole === 'superadmin';
-            if (isDashboardAdmin || selectedWorkspaceKey !== 'unfiled') return;
+            if (isDashboardAdmin || selectedProjectKey !== 'unfiled') return;
             var unfiledCount = projects.filter(function (p) { return !p.workspace_id; }).length;
             if (unfiledCount > 0) return;
-            var firstWorkspace = (Array.isArray(workspaces) ? workspaces : []).find(function (ws) {
+            var firstProject = (Array.isArray(workspaces) ? workspaces : []).find(function (ws) {
                 return ws && ws.id;
             });
-            if (firstWorkspace) selectedWorkspaceKey = 'ws:' + String(firstWorkspace.id);
+            if (firstProject) selectedProjectKey = 'ws:' + String(firstProject.id);
         }
 
         async function loadOrgSlug() {
@@ -1347,13 +1352,13 @@
 
         async function initializeDashboard() {
             try {
-                await Promise.all([loadProjects(), loadWorkspaces(), loadClientOptions(), loadOrgSlug()]);
+                await Promise.all([loadWorkspaces(), loadProjects(), loadClientOptions(), loadOrgSlug()]);
             } catch (e) {
-                // State already set by loadProjects/loadWorkspaces; single render below.
+                // State already set by loadWorkspaces/loadProjects; single render below.
             }
             try {
-                ensureUsefulInitialWorkspaceSelection();
-                renderWorkspaces();
+                ensureUsefulInitialProjectSelection();
+                renderProjects();
                 renderRecents();
                 if (projectsLoadFailed) {
                     projectsContainer.innerHTML = '<div class="empty-state"><div class="empty-text">Failed to load projects</div></div>';
@@ -1370,6 +1375,8 @@
             dashboardInitStarted = true;
             initializeDashboard();
         }
+
+        startDashboardOnce();
 
         // File Upload Handlers
         uploadZone.addEventListener('click', (e) => {
@@ -1450,7 +1457,7 @@
             const name = projectName.value.trim() || 'Untitled';
             const is360 = document.getElementById('is-360').checked;
             const wsSelect = document.getElementById('upload-workspace-select');
-            const workspaceId = (wsSelect && wsSelect.value) ? wsSelect.value : getSelectedOwnedWorkspaceId();
+            const ProjectId = (wsSelect && wsSelect.value) ? wsSelect.value : getSelectedOwnedProjectId();
 
             uploadForm.classList.remove('visible');
             uploadProgress.classList.add('visible');
@@ -1468,9 +1475,9 @@
                     resetUploadForm();
                     var um = document.getElementById('upload-modal');
                     if (um) um.classList.remove('visible');
-                    Promise.all([loadProjects(), loadWorkspaces()]).then(function () {
-                        renderWorkspaces();
+                    Promise.all([loadWorkspaces(), loadProjects()]).then(function () {
                         renderProjects();
+                        renderWorkspaces();
                         renderRecents();
                     });
                     setTimeout(() => {
@@ -1556,7 +1563,7 @@
                         finalize.append('is_360', String(is360));
                         finalize.append('width', String(selectedImageWidth || 0));
                         finalize.append('height', String(selectedImageHeight || 0));
-                        if (workspaceId) finalize.append('workspace_id', workspaceId);
+                        if (ProjectId) finalize.append('workspace_id', ProjectId);
 
                         const finResp = await fetch('/api/panoramas', { method: 'POST', headers: headers, body: finalize });
                         const finPayload = await finResp.json().catch(() => null);
@@ -1586,7 +1593,7 @@
                 formData.append('is_360', String(is360));
                 formData.append('width', String(selectedImageWidth || 0));
                 formData.append('height', String(selectedImageHeight || 0));
-                if (workspaceId) formData.append('workspace_id', workspaceId);
+                if (ProjectId) formData.append('workspace_id', ProjectId);
 
                 const xhr = new XMLHttpRequest();
                 xhr.upload.addEventListener('progress', (ev) => {
@@ -1702,7 +1709,7 @@
                         mws.appendChild(opt);
                     }
                 });
-                var activeWsId = getSelectedOwnedWorkspaceId();
+                var activeWsId = getSelectedOwnedProjectId();
                 mws.value = activeWsId || '';
             }
 
@@ -1786,7 +1793,7 @@
             await uploadAllFiles();
         });
 
-        async function uploadSingleFile(item, workspaceId, onProgress) {
+        async function uploadSingleFile(item, ProjectId, onProgress) {
             const { file, name, width, height, is360 } = item;
             const headers = await ensureAuthHeadersOrRedirect();
             if (!headers) throw new Error('Not authenticated');
@@ -1852,7 +1859,7 @@
                 finalize.append('is_360', String(is360));
                 finalize.append('width', String(width || 0));
                 finalize.append('height', String(height || 0));
-                if (workspaceId) finalize.append('workspace_id', workspaceId);
+                if (ProjectId) finalize.append('workspace_id', ProjectId);
 
                 const finResp = await fetch('/api/panoramas', { method: 'POST', headers: headers, body: finalize });
                 const finPayload = await finResp.json().catch(() => null);
@@ -1875,7 +1882,7 @@
                 formData.append('is_360', String(is360));
                 formData.append('width', String(width || 0));
                 formData.append('height', String(height || 0));
-                if (workspaceId) formData.append('workspace_id', workspaceId);
+                if (ProjectId) formData.append('workspace_id', ProjectId);
 
                 const xhr = new XMLHttpRequest();
                 xhr.upload.addEventListener('progress', (ev) => {
@@ -1901,7 +1908,7 @@
 
         async function uploadAllFiles() {
             const wsSelect = document.getElementById('multi-upload-workspace-select');
-            const workspaceId = (wsSelect && wsSelect.value) ? wsSelect.value : getSelectedOwnedWorkspaceId();
+            const ProjectId = (wsSelect && wsSelect.value) ? wsSelect.value : getSelectedOwnedProjectId();
             const files = selectedFiles.slice();
             const total = files.length;
 
@@ -1917,7 +1924,7 @@
                 progressText.textContent = 'Uploading ' + (i + 1) + ' of ' + total + ': ' + item.file.name;
                 progressFill.style.width = Math.round((i / total) * 100) + '%';
                 try {
-                    await uploadSingleFile(item, workspaceId, (pct) => {
+                    await uploadSingleFile(item, ProjectId, (pct) => {
                         const overall = Math.round(((i + pct / 100) / total) * 100);
                         progressFill.style.width = overall + '%';
                     });
@@ -1933,7 +1940,7 @@
             progressText.textContent = 'Done! ' + successCount + ' uploaded' + (failCount ? ', ' + failCount + ' failed' : '') + '.';
 
             cleanupMultiFiles();
-            await Promise.all([loadProjects(), loadWorkspaces()]);
+            await Promise.all([loadWorkspaces(), loadProjects()]);
             renderWorkspaces();
             renderProjects();
             renderRecents();
@@ -1948,7 +1955,7 @@
             }, 1200);
         }
 
-        // Projects (user-scoped; send auth token). Does not render; initializeDashboard renders once after load.
+        // workspaces (user-scoped; send auth token). Does not render; initializeDashboard renders once after load.
         async function loadProjects() {
             projectsLoadFailed = false;
             try {
@@ -1975,7 +1982,7 @@
                         if (!retryResponse.ok) {
                             let retryDetail = '';
                             try { retryDetail = await retryResponse.text(); } catch (e) { }
-                            console.warn('Projects retry load failed', retryResponse.status, retryDetail.slice(0, 200));
+                            console.warn('workspaces retry load failed', retryResponse.status, retryDetail.slice(0, 200));
                             throw new Error(`Failed to load projects (${retryResponse.status})`);
                         }
                         projects = await retryResponse.json();
@@ -1985,7 +1992,7 @@
                     if (!response.ok) {
                         let detail = '';
                         try { detail = await response.text(); } catch (e) { }
-                        console.warn('Projects load failed', response.status, detail.slice(0, 200));
+                        console.warn('workspaces load failed', response.status, detail.slice(0, 200));
                         throw new Error(`Failed to load projects (${response.status})`);
                     }
                     projects = await response.json();
@@ -2061,7 +2068,7 @@
             _renderProjectsRAF = null;
             const visibleProjects = getFilteredProjects();
             var isDashboardAdmin = currentUserRole === 'admin' || currentUserRole === 'superadmin';
-            var emptyHint = isDashboardAdmin ? 'Upload a panorama or drag an existing one into this folder' : 'Projects you have access to will appear here';
+                var emptyHint = isDashboardAdmin ? 'Upload a panorama or drag an existing one into this folder' : 'Projects you have access to will appear here';
             if (visibleProjects.length === 0) {
                 projectsContainer.innerHTML = `
                     <div class="empty-state">
@@ -2073,8 +2080,8 @@
                 return;
             }
             var accessType = function (p) { return p.access_type || 'owner'; };
-            var selectedWsId = getSelectedOwnedWorkspaceId();
-            var currentWs = selectedWsId ? getWorkspaceById(selectedWsId) : null;
+            var selectedWsId = getSelectedOwnedProjectId();
+            var currentWs = selectedWsId ? getProjectById(selectedWsId) : null;
             var mainPanoramaId = (currentWs && currentWs.main_panorama_id != null) ? String(currentWs.main_panorama_id) : null;
             // Build HTML as array for fast concatenation
             var parts = ['<div class="projects-grid">'];
@@ -2085,7 +2092,7 @@
                 var isClient = at === 'client';
                 var isBroker = at === 'broker';
                 var isMain = mainPanoramaId && String(project.id) === mainPanoramaId;
-                var isInsideWorkspace = selectedWorkspaceKey && selectedWorkspaceKey.indexOf('ws:') === 0;
+                var isInsideProject = selectedProjectKey && selectedProjectKey.indexOf('ws:') === 0;
                 var mainBadge = isMain ? '<span class="project-main-badge">Main</span>' : '';
                 var dragAttr = (isOwner && isDashboardAdmin) ? ' draggable="true" ondragstart="onProjectDragStart(event,' + project.id + ')" ondragend="onProjectDragEnd(event)"' : '';
                 var dragClass = (isOwner && isDashboardAdmin) ? ' owner-draggable' : '';
@@ -2097,7 +2104,7 @@
                 if (isOwner && isDashboardAdmin) {
                     if (selectedWsId && !isMain) menuItems += '<button class="project-config-menu-item" onclick="event.stopPropagation(); setAsMain(' + project.id + ', event)">Set as main</button>';
                     menuItems += '<button class="project-config-menu-item" onclick="event.stopPropagation(); window.location.href=\'/panorama/' + project.id + '/access\'">Manage access</button>';
-                    if (isInsideWorkspace) {
+                    if (isInsideProject) {
                         menuItems += '<button class="project-config-menu-item" onclick="event.stopPropagation(); showRenameModal(' + project.id + ', event)">Rename</button>';
                         menuItems += '<button class="project-config-menu-item danger" onclick="event.stopPropagation(); showDeleteModal(' + project.id + ', event)">Delete</button>';
                     }
@@ -2122,14 +2129,14 @@
             observeLazyImages(projectsContainer);
         }
 
-        async function movePanoramaWorkspace(panoramaId, targetKey) {
+        async function movePanoramaProject(panoramaId, targetKey) {
             const project = projects.find(function (p) { return String(p.id) === String(panoramaId); });
             if (!project || String(project.access_type || 'owner') !== 'owner') {
                 showToast('Only owner can move projects', 'error');
                 return;
             }
-            let workspaceId = null;
-            if (targetKey && targetKey.indexOf('ws:') === 0) workspaceId = targetKey.slice(3);
+            let ProjectId = null;
+            if (targetKey && targetKey.indexOf('ws:') === 0) ProjectId = targetKey.slice(3);
             if (targetKey === 'all') {
                 showToast('Drop into a project or Unlinked Panoramas', 'error');
                 return;
@@ -2140,14 +2147,14 @@
                 const response = await fetch('/api/panoramas/' + panoramaId + '/workspace', {
                     method: 'PATCH',
                     headers,
-                    body: JSON.stringify({ workspace_id: workspaceId })
+                    body: JSON.stringify({ workspace_id: ProjectId })
                 });
                 if (!response.ok) {
                     const err = await response.json().catch(() => null);
                     throw new Error((err && err.error) || 'Failed to move project');
                 }
                 showToast('Project moved', 'success');
-                await Promise.all([loadProjects(), loadWorkspaces()]);
+                await Promise.all([loadWorkspaces(), loadProjects()]);
                 renderWorkspaces();
                 renderProjects();
             } catch (err) {
@@ -2170,23 +2177,23 @@
             document.querySelectorAll('.folder-card.drop-target').forEach(function (el) { el.classList.remove('drop-target'); });
         }
 
-        function onWorkspaceDragOver(event) {
+        function onProjectDragOver(event) {
             if (!draggingPanoramaId) return;
             event.preventDefault();
             if (event.currentTarget) event.currentTarget.classList.add('drop-target');
         }
 
-        function onWorkspaceDragLeave(event) {
+        function onProjectDragLeave(event) {
             if (event.currentTarget) event.currentTarget.classList.remove('drop-target');
         }
 
-        function onWorkspaceDrop(event, targetKey) {
+        function onProjectDrop(event, targetKey) {
             event.preventDefault();
             const raw = (event.dataTransfer && event.dataTransfer.getData('text/plain')) || '';
             const panoramaId = draggingPanoramaId || Number(raw || 0);
             if (event.currentTarget) event.currentTarget.classList.remove('drop-target');
             if (!panoramaId) return;
-            movePanoramaWorkspace(panoramaId, targetKey);
+            movePanoramaProject(panoramaId, targetKey);
         }
 
         function projectEditorPath(base, id, is360) {
@@ -2230,12 +2237,12 @@
             if (event) event.stopPropagation();
             deleteTargetId = id;
             // Check if this is the main panorama of the current workspace
-            var selectedWsId = getSelectedOwnedWorkspaceId();
+            var selectedWsId = getSelectedOwnedProjectId();
             if (selectedWsId) {
-                var currentWs = getWorkspaceById(selectedWsId);
+                var currentWs = getProjectById(selectedWsId);
                 var mainId = currentWs && currentWs.main_panorama_id != null ? String(currentWs.main_panorama_id) : null;
                 if (mainId && String(id) === mainId) {
-                    // Get other panoramas in this workspace
+                    // Get other panoramas in this project
                     var others = projects.filter(function (p) {
                         return String(p.workspace_id || '') === String(selectedWsId)
                             && String(p.id) !== String(id)
@@ -2300,7 +2307,7 @@
                 showToast('Project deleted', 'success');
                 deleteModal.classList.remove('visible');
                 deleteTargetId = null;
-                await Promise.all([loadProjects(), loadWorkspaces()]);
+                await Promise.all([loadWorkspaces(), loadProjects()]);
                 renderWorkspaces();
                 renderProjects();
             } catch (error) {
@@ -2338,7 +2345,7 @@
                 showToast('Project deleted and main panorama updated', 'success');
                 chooseMainModal.classList.remove('visible');
                 deleteTargetId = null;
-                await Promise.all([loadProjects(), loadWorkspaces()]);
+                await Promise.all([loadWorkspaces(), loadProjects()]);
                 renderWorkspaces();
                 renderProjects();
             } catch (error) {
@@ -2413,18 +2420,18 @@
             });
         }
 
-        if (createWorkspaceBtn) createWorkspaceBtn.addEventListener('click', openCreateWorkspaceModal);
-        if (cancelCreateWorkspace) cancelCreateWorkspace.addEventListener('click', closeCreateWorkspaceModal);
+        if (createProjectBtn) createProjectBtn.addEventListener('click', openCreateProjectModal);
+        if (cancelCreateProject) cancelCreateProject.addEventListener('click', closeCreateProjectModal);
 
-        if (confirmCreateWorkspace) {
-            confirmCreateWorkspace.addEventListener('click', async () => {
+        if (confirmCreateProject) {
+            confirmCreateProject.addEventListener('click', async () => {
                 const payload = getCreateProjectPayload();
-                showWorkspaceCreateError('');
+                showProjectCreateError('');
                 if (!payload) {
-                    showWorkspaceCreateError('Project name is required');
+                    showProjectCreateError('Project name is required');
                     return;
                 }
-                confirmCreateWorkspace.disabled = true;
+                confirmCreateProject.disabled = true;
                 try {
                     const headers = await getAuthHeaders();
                     headers['Content-Type'] = 'application/json';
@@ -2437,34 +2444,34 @@
                         const err = await response.json().catch(() => null);
                         throw new Error((err && err.error) || 'Failed to create project');
                     }
-                    closeCreateWorkspaceModal();
+                    closeCreateProjectModal();
                     showToast('Project created', 'success');
                     await loadWorkspaces();
                     renderWorkspaces();
                     renderProjects();
                 } catch (error) {
-                    showWorkspaceCreateError(error.message || 'Failed to create project');
+                    showProjectCreateError(error.message || 'Failed to create project');
                 } finally {
-                    confirmCreateWorkspace.disabled = false;
+                    confirmCreateProject.disabled = false;
                 }
             });
         }
 
-        if (cancelRenameWorkspace) cancelRenameWorkspace.addEventListener('click', closeRenameWorkspaceModal);
-        if (confirmRenameWorkspace) {
-            confirmRenameWorkspace.addEventListener('click', async () => {
-                if (!renameWorkspaceTargetId) return;
-                const name = (workspaceRenameInput ? workspaceRenameInput.value : '').trim();
-                showWorkspaceRenameError('');
+        if (cancelRenameProject) cancelRenameProject.addEventListener('click', closeRenameProjectModal);
+        if (confirmRenameProject) {
+            confirmRenameProject.addEventListener('click', async () => {
+                if (!renameProjectTargetId) return;
+                const name = (projectRenameInput ? projectRenameInput.value : '').trim();
+                showProjectRenameError('');
                 if (!name) {
-                    showWorkspaceRenameError('Folder name is required');
+                    showProjectRenameError('Folder name is required');
                     return;
                 }
-                confirmRenameWorkspace.disabled = true;
+                confirmRenameProject.disabled = true;
                 try {
                     const headers = await getAuthHeaders();
                     headers['Content-Type'] = 'application/json';
-                    const response = await fetch('/api/workspaces/' + renameWorkspaceTargetId, {
+                    const response = await fetch('/api/workspaces/' + renameProjectTargetId, {
                         method: 'PATCH',
                         headers,
                         body: JSON.stringify({ name: name }),
@@ -2473,29 +2480,29 @@
                         const err = await response.json().catch(() => null);
                         throw new Error((err && err.error) || 'Failed to rename folder');
                     }
-                    closeRenameWorkspaceModal();
+                    closeRenameProjectModal();
                     showToast('Folder renamed', 'success');
                     await loadWorkspaces();
                     renderWorkspaces();
                     renderProjects();
                 } catch (error) {
-                    showWorkspaceRenameError(error.message || 'Failed to rename folder');
+                    showProjectRenameError(error.message || 'Failed to rename folder');
                 } finally {
-                    confirmRenameWorkspace.disabled = false;
+                    confirmRenameProject.disabled = false;
                 }
             });
         }
 
-        if (cancelDeleteWorkspace) cancelDeleteWorkspace.addEventListener('click', closeDeleteWorkspaceModal);
-        if (cancelShareWorkspace) cancelShareWorkspace.addEventListener('click', closeWorkspaceShareModal);
-        if (confirmDeleteWorkspace) {
-            confirmDeleteWorkspace.addEventListener('click', async () => {
-                if (!deleteWorkspaceTargetId) return;
-                showWorkspaceDeleteError('');
-                confirmDeleteWorkspace.disabled = true;
+        if (cancelDeleteProject) cancelDeleteProject.addEventListener('click', closeDeleteProjectModal);
+        if (cancelShareProject) cancelShareProject.addEventListener('click', closeProjectShareModal);
+        if (confirmDeleteProject) {
+            confirmDeleteProject.addEventListener('click', async () => {
+                if (!deleteProjectTargetId) return;
+                showProjectDeleteError('');
+                confirmDeleteProject.disabled = true;
                 try {
                     const headers = await getAuthHeaders();
-                    const response = await fetch('/api/workspaces/' + deleteWorkspaceTargetId, {
+                    const response = await fetch('/api/workspaces/' + deleteProjectTargetId, {
                         method: 'DELETE',
                         headers,
                     });
@@ -2503,29 +2510,29 @@
                         const err = await response.json().catch(() => null);
                         throw new Error((err && err.error) || 'Failed to delete folder');
                     }
-                    closeDeleteWorkspaceModal();
+                    closeDeleteProjectModal();
                     showToast('Folder deleted', 'success');
-                    if (selectedWorkspaceKey === 'ws:' + deleteWorkspaceTargetId) selectedWorkspaceKey = 'unfiled';
-                    await Promise.all([loadProjects(), loadWorkspaces()]);
+                    if (selectedProjectKey === 'ws:' + deleteProjectTargetId) selectedProjectKey = 'unfiled';
+                    await Promise.all([loadWorkspaces(), loadProjects()]);
                     renderWorkspaces();
                     renderProjects();
                 } catch (error) {
-                    showWorkspaceDeleteError(error.message || 'Failed to delete folder');
+                    showProjectDeleteError(error.message || 'Failed to delete folder');
                 } finally {
-                    confirmDeleteWorkspace.disabled = false;
+                    confirmDeleteProject.disabled = false;
                 }
             });
         }
 
         if (checkCustomEndpointBtn) {
             checkCustomEndpointBtn.addEventListener('click', async () => {
-                if (!shareWorkspaceTargetId) return;
-                var endpoint = normalizeEndpointInput(workspaceCustomEndpointInput ? workspaceCustomEndpointInput.value : '');
-                if (workspaceCustomEndpointInput) workspaceCustomEndpointInput.value = endpoint;
-                showWorkspaceShareError('');
-                showWorkspaceShareStatus('', '');
+                if (!shareProjectTargetId) return;
+                var endpoint = normalizeEndpointInput(projectCustomEndpointInput ? projectCustomEndpointInput.value : '');
+                if (projectCustomEndpointInput) projectCustomEndpointInput.value = endpoint;
+                showProjectShareError('');
+                showProjectShareStatus('', '');
                 if (!endpoint) {
-                    showWorkspaceShareStatus('Enter an endpoint to check.', 'warn');
+                    showProjectShareStatus('Enter an endpoint to check.', 'warn');
                     return;
                 }
                 checkCustomEndpointBtn.disabled = true;
@@ -2535,94 +2542,94 @@
                     const response = await fetch('/api/workspaces/share-endpoint/check', {
                         method: 'POST',
                         headers,
-                        body: JSON.stringify({ endpoint: endpoint, workspace_id: shareWorkspaceTargetId }),
+                        body: JSON.stringify({ endpoint: endpoint, workspace_id: shareProjectTargetId }),
                     });
                     const data = await response.json().catch(function () { return null; });
                     if (!response.ok) throw new Error((data && data.error) || 'Failed to check endpoint');
-                    if (data && data.available) showWorkspaceShareStatus('Endpoint is available.', 'ok');
-                    else showWorkspaceShareStatus((data && data.error) || 'Endpoint is not available.', 'warn');
+                    if (data && data.available) showProjectShareStatus('Endpoint is available.', 'ok');
+                    else showProjectShareStatus((data && data.error) || 'Endpoint is not available.', 'warn');
                 } catch (error) {
-                    showWorkspaceShareError(error.message || 'Failed to check endpoint');
+                    showProjectShareError(error.message || 'Failed to check endpoint');
                 } finally {
                     checkCustomEndpointBtn.disabled = false;
                 }
             });
         }
 
-        if (saveShareWorkspace) {
-            saveShareWorkspace.addEventListener('click', async () => {
-                if (!shareWorkspaceTargetId) return;
-                var endpoint = normalizeEndpointInput(workspaceCustomEndpointInput ? workspaceCustomEndpointInput.value : '');
-                if (workspaceCustomEndpointInput) workspaceCustomEndpointInput.value = endpoint;
-                showWorkspaceShareError('');
-                showWorkspaceShareStatus('', '');
-                saveShareWorkspace.disabled = true;
+        if (saveShareProject) {
+            saveShareProject.addEventListener('click', async () => {
+                if (!shareProjectTargetId) return;
+                var endpoint = normalizeEndpointInput(projectCustomEndpointInput ? projectCustomEndpointInput.value : '');
+                if (projectCustomEndpointInput) projectCustomEndpointInput.value = endpoint;
+                showProjectShareError('');
+                showProjectShareStatus('', '');
+                saveShareProject.disabled = true;
                 try {
                     const headers = await getAuthHeaders();
                     headers['Content-Type'] = 'application/json';
-                    const response = await fetch('/api/workspaces/' + encodeURIComponent(shareWorkspaceTargetId) + '/share-endpoint', {
+                    const response = await fetch('/api/workspaces/' + encodeURIComponent(shareProjectTargetId) + '/share-endpoint', {
                         method: 'PATCH',
                         headers,
                         body: JSON.stringify({ endpoint: endpoint }),
                     });
                     const data = await response.json().catch(function () { return null; });
                     if (!response.ok) throw new Error((data && data.error) || 'Failed to save endpoint');
-                    setWorkspaceShareData(data && data.share ? data.share : null);
-                    await refreshWorkspaceReferralShareData(shareWorkspaceTargetId);
-                    showWorkspaceShareStatus(endpoint ? 'Custom endpoint saved.' : 'Reverted to default link.', 'ok');
+                    setProjectShareData(data && data.share ? data.share : null);
+                    await refreshProjectReferralShareData(shareProjectTargetId);
+                    showProjectShareStatus(endpoint ? 'Custom endpoint saved.' : 'Reverted to default link.', 'ok');
                     showToast('Share link updated', 'success');
                 } catch (error) {
-                    showWorkspaceShareError(error.message || 'Failed to save endpoint');
+                    showProjectShareError(error.message || 'Failed to save endpoint');
                 } finally {
-                    saveShareWorkspace.disabled = false;
+                    saveShareProject.disabled = false;
                 }
             });
         }
 
-        if (workspaceCustomEndpointInput) {
-            workspaceCustomEndpointInput.addEventListener('keydown', (event) => {
+        if (projectCustomEndpointInput) {
+            projectCustomEndpointInput.addEventListener('keydown', (event) => {
                 if (event.key === 'Enter') {
                     event.preventDefault();
-                    if (saveShareWorkspace) saveShareWorkspace.click();
+                    if (saveShareProject) saveShareProject.click();
                 }
             });
         }
 
         if (copyDefaultShareLink) {
             copyDefaultShareLink.addEventListener('click', async () => {
-                var ok = await copyTextValue(workspaceDefaultShareLink ? workspaceDefaultShareLink.value : '');
+                var ok = await copyTextValue(projectDefaultShareLink ? projectDefaultShareLink.value : '');
                 showToast(ok ? 'Default link copied' : 'Failed to copy link', ok ? 'success' : 'error');
             });
         }
 
         if (copyEffectiveShareLink) {
             copyEffectiveShareLink.addEventListener('click', async () => {
-                var ok = await copyTextValue(workspaceEffectiveShareLink ? workspaceEffectiveShareLink.value : '');
+                var ok = await copyTextValue(projectEffectiveShareLink ? projectEffectiveShareLink.value : '');
                 showToast(ok ? 'Share link copied' : 'Failed to copy link', ok ? 'success' : 'error');
             });
         }
 
         if (copyReferralShareLink) {
             copyReferralShareLink.addEventListener('click', async () => {
-                var ok = await copyTextValue(workspaceReferralShareLink ? workspaceReferralShareLink.value : '');
+                var ok = await copyTextValue(projectReferralShareLink ? projectReferralShareLink.value : '');
                 showToast(ok ? 'Referral link copied' : 'Failed to copy link', ok ? 'success' : 'error');
             });
         }
 
-        if (workspaceNameInput) {
-            workspaceNameInput.addEventListener('keydown', (event) => {
+        if (projectNameInput) {
+            projectNameInput.addEventListener('keydown', (event) => {
                 if (event.key === 'Enter') {
                     event.preventDefault();
-                    if (confirmCreateWorkspace) confirmCreateWorkspace.click();
+                    if (confirmCreateProject) confirmCreateProject.click();
                 }
             });
         }
 
-        if (workspaceRenameInput) {
-            workspaceRenameInput.addEventListener('keydown', (event) => {
+        if (projectRenameInput) {
+            projectRenameInput.addEventListener('keydown', (event) => {
                 if (event.key === 'Enter') {
                     event.preventDefault();
-                    if (confirmRenameWorkspace) confirmRenameWorkspace.click();
+                    if (confirmRenameProject) confirmRenameProject.click();
                 }
             });
         }
@@ -2703,26 +2710,26 @@
             });
         }
 
-        if (createWorkspaceModal) {
-            createWorkspaceModal.addEventListener('click', (e) => {
-                if (e.target === createWorkspaceModal) closeCreateWorkspaceModal();
+        if (createProjectModal) {
+            createProjectModal.addEventListener('click', (e) => {
+                if (e.target === createProjectModal) closeCreateProjectModal();
             });
         }
 
-        if (renameWorkspaceModal) {
-            renameWorkspaceModal.addEventListener('click', (e) => {
-                if (e.target === renameWorkspaceModal) closeRenameWorkspaceModal();
+        if (renameProjectModal) {
+            renameProjectModal.addEventListener('click', (e) => {
+                if (e.target === renameProjectModal) closeRenameProjectModal();
             });
         }
 
-        if (deleteWorkspaceModal) {
-            deleteWorkspaceModal.addEventListener('click', (e) => {
-                if (e.target === deleteWorkspaceModal) closeDeleteWorkspaceModal();
+        if (deleteProjectModal) {
+            deleteProjectModal.addEventListener('click', (e) => {
+                if (e.target === deleteProjectModal) closeDeleteProjectModal();
             });
         }
-        if (shareWorkspaceModal) {
-            shareWorkspaceModal.addEventListener('click', (e) => {
-                if (e.target === shareWorkspaceModal) closeWorkspaceShareModal();
+        if (shareProjectModal) {
+            shareProjectModal.addEventListener('click', (e) => {
+                if (e.target === shareProjectModal) closeProjectShareModal();
             });
         }
     </script>

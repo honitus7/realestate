@@ -1,5 +1,5 @@
 """
-Workspace: CRUD, access, main_panorama_id. Helpers for serialization and permissions.
+Project: CRUD, access, main_panorama_id. Helpers for serialization and permissions.
 """
 import json
 import re
@@ -106,7 +106,7 @@ def can_manage_workspace(sb, workspace, user_id, role):
     return bool(caller_org and workspace_org and str(caller_org) == str(workspace_org))
 
 
-def list_workspaces(sb, user_id, lightweight=False):
+def list_workspaces(sb, user_id, lightweight=False, include_empty_shared=False):
     select_fields = 'id, user_id, org_id, name, created_at, updated_at, main_panorama_id'
     try:
         if lightweight:
@@ -128,7 +128,11 @@ def list_workspaces(sb, user_id, lightweight=False):
             .execute()
         )
 
-    shared_acc = sb.table('workspace_access').select('workspace_id, access_type').eq('user_id', user_id).execute()
+    try:
+        shared_acc = sb.table('workspace_access').select('workspace_id, access_type').eq('user_id', user_id).execute()
+        shared_rows_data = shared_acc.data or []
+    except Exception:
+        shared_rows_data = []
     out = []
     by_id = {}
     for row in (owned.data or []):
@@ -137,7 +141,7 @@ def list_workspaces(sb, user_id, lightweight=False):
         out.append(item)
 
     shared_map = {}
-    for row in (shared_acc.data or []):
+    for row in shared_rows_data:
         wsid = row.get('workspace_id')
         if not wsid or str(wsid) in by_id:
             continue
@@ -174,7 +178,8 @@ def list_workspaces(sb, user_id, lightweight=False):
     for row in out:
         row['panorama_count'] = int(counts.get(str(row.get('id')), 0))
 
-    out = [row for row in out if str(row.get('access_type') or 'viewer') == 'owner' or int(row.get('panorama_count') or 0) > 0]
+    if not include_empty_shared:
+        out = [row for row in out if str(row.get('access_type') or 'viewer') == 'owner' or int(row.get('panorama_count') or 0) > 0]
     out.sort(key=lambda x: ((x.get('access_type') != 'owner'), str(x.get('name') or '').lower()))
     return out
 
@@ -289,7 +294,7 @@ def delete_workspace(sb, workspace_id, user_id):
 
 
 def get_workspace_schema_error_response():
-    return {'error': 'Workspace schema missing. Run db/schema.sql in Supabase SQL Editor.'}, 503
+    return {'error': 'Project schema missing. Run db/schema.sql in Supabase SQL Editor.'}, 503
 
 
 def is_workspace_schema_missing(exc):
