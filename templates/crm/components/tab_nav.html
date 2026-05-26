@@ -1,0 +1,39 @@
+<div class="crm-tabs" id="crm-tabs">
+    <div class="crm-tabs-top">
+        <div class="crm-tabs-top-left">
+            <div class="layout-menu-toggle crm-tabs-menu-toggle d-xl-none">
+                <a class="nav-link px-0" href="javascript:void(0);" aria-label="Open menu">
+                    <i class="icon-base bx bx-menu icon-md"></i>
+                </a>
+            </div>
+            <div class="crm-workspace-title">
+                <span>Dashboard</span>
+                <span class="crm-workspace-add" aria-hidden="true">+</span>
+            </div>
+        </div>
+        <div class="crm-tabs-top-right">
+            <button class="crm-tab-action" id="btn-reports" type="button" title="Download Excel" aria-label="Download Excel">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+            </button>
+            {% include 'components/sneat_user_dropdown.html' %}
+        </div>
+    </div>
+    <div class="crm-tabs-bottom">
+        <div class="crm-tab-strip" aria-label="CRM sections">
+            <button class="crm-tab active" data-tab="interests" id="tab-interests">Interests</button>
+            <button class="crm-tab" data-tab="deals" id="tab-deals">Deals</button>
+            <button class="crm-tab" data-tab="contacts" id="tab-contacts">Contacts</button>
+            <button class="crm-tab" data-tab="allotted-clients" id="tab-allotted-clients" style="display:none;">Allotted Clients</button>
+            <button class="crm-tab" data-tab="projects" id="tab-projects" style="display:none;">Projects</button>
+            <button class="crm-tab" data-tab="panoramas" id="tab-panoramas" style="display:none;">Panoramas</button>
+            <button class="crm-tab" data-tab="plots" id="tab-plots">Plots</button>
+            <button class="crm-tab" data-tab="masters" id="tab-masters" style="display:none;">Masters</button>
+            <button class="crm-tab" data-tab="manage-lock" id="tab-manage-lock" style="display:none;">Manage Lock</button>
+        </div>
+        <div class="crm-tabs-spacer"></div>
+        <div class="crm-top-search" aria-hidden="true">
+            <span>Search</span>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><line x1="16.5" y1="16.5" x2="21" y2="21"/></svg>
+        </div>
+    </div>
+</div>

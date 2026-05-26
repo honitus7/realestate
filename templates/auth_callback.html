@@ -131,11 +131,11 @@
 
         function setOrgThemeCookieThenRedirect(session) {
             var uid = session && session.user && session.user.id;
-            var target = uid ? '/dashboard/' + encodeURIComponent(uid) : '/dashboard';
+            var defaultTarget = uid ? '/dashboard/' + encodeURIComponent(uid) : '/dashboard';
             var token = session && session.access_token;
             if (!token) {
                 msg.textContent = 'Done. Redirecting…';
-                window.location.replace(target);
+                window.location.replace(defaultTarget);
                 return;
             }
             msg.textContent = 'Loading…';
@@ -148,11 +148,17 @@
                             document.cookie = 'org_accent=' + encodeURIComponent(accent) + '; path=/; max-age=86400; SameSite=Lax';
                         } catch (e) { }
                     }
-                })
-                .catch(function () { })
-                .finally(function () {
+                    var target = defaultTarget;
+                    if (data && data.post_login_path) target = data.post_login_path;
+                    else if (data && data.profile && (data.profile.is_broker || data.profile.role === 'broker')) {
+                        target = '/customer-dashboard';
+                    }
                     msg.textContent = 'Done. Redirecting…';
                     window.location.replace(target);
+                })
+                .catch(function () {
+                    msg.textContent = 'Done. Redirecting…';
+                    window.location.replace(defaultTarget);
                 });
         }
 

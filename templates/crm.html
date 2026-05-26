@@ -1,31 +1,11 @@
-{% extends 'base.html' %}
-{% block title %}CRM - MarketoState{% endblock %}
-{% block head_css %}
-<link rel="stylesheet" href="/static/css/dashboard.css">
-<link rel="stylesheet" href="/static/css/crm.css">
-{% endblock %}
-{% block content %}
-<div class="crm-page">
-    {% set active_page = 'crm' %}
-    {% include 'components/sidebar.html' %}
-    {% include 'components/broker_header.html' %}
+{% set page_title = 'CRM - MarketoState' %}
+{% set active_nav = 'crm' %}
+{% set sneat_extra_css = '/static/crm/crm.css' %}
+{% set sneat_merge_nav_into_crm = true %}
+{% include 'components/sneat_shell_start.html' %}
+<div class="crm-page crm-page--sneat">
     <div class="crm-page-content" id="crm-page-content">
-    <!-- Tab Navigation -->
-    <div class="crm-tabs" id="crm-tabs">
-        <button class="crm-tab active" data-tab="interests" id="tab-interests">Interests</button>
-        <button class="crm-tab" data-tab="deals" id="tab-deals">Deals</button>
-        <button class="crm-tab" data-tab="contacts" id="tab-contacts">Contacts</button>
-        <button class="crm-tab" data-tab="allotted-clients" id="tab-allotted-clients" style="display:none;">Allotted Clients</button>
-        <button class="crm-tab" data-tab="projects" id="tab-projects" style="display:none;">Projects</button>
-        <button class="crm-tab" data-tab="panoramas" id="tab-panoramas" style="display:none;">Panoramas</button>
-        <button class="crm-tab" data-tab="plots" id="tab-plots">Plots</button>
-        <button class="crm-tab" data-tab="masters" id="tab-masters" style="display:none;">Masters</button>
-        <button class="crm-tab" data-tab="manage-lock" id="tab-manage-lock" style="display:none;">Manage Lock</button>
-        <div class="crm-tabs-spacer"></div>
-        <button class="crm-tab-action" id="btn-reports" type="button" title="Download Excel">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
-        </button>
-    </div>
+    {% include 'crm/components/tab_nav.html' %}
 
     <!-- Content -->
     <main class="crm-content">
@@ -74,10 +54,10 @@
                                 <span class="filter-badge" id="filter-badge" style="display:none;">0</span>
                             </button>
                             <div class="view-toggle">
-                                <button class="view-btn active" id="view-board" type="button" title="Board view">
+                                <button class="view-btn" id="view-board" type="button" title="Board view">
                                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
                                 </button>
-                                <button class="view-btn" id="view-table" type="button" title="Table view">
+                                <button class="view-btn active" id="view-table" type="button" title="Table view">
                                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
                                 </button>
                             </div>
@@ -146,7 +126,7 @@
 
                         <div class="interest-list-main">
                             <!-- Board View (Kanban) -->
-                            <div class="kanban" id="kanban-board">
+                            <div class="kanban" id="kanban-board" style="display:none;">
                     <div class="kanban-col" data-stage="new">
                         <div class="kanban-col-header">
                             <span class="kanban-dot kanban-dot--new"></span>
@@ -190,7 +170,7 @@
                             </div>
 
                             <!-- Table View -->
-                            <div class="interest-table-wrap" id="interest-table-view" style="display:none;">
+                            <div class="interest-table-wrap" id="interest-table-view">
                     <div class="card">
                         <div class="card-header">
                             <div class="card-title"><strong>All Leads</strong><span id="results-meta">0 results</span></div>
@@ -376,8 +356,8 @@
             </section>
 
             <!-- â•â•â•â•â•â•â•â•â•â• EDIT PROJECT DETAILS MODAL â•â•â•â•â•â•â•â•â•â• -->
-            <div class="modal-backdrop" id="edit-project-modal">
-                <div class="modal" style="max-width:640px;max-height:90vh;overflow-y:auto;">
+            <div class="crm-modal-backdrop" id="edit-project-modal">
+                <div class="crm-modal" style="max-width:640px;max-height:90vh;overflow-y:auto;">
                     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;">
                         <div class="modal-title" style="margin:0;">Edit Project Details</div>
                         <button type="button" class="modal-close" id="edit-project-modal-close" aria-label="Close">&times;</button>
@@ -487,10 +467,10 @@
             </section>
             <section class="crm-section" id="sec-masters">
                 <div class="section-header">
-                    <div><h2>Masters</h2><p>Client controlled lead and campaign dropdowns</p></div>
+                    <div><h2>Masters</h2><p id="master-section-desc">Manage dropdown options for lead fields</p></div>
                 </div>
                 <div class="card">
-                    <div class="card-header"><div class="card-title"><strong>Lead Attributes</strong><span id="master-meta">Client admin only</span></div></div>
+                    <div class="card-header"><div class="card-title"><strong>Lead Attributes</strong><span id="master-meta"></span></div></div>
                     <div class="master-grid" id="master-grid"></div>
                     <div class="empty" id="master-empty" style="display:none;">
                         <strong>No master data</strong><div>Master values will appear once a client is available.</div>
@@ -544,8 +524,8 @@
         </div>
     </div>
 
-    <div class="modal-backdrop" id="plot-lock-modal">
-        <div class="modal modal--sm" role="dialog" aria-modal="true" aria-label="Lock plot">
+    <div class="crm-modal-backdrop" id="plot-lock-modal">
+        <div class="crm-modal modal--sm" role="dialog" aria-modal="true" aria-label="Lock plot">
             <div class="modal-head">
                 <div class="modal-title">Lock Plot</div>
                 <button class="btn btn-secondary" id="plot-lock-close" type="button">Close</button>
@@ -578,74 +558,89 @@
         </div>
     </div>
 
-    <!-- â•â•â•â•â•â•â•â•â•â• LEAD DETAIL DRAWER â•â•â•â•â•â•â•â•â•â• -->
-    <div class="drawer-backdrop" id="drawer-backdrop"></div>
-    <aside class="drawer" id="drawer" aria-hidden="true">
-        <div class="drawer-head">
-            <div style="min-width:0;">
-                <h2 id="d-title">Lead</h2>
-                <div class="subtle" id="d-subtitle"></div>
+    <div class="offcanvas offcanvas-end crm-interest-offcanvas" tabindex="-1" id="drawer" aria-labelledby="d-title" data-bs-scroll="true" data-bs-backdrop="true">
+        <div class="offcanvas-header border-bottom drawer-head">
+            <div class="me-2" style="min-width:0;">
+                <h5 class="offcanvas-title mb-1" id="d-title">Lead</h5>
+                <div class="text-body-secondary small" id="d-subtitle"></div>
             </div>
-            <button class="drawer-close" id="drawer-close" type="button" aria-label="Close">&times;</button>
+            <button type="button" class="btn-close text-reset drawer-close" id="drawer-close" data-bs-dismiss="offcanvas" aria-label="Close"></button>
         </div>
-        <div class="drawer-body">
-            <div class="drawer-section">
-                <div class="drawer-section-head">
-                    <h3>Contact</h3>
-                    <div class="drawer-contact-actions" id="d-contact-actions"></div>
+        <div class="offcanvas-body drawer-body">
+            <div class="card mb-3 drawer-section">
+                <div class="card-body">
+                    <div class="drawer-section-head d-flex align-items-center justify-content-between mb-2">
+                        <h6 class="card-title mb-0 text-uppercase text-body-secondary small">Contact</h6>
+                        <div class="drawer-contact-actions" id="d-contact-actions"></div>
+                    </div>
+                    <div class="kv" id="d-contact"></div>
                 </div>
-                <div class="kv" id="d-contact"></div>
             </div>
-            <div class="drawer-section">
-                <h3>Deal Info</h3>
-                <div class="kv" id="d-interest"></div>
-            </div>
-            <div class="drawer-section">
-                <div class="drawer-section-head">
-                    <h3>Plots</h3>
+            <div class="card mb-3 drawer-section">
+                <div class="card-body">
+                    <h6 class="card-title mb-2 text-uppercase text-body-secondary small">Deal Info</h6>
+                    <div class="kv" id="d-interest"></div>
                 </div>
-                <div class="drawer-plots" id="d-plots"></div>
             </div>
-            <div class="drawer-section">
-                <h3>Update</h3>
-                <div style="display:grid;gap:0.65rem;">
-                    <label class="drawer-field-label">Assigned to</label>
-                    <select class="toolbar-select" id="d-assignee" style="max-width:100%;">
-                        <option value="">- Unassigned -</option>
-                    </select>
-                    <label class="drawer-field-label">Status</label>
-                    <select class="toolbar-select" id="d-status" style="max-width:100%;">
-                        <option value="new">New</option>
-                        <option value="contacted">Contacted</option>
-                    </select>
+            <div class="card mb-3 drawer-section">
+                <div class="card-body">
+                    <h6 class="card-title mb-2 text-uppercase text-body-secondary small">Plots</h6>
+                    <div class="drawer-plots" id="d-plots"></div>
+                </div>
+            </div>
+            <div class="card mb-0 drawer-section">
+                <div class="card-body">
+                    <h6 class="card-title mb-3 text-uppercase text-body-secondary small">Update</h6>
+                    <div class="mb-3">
+                        <label class="form-label drawer-field-label" for="d-assignee">Assigned to</label>
+                        <select class="form-select" id="d-assignee">
+                            <option value="">- Unassigned -</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label drawer-field-label" for="d-status">Status</label>
+                        <select class="form-select" id="d-status">
+                            <option value="new">New</option>
+                            <option value="contacted">Contacted</option>
+                        </select>
+                    </div>
                     <div class="drawer-master-fields" id="d-master-fields"></div>
-                    <label class="drawer-field-label">Notes</label>
-                    <textarea class="toolbar-search" id="d-notes" rows="5" style="height:auto;resize:vertical;min-height:100px;" placeholder="Call summary, next steps, objections..."></textarea>
-                    <div class="msg" id="d-msg" style="display:none;"></div>
+                    <div class="mb-0">
+                        <label class="form-label drawer-field-label" for="d-notes">Notes</label>
+                        <textarea class="form-control" id="d-notes" rows="4" placeholder="Call summary, next steps, objections..."></textarea>
+                    </div>
+                    <div class="alert alert-danger py-2 mt-3 mb-0" id="d-msg" style="display:none;" role="alert"></div>
                 </div>
             </div>
         </div>
-        <div class="drawer-foot">
-            <button class="btn danger" id="btn-delete-interest" type="button">Delete Interest</button>
-            <button class="btn" id="btn-contacted" type="button">Mark Contacted</button>
-            <button class="btn" id="btn-create-contact" type="button">Create Contact</button>
-            <button class="btn" id="btn-create-deal" type="button">Create Deal</button>
-            <button class="btn" id="btn-convert-lead" type="button">Convert to deal</button>
-            <button class="btn primary" id="btn-save" type="button">Save Changes</button>
+        <div class="border-top p-3 drawer-foot d-flex flex-wrap gap-2">
+            <button class="btn btn-outline-danger btn-sm" id="btn-delete-interest" type="button">Delete Interest</button>
+            <button class="btn btn-outline-secondary btn-sm" id="btn-contacted" type="button">Mark Contacted</button>
+            <button class="btn btn-outline-secondary btn-sm" id="btn-create-contact" type="button">Create Contact</button>
+            <button class="btn btn-outline-secondary btn-sm" id="btn-create-deal" type="button">Create Deal</button>
+            <button class="btn btn-outline-secondary btn-sm" id="btn-convert-lead" type="button">Convert to deal</button>
+            <button class="btn btn-primary btn-sm ms-auto" id="btn-save" type="button">Save Changes</button>
         </div>
-    </aside>
-</div>
-
-<div class="interest-plots-modal" id="interest-plots-modal" role="dialog" aria-modal="false" aria-hidden="true">
-    <div class="interest-plots-modal-head">
-        <h3 id="interest-plots-modal-title">Interested Plots</h3>
-        <button class="interest-plots-modal-close" id="interest-plots-modal-close" type="button" aria-label="Close">&times;</button>
     </div>
-    <div class="interest-plots-modal-body">
-        <table>
-            <thead><tr><th>Plot</th><th>Area</th><th>Price</th><th>Status</th></tr></thead>
-            <tbody id="interest-plots-modal-tbody"></tbody>
-        </table>
+
+<div class="modal fade" id="interest-plots-modal" tabindex="-1" aria-labelledby="interest-plots-modal-title" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="interest-plots-modal-title">Interested Plots</h5>
+                <button type="button" class="btn-close" id="interest-plots-modal-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead class="table-light">
+                            <tr><th>Plot</th><th>Area</th><th>Price</th><th>Status</th></tr>
+                        </thead>
+                        <tbody id="interest-plots-modal-tbody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
     </div>
 </div>
 
@@ -805,16 +800,23 @@
     </div>
     </div><!-- .crm-page-content -->
 </div>
-{% include 'components/change_password_modal.html' %}
-<div id="toast-container" style="position:fixed;top:1rem;right:1rem;z-index:9999;display:flex;flex-direction:column;gap:0.5rem;pointer-events:none;"></div>
-
-{% endblock %}
-{% block scripts %}
+<div id="toast-container" style="position:fixed;top:1rem;right:1rem;z-index:10900;display:flex;flex-direction:column;gap:0.5rem;pointer-events:none;"></div>
+{% include 'components/sneat_shell_end.html' %}
 <script>
     window.__SUPABASE_URL__ = {{ (supabase_url or '')|tojson }};
     window.__SUPABASE_ANON_KEY__ = {{ (supabase_anon_key or '')|tojson }};
 </script>
-<script src="/static/js/sidebar.js"></script>
+<script>
+(function () {
+    var y = document.getElementById('footer-year');
+    if (y) y.textContent = new Date().getFullYear();
+    var url = window.__SUPABASE_URL__;
+    var key = window.__SUPABASE_ANON_KEY__;
+    if (url && key && window.supabase && !window._supabase) {
+        window._supabase = window.supabase.createClient(url, key);
+    }
+})();
+</script>
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 <script>
 (function () {
@@ -997,115 +999,112 @@
         return ((parts[0] || '')[0] || '') + ((parts[1] || '')[0] || (parts[0] || '')[1] || '');
     }
 
-    window.configureBrokerAccount = function configureBrokerAccount(profile, useBrokerHeader) {
-        const page = document.querySelector('.crm-page');
-        const pageContent = $('crm-page-content');
-        const header = $('crm-broker-header');
-        const account = $('crm-broker-account');
-        crmBrokerHeaderMode = !!useBrokerHeader;
-        if (!page || !account || !header) return;
-        page.classList.toggle('crm-page--broker-header-mode', crmBrokerHeaderMode);
-        if (pageContent) pageContent.classList.toggle('crm-page-content--broker-header', crmBrokerHeaderMode);
-        header.style.display = crmBrokerHeaderMode ? '' : 'none';
-        if (!crmBrokerHeaderMode) return;
+    let sneatPasswordModal = null;
 
-        const displayName = String((profile && (profile.display_name || profile.name || profile.email)) || 'Broker').trim();
-        const avatar = $('crm-broker-avatar');
-        const nameEl = $('crm-broker-name');
-        if (avatar) avatar.textContent = initials(displayName).toUpperCase();
-        if (nameEl) nameEl.textContent = displayName;
+    function setSneatText(id, value) {
+        const el = document.getElementById(id);
+        if (el) el.textContent = value;
+    }
+
+    window.configureSneatShell = function configureSneatShell(profile, isBroker, isAdmin) {
+        const displayName = String((profile && (profile.display_name || profile.name || profile.email)) || 'User').trim() || 'User';
+        const roleLabel = String((profile && profile.role) || 'user');
+        const letters = initials(displayName);
+        setSneatText('navbar-user-name', displayName);
+        setSneatText('navbar-user-role', roleLabel.charAt(0).toUpperCase() + roleLabel.slice(1));
+        setSneatText('navbar-user-avatar', letters);
+        setSneatText('navbar-user-avatar-2', letters);
+        const home = isAdmin ? '/dashboard' : '/customer-dashboard';
+        ['sneat-home-link', 'sneat-menu-dashboard', 'sneat-dropdown-dashboard', 'sneat-footer-dashboard'].forEach(function (id) {
+            const el = document.getElementById(id);
+            if (el) el.setAttribute('href', home);
+        });
+        const showInvites = !!isBroker;
+        ['sneat-nav-invites', 'sneat-dropdown-invites-wrap', 'sneat-footer-invites'].forEach(function (id) {
+            const el = document.getElementById(id);
+            if (el) el.style.display = showInvites ? '' : 'none';
+        });
     };
 
-    const brokerUserBtn = $('crm-broker-user-btn');
-    const brokerDropdown = $('crm-broker-dropdown');
-    if (brokerUserBtn && brokerDropdown) {
-        brokerUserBtn.addEventListener('click', function (e) {
-            e.stopPropagation();
-            brokerDropdown.classList.toggle('visible');
-        });
-        document.addEventListener('click', function (e) {
-            if (!brokerDropdown.contains(e.target) && e.target !== brokerUserBtn) {
-                brokerDropdown.classList.remove('visible');
+    window.configureBrokerAccount = function configureBrokerAccount(profile, useBrokerHeader) {
+        crmBrokerHeaderMode = !!useBrokerHeader;
+        configureSneatShell(profile, useBrokerHeader, false);
+    };
+
+    function bindSneatShellActions() {
+        function signOut() {
+            const sb = window._supabase;
+            const finish = function () { window.location.href = '/login'; };
+            if (sb && sb.auth && typeof sb.auth.signOut === 'function') {
+                Promise.resolve(sb.auth.signOut()).catch(function () {}).finally(finish);
+            } else {
+                finish();
             }
-        });
-    }
-    const brokerInvitesBtn = $('crm-broker-invites');
-    if (brokerInvitesBtn) {
-        brokerInvitesBtn.addEventListener('click', function () {
-            if (brokerDropdown) brokerDropdown.classList.remove('visible');
-            window.location.href = '/broker/invites';
-        });
-    }
-    const brokerLogout = $('crm-broker-header-signout');
-    if (brokerLogout) brokerLogout.addEventListener('click', function () {
-        const sb = window._supabase;
-        const finish = function () { window.location.href = '/login'; };
-        if (sb && sb.auth && typeof sb.auth.signOut === 'function') {
-            Promise.resolve(sb.auth.signOut()).catch(function () {}).finally(finish);
-        } else {
-            finish();
         }
-    });
-    const brokerChangePassword = $('crm-broker-change-password');
-    const changePwModal = $('change-password-modal');
-    const changePwClose = $('change-password-close');
-    const cancelChangePw = $('cancel-change-password');
-    const confirmChangePw = $('confirm-change-password');
-    const newPwInput = $('new-password-input');
-    const confirmPwInput = $('confirm-password-input');
-    const changePwError = $('change-password-error');
+        const menuOut = $('menu-signout');
+        const dropOut = $('dropdown-signout');
+        if (menuOut) menuOut.addEventListener('click', signOut);
+        if (dropOut) dropOut.addEventListener('click', signOut);
 
-    function showChangePwError(msg) {
-        if (!changePwError) return;
-        changePwError.textContent = msg || '';
-        changePwError.style.display = msg ? 'block' : 'none';
-    }
+        const changePwModalEl = $('change-password-modal');
+        const changePwClose = $('change-password-close');
+        const cancelChangePw = $('cancel-change-password');
+        const confirmChangePw = $('confirm-change-password');
+        const newPwInput = $('new-password-input');
+        const confirmPwInput = $('confirm-password-input');
+        const changePwError = $('change-password-error');
+        const dropChangePw = $('dropdown-change-password');
 
-    function openChangePwModal() {
-        showChangePwError('');
-        if (newPwInput) newPwInput.value = '';
-        if (confirmPwInput) confirmPwInput.value = '';
-        if (changePwModal) changePwModal.classList.add('visible');
-        if (newPwInput) newPwInput.focus();
-    }
+        function showChangePwError(msg) {
+            if (!changePwError) return;
+            changePwError.textContent = msg || '';
+            changePwError.style.display = msg ? 'block' : 'none';
+        }
 
-    function closeChangePwModal() {
-        if (changePwModal) changePwModal.classList.remove('visible');
-        showChangePwError('');
-    }
+        function openChangePwModal() {
+            showChangePwError('');
+            if (newPwInput) newPwInput.value = '';
+            if (confirmPwInput) confirmPwInput.value = '';
+            if (!sneatPasswordModal && changePwModalEl && window.bootstrap && window.bootstrap.Modal) {
+                sneatPasswordModal = new window.bootstrap.Modal(changePwModalEl);
+            }
+            if (sneatPasswordModal) sneatPasswordModal.show();
+            else if (changePwModalEl) changePwModalEl.classList.add('show');
+            if (newPwInput) newPwInput.focus();
+        }
 
-    if (brokerChangePassword) {
-        brokerChangePassword.addEventListener('click', function () {
-            if (brokerDropdown) brokerDropdown.classList.remove('visible');
+        function closeChangePwModal() {
+            if (sneatPasswordModal) sneatPasswordModal.hide();
+            showChangePwError('');
+        }
+
+        if (dropChangePw) dropChangePw.addEventListener('click', function (e) {
+            e.preventDefault();
             openChangePwModal();
         });
-    }
-    if (changePwClose) changePwClose.addEventListener('click', closeChangePwModal);
-    if (cancelChangePw) cancelChangePw.addEventListener('click', closeChangePwModal);
-    if (changePwModal) {
-        changePwModal.addEventListener('click', function (e) {
-            if (e.target === changePwModal) closeChangePwModal();
-        });
-    }
-    if (confirmChangePw && newPwInput && confirmPwInput) {
-        confirmChangePw.addEventListener('click', function () {
-            var newPw = newPwInput.value;
-            var confirmPw = confirmPwInput.value;
-            showChangePwError('');
-            if (newPw.length < 6) { showChangePwError('Password must be at least 6 characters'); return; }
-            if (newPw !== confirmPw) { showChangePwError('Passwords do not match'); return; }
-            confirmChangePw.disabled = true;
-            window._supabase.auth.updateUser({ password: newPw }).then(function (res) {
-                if (res.error) { showChangePwError(res.error.message || 'Failed to update password'); return; }
-                toast('Password updated successfully.', 'success');
-                closeChangePwModal();
-            }).catch(function (err) {
-                showChangePwError((err && err.message) ? err.message : 'Failed to update password');
-            }).finally(function () {
-                confirmChangePw.disabled = false;
+        if (changePwClose) changePwClose.addEventListener('click', closeChangePwModal);
+        if (cancelChangePw) cancelChangePw.addEventListener('click', closeChangePwModal);
+        if (confirmChangePw && newPwInput && confirmPwInput) {
+            confirmChangePw.addEventListener('click', function () {
+                const newPw = newPwInput.value;
+                const confirmPw = confirmPwInput.value;
+                showChangePwError('');
+                if (newPw.length < 6) { showChangePwError('Password must be at least 6 characters'); return; }
+                if (newPw !== confirmPw) { showChangePwError('Passwords do not match'); return; }
+                confirmChangePw.disabled = true;
+                window._supabase.auth.updateUser({ password: newPw }).then(function (res) {
+                    if (res.error) { showChangePwError(res.error.message || 'Failed to update password'); return; }
+                    toast('Password updated successfully.', 'success');
+                    closeChangePwModal();
+                }).catch(function (err) {
+                    showChangePwError((err && err.message) ? err.message : 'Failed to update password');
+                }).finally(function () {
+                    confirmChangePw.disabled = false;
+                });
             });
-        });
+        }
     }
+    bindSneatShellActions();
 
     function getContactName(contactId) {
         const c = contacts.find(x => String(x.id) === String(contactId));
@@ -1332,7 +1331,7 @@
         dealEditMsgEl.style.display = text ? '' : 'none';
     }
 
-    function openDealModal(dealId) {
+    async function openDealModal(dealId) {
         const deal = deals.find(d => String(d.id) === String(dealId));
         if (!deal || !dealModalBackdrop) return;
         editingDealId = String(deal.id);
@@ -1352,8 +1351,15 @@
                 };
             })
         };
+        try {
+            if (isExternalBrokerUser) await loadCrmMasterConfig('', false, false, 'broker');
+            else if (deal.client_id) await loadCrmMasterConfig(deal.client_id, false, false, 'client');
+        } catch (e) {
+            console.warn('CRM master config for deal failed:', e);
+        }
         renderDealModalContactOptions(deal.contact_id);
         if (dealEditTitleEl) dealEditTitleEl.value = deal.title || '';
+        populateDealStageSelect(deal.stage);
         if (dealEditStageEl) dealEditStageEl.value = String(deal.stage || 'new');
         if (dealEditworkspaceEl) dealEditworkspaceEl.value = deal.project_name || '';
         if (dealEditAmountEl) dealEditAmountEl.value = deal.amount || '';
@@ -1847,12 +1853,13 @@
     let isClientAdminUser = false;
     let crmMasterConfig = null;
     let crmMasterConfigClientId = '';
+    let crmMasterConfigScope = '';
     let crmMasterConfigLoaded = false;
     let selected = null;
     let allPlots = [];
     let orgUsers = [];
     let crmTeamUsers = [];
-    let currentView = 'table'; // forced list-first intake queue
+    let currentView = 'table';
     const interestsPager = { page: 1, size: 25 };
     const plotsPager = { page: 1, size: 25 };
     const lockPlotsPager = { page: 1, size: 25 };
@@ -1897,6 +1904,8 @@
                 isClientAdminUser = !!d.is_client_admin;
                 isExternalBrokerUser = !!isExternalBroker;
                 window.__crmIsExternalBroker = !!isExternalBroker;
+                window.__crmUserRole = userRole;
+                configureSneatShell(d, isExternalBroker, isAdminRole);
                 configureBrokerAccount(d, useBrokerHeader);
                 // Show admin-only CRM tabs
                 if (isAdminRole) {
@@ -1906,7 +1915,7 @@
                 } else {
                     if (isExternalBroker) {
                         if ($('tab-allotted-clients')) $('tab-allotted-clients').style.display = '';
-                        if ($('tab-projects')) $('tab-projects').style.display = '';
+                        if ($('tab-masters')) $('tab-masters').style.display = '';
                     }
                     if (isClientAdminUser && $('tab-masters')) $('tab-masters').style.display = '';
                 }
@@ -2126,13 +2135,39 @@
         lead_source: ['Partner', 'Word of Mouth', 'Web Download', 'Website', 'WhatsApp Campaign', 'Google Ad', 'Facebook Ad', 'Cold Call', 'Email Response', 'Public Relations', 'Facebook', 'YouTube', 'Networking', 'India Mart', 'Just Dial'],
         lead_status: ['Cold Lead', 'Warm Lead - Inquiring', 'Hot Lead - Purchased in Existing Project', 'Lost Lead - Lost after Quotation', 'Repeat Client - Loyal Buyer']
     };
-    const masterFieldOrder = ['lead_source','lead_category','lead_status','campaign_type','campaign_status','deal_stage','state','country'];
+    const masterFieldOrder = ['lead_source','lead_category','lead_status','campaign_type','campaign_status','deal_stage','plot_status','state','country'];
+    const masterEntityOptions = [
+        { id: 'interests', label: 'Interests' },
+        { id: 'deals', label: 'Deals' },
+        { id: 'contacts', label: 'Contacts' },
+        { id: 'plots', label: 'Plots' }
+    ];
 
     function masterFields() {
         return (crmMasterConfig && Array.isArray(crmMasterConfig.fields)) ? crmMasterConfig.fields : [];
     }
     function masterField(key) {
         return masterFields().find(f => String(f.field_key || '') === key) || null;
+    }
+    function masterAppliesList(field) {
+        if (field && Array.isArray(field.applies_to) && field.applies_to.length) {
+            return field.applies_to.map(x => String(x || '').trim().toLowerCase()).filter(Boolean);
+        }
+        return ['interests'];
+    }
+    function masterAppliesToKey(key, entity) {
+        const field = masterField(key);
+        if (!field || field.is_enabled === false) return false;
+        return masterAppliesList(field).includes(String(entity || '').toLowerCase());
+    }
+    function renderMasterEntityChecks(field) {
+        const applies = masterAppliesList(field);
+        const checks = masterEntityOptions.map(ent =>
+            '<label class="master-entity-check">' +
+            '<input type="checkbox" class="master-entity-cb" value="'+esc(ent.id)+'" '+(applies.includes(ent.id) ? 'checked' : '')+'>' +
+            '<span>'+esc(ent.label)+'</span></label>'
+        ).join('');
+        return '<div class="master-entity-checks">'+checks+'</div>';
     }
     function masterOptions(key) {
         const field = masterField(key);
@@ -2141,20 +2176,34 @@
         const fallback = Array.isArray(masterFallbackOptions[key]) ? masterFallbackOptions[key] : [];
         return fallback.map(v => ({ value: v, is_enabled: true }));
     }
-    async function loadCrmMasterConfig(clientId, includeDisabled, force) {
-        const cid = String(clientId || '').trim();
+    function masterScopeForLoad(clientId, scope) {
+        if (scope === 'broker' || (isExternalBrokerUser && scope !== 'client' && !String(clientId || '').trim())) {
+            return 'broker';
+        }
+        return 'client';
+    }
+    function masterManageBody() {
+        if (crmMasterConfigScope === 'broker') return { scope: 'broker' };
+        return { client_id: crmMasterConfigClientId };
+    }
+    async function loadCrmMasterConfig(clientId, includeDisabled, force, scope) {
+        const resolvedScope = masterScopeForLoad(clientId, scope);
+        const cid = resolvedScope === 'client' ? String(clientId || '').trim() : '';
         const include = !!includeDisabled;
-        if (crmMasterConfigLoaded && !force && crmMasterConfig && String(crmMasterConfigClientId || '') === cid && !!crmMasterConfig.include_disabled === include) {
+        const cacheKey = resolvedScope === 'broker' ? 'broker' : cid;
+        if (crmMasterConfigLoaded && !force && crmMasterConfig && crmMasterConfigScope === resolvedScope && (resolvedScope === 'broker' || String(crmMasterConfigClientId || '') === cid) && !!crmMasterConfig.include_disabled === include) {
             return crmMasterConfig;
         }
         const qs = new URLSearchParams();
-        if (cid) qs.set('client_id', cid);
+        if (resolvedScope === 'broker') qs.set('scope', 'broker');
+        else if (cid) qs.set('client_id', cid);
         if (include) qs.set('include_disabled', '1');
         const r = await api('/api/crm/master-config' + (qs.toString() ? '?' + qs.toString() : ''));
         const data = await r.json().catch(() => ({}));
         if (!r.ok) throw new Error(data.error || 'Failed to load CRM masters');
         crmMasterConfig = Object.assign({}, data, { include_disabled: include });
-        crmMasterConfigClientId = String(data.client_id || cid || '');
+        crmMasterConfigScope = String(data.scope || resolvedScope);
+        crmMasterConfigClientId = crmMasterConfigScope === 'broker' ? '' : String(data.client_id || cid || '');
         crmMasterConfigLoaded = true;
         return crmMasterConfig;
     }
@@ -2162,22 +2211,49 @@
         const grid = $('master-grid');
         const empty = $('master-empty');
         const meta = $('master-meta');
+        const desc = $('master-section-desc');
         if (!grid || !empty) return;
         grid.innerHTML = '';
         empty.style.display = 'none';
         try {
-            const config = await loadCrmMasterConfig('', true, !!force);
+            const loadScope = isExternalBrokerUser ? 'broker' : 'client';
+            const config = await loadCrmMasterConfig('', true, !!force, loadScope);
             const fields = Array.isArray(config.fields) ? config.fields.slice() : [];
-            if (meta) meta.textContent = 'Client ' + String(config.client_id || '').slice(0, 8);
+            if (meta) {
+                meta.textContent = config.scope === 'broker' ? 'Your broker masters' : ('Client ' + String(config.client_id || '').slice(0, 8));
+            }
+            if (desc) {
+                desc.textContent = config.scope === 'broker'
+                    ? 'Your own dropdown lists for leads (independent from client masters)'
+                    : 'Client-controlled lead and campaign dropdowns';
+            }
             if (!fields.length) { empty.style.display = ''; return; }
-            grid.innerHTML = renderMasterTable(fields, config.client_id);
-            bindMasterActions(grid, config.client_id);
+            grid.innerHTML = renderMasterTable(fields);
+            bindMasterActions(grid);
+            bindMasterValueActions(grid);
+            populatePlotStatusFilter();
         } catch (e) {
             empty.style.display = '';
             empty.innerHTML = '<strong>Could not load masters</strong><div>'+esc(e.message || 'Failed')+'</div>';
         }
     }
-    function renderMasterTable(fields, clientId) {
+    function renderMasterValuesEditor(field) {
+        const key = String(field.field_key || '');
+        const values = Array.isArray(field.values) ? field.values.filter(v => v && v.is_enabled !== false) : [];
+        const chips = values.map(v =>
+            '<span class="master-value-chip" data-value-id="'+esc(String(v.id || ''))+'">' +
+            '<span class="master-value-chip-label">'+esc(String(v.value || ''))+'</span>' +
+            '<button type="button" class="master-value-remove" aria-label="Remove option">&times;</button></span>'
+        ).join('');
+        return '<tr class="master-values-row" data-field-key="'+esc(key)+'"><td colspan="4">' +
+            '<div class="master-values-editor">' +
+            '<div class="master-value-chips">'+chips+'</div>' +
+            '<div class="master-value-add">' +
+            '<input type="text" class="toolbar-search master-value-input" maxlength="100" placeholder="Add option" autocomplete="off">' +
+            '<button type="button" class="btn master-value-add-btn">Add</button>' +
+            '</div></div></td></tr>';
+    }
+    function renderMasterTable(fields) {
         const ordered = fields.slice().sort((a, b) => {
             const ai = masterFieldOrder.indexOf(String(a.field_key || ''));
             const bi = masterFieldOrder.indexOf(String(b.field_key || ''));
@@ -2187,39 +2263,89 @@
             const key = String(field.field_key || '');
             const label = field.label || masterFieldLabels[key] || key;
             const mode = field.is_required ? 'required' : 'optional';
-            return '<tr class="master-row" data-field-key="'+esc(key)+'" data-client-id="'+esc(clientId || '')+'">' +
+            return '<tr class="master-row" data-field-key="'+esc(key)+'">' +
                 '<td><strong>'+esc(label)+'</strong><span>'+esc(key)+'</span></td>' +
                 '<td><label class="master-switch"><input type="checkbox" class="master-enabled" '+(field.is_enabled!==false?'checked':'')+'><span></span></label></td>' +
                 '<td><select class="toolbar-select master-mode-select" aria-label="'+esc(label)+' mode">' +
                     '<option value="required" '+(mode==='required'?'selected':'')+'>Required</option>' +
                     '<option value="optional" '+(mode==='optional'?'selected':'')+'>Optional</option>' +
                 '</select></td>' +
-            '</tr>';
+                '<td class="master-entities-cell">'+renderMasterEntityChecks(field)+'</td>' +
+            '</tr>' + renderMasterValuesEditor(field);
         }).join('');
         return '<div class="master-table-wrap"><table class="master-table">' +
-            '<thead><tr><th>Attribute</th><th>Status</th><th>Rule</th></tr></thead>' +
+            '<thead><tr><th>Attribute</th><th>Status</th><th>Rule</th><th>Used in</th></tr></thead>' +
             '<tbody>'+rows+'</tbody>' +
         '</table></div>';
     }
-    function bindMasterActions(root, clientId) {
+    function bindMasterActions(root) {
         root.querySelectorAll('.master-row').forEach(row => {
             const fieldKey = row.getAttribute('data-field-key');
             const saveAttr = async () => {
                 const mode = row.querySelector('.master-mode-select').value;
-                const body = {
-                    client_id: clientId,
+                const appliesTo = [];
+                row.querySelectorAll('.master-entity-cb').forEach(cb => {
+                    if (cb.checked) appliesTo.push(cb.value);
+                });
+                if (!appliesTo.length) {
+                    showToast('Select at least one: Interests, Deals, Contacts, or Plots', 'error');
+                    return;
+                }
+                const body = Object.assign({}, masterManageBody(), {
                     is_required: mode === 'required',
                     is_optional: mode !== 'required',
-                    is_enabled: !!row.querySelector('.master-enabled').checked
-                };
+                    is_enabled: !!row.querySelector('.master-enabled').checked,
+                    applies_to: appliesTo
+                });
                 const r = await api('/api/crm/master-attributes/' + encodeURIComponent(fieldKey), { method:'PATCH', body: JSON.stringify(body) });
                 const data = await r.json().catch(() => ({}));
                 if (!r.ok) throw new Error(data.error || 'Failed to save master');
                 crmMasterConfigLoaded = false;
                 showToast('Master saved');
             };
-            row.querySelectorAll('.master-mode-select,.master-enabled').forEach(input => {
+            row.querySelectorAll('.master-mode-select,.master-enabled,.master-entity-cb').forEach(input => {
                 input.addEventListener('change', () => saveAttr().catch(e => showToast(e.message || 'Failed to save master', 'error')));
+            });
+        });
+    }
+    function bindMasterValueActions(root) {
+        root.querySelectorAll('.master-values-row').forEach(row => {
+            const fieldKey = row.getAttribute('data-field-key');
+            const input = row.querySelector('.master-value-input');
+            const addBtn = row.querySelector('.master-value-add-btn');
+            const chips = row.querySelector('.master-value-chips');
+            const addValue = async () => {
+                const value = String(input && input.value || '').trim();
+                if (!value) return;
+                const body = Object.assign({}, masterManageBody(), { field_key: fieldKey, value: value });
+                const r = await api('/api/crm/master-values', { method: 'POST', body: JSON.stringify(body) });
+                const data = await r.json().catch(() => ({}));
+                if (!r.ok) throw new Error(data.error || 'Failed to add option');
+                crmMasterConfigLoaded = false;
+                await loadCrmMasters(true);
+                showToast('Option added');
+            };
+            if (addBtn) addBtn.addEventListener('click', () => addValue().catch(e => showToast(e.message || 'Failed to add option', 'error')));
+            if (input) input.addEventListener('keydown', ev => {
+                if (ev.key === 'Enter') { ev.preventDefault(); addValue().catch(e => showToast(e.message || 'Failed to add option', 'error')); }
+            });
+            if (chips) chips.querySelectorAll('.master-value-remove').forEach(btn => {
+                btn.addEventListener('click', async () => {
+                    const chip = btn.closest('.master-value-chip');
+                    const valueId = chip && chip.getAttribute('data-value-id');
+                    if (!valueId) return;
+                    try {
+                        const body = Object.assign({}, masterManageBody(), { is_enabled: false });
+                        const r = await api('/api/crm/master-values/' + encodeURIComponent(valueId), { method: 'PATCH', body: JSON.stringify(body) });
+                        const data = await r.json().catch(() => ({}));
+                        if (!r.ok) throw new Error(data.error || 'Failed to remove option');
+                        crmMasterConfigLoaded = false;
+                        await loadCrmMasters(true);
+                        showToast('Option removed');
+                    } catch (e) {
+                        showToast(e.message || 'Failed to remove option', 'error');
+                    }
+                });
             });
         });
     }
@@ -2383,7 +2509,8 @@
         }).join('');
         bindInterestPlotHover(elTbody);
         elTbody.querySelectorAll('tr[data-id]').forEach(tr => {
-            tr.addEventListener('click', () => {
+            tr.addEventListener('click', e => {
+                if (e.target.closest('.interest-plots-trigger')) return;
                 const item = interests.find(x => String(x.id)===tr.getAttribute('data-id'));
                 if(item) openDrawer(item);
             });
@@ -2404,8 +2531,9 @@
     }
 
     // -- Drawer --
-    const drawerBackdrop = $('drawer-backdrop');
     const drawer = $('drawer');
+    let interestDrawerOffcanvas = null;
+    let interestPlotsBsModal = null;
     const dTitle = $('d-title');
     const dSubtitle = $('d-subtitle');
     const dContact = $('d-contact');
@@ -2427,40 +2555,27 @@
     const interestPlotsModalTitle = $('interest-plots-modal-title');
     const interestPlotsModalTbody = $('interest-plots-modal-tbody');
     const interestPlotsModalClose = $('interest-plots-modal-close');
-    let interestPlotsCloseTimer = null;
 
-    function clearInterestPlotsCloseTimer() {
-        if (interestPlotsCloseTimer) {
-            clearTimeout(interestPlotsCloseTimer);
-            interestPlotsCloseTimer = null;
+    function getInterestDrawerOffcanvas() {
+        if (!drawer || !window.bootstrap || !window.bootstrap.Offcanvas) return null;
+        if (!interestDrawerOffcanvas) {
+            interestDrawerOffcanvas = window.bootstrap.Offcanvas.getOrCreateInstance(drawer);
+            drawer.addEventListener('hidden.bs.offcanvas', function () { selected = null; });
         }
+        return interestDrawerOffcanvas;
+    }
+    function getInterestPlotsBsModal() {
+        if (!interestPlotsModal || !window.bootstrap || !window.bootstrap.Modal) return null;
+        if (!interestPlotsBsModal) {
+            interestPlotsBsModal = window.bootstrap.Modal.getOrCreateInstance(interestPlotsModal);
+        }
+        return interestPlotsBsModal;
     }
     function closeInterestPlotsModal() {
-        clearInterestPlotsCloseTimer();
-        if (!interestPlotsModal) return;
-        interestPlotsModal.classList.remove('visible');
-        interestPlotsModal.setAttribute('aria-hidden', 'true');
+        const inst = getInterestPlotsBsModal();
+        if (inst) inst.hide();
     }
-    function scheduleCloseInterestPlotsModal() {
-        clearInterestPlotsCloseTimer();
-        interestPlotsCloseTimer = setTimeout(closeInterestPlotsModal, 180);
-    }
-    function positionInterestPlotsModal(anchorEl) {
-        if (!interestPlotsModal || !anchorEl) return;
-        const rect = anchorEl.getBoundingClientRect();
-        const margin = 10;
-        const vw = window.innerWidth;
-        const vh = window.innerHeight;
-        const box = interestPlotsModal.getBoundingClientRect();
-        let left = rect.left + (rect.width / 2) - (box.width / 2);
-        if (left < margin) left = margin;
-        if (left + box.width > vw - margin) left = vw - box.width - margin;
-        let top = rect.bottom + 8;
-        if (top + box.height > vh - margin) top = Math.max(margin, rect.top - box.height - 8);
-        interestPlotsModal.style.left = Math.round(left) + 'px';
-        interestPlotsModal.style.top = Math.round(top) + 'px';
-    }
-    function openInterestPlotsModal(groupId, anchorEl) {
+    function openInterestPlotsModal(groupId) {
         if (!interestPlotsModal || !interestPlotsModalTbody) return;
         const item = interestGroupMap.get(String(groupId || ''));
         if (!item) return;
@@ -2472,46 +2587,32 @@
         interestPlotsModalTbody.innerHTML = plots.length ? plots.map(p => {
             const sk = getStatusKey(p && p.status);
             const sc = sk === 'sold' ? 'status-pill--sold' : sk === 'hold' ? 'status-pill--hold' : 'status-pill--available';
-            return '<tr><td style="font-weight:600;">'+esc((p && p.name) || 'Plot')+'</td><td>'+esc((p && p.area) || '-')+'</td><td>'+esc((p && p.price) || '-')+'</td><td><span class="status-pill '+sc+'" style="font-size:0.65rem;padding:0.1rem 0.4rem">'+esc((p && p.status) || 'available')+'</span></td></tr>';
-        }).join('') : '<tr><td colspan="4" class="subtle">No plots attached</td></tr>';
-        interestPlotsModal.classList.add('visible');
-        interestPlotsModal.setAttribute('aria-hidden', 'false');
-        positionInterestPlotsModal(anchorEl);
-        clearInterestPlotsCloseTimer();
+            return '<tr><td class="fw-medium">'+esc((p && p.name) || 'Plot')+'</td><td>'+esc((p && p.area) || '-')+'</td><td>'+esc((p && p.price) || '-')+'</td><td><span class="badge bg-label-'+ (sk === 'sold' ? 'danger' : sk === 'hold' ? 'warning' : 'success') +'">'+esc((p && p.status) || 'available')+'</span></td></tr>';
+        }).join('') : '<tr><td colspan="4" class="text-center text-body-secondary py-4">No plots attached</td></tr>';
+        getInterestPlotsBsModal()?.show();
     }
     function bindInterestPlotHover(rootEl) {
         if (!rootEl) return;
         rootEl.querySelectorAll('.interest-plots-trigger').forEach(el => {
-            el.addEventListener('mouseenter', () => openInterestPlotsModal(el.getAttribute('data-group-id'), el));
-            el.addEventListener('mouseleave', scheduleCloseInterestPlotsModal);
-            el.addEventListener('focus', () => openInterestPlotsModal(el.getAttribute('data-group-id'), el));
-            el.addEventListener('blur', scheduleCloseInterestPlotsModal);
             el.addEventListener('click', e => {
                 e.preventDefault();
                 e.stopPropagation();
-                openInterestPlotsModal(el.getAttribute('data-group-id'), el);
+                openInterestPlotsModal(el.getAttribute('data-group-id'));
             });
         });
     }
-    if (interestPlotsModal) {
-        interestPlotsModal.addEventListener('mouseenter', clearInterestPlotsCloseTimer);
-        interestPlotsModal.addEventListener('mouseleave', scheduleCloseInterestPlotsModal);
-    }
-    if (interestPlotsModalClose) {
-        interestPlotsModalClose.addEventListener('click', e => {
-            e.preventDefault();
-            closeInterestPlotsModal();
-        });
-    }
-    window.addEventListener('resize', closeInterestPlotsModal);
-    window.addEventListener('scroll', closeInterestPlotsModal, true);
 
-    function showDrawerMsg(text,type) { if(!dMsg)return; dMsg.textContent=text||''; dMsg.className='msg'+(type==='error'?' error':''); dMsg.style.display=text?'':'none'; }
+    function showDrawerMsg(text,type) {
+        if (!dMsg) return;
+        dMsg.textContent = text || '';
+        dMsg.className = 'alert py-2 mt-3 mb-0' + (type === 'error' ? ' alert-danger' : ' alert-success');
+        dMsg.style.display = text ? '' : 'none';
+    }
 
     function renderDrawerMasterSelect(key, item) {
         const field = masterField(key);
-        const allowFallback = key === 'lead_source' || key === 'lead_status';
-        if ((!field || field.is_enabled === false) && !allowFallback) return '';
+        if (!masterAppliesToKey(key, 'interests')) return '';
+        if (!field || field.is_enabled === false) return '';
         const label = (field && field.label) || masterFieldLabels[key] || key;
         const current = String(item && item[key] || '').trim();
         const required = field ? !!field.is_required : false;
@@ -2523,7 +2624,7 @@
         }).join('');
         return '<label class="drawer-master-field">' +
             '<span>'+esc(label)+(required ? ' *' : '')+'</span>' +
-            '<select class="toolbar-select drawer-master-input" data-master-key="'+esc(key)+'" '+(required ? 'data-required="1"' : '')+'>' +
+            '<select class="form-select drawer-master-input" data-master-key="'+esc(key)+'" '+(required ? 'data-required="1"' : '')+'>' +
                 '<option value="">Select '+esc(label)+'</option>' + optionHtml +
             '</select>' +
         '</label>';
@@ -2533,27 +2634,63 @@
         const value = String(item && item[key] || '').trim();
         return '<label class="drawer-master-field">' +
             '<span>'+esc(label)+'</span>' +
-            '<input class="toolbar-search drawer-master-input" data-master-key="'+esc(key)+'" type="'+esc(type || 'text')+'" value="'+esc(value)+'" maxlength="100">' +
+            '<input class="form-control drawer-master-input" data-master-key="'+esc(key)+'" type="'+esc(type || 'text')+'" value="'+esc(value)+'" maxlength="100">' +
         '</label>';
     }
 
     function renderDrawerMasterFields(item) {
         if (!dMasterFields) return;
         const parts = [];
-        parts.push(renderDrawerMasterSelect('lead_source', item));
-        parts.push(renderDrawerMasterSelect('lead_category', item));
-        parts.push(renderDrawerMasterSelect('lead_status', item));
-        parts.push(renderDrawerMasterSelect('campaign_type', item));
-        parts.push(renderDrawerMasterSelect('campaign_status', item));
+        masterFieldOrder.forEach(key => {
+            if (!masterAppliesToKey(key, 'interests')) return;
+            if (key === 'state') {
+                if (masterOptions('state').length) parts.push(renderDrawerMasterSelect('state', Object.assign({}, item, { state: item.customer_state })));
+                else parts.push(renderDrawerAddressInput('customer_state', 'State', item));
+                return;
+            }
+            if (key === 'country') {
+                if (masterOptions('country').length) parts.push(renderDrawerMasterSelect('country', Object.assign({}, item, { country: item.customer_country })));
+                else parts.push(renderDrawerAddressInput('customer_country', 'Country', item));
+                return;
+            }
+            if (key === 'deal_stage' || key === 'title') return;
+            parts.push(renderDrawerMasterSelect(key, item));
+        });
         parts.push(renderDrawerAddressInput('customer_street', 'Street', item));
         parts.push(renderDrawerAddressInput('customer_city', 'City', item));
-        if (masterOptions('state').length) parts.push(renderDrawerMasterSelect('state', Object.assign({}, item, { state: item.customer_state })));
-        else parts.push(renderDrawerAddressInput('customer_state', 'State', item));
-        if (masterOptions('country').length) parts.push(renderDrawerMasterSelect('country', Object.assign({}, item, { country: item.customer_country })));
-        else parts.push(renderDrawerAddressInput('customer_country', 'Country', item));
+        if (!masterAppliesToKey('state', 'interests')) parts.push(renderDrawerAddressInput('customer_state', 'State', item));
+        if (!masterAppliesToKey('country', 'interests')) parts.push(renderDrawerAddressInput('customer_country', 'Country', item));
         parts.push(renderDrawerAddressInput('customer_zip_code', 'Zip Code', item));
-        parts.push('<label class="drawer-master-field drawer-master-field--wide"><span>Description</span><textarea class="toolbar-search drawer-master-input" data-master-key="description" maxlength="500">'+esc(item && item.description || '')+'</textarea></label>');
+        parts.push('<label class="drawer-master-field drawer-master-field--wide"><span>Description</span><textarea class="form-control drawer-master-input" data-master-key="description" maxlength="500">'+esc(item && item.description || '')+'</textarea></label>');
         dMasterFields.innerHTML = parts.filter(Boolean).join('');
+    }
+
+    function dealStageSlug(label) {
+        const map = {
+            new: 'new',
+            contacted: 'contacted',
+            'site visit': 'site_visit',
+            negotiation: 'negotiation',
+            won: 'won',
+            lost: 'lost'
+        };
+        const k = String(label || '').trim().toLowerCase();
+        if (map[k]) return map[k];
+        return k.replace(/\s+/g, '_').replace(/-/g, '_');
+    }
+
+    function populateDealStageSelect(currentStage) {
+        if (!dealEditStageEl) return;
+        const field = masterField('deal_stage');
+        if (!field || field.is_enabled === false || !masterAppliesList(field).includes('deals')) return;
+        const options = masterOptions('deal_stage');
+        if (!options.length) return;
+        const cur = String(currentStage || 'new').toLowerCase();
+        dealEditStageEl.innerHTML = options.map(v => {
+            const label = String(v.value || '').trim();
+            const slug = dealStageSlug(label);
+            return '<option value="'+esc(slug)+'"'+(slug === cur ? ' selected' : '')+'>'+esc(label)+'</option>';
+        }).join('');
     }
 
     function collectDrawerMasterPatch() {
@@ -2583,18 +2720,22 @@
     async function openDrawer(item) {
         selected = item;
         await loadCrmTeamUsers();
-        if (item && item.client_id) {
-            try {
-                await loadCrmMasterConfig(item.client_id, false, false);
-            } catch(e) {
-                console.warn('CRM master config failed:', e);
+        try {
+            if (isExternalBrokerUser) {
+                await loadCrmMasterConfig('', false, false, 'broker');
+            } else if (item && item.client_id) {
+                await loadCrmMasterConfig(item.client_id, false, false, 'client');
+            } else {
                 crmMasterConfig = null;
                 crmMasterConfigClientId = '';
+                crmMasterConfigScope = '';
                 crmMasterConfigLoaded = false;
             }
-        } else {
+        } catch(e) {
+            console.warn('CRM master config failed:', e);
             crmMasterConfig = null;
             crmMasterConfigClientId = '';
+            crmMasterConfigScope = '';
             crmMasterConfigLoaded = false;
         }
         const pj = projectById.get(String(item.panorama_id));
@@ -2699,15 +2840,11 @@
 
         dNotes.value = String(item.notes||'');
         showDrawerMsg('');
-        drawerBackdrop.classList.add('visible');
-        drawer.classList.add('visible');
-        drawer.setAttribute('aria-hidden','false');
+        getInterestDrawerOffcanvas()?.show();
     }
 
     function closeDrawer() {
-        drawerBackdrop.classList.remove('visible');
-        drawer.classList.remove('visible');
-        drawer.setAttribute('aria-hidden','true');
+        getInterestDrawerOffcanvas()?.hide();
         selected = null;
     }
 
@@ -2770,9 +2907,7 @@
         }
     }
 
-    $('drawer-close').addEventListener('click', closeDrawer);
-    drawerBackdrop.addEventListener('click', closeDrawer);
-    document.addEventListener('keydown', e => { if(e.key==='Escape') { closeDrawer(); closeInterestPlotsModal(); } });
+    if ($('drawer-close')) $('drawer-close').addEventListener('click', closeDrawer);
     btnContacted.addEventListener('click', () => saveSelected({is_contacted:true}));
     btnSave.addEventListener('click', function() {
         if (!selected) return;
@@ -3262,7 +3397,7 @@
         if(!workspaces.length) { tbody.innerHTML=''; if(empty) empty.style.display=''; return; }
         if(empty) empty.style.display='none';
         tbody.innerHTML = workspaces.map(ws => {
-            const canEditProjects = userRole === 'admin' || userRole === 'superadmin' || String((ws && ws.access_type) || '') === 'owner';
+            const canEditProjects = !isExternalBrokerUser && userRole !== 'broker' && (userRole === 'admin' || userRole === 'superadmin' || String((ws && ws.access_type) || '') === 'owner');
             const pub = ws.is_published ? '<span style="color:var(--color-available);font-weight:600;font-size:0.75rem;">Yes</span>' : '<span style="color:var(--muted);font-size:0.75rem;">No</span>';
             const access = ws.access_type ? '<span style="color:var(--muted);font-size:0.75rem;">' + esc(ws.access_type) + '</span>' : '';
             const action = canEditProjects ? '<button class="btn" data-edit-project="'+esc(ws.id)+'">Edit Details</button>' : access;
@@ -3371,8 +3506,56 @@
     const plotPanoFilter = $('plot-panorama-filter');
     const plotStatusFilter = $('plot-status-filter');
 
+    function plotStatusToken(label, forAdmin) {
+        const k = String(label || '').trim().toLowerCase();
+        if (k === 'available') return 'available';
+        if (k === 'sold') return 'sold';
+        if (k === 'hold' || k === 'on hold' || k === 'on_hold' || k === 'onhold') return forAdmin ? 'on_hold' : 'hold';
+        return k.replace(/\s+/g, '_').replace(/-/g, '_');
+    }
+    function defaultPlotStatusOptionsHtml(currentValue, forAdmin) {
+        const cur = String(currentValue || '').toLowerCase();
+        const opts = forAdmin
+            ? [['available', 'Available'], ['on_hold', 'On Hold'], ['sold', 'Sold']]
+            : [['available', 'Available'], ['hold', 'Hold'], ['sold', 'Sold']];
+        return opts.map(([val, label]) =>
+            '<option value="'+esc(val)+'"'+(getStatusKey(val) === getStatusKey(cur) ? ' selected' : '')+'>'+esc(label)+'</option>'
+        ).join('');
+    }
+    function plotStatusOptionsHtml(currentValue, forAdmin) {
+        if (!masterAppliesToKey('plot_status', 'plots')) return defaultPlotStatusOptionsHtml(currentValue, forAdmin);
+        const options = masterOptions('plot_status');
+        if (!options.length) return defaultPlotStatusOptionsHtml(currentValue, forAdmin);
+        const cur = String(currentValue || '').toLowerCase();
+        return options.map(v => {
+            const label = String(v.value || '').trim();
+            const val = plotStatusToken(label, forAdmin);
+            return '<option value="'+esc(val)+'"'+(getStatusKey(val) === getStatusKey(cur) ? ' selected' : '')+'>'+esc(label)+'</option>';
+        }).join('');
+    }
+    function populatePlotStatusFilter() {
+        if (!plotStatusFilter) return;
+        const cur = plotStatusFilter.value;
+        plotStatusFilter.innerHTML = '<option value="">All Status</option>' + plotStatusOptionsHtml('', false);
+        if (cur) plotStatusFilter.value = cur;
+    }
+    async function ensurePlotMasters() {
+        if (crmMasterConfigLoaded && masterField('plot_status')) {
+            populatePlotStatusFilter();
+            return;
+        }
+        const scope = isExternalBrokerUser ? 'broker' : 'client';
+        const cid = plotClientFilter ? String(plotClientFilter.value || '').trim() : '';
+        try {
+            await loadCrmMasterConfig(cid, false, true, scope);
+            populatePlotStatusFilter();
+        } catch (e) {
+            console.warn('Plot masters load failed:', e);
+        }
+    }
     async function loadAllPlots() {
         try { await ensureInterestsLoaded(); } catch(e) { console.warn('Interests load failed for plot counts:', e); }
+        await ensurePlotMasters();
         if(!plotsLoaded) {
             try {
                 const r = await api('/api/crm/plots');
@@ -3452,7 +3635,7 @@
             return '<tr>' +
                 '<td><input class="inline-edit" value="'+esc(p.name||'')+'" data-field="name" data-pid="'+esc(p.id)+'" aria-label="Plot Number"></td>' +
                 '<td><input class="inline-edit" value="'+esc(p.area||'')+'" data-field="area" data-pid="'+esc(p.id)+'" aria-label="Plot Size Area"></td>' +
-                '<td><select class="inline-edit-select" data-field="status" data-pid="'+esc(p.id)+'"><option value="available"'+(sk==='available'?' selected':'')+'>Available</option><option value="hold"'+(sk==='hold'?' selected':'')+'>Hold</option><option value="sold"'+(sk==='sold'?' selected':'')+'>Sold</option></select></td>' +
+                '<td><select class="inline-edit-select" data-field="status" data-pid="'+esc(p.id)+'">'+plotStatusOptionsHtml(p.status, false)+'</select></td>' +
                 '<td><span class="plot-status-swatch '+sc+'" aria-label="'+esc(p.status||'available')+'"></span></td>' +
                 '<td><input class="inline-edit" value="'+esc(p.description||'')+'" data-field="description" data-pid="'+esc(p.id)+'" aria-label="Description"></td>' +
                 '<td class="mono">'+esc(interestCount)+'</td>' +
@@ -4268,6 +4451,7 @@
     if (modal) modal.addEventListener('click', function(e) { if (e.target === modal) closeModal(); });
 
     window.openEditProjectModal = function(ProjectId) {
+        if (window.__crmIsExternalBroker || String(window.__crmUserRole || '') === 'broker') return;
         editProjectId = ProjectId;
         if (errorEl) errorEl.style.display = 'none';
         window.getAuthHeaders().then(function(headers) {
@@ -4300,6 +4484,7 @@
 
     if (saveBtn) {
         saveBtn.addEventListener('click', async function() {
+            if (window.__crmIsExternalBroker || String(window.__crmUserRole || '') === 'broker') return;
             if (!editProjectId) return;
             if (errorEl) errorEl.style.display = 'none';
             saveBtn.disabled = true;
@@ -4350,5 +4535,7 @@
     }
 })();
 </script>
-{% endblock %}
+<script src="/static/crm/crm-modals.js"></script>
+</body>
+</html>
 

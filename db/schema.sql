@@ -270,35 +270,62 @@ create index if not exists idx_buy_interests_created_at on public.buy_interests(
 create index if not exists idx_buy_interests_status on public.buy_interests(status);
 create index if not exists idx_buy_interests_contact_id on public.buy_interests(contact_id);
 
--- 8b) CRM client-scoped masters
+-- 8b) CRM masters (client-scoped or broker owner_user_id scoped)
 create table if not exists public.crm_master_attributes (
   id uuid primary key default gen_random_uuid(),
-  client_id uuid not null references public.clients(id) on delete cascade,
+  client_id uuid references public.clients(id) on delete cascade,
+  owner_user_id uuid,
   field_key text not null,
   label text not null default '',
   is_required boolean not null default false,
   is_optional boolean not null default true,
   is_enabled boolean not null default true,
   sort_order integer not null default 0,
+  applies_to text[] not null default '{interests}',
   created_at timestamptz default now(),
   updated_at timestamptz default now(),
-  unique(client_id, field_key)
+  constraint crm_master_attributes_scope_check check (
+    (client_id is not null and owner_user_id is null)
+    or (client_id is null and owner_user_id is not null)
+  )
 );
 
 create table if not exists public.crm_master_values (
   id uuid primary key default gen_random_uuid(),
-  client_id uuid not null references public.clients(id) on delete cascade,
+  client_id uuid references public.clients(id) on delete cascade,
+  owner_user_id uuid,
   field_key text not null,
   value text not null,
   is_enabled boolean not null default true,
   sort_order integer not null default 0,
   created_at timestamptz default now(),
   updated_at timestamptz default now(),
-  unique(client_id, field_key, value)
+  constraint crm_master_values_scope_check check (
+    (client_id is not null and owner_user_id is null)
+    or (client_id is null and owner_user_id is not null)
+  )
 );
+
+create unique index if not exists idx_crm_master_attributes_client_field
+  on public.crm_master_attributes (client_id, field_key)
+  where owner_user_id is null and client_id is not null;
+
+create unique index if not exists idx_crm_master_attributes_broker_field
+  on public.crm_master_attributes (owner_user_id, field_key)
+  where owner_user_id is not null;
+
+create unique index if not exists idx_crm_master_values_client_field_value
+  on public.crm_master_values (client_id, field_key, value)
+  where owner_user_id is null and client_id is not null;
+
+create unique index if not exists idx_crm_master_values_broker_field_value
+  on public.crm_master_values (owner_user_id, field_key, value)
+  where owner_user_id is not null;
 
 create index if not exists idx_crm_master_attributes_client on public.crm_master_attributes(client_id, sort_order);
 create index if not exists idx_crm_master_values_client_field on public.crm_master_values(client_id, field_key, sort_order);
+create index if not exists idx_crm_master_attributes_broker on public.crm_master_attributes(owner_user_id, sort_order) where owner_user_id is not null;
+create index if not exists idx_crm_master_values_broker_field on public.crm_master_values(owner_user_id, field_key, sort_order) where owner_user_id is not null;
 
 -- 8c) CRM contacts
 create table if not exists public.crm_contacts (

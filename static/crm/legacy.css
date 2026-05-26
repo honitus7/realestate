@@ -2263,19 +2263,6 @@
     }
 }
 
-/* CRM refactor compact surfaces */
-#view-board,
-#kanban-board,
-#kanban-empty {
-    display: none !important;
-}
-
-.kpi-chip:nth-child(4),
-.kpi-chip:nth-child(5),
-.kpi-chip:nth-child(6) {
-    display: none;
-}
-
 .crm-deals-toolbar {
     display: flex;
     gap: 0.6rem;

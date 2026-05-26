@@ -1295,6 +1295,14 @@ def register_routes(app):
                     pass
             except Exception:
                 pass
+        crm_master_client_id = ''
+        try:
+            from app.services.uam_reference_service import _project_reference_client_ids
+            ref_client_ids = _project_reference_client_ids(sb, workspace_id=workspace_id, panorama_id=panorama_id)
+            if ref_client_ids:
+                crm_master_client_id = str(ref_client_ids[0])
+        except Exception:
+            pass
         return render_template(
             'admin_3d.html',
             panorama=panorama,
@@ -1305,6 +1313,7 @@ def register_routes(app):
             customer_view_config=customer_view_config,
             full_view_panorama_ids=full_view_panorama_ids,
             full_view_panorama_tab_map=full_view_panorama_tab_map,
+            crm_master_client_id=crm_master_client_id,
             **auth_ctx(),
         )
 
@@ -5306,6 +5315,10 @@ def register_routes(app):
     )
     register_crm_contact_routes(
         app,
+        crm_panorama_ids=_crm_panorama_ids,
+        crm_client_scope_ids=_crm_client_scope_ids,
+        crm_interest_reference_scope_user_id=_crm_interest_reference_scope_user_id,
+        crm_reference_linked_ids=_crm_reference_linked_ids,
         crm_cache_get=_crm_cache_get,
         crm_cache_set=_crm_cache_set,
         crm_cache_version=_crm_cache_version,

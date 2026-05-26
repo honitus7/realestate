@@ -1,284 +1,529 @@
-{% extends 'base.html' %}
-{% block title %}Broker Invites - MarketoState{% endblock %}
-{% block head_css %}
-<link rel="stylesheet" href="/static/css/dashboard.css">
-<link rel="stylesheet" href="/static/css/crm.css">
-{% endblock %}
-{% block content %}
-<div class="crm-page crm-page--broker-header-mode crm-page--invites-page">
-    {% include 'components/broker_header.html' %}
-    <div class="crm-page-content crm-page-content--broker-header">
-        <main class="crm-content broker-invites-page">
-            <section class="crm-section active">
-                <div class="section-header">
-                    <div>
-                        <h2>Invites</h2>
-                        <p>Review client invites and join the teams you want to work with.</p>
+<!doctype html>
+<html
+  lang="en"
+  class="layout-menu-fixed layout-compact"
+  data-assets-path="/static/sneat/"
+  data-template="vertical-menu-template-free">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0" />
+
+    <title>Invites - MarketoState</title>
+
+    <meta name="description" content="" />
+
+    <link rel="icon" href="/static/Marketostate/Marketostate%20Favicon.svg" type="image/svg+xml" />
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Public+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400;1,500;1,600;1,700&display=swap"
+      rel="stylesheet" />
+
+    <link rel="stylesheet" href="/static/sneat/vendor/fonts/iconify-icons.css" />
+    <link rel="stylesheet" href="/static/sneat/vendor/css/core.css" />
+    <link rel="stylesheet" href="/static/sneat/css/demo.css" />
+    <link rel="stylesheet" href="/static/sneat/vendor/libs/perfect-scrollbar/perfect-scrollbar.css" />
+
+    <script src="/static/sneat/vendor/js/helpers.js"></script>
+    <script src="/static/sneat/js/config.js"></script>
+  </head>
+
+  <body>
+    <div class="layout-wrapper layout-content-navbar">
+      <div class="layout-container">
+        <aside id="layout-menu" class="layout-menu menu-vertical menu bg-menu-theme">
+          <div class="app-brand demo">
+            <a href="/customer-dashboard" class="app-brand-link">
+              <span class="app-brand-logo demo">
+                <span class="text-primary">
+                  <svg width="25" viewBox="0 0 25 42" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+                    <defs>
+                      <path d="M13.7918663,0.358365126 L3.39788168,7.44174259 C0.566865006,9.69408886 -0.379795268,12.4788597 0.557900856,15.7960551 C0.68998853,16.2305145 1.09562888,17.7872135 3.12357076,19.2293357 C3.8146334,19.7207684 5.32369333,20.3834223 7.65075054,21.2172976 L7.59773219,21.2525164 L2.63468769,24.5493413 C0.445452254,26.3002124 0.0884951797,28.5083815 1.56381646,31.1738486 C2.83770406,32.8170431 5.20850219,33.2640127 7.09180128,32.5391577 C8.347334,32.0559211 11.4559176,30.0011079 16.4175519,26.3747182 C18.0338572,24.4997857 18.6973423,22.4544883 18.4080071,20.2388261 C17.963753,17.5346866 16.1776345,15.5799961 13.0496516,14.3747546 L10.9194936,13.4715819 L18.6192054,7.984237 L13.7918663,0.358365126 Z" id="path-1"></path>
+                      <path d="M5.47320593,6.00457225 C4.05321814,8.216144 4.36334763,10.0722806 6.40359441,11.5729822 C8.61520715,12.571656 10.0999176,13.2171421 10.8577257,13.5094407 L15.5088241,14.433041 L18.6192054,7.984237 C15.5364148,3.11535317 13.9273018,0.573395879 13.7918663,0.358365126 C13.5790555,0.511491653 10.8061687,2.3935607 5.47320593,6.00457225 Z" id="path-3"></path>
+                      <path d="M7.50063644,21.2294429 L12.3234468,23.3159332 C14.1688022,24.7579751 14.397098,26.4880487 13.008334,28.506154 C11.6195701,30.5242593 10.3099883,31.790241 9.07958868,32.3040991 C5.78142938,33.4346997 4.13234973,34 4.13234973,34 C4.13234973,34 2.75489982,33.0538207 2.37032616e-14,31.1614621 C-0.55822714,27.8186216 -0.55822714,26.0572515 -4.05231404e-15,25.8773518 C0.83734071,25.6075023 2.77988457,22.8248993 3.3049379,22.52991 C3.65497346,22.3332504 5.05353963,21.8997614 7.50063644,21.2294429 Z" id="path-4"></path>
+                      <path d="M20.6,7.13333333 L25.6,13.8 C26.2627417,14.6836556 26.0836556,15.9372583 25.2,16.6 C24.8538077,16.8596443 24.4327404,17 24,17 L14,17 C12.8954305,17 12,16.1045695 12,15 C12,14.5672596 12.1403557,14.1461923 12.4,13.8 L17.4,7.13333333 C18.0627417,6.24967773 19.3163444,6.07059163 20.2,6.73333333 C20.3516113,6.84704183 20.4862915,6.981722 20.6,7.13333333 Z" id="path-5"></path>
+                    </defs>
+                    <g stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+                      <g transform="translate(-27.000000, -15.000000)">
+                        <g transform="translate(27.000000, 15.000000)">
+                          <g transform="translate(0.000000, 8.000000)">
+                            <mask id="mask-invites-2" fill="white"><use xlink:href="#path-1"></use></mask>
+                            <use fill="currentColor" xlink:href="#path-1"></use>
+                            <g mask="url(#mask-invites-2)">
+                              <use fill="currentColor" xlink:href="#path-3"></use>
+                              <use fill-opacity="0.2" fill="#FFFFFF" xlink:href="#path-3"></use>
+                            </g>
+                            <g mask="url(#mask-invites-2)">
+                              <use fill="currentColor" xlink:href="#path-4"></use>
+                              <use fill-opacity="0.2" fill="#FFFFFF" xlink:href="#path-4"></use>
+                            </g>
+                          </g>
+                          <g transform="translate(19.000000, 11.000000) rotate(-300.000000) translate(-19.000000, -11.000000)">
+                            <use fill="currentColor" xlink:href="#path-5"></use>
+                            <use fill-opacity="0.2" fill="#FFFFFF" xlink:href="#path-5"></use>
+                          </g>
+                        </g>
+                      </g>
+                    </g>
+                  </svg>
+                </span>
+              </span>
+              <span class="app-brand-text demo menu-text fw-bold ms-2">MarketoState</span>
+            </a>
+
+            <a href="javascript:void(0);" class="layout-menu-toggle menu-link text-large ms-auto">
+              <i class="bx bx-chevron-left d-block d-xl-none align-middle"></i>
+            </a>
+          </div>
+
+          <div class="menu-divider mt-0"></div>
+          <div class="menu-inner-shadow"></div>
+
+          <ul class="menu-inner py-1">
+            <li class="menu-item">
+              <a href="/customer-dashboard" class="menu-link">
+                <i class="menu-icon tf-icons bx bx-home-smile"></i>
+                <div class="text-truncate">Dashboard</div>
+              </a>
+            </li>
+
+            <li class="menu-header small text-uppercase">
+              <span class="menu-header-text">Workspace</span>
+            </li>
+
+            <li class="menu-item">
+              <a href="/crm" class="menu-link">
+                <i class="menu-icon tf-icons bx bx-briefcase-alt-2"></i>
+                <div class="text-truncate">CRM</div>
+              </a>
+            </li>
+            <li class="menu-item active">
+              <a href="/broker/invites" class="menu-link">
+                <i class="menu-icon tf-icons bx bx-envelope"></i>
+                <div class="text-truncate">Invites</div>
+              </a>
+            </li>
+            <li class="menu-header small text-uppercase">
+              <span class="menu-header-text">Account</span>
+            </li>
+            <li class="menu-item">
+              <a href="javascript:void(0);" class="menu-link" id="menu-signout">
+                <i class="menu-icon tf-icons bx bx-power-off"></i>
+                <div class="text-truncate">Sign Out</div>
+              </a>
+            </li>
+          </ul>
+        </aside>
+
+        <div class="layout-page">
+          <nav
+            class="layout-navbar container-xxl navbar-detached navbar navbar-expand-xl align-items-center bg-navbar-theme"
+            id="layout-navbar">
+            <div class="layout-menu-toggle navbar-nav align-items-xl-center me-4 me-xl-0 d-xl-none">
+              <a class="nav-item nav-link px-0 me-xl-6" href="javascript:void(0)">
+                <i class="icon-base bx bx-menu icon-md"></i>
+              </a>
+            </div>
+
+            <div class="navbar-nav-right d-flex align-items-center justify-content-end" id="navbar-collapse">
+              <ul class="navbar-nav flex-row align-items-center ms-md-auto">
+                <li class="nav-item navbar-dropdown dropdown-user dropdown">
+                  <a class="nav-link dropdown-toggle hide-arrow p-0" href="javascript:void(0);" data-bs-toggle="dropdown">
+                    <div class="avatar avatar-online">
+                      <span class="avatar-initial rounded-circle bg-label-primary" id="navbar-user-avatar">--</span>
                     </div>
+                  </a>
+                  <ul class="dropdown-menu dropdown-menu-end">
+                    <li>
+                      <a class="dropdown-item" href="javascript:void(0);">
+                        <div class="d-flex">
+                          <div class="flex-shrink-0 me-3">
+                            <div class="avatar avatar-online">
+                              <span class="avatar-initial rounded-circle bg-label-primary" id="navbar-user-avatar-2">--</span>
+                            </div>
+                          </div>
+                          <div class="flex-grow-1">
+                            <h6 class="mb-0" id="navbar-user-name">Broker</h6>
+                            <small class="text-body-secondary" id="navbar-user-role">Broker</small>
+                          </div>
+                        </div>
+                      </a>
+                    </li>
+                    <li><div class="dropdown-divider my-1"></div></li>
+                    <li>
+                      <a class="dropdown-item" href="/customer-dashboard">
+                        <i class="icon-base bx bx-home-smile icon-md me-3"></i><span>Dashboard</span>
+                      </a>
+                    </li>
+                    <li>
+                      <a class="dropdown-item" href="/broker/invites">
+                        <i class="icon-base bx bx-envelope icon-md me-3"></i><span>Invites</span>
+                      </a>
+                    </li>
+                    <li>
+                      <a class="dropdown-item" href="/crm">
+                        <i class="icon-base bx bx-briefcase-alt-2 icon-md me-3"></i><span>Open CRM</span>
+                      </a>
+                    </li>
+                    <li>
+                      <a class="dropdown-item" href="javascript:void(0);" id="dropdown-change-password">
+                        <i class="icon-base bx bx-lock-alt icon-md me-3"></i><span>Change Password</span>
+                      </a>
+                    </li>
+                    <li><div class="dropdown-divider my-1"></div></li>
+                    <li>
+                      <a class="dropdown-item" href="javascript:void(0);" id="dropdown-signout">
+                        <i class="icon-base bx bx-power-off icon-md me-3"></i><span>Log Out</span>
+                      </a>
+                    </li>
+                  </ul>
+                </li>
+              </ul>
+            </div>
+          </nav>
+
+          <div class="content-wrapper">
+            <div class="container-xxl flex-grow-1 container-p-y">
+              <div class="card mb-6">
+                <div class="card-body">
+                  <h5 class="card-title text-primary mb-1">Invites</h5>
+                  <p class="mb-0 text-body-secondary">Review client invites and join the teams you want to work with.</p>
                 </div>
-                <div class="broker-invites-shell">
-                    <div class="crm-invite-list broker-invites-list" id="crm-invite-list"></div>
-                    <div class="crm-invite-empty broker-invites-empty" id="crm-invite-empty" style="display:none;">No pending invites.</div>
+              </div>
+
+              <div class="row g-6" id="crm-invite-list"></div>
+
+              <div class="card" id="crm-invite-empty" style="display:none;">
+                <div class="card-body text-center py-6">
+                  <span class="avatar avatar-lg mb-4">
+                    <span class="avatar-initial rounded-circle bg-label-secondary">
+                      <i class="icon-base bx bx-envelope icon-lg"></i>
+                    </span>
+                  </span>
+                  <h6 class="mb-1">No pending invites</h6>
+                  <p class="mb-4 text-body-secondary">When a client invites you, it will show up here.</p>
+                  <a href="/customer-dashboard" class="btn btn-sm btn-outline-primary">Back to Dashboard</a>
                 </div>
-            </section>
-        </main>
+              </div>
+            </div>
+
+            <footer class="content-footer footer bg-footer-theme">
+              <div class="container-xxl">
+                <div class="footer-container d-flex align-items-center justify-content-between py-4 flex-md-row flex-column">
+                  <div class="mb-2 mb-md-0">
+                    © <span id="footer-year"></span>, MarketoState — Invites
+                  </div>
+                  <div class="d-none d-lg-inline-block">
+                    <a href="/customer-dashboard" class="footer-link me-4">Dashboard</a>
+                    <a href="/crm" class="footer-link me-4">CRM</a>
+                  </div>
+                </div>
+              </div>
+            </footer>
+
+            <div class="content-backdrop fade"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="layout-overlay layout-menu-toggle"></div>
     </div>
-    {% include 'components/change_password_modal.html' %}
-</div>
-{% endblock %}
-{% block scripts %}
-<script>
-    window.__SUPABASE_URL__ = {{ (supabase_url or '')|tojson }};
-    window.__SUPABASE_ANON_KEY__ = {{ (supabase_anon_key or '')|tojson }};
-</script>
-<script>
-(function () {
-    var url = window.__SUPABASE_URL__;
-    var key = window.__SUPABASE_ANON_KEY__;
-    if (!url || !key || !window.supabase) return;
-    if (!window._supabase) {
-        window._supabase = window.supabase.createClient(url, key);
-    }
 
-    function waitForAuthSession(maxAttempts, delayMs) {
-        var sb = window._supabase;
-        if (!sb || !sb.auth || typeof sb.auth.getSession !== 'function') return Promise.resolve(null);
-        var remaining = Number(maxAttempts || 0);
-        function readSession() {
+    <div class="modal fade" id="change-password-modal" tabindex="-1" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title">Change Password</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body">
+            <div class="mb-4">
+              <label class="form-label" for="new-password-input">New password</label>
+              <input type="password" class="form-control" id="new-password-input" minlength="6" autocomplete="new-password" placeholder="At least 6 characters" />
+            </div>
+            <div class="mb-4">
+              <label class="form-label" for="confirm-password-input">Confirm new password</label>
+              <input type="password" class="form-control" id="confirm-password-input" minlength="6" autocomplete="new-password" placeholder="Re-enter new password" />
+            </div>
+            <div id="change-password-error" class="alert alert-danger py-2" style="display:none;" role="alert"></div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal" id="cancel-change-password">Cancel</button>
+            <button type="button" class="btn btn-primary" id="confirm-change-password">Update password</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script src="/static/sneat/vendor/libs/jquery/jquery.js"></script>
+    <script src="/static/sneat/vendor/libs/popper/popper.js"></script>
+    <script src="/static/sneat/vendor/js/bootstrap.js"></script>
+    <script src="/static/sneat/vendor/libs/perfect-scrollbar/perfect-scrollbar.js"></script>
+    <script src="/static/sneat/vendor/js/menu.js"></script>
+    <script src="/static/sneat/js/main.js"></script>
+
+    <script src="/static/js/supabase.min.js"></script>
+    <script>
+      window.__SUPABASE_URL__ = {{ (supabase_url or '')|tojson }};
+      window.__SUPABASE_ANON_KEY__ = {{ (supabase_anon_key or '')|tojson }};
+    </script>
+    <script>
+      (function () {
+        var yearEl = document.getElementById('footer-year');
+        if (yearEl) yearEl.textContent = new Date().getFullYear();
+
+        var url = window.__SUPABASE_URL__;
+        var key = window.__SUPABASE_ANON_KEY__;
+        if (!url || !key || !window.supabase) {
+          window.location.replace('/login');
+          return;
+        }
+        if (!window._supabase) {
+          window._supabase = window.supabase.createClient(url, key);
+        }
+
+        var passwordModal = null;
+
+        function waitForAuthSession(maxAttempts, delayMs) {
+          var sb = window._supabase;
+          if (!sb || !sb.auth || typeof sb.auth.getSession !== 'function') return Promise.resolve(null);
+          var remaining = Number(maxAttempts || 0);
+          function readSession() {
             return sb.auth.getSession().then(function (r) {
-                return (r && r.data && r.data.session) ? r.data.session : null;
+              return (r && r.data && r.data.session) ? r.data.session : null;
             }).catch(function () { return null; });
-        }
-        function step() {
+          }
+          function step() {
             return readSession().then(function (session) {
-                if (session) return session;
-                remaining -= 1;
-                if (remaining <= 0) return null;
-                return new Promise(function (resolve) { setTimeout(resolve, Number(delayMs || 220)); }).then(step);
+              if (session) return session;
+              remaining -= 1;
+              if (remaining <= 0) return null;
+              return new Promise(function (resolve) { setTimeout(resolve, Number(delayMs || 220)); }).then(step);
             });
+          }
+          return step();
         }
-        return step();
-    }
 
-    function ensureAuthenticated() {
-        return waitForAuthSession(12, 220).then(function (session) {
+        function ensureAuthenticated() {
+          return waitForAuthSession(12, 220).then(function (session) {
             if (!session || !session.access_token) throw new Error('Not authenticated');
             return { Authorization: 'Bearer ' + session.access_token, 'Content-Type': 'application/json' };
-        });
-    }
+          });
+        }
 
-    function api(path, opts) {
-        return ensureAuthenticated().then(function (headers) {
+        function api(path, opts) {
+          return ensureAuthenticated().then(function (headers) {
             var merged = Object.assign({ headers: headers }, opts || {});
             merged.headers = Object.assign({}, headers, (opts && opts.headers) || {});
             return fetch(path, merged);
-        });
-    }
+          });
+        }
 
-    function esc(s) {
-        return String(s == null ? '' : s)
+        function esc(s) {
+          return String(s == null ? '' : s)
             .replace(/&/g, '&amp;')
             .replace(/</g, '&lt;')
             .replace(/>/g, '&gt;')
             .replace(/"/g, '&quot;')
             .replace(/'/g, '&#39;');
-    }
+        }
 
-    function initials(name) {
-        var text = String(name || '').trim();
-        if (!text) return '--';
-        var parts = text.split(/\s+/).filter(Boolean);
-        return ((parts[0] || '')[0] || '') + ((parts[1] || '')[0] || (parts[0] || '')[1] || '');
-    }
+        function initials(name) {
+          var text = String(name || '').trim();
+          if (!text) return '--';
+          var parts = text.split(/\s+/).filter(Boolean);
+          return (((parts[0] || '')[0] || '') + ((parts[1] || '')[0] || (parts[0] || '')[1] || '')).toUpperCase();
+        }
 
-    function showToast(message, type) {
-        if (window.showToast) {
+        function setText(id, value) {
+          var el = document.getElementById(id);
+          if (el) el.textContent = value;
+        }
+
+        function showToast(message, type) {
+          if (window.showToast) {
             window.showToast(message, type);
             return;
+          }
+          if (type === 'error') console.error(message);
+          else console.log(message);
         }
-        if (type === 'error') console.error(message);
-        else console.log(message);
-    }
 
-    function renderInvites(items) {
-        var list = document.getElementById('crm-invite-list');
-        var empty = document.getElementById('crm-invite-empty');
-        if (!list || !empty) return;
-        if (!items || !items.length) {
+        function renderProfile(profile) {
+          var displayName = String((profile && (profile.display_name || profile.name || profile.email)) || 'Broker').trim() || 'Broker';
+          var roleLabel = String((profile && profile.role) || 'broker');
+          var letters = initials(displayName);
+          setText('navbar-user-name', displayName);
+          setText('navbar-user-role', roleLabel.charAt(0).toUpperCase() + roleLabel.slice(1));
+          setText('navbar-user-avatar', letters);
+          setText('navbar-user-avatar-2', letters);
+        }
+
+        function renderInvites(items) {
+          var list = document.getElementById('crm-invite-list');
+          var empty = document.getElementById('crm-invite-empty');
+          if (!list || !empty) return;
+          if (!items || !items.length) {
             list.innerHTML = '';
             empty.style.display = '';
             return;
-        }
-        empty.style.display = 'none';
-        list.innerHTML = items.map(function (inv) {
+          }
+          empty.style.display = 'none';
+          list.innerHTML = items.map(function (inv) {
             var clientName = inv.client_name || 'Client Group';
             var inviter = inv.inviter_name ? ('Invited by ' + inv.inviter_name) : 'Pending invitation';
-            return '<div class="crm-invite-card broker-invite-card" data-invite-id="' + esc(inv.id) + '" data-token="' + esc(inv.invite_token || '') + '">' +
-                '<strong>' + esc(clientName) + '</strong>' +
-                '<span>' + esc(inviter) + '</span>' +
-                '<span>Role: Broker</span>' +
-                '<div class="crm-invite-actions">' +
-                    '<button class="btn" type="button" data-invite-action="reject">Reject</button>' +
-                    '<button class="btn primary" type="button" data-invite-action="accept">Accept</button>' +
+            return '<div class="col-md-6 col-xl-4">' +
+              '<div class="card h-100 broker-invite-card" data-invite-id="' + esc(inv.id) + '" data-token="' + esc(inv.invite_token || '') + '">' +
+                '<div class="card-body">' +
+                  '<div class="d-flex align-items-center mb-4">' +
+                    '<div class="avatar avatar-sm me-3">' +
+                      '<span class="avatar-initial rounded-circle bg-label-primary">' + esc(initials(clientName)) + '</span>' +
+                    '</div>' +
+                    '<div class="flex-grow-1">' +
+                      '<h6 class="mb-0">' + esc(clientName) + '</h6>' +
+                      '<small class="text-body-secondary">' + esc(inviter) + '</small>' +
+                    '</div>' +
+                  '</div>' +
+                  '<span class="badge bg-label-info mb-4">Broker</span>' +
+                  '<div class="d-flex gap-2">' +
+                    '<button class="btn btn-outline-secondary flex-fill" type="button" data-invite-action="reject">Reject</button>' +
+                    '<button class="btn btn-primary flex-fill" type="button" data-invite-action="accept">Accept</button>' +
+                  '</div>' +
                 '</div>' +
+              '</div>' +
             '</div>';
-        }).join('');
-        list.querySelectorAll('[data-invite-action]').forEach(function (btn) {
+          }).join('');
+          list.querySelectorAll('[data-invite-action]').forEach(function (btn) {
             btn.addEventListener('click', function () {
-                var card = btn.closest('.broker-invite-card');
-                var action = btn.getAttribute('data-invite-action');
-                if (!card || !action) return;
-                var inviteId = card.getAttribute('data-invite-id');
-                var token = card.getAttribute('data-token');
-                btn.disabled = true;
-                var request = action === 'accept'
-                    ? api('/api/client-team-invites/accept', { method: 'POST', body: JSON.stringify({ invite_token: token }) })
-                    : api('/api/client-team-invites/' + encodeURIComponent(inviteId) + '/reject', { method: 'POST' });
-                request.then(function (response) {
-                    return response.json().catch(function () { return {}; }).then(function (data) {
-                        if (!response.ok) throw new Error(data.error || 'Invite update failed');
-                        showToast(action === 'accept' ? 'Invite accepted.' : 'Invite rejected.', 'success');
-                        return loadInvites();
-                    });
-                }).catch(function (e) {
-                    showToast((e && e.message) ? e.message : 'Invite update failed', 'error');
-                }).finally(function () {
-                    btn.disabled = false;
+              var card = btn.closest('.broker-invite-card');
+              var action = btn.getAttribute('data-invite-action');
+              if (!card || !action) return;
+              var inviteId = card.getAttribute('data-invite-id');
+              var token = card.getAttribute('data-token');
+              btn.disabled = true;
+              var request = action === 'accept'
+                ? api('/api/client-team-invites/accept', { method: 'POST', body: JSON.stringify({ invite_token: token }) })
+                : api('/api/client-team-invites/' + encodeURIComponent(inviteId) + '/reject', { method: 'POST' });
+              request.then(function (response) {
+                return response.json().catch(function () { return {}; }).then(function (data) {
+                  if (!response.ok) throw new Error(data.error || 'Invite update failed');
+                  showToast(action === 'accept' ? 'Invite accepted.' : 'Invite rejected.', 'success');
+                  return loadInvites();
                 });
+              }).catch(function (e) {
+                showToast((e && e.message) ? e.message : 'Invite update failed', 'error');
+              }).finally(function () {
+                btn.disabled = false;
+              });
             });
-        });
-    }
+          });
+        }
 
-    function loadInvites() {
-        return api('/api/client-team-invites/mine').then(function (response) {
+        function loadInvites() {
+          return api('/api/client-team-invites/mine').then(function (response) {
             return response.json().catch(function () { return []; }).then(function (data) {
-                if (!response.ok) throw new Error((data && data.error) || 'Failed to load invites');
-                renderInvites(Array.isArray(data) ? data : []);
+              if (!response.ok) throw new Error((data && data.error) || 'Failed to load invites');
+              renderInvites(Array.isArray(data) ? data : []);
             });
-        }).catch(function (e) {
+          }).catch(function (e) {
             renderInvites([]);
             showToast((e && e.message) ? e.message : 'Failed to load invites', 'error');
-        });
-    }
-
-    function openChangePasswordModal() {
-        var modal = document.getElementById('change-password-modal');
-        var err = document.getElementById('change-password-error');
-        var newInput = document.getElementById('new-password-input');
-        var confirmInput = document.getElementById('confirm-password-input');
-        if (err) { err.textContent = ''; err.style.display = 'none'; }
-        if (newInput) newInput.value = '';
-        if (confirmInput) confirmInput.value = '';
-        if (modal) modal.classList.add('visible');
-        if (newInput) newInput.focus();
-    }
-
-    function closeChangePasswordModal() {
-        var modal = document.getElementById('change-password-modal');
-        var err = document.getElementById('change-password-error');
-        if (modal) modal.classList.remove('visible');
-        if (err) { err.textContent = ''; err.style.display = 'none'; }
-    }
-
-    function bindHeader(profile) {
-        var header = document.getElementById('crm-broker-header');
-        var userBtn = document.getElementById('crm-broker-user-btn');
-        var dropdown = document.getElementById('crm-broker-dropdown');
-        var avatar = document.getElementById('crm-broker-avatar');
-        var nameEl = document.getElementById('crm-broker-name');
-        var signoutBtn = document.getElementById('crm-broker-header-signout');
-        var changePasswordBtn = document.getElementById('crm-broker-change-password');
-        var displayName = String((profile && (profile.display_name || profile.name || profile.email)) || 'Broker').trim();
-        if (header) header.style.display = '';
-        if (avatar) avatar.textContent = initials(displayName).toUpperCase();
-        if (nameEl) nameEl.textContent = displayName;
-        if (userBtn && dropdown) {
-            userBtn.addEventListener('click', function (e) {
-                e.stopPropagation();
-                dropdown.classList.toggle('visible');
-            });
-            document.addEventListener('click', function (e) {
-                if (!dropdown.contains(e.target) && e.target !== userBtn) {
-                    dropdown.classList.remove('visible');
-                }
-            });
+          });
         }
-        if (changePasswordBtn) {
-            changePasswordBtn.addEventListener('click', function () {
-                if (dropdown) dropdown.classList.remove('visible');
-                openChangePasswordModal();
-            });
-        }
-        if (signoutBtn) {
-            signoutBtn.addEventListener('click', function () {
-                var sb = window._supabase;
-                var finish = function () { window.location.href = '/login'; };
-                if (sb && sb.auth && typeof sb.auth.signOut === 'function') {
-                    Promise.resolve(sb.auth.signOut()).catch(function () {}).finally(finish);
-                } else {
-                    finish();
-                }
-            });
-        }
-    }
 
-    function bindChangePassword() {
-        var closeBtn = document.getElementById('change-password-close');
-        var cancelBtn = document.getElementById('cancel-change-password');
-        var confirmBtn = document.getElementById('confirm-change-password');
-        var newInput = document.getElementById('new-password-input');
-        var confirmInput = document.getElementById('confirm-password-input');
-        var errorEl = document.getElementById('change-password-error');
-        var modal = document.getElementById('change-password-modal');
-        if (closeBtn) closeBtn.addEventListener('click', closeChangePasswordModal);
-        if (cancelBtn) cancelBtn.addEventListener('click', closeChangePasswordModal);
-        if (modal) {
-            modal.addEventListener('click', function (e) {
-                if (e.target === modal) closeChangePasswordModal();
-            });
+        function openChangePasswordModal() {
+          var err = document.getElementById('change-password-error');
+          var newInput = document.getElementById('new-password-input');
+          var confirmInput = document.getElementById('confirm-password-input');
+          if (err) { err.textContent = ''; err.style.display = 'none'; }
+          if (newInput) newInput.value = '';
+          if (confirmInput) confirmInput.value = '';
+          if (!passwordModal) {
+            var el = document.getElementById('change-password-modal');
+            if (el && window.bootstrap && window.bootstrap.Modal) {
+              passwordModal = new window.bootstrap.Modal(el);
+            }
+          }
+          if (passwordModal) passwordModal.show();
         }
-        if (confirmBtn) {
-            confirmBtn.addEventListener('click', function () {
-                var sb = window._supabase;
-                var newPw = newInput ? newInput.value : '';
-                var confirmPw = confirmInput ? confirmInput.value : '';
-                if (errorEl) { errorEl.textContent = ''; errorEl.style.display = 'none'; }
-                if (newPw.length < 6) {
-                    if (errorEl) { errorEl.textContent = 'Password must be at least 6 characters'; errorEl.style.display = 'block'; }
-                    return;
-                }
-                if (newPw !== confirmPw) {
-                    if (errorEl) { errorEl.textContent = 'Passwords do not match'; errorEl.style.display = 'block'; }
-                    return;
-                }
-                confirmBtn.disabled = true;
-                Promise.resolve(sb.auth.updateUser({ password: newPw })).then(function (res) {
-                    if (res && res.error) throw res.error;
-                    showToast('Password updated successfully.', 'success');
-                    closeChangePasswordModal();
-                }).catch(function (err) {
-                    if (errorEl) { errorEl.textContent = (err && err.message) ? err.message : 'Failed to update password'; errorEl.style.display = 'block'; }
-                }).finally(function () {
-                    confirmBtn.disabled = false;
-                });
-            });
-        }
-    }
 
-    api('/api/crm/me').then(function (response) {
-        return response.json().catch(function () { return {}; }).then(function (data) {
+        function bindChangePassword() {
+          var confirmBtn = document.getElementById('confirm-change-password');
+          var newInput = document.getElementById('new-password-input');
+          var confirmInput = document.getElementById('confirm-password-input');
+          var errorEl = document.getElementById('change-password-error');
+          var changePwLink = document.getElementById('dropdown-change-password');
+          if (changePwLink) {
+            changePwLink.addEventListener('click', function (e) {
+              e.preventDefault();
+              openChangePasswordModal();
+            });
+          }
+          if (!confirmBtn) return;
+          confirmBtn.addEventListener('click', function () {
+            var sb = window._supabase;
+            var newPw = newInput ? newInput.value : '';
+            var confirmPw = confirmInput ? confirmInput.value : '';
+            if (errorEl) { errorEl.textContent = ''; errorEl.style.display = 'none'; }
+            if (newPw.length < 6) {
+              if (errorEl) { errorEl.textContent = 'Password must be at least 6 characters'; errorEl.style.display = 'block'; }
+              return;
+            }
+            if (newPw !== confirmPw) {
+              if (errorEl) { errorEl.textContent = 'Passwords do not match'; errorEl.style.display = 'block'; }
+              return;
+            }
+            confirmBtn.disabled = true;
+            Promise.resolve(sb.auth.updateUser({ password: newPw })).then(function (res) {
+              if (res && res.error) throw res.error;
+              showToast('Password updated successfully.', 'success');
+              if (passwordModal) passwordModal.hide();
+            }).catch(function (err) {
+              if (errorEl) {
+                errorEl.textContent = (err && err.message) ? err.message : 'Failed to update password';
+                errorEl.style.display = 'block';
+              }
+            }).finally(function () {
+              confirmBtn.disabled = false;
+            });
+          });
+        }
+
+        function bindSignout() {
+          function signOut() {
+            var sb = window._supabase;
+            var finish = function () { window.location.href = '/login'; };
+            if (sb && sb.auth && typeof sb.auth.signOut === 'function') {
+              Promise.resolve(sb.auth.signOut()).catch(function () {}).finally(finish);
+            } else {
+              finish();
+            }
+          }
+          var a = document.getElementById('menu-signout');
+          var b = document.getElementById('dropdown-signout');
+          if (a) a.addEventListener('click', signOut);
+          if (b) b.addEventListener('click', signOut);
+        }
+
+        api('/api/crm/me').then(function (response) {
+          return response.json().catch(function () { return {}; }).then(function (data) {
             if (!response.ok) throw new Error((data && data.error) || 'Failed to load profile');
             if (!(data && (data.is_broker || String(data.role || '') === 'broker'))) {
-                window.location.replace('/crm');
-                return;
+              window.location.replace('/crm');
+              return;
             }
-            bindHeader(data || {});
+            renderProfile(data || {});
+            bindSignout();
             bindChangePassword();
             return loadInvites();
+          });
+        }).catch(function () {
+          window.location.replace('/login');
         });
-    }).catch(function () {
-        window.location.replace('/crm');
-    });
-})();
-</script>
-{% endblock %}
+      })();
+    </script>
+  </body>
+</html>

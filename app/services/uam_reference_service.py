@@ -52,6 +52,24 @@ def _normalize_client_member_role(member_role):
 def _is_broker_member_role(member_role):
     return _normalize_client_member_role(member_role) in CLIENT_MEMBER_BROKER_ROLES
 
+def user_is_broker(sb, user_id, role=None):
+    if str(role or '').strip().lower() == CLIENT_MEMBER_ROLE_BROKER:
+        return True
+    try:
+        rows = (
+            sb.table('client_members')
+            .select('member_role')
+            .eq('user_id', str(user_id))
+            .execute()
+            .data or []
+        )
+        for row in rows:
+            if _is_broker_member_role(row.get('member_role')):
+                return True
+    except Exception:
+        pass
+    return False
+
 def _project_reference_client_ids(sb, workspace_id=None, panorama_id=None):
     resolved_workspace_id = str(workspace_id or '').strip() or None
     panorama_ids = []

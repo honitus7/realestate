@@ -12,6 +12,7 @@
         rel="stylesheet">
     <link rel="stylesheet" href="/static/vendor/photo-sphere-viewer/photo-sphere-viewer.css">
     <link rel="stylesheet" href="/static/vendor/photo-sphere-viewer/plugins/markers.css">
+    <link rel="stylesheet" href="/static/crm/crm.css">
     <script src="/static/vendor/uevent/browser.js" onload="window.UEVENT_LOADED = true"></script>
     <script src="/static/vendor/three/three.min.js" onload="window.THREE_LOADED = true"></script>
     <script src="/static/vendor/photo-sphere-viewer/photo-sphere-viewer.js"
@@ -573,6 +574,16 @@
             z-index: 1000; display: none;
         }
         .modal-backdrop.visible { display: block; }
+
+        #crm-masters-modal .modal {
+            width: min(920px, 96vw);
+            max-height: 90vh;
+            overflow: auto;
+        }
+
+        #crm-masters-modal .master-grid {
+            padding: 0.75rem 0;
+        }
 
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
         @keyframes modalIn {
@@ -1574,6 +1585,10 @@
                             <span class="tool-icon">✏️</span>
                             <span id="edit-toggle-text">Edit Mode</span>
                         </button>
+                        <button class="tool-item" id="crm-masters-btn" type="button"{% if not crm_master_client_id %} disabled{% endif %}>
+                            <span class="tool-icon">⚙</span>
+                            <span>Dropdown Masters</span>
+                        </button>
                         {% if panorama.workspace_id %}
                         <button class="tool-item" id="pano-visibility-btn" type="button">
                             <span class="tool-icon">📃</span>
@@ -1939,10 +1954,24 @@
         </div>
     </div>
 
+    <div class="modal-backdrop" id="crm-masters-modal">
+        <div class="modal crm-page crm-page--sneat">
+            <div class="modal-title">Dropdown Masters</div>
+            <p style="margin:0 0 0.75rem;font-size:0.82rem;color:var(--color-muted);">Manage options for Interests, Deals, Contacts, and Plots on this project.</p>
+            <div class="master-grid" id="admin-master-grid"></div>
+            <div id="admin-master-empty" style="display:none;font-size:0.85rem;color:var(--color-muted);"></div>
+            <div class="modal-actions" style="margin-top:1rem;">
+                <button class="modal-btn secondary" id="crm-masters-close" type="button">Close</button>
+            </div>
+        </div>
+    </div>
+
     <div class="toast-container" id="toast-container"></div>
 
+    <script src="/static/crm/admin-masters.js"></script>
     <script>
         const PANORAMA_ID = {{ panorama.id }};
+        const CRM_MASTER_CLIENT_ID = {{ crm_master_client_id|tojson }};
         const IS_360 = 1; // Always 360 for 3D routes
         const ORG_SLUG = {{ (org_slug or '')|tojson }};
         const WORKSPACE_ID = {{ (workspace_id or 'null')|tojson }};
@@ -5023,7 +5052,9 @@
             document.getElementById('plot-area').value = plot.area || '';
             document.getElementById('plot-price').value = plot.price || '';
             const normalizedStatus = normalizeStatus(plot.status || 'available');
-            if (plotStatusSelect) {
+            if (plotStatusSelect && window.AdminCrmMasters) {
+                AdminCrmMasters.populatePlotStatusSelect(normalizedStatus);
+            } else if (plotStatusSelect) {
                 plotStatusSelect.value = normalizedStatus;
             }
             document.getElementById('plot-description').value = plot.description || '';
@@ -5465,6 +5496,10 @@
                 });
             }
         })();
+
+        if (window.AdminCrmMasters) {
+            AdminCrmMasters.init({ plotStatusSelect: document.getElementById('plot-status') });
+        }
     </script>
 </body>
 

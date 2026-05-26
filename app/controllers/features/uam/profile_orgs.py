@@ -6,6 +6,7 @@ from app import config as app_config
 from app.core.auth import get_profile, require_admin, require_auth, require_superadmin
 from app.core.database import get_supabase
 from app.services.org_service import slugify_org_name
+from app.services.uam_reference_service import user_is_broker
 
 
 def register_uam_profile_org_routes(app):
@@ -68,14 +69,21 @@ def register_uam_profile_org_routes(app):
                     return jsonify({'error': 'organizations table not found. Run db/schema.sql in Supabase SQL Editor.'}), 503
             if org and org.get('name'):
                 org['slug'] = slugify_org_name(org.get('name'))
+        profile_role = str(profile.get('role') or role or 'user')
+        is_broker = user_is_broker(sb, user_id, profile_role)
         out_profile = {
             'user_id': str(profile.get('user_id') or user_id),
-            'role': str(profile.get('role') or role or 'user'),
+            'role': profile_role,
             'org_id': str(org_id) if org_id else None,
             'display_name': profile.get('display_name'),
             'email': profile.get('email'),
+            'is_broker': is_broker,
         }
-        return jsonify({'profile': out_profile, 'org': org})
+        return jsonify({
+            'profile': out_profile,
+            'org': org,
+            'post_login_path': '/customer-dashboard' if is_broker else None,
+        })
 
     @app.route('/api/orgs', methods=['GET'])
     @require_superadmin

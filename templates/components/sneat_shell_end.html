@@ -1,0 +1,55 @@
+            </div>
+            <footer class="content-footer footer bg-footer-theme">
+              <div class="container-xxl">
+                <div class="footer-container d-flex align-items-center justify-content-between py-4 flex-md-row flex-column">
+                  <div class="mb-2 mb-md-0">
+                    © <span id="footer-year"></span>, MarketoState
+                  </div>
+                  <div class="d-none d-lg-inline-block">
+                    <a href="/customer-dashboard" class="footer-link me-4" id="sneat-footer-dashboard">Dashboard</a>
+                    <a href="/crm" class="footer-link me-4">CRM</a>
+                    <a href="/broker/invites" class="footer-link me-4" id="sneat-footer-invites" style="display:none;">Invites</a>
+                  </div>
+                </div>
+              </div>
+            </footer>
+            <div class="content-backdrop fade"></div>
+          </div>
+        </div>
+      </div>
+      <div class="layout-overlay layout-menu-toggle"></div>
+    </div>
+
+    <div class="modal fade" id="change-password-modal" tabindex="-1" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title">Change Password</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" id="change-password-close"></button>
+          </div>
+          <div class="modal-body">
+            <div class="mb-4">
+              <label class="form-label" for="new-password-input">New password</label>
+              <input type="password" class="form-control" id="new-password-input" minlength="6" autocomplete="new-password" placeholder="At least 6 characters" />
+            </div>
+            <div class="mb-4">
+              <label class="form-label" for="confirm-password-input">Confirm new password</label>
+              <input type="password" class="form-control" id="confirm-password-input" minlength="6" autocomplete="new-password" placeholder="Re-enter new password" />
+            </div>
+            <div id="change-password-error" class="alert alert-danger py-2" style="display:none;" role="alert"></div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal" id="cancel-change-password">Cancel</button>
+            <button type="button" class="btn btn-primary" id="confirm-change-password">Update password</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script src="/static/sneat/vendor/libs/jquery/jquery.js"></script>
+    <script src="/static/sneat/vendor/libs/popper/popper.js"></script>
+    <script src="/static/sneat/vendor/js/bootstrap.js"></script>
+    <script src="/static/sneat/vendor/libs/perfect-scrollbar/perfect-scrollbar.js"></script>
+    <script src="/static/sneat/vendor/js/menu.js"></script>
+    <script src="/static/sneat/js/main.js"></script>
+    <script src="/static/js/supabase.min.js"></script>

@@ -24,6 +24,10 @@ def register_uam_page_routes(app):
     def broker_invites_page():
         return render_template('broker_invites.html', **auth_ctx())
 
+    @app.route('/customer-dashboard')
+    def customer_dashboard_page():
+        return render_template('customer_dashboard.html', **auth_ctx())
+
     @app.route('/panorama/<int:panorama_id>/access')
     def panorama_access_page(panorama_id):
         return render_template('panorama_access.html', panorama_id=panorama_id, **auth_ctx())

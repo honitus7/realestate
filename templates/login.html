@@ -370,8 +370,31 @@
         if (token) savePendingClientInviteToken(token);
     })();
 
-    function redirectToDashboardFromSession(session) {
+    function postLoginUrl(session, orgMeData) {
         var uid = session.user && session.user.id ? session.user.id : '';
+        var defaultUrl = uid ? '/dashboard/' + encodeURIComponent(uid) : '/dashboard';
+        if (!orgMeData) return defaultUrl;
+        if (orgMeData.post_login_path) return orgMeData.post_login_path;
+        var p = orgMeData.profile || {};
+        if (p.is_broker || String(p.role || '') === 'broker') return '/customer-dashboard';
+        return defaultUrl;
+    }
+
+    function redirectAfterAuth(session, orgMeData) {
+        if (orgMeData) {
+            window.location.replace(postLoginUrl(session, orgMeData));
+            return Promise.resolve();
+        }
+        return fetch('/api/org/me', {
+            headers: { 'Authorization': 'Bearer ' + session.access_token }
+        }).then(function (r) { return r.ok ? r.json() : null; }).then(function (data) {
+            window.location.replace(postLoginUrl(session, data));
+        }).catch(function () {
+            window.location.replace(postLoginUrl(session, null));
+        });
+    }
+
+    function redirectToDashboardFromSession(session, orgMeData) {
         return applyPendingSignupProfile(session).then(function () {
             return applyPendingClientInvite(session);
         }).then(function (inv) {
@@ -382,27 +405,27 @@
                 });
                 return;
             }
-            window.location.replace(uid ? '/dashboard/' + encodeURIComponent(uid) : '/dashboard');
+            return redirectAfterAuth(session, orgMeData);
         }).catch(function () {
-            window.location.replace(uid ? '/dashboard/' + encodeURIComponent(uid) : '/dashboard');
+            return redirectAfterAuth(session, orgMeData);
         });
     }
 
     waitForSession(24, 200).then(function (session) {
         if (!session) { showAuthUI(); return; }
-        // Validate token; only force sign-out on definitive auth failures.
         fetch('/api/org/me', {
             headers: { 'Authorization': 'Bearer ' + session.access_token }
         }).then(function (res) {
-            if (res.ok) return redirectToDashboardFromSession(session);
             if (res.status === 401 || res.status === 403) {
                 safeSignOut(function () { showAuthUI(); });
                 return;
             }
-            // For transient backend responses, keep session and continue to dashboard.
-            return redirectToDashboardFromSession(session);
+            var orgPromise = res.ok ? res.json().catch(function () { return null; }) : Promise.resolve(null);
+            return orgPromise.then(function (orgMeData) {
+                return redirectToDashboardFromSession(session, orgMeData);
+            });
         }).catch(function () {
-            return redirectToDashboardFromSession(session);
+            return redirectToDashboardFromSession(session, null);
         });
     }).catch(function () { showAuthUI(); });
 
@@ -494,7 +517,7 @@
                         if (inv && inv.attempted && !inv.applied) {
                             throw new Error(inv.error || 'Invite acceptance failed. Please sign in with invited email.');
                         }
-                        window.location.href = uid ? '/dashboard/' + encodeURIComponent(uid) : '/dashboard';
+                        return redirectAfterAuth(res.data.session);
                 });
             })
             .catch(function (err) { setError(errEl, err.message || 'Sign in failed'); })
@@ -530,7 +553,7 @@
                         if (inv && inv.attempted && !inv.applied) {
                             throw new Error(inv.error || 'Invite acceptance failed. Please sign in with invited email.');
                         }
-                        window.location.href = uid ? '/dashboard/' + encodeURIComponent(uid) : '/dashboard';
+                        return redirectAfterAuth(res.data.session);
                 });
             })
             .catch(function (err) { setError(errEl, err.message || 'Sign up failed'); })

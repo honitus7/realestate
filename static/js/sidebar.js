@@ -432,8 +432,10 @@
                         isClientMember: !!resolved.isClientMember,
                         displayOrgName: resolved.displayOrgName || orgName || ''
                     });
-                    if (!isAdmin && resolved.isBroker && currentPath !== '/crm') {
-                        window.location.replace('/crm');
+                    var brokerPaths = ['/customer-dashboard', '/crm', '/broker/invites'];
+                    var onBrokerPath = brokerPaths.indexOf(currentPath) !== -1 || (currentPath && currentPath.indexOf('/broker/') === 0);
+                    if (!isAdmin && resolved.isBroker && !onBrokerPath) {
+                        window.location.replace('/customer-dashboard');
                     }
                 }
             })
