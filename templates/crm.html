@@ -8,17 +8,8 @@
 <div class="crm-page">
     {% set active_page = 'crm' %}
     {% include 'components/sidebar.html' %}
-    <div class="crm-broker-account" id="crm-broker-account" style="display:none;">
-        <button class="crm-broker-user-btn" id="crm-broker-user-btn" type="button" aria-label="Account menu">
-            <span class="crm-broker-avatar" id="crm-broker-avatar">--</span>
-            <span class="crm-broker-name" id="crm-broker-name"></span>
-        </button>
-        <div class="crm-broker-dropdown" id="crm-broker-dropdown">
-            <button class="crm-broker-dropdown-item" id="crm-broker-invites" type="button">Invites</button>
-            <a class="crm-broker-dropdown-item crm-broker-dropdown-item--danger" href="/login" id="crm-broker-logout">Sign Out</a>
-        </div>
-    </div>
-    <div class="crm-page-content">
+    {% include 'components/broker_header.html' %}
+    <div class="crm-page-content" id="crm-page-content">
     <!-- Tab Navigation -->
     <div class="crm-tabs" id="crm-tabs">
         <button class="crm-tab active" data-tab="interests" id="tab-interests">Interests</button>
@@ -814,16 +805,7 @@
     </div>
     </div><!-- .crm-page-content -->
 </div>
-<div class="crm-invite-modal-backdrop" id="crm-invite-modal" style="display:none;">
-    <div class="crm-invite-modal" role="dialog" aria-modal="true" aria-label="Broker invites">
-        <div class="crm-invite-modal-head">
-            <h2>Invites</h2>
-            <button class="crm-invite-close" id="crm-invite-close" type="button">&times;</button>
-        </div>
-        <div class="crm-invite-list" id="crm-invite-list"></div>
-        <div class="crm-invite-empty" id="crm-invite-empty" style="display:none;">No pending invites.</div>
-    </div>
-</div>
+{% include 'components/change_password_modal.html' %}
 <div id="toast-container" style="position:fixed;top:1rem;right:1rem;z-index:9999;display:flex;flex-direction:column;gap:0.5rem;pointer-events:none;"></div>
 
 {% endblock %}
@@ -886,6 +868,7 @@
     let dealClientOptionsLoaded = false;
     let dealClientFiltersEnabled = false;
     let contactsLoadedClient = null;
+    let crmBrokerHeaderMode = false;
     const dealsPager = { page: 1, size: 25 };
     const contactsPager = { page: 1, size: 25 };
     let editingContactId = null;
@@ -1014,78 +997,24 @@
         return ((parts[0] || '')[0] || '') + ((parts[1] || '')[0] || (parts[0] || '')[1] || '');
     }
 
-    function configureBrokerAccount(profile, isBroker) {
+    window.configureBrokerAccount = function configureBrokerAccount(profile, useBrokerHeader) {
         const page = document.querySelector('.crm-page');
+        const pageContent = $('crm-page-content');
+        const header = $('crm-broker-header');
         const account = $('crm-broker-account');
-        if (!page || !account) return;
-        page.classList.toggle('crm-page--broker-only', !!isBroker);
-        account.style.display = isBroker ? '' : 'none';
-        if (!isBroker) return;
+        crmBrokerHeaderMode = !!useBrokerHeader;
+        if (!page || !account || !header) return;
+        page.classList.toggle('crm-page--broker-header-mode', crmBrokerHeaderMode);
+        if (pageContent) pageContent.classList.toggle('crm-page-content--broker-header', crmBrokerHeaderMode);
+        header.style.display = crmBrokerHeaderMode ? '' : 'none';
+        if (!crmBrokerHeaderMode) return;
 
         const displayName = String((profile && (profile.display_name || profile.name || profile.email)) || 'Broker').trim();
         const avatar = $('crm-broker-avatar');
         const nameEl = $('crm-broker-name');
         if (avatar) avatar.textContent = initials(displayName).toUpperCase();
         if (nameEl) nameEl.textContent = displayName;
-    }
-
-    function renderBrokerInvites(items) {
-        const list = $('crm-invite-list');
-        const empty = $('crm-invite-empty');
-        if (!list || !empty) return;
-        if (!items || !items.length) {
-            list.innerHTML = '';
-            empty.style.display = '';
-            return;
-        }
-        empty.style.display = 'none';
-        list.innerHTML = items.map(inv => {
-            const clientName = inv.client_name || 'Client Group';
-            const inviter = inv.inviter_name ? ('Invited by ' + inv.inviter_name) : 'Pending invitation';
-            return '<div class="crm-invite-card" data-invite-id="' + esc(inv.id) + '" data-token="' + esc(inv.invite_token || '') + '">' +
-                '<strong>' + esc(clientName) + '</strong>' +
-                '<span>' + esc(inviter) + '</span>' +
-                '<span>Role: Broker</span>' +
-                '<div class="crm-invite-actions">' +
-                    '<button class="btn" type="button" data-invite-action="reject">Reject</button>' +
-                    '<button class="btn primary" type="button" data-invite-action="accept">Accept</button>' +
-                '</div>' +
-            '</div>';
-        }).join('');
-        list.querySelectorAll('[data-invite-action]').forEach(btn => {
-            btn.addEventListener('click', async function () {
-                const card = btn.closest('.crm-invite-card');
-                const action = btn.getAttribute('data-invite-action');
-                if (!card || !action) return;
-                const inviteId = card.getAttribute('data-invite-id');
-                const token = card.getAttribute('data-token');
-                btn.disabled = true;
-                try {
-                    const response = action === 'accept'
-                        ? await api('/api/client-team-invites/accept', { method: 'POST', body: JSON.stringify({ invite_token: token }) })
-                        : await api('/api/client-team-invites/' + encodeURIComponent(inviteId) + '/reject', { method: 'POST' });
-                    const data = await response.json().catch(() => ({}));
-                    if (!response.ok) throw new Error(data.error || 'Invite update failed');
-                    toast(action === 'accept' ? 'Invite accepted.' : 'Invite rejected.', 'success');
-                    await loadBrokerInvites();
-                    if (action === 'accept') {
-                        await loadUserInfo();
-                        loadAllottedClients(true);
-                    }
-                } catch (e) {
-                    toast(e && e.message ? e.message : 'Invite update failed', 'error');
-                } finally {
-                    btn.disabled = false;
-                }
-            });
-        });
-    }
-
-    async function loadBrokerInvites() {
-        const r = await api('/api/client-team-invites/mine');
-        const data = await r.json().catch(() => []);
-        renderBrokerInvites(r.ok && Array.isArray(data) ? data : []);
-    }
+    };
 
     const brokerUserBtn = $('crm-broker-user-btn');
     const brokerDropdown = $('crm-broker-dropdown');
@@ -1104,23 +1033,11 @@
     if (brokerInvitesBtn) {
         brokerInvitesBtn.addEventListener('click', function () {
             if (brokerDropdown) brokerDropdown.classList.remove('visible');
-            const modal = $('crm-invite-modal');
-            if (modal) modal.classList.add('visible');
-            loadBrokerInvites().catch(function () { renderBrokerInvites([]); });
+            window.location.href = '/broker/invites';
         });
     }
-    const brokerInviteClose = $('crm-invite-close');
-    if (brokerInviteClose) brokerInviteClose.addEventListener('click', function () {
-        const modal = $('crm-invite-modal');
-        if (modal) modal.classList.remove('visible');
-    });
-    const brokerInviteModal = $('crm-invite-modal');
-    if (brokerInviteModal) brokerInviteModal.addEventListener('click', function (e) {
-        if (e.target === brokerInviteModal) brokerInviteModal.classList.remove('visible');
-    });
-    const brokerLogout = $('crm-broker-logout');
-    if (brokerLogout) brokerLogout.addEventListener('click', function (e) {
-        e.preventDefault();
+    const brokerLogout = $('crm-broker-header-signout');
+    if (brokerLogout) brokerLogout.addEventListener('click', function () {
         const sb = window._supabase;
         const finish = function () { window.location.href = '/login'; };
         if (sb && sb.auth && typeof sb.auth.signOut === 'function') {
@@ -1129,6 +1046,66 @@
             finish();
         }
     });
+    const brokerChangePassword = $('crm-broker-change-password');
+    const changePwModal = $('change-password-modal');
+    const changePwClose = $('change-password-close');
+    const cancelChangePw = $('cancel-change-password');
+    const confirmChangePw = $('confirm-change-password');
+    const newPwInput = $('new-password-input');
+    const confirmPwInput = $('confirm-password-input');
+    const changePwError = $('change-password-error');
+
+    function showChangePwError(msg) {
+        if (!changePwError) return;
+        changePwError.textContent = msg || '';
+        changePwError.style.display = msg ? 'block' : 'none';
+    }
+
+    function openChangePwModal() {
+        showChangePwError('');
+        if (newPwInput) newPwInput.value = '';
+        if (confirmPwInput) confirmPwInput.value = '';
+        if (changePwModal) changePwModal.classList.add('visible');
+        if (newPwInput) newPwInput.focus();
+    }
+
+    function closeChangePwModal() {
+        if (changePwModal) changePwModal.classList.remove('visible');
+        showChangePwError('');
+    }
+
+    if (brokerChangePassword) {
+        brokerChangePassword.addEventListener('click', function () {
+            if (brokerDropdown) brokerDropdown.classList.remove('visible');
+            openChangePwModal();
+        });
+    }
+    if (changePwClose) changePwClose.addEventListener('click', closeChangePwModal);
+    if (cancelChangePw) cancelChangePw.addEventListener('click', closeChangePwModal);
+    if (changePwModal) {
+        changePwModal.addEventListener('click', function (e) {
+            if (e.target === changePwModal) closeChangePwModal();
+        });
+    }
+    if (confirmChangePw && newPwInput && confirmPwInput) {
+        confirmChangePw.addEventListener('click', function () {
+            var newPw = newPwInput.value;
+            var confirmPw = confirmPwInput.value;
+            showChangePwError('');
+            if (newPw.length < 6) { showChangePwError('Password must be at least 6 characters'); return; }
+            if (newPw !== confirmPw) { showChangePwError('Passwords do not match'); return; }
+            confirmChangePw.disabled = true;
+            window._supabase.auth.updateUser({ password: newPw }).then(function (res) {
+                if (res.error) { showChangePwError(res.error.message || 'Failed to update password'); return; }
+                toast('Password updated successfully.', 'success');
+                closeChangePwModal();
+            }).catch(function (err) {
+                showChangePwError((err && err.message) ? err.message : 'Failed to update password');
+            }).finally(function () {
+                confirmChangePw.disabled = false;
+            });
+        });
+    }
 
     function getContactName(contactId) {
         const c = contacts.find(x => String(x.id) === String(contactId));
@@ -1899,7 +1876,7 @@
             if (sec === 'deals') window.crmDealsLoad && window.crmDealsLoad();
             if (sec === 'contacts') window.crmContactsLoad && window.crmContactsLoad();
             if (sec === 'allotted-clients') loadAllottedClients();
-            if (sec === 'projects') loadProjects();
+            if (sec === 'projects') loadWorkspaceProjects();
             if (sec === 'panoramas') loadPanoramas();
             if (sec === 'plots') loadAllPlots();
             if (sec === 'manage-lock') loadManageLock();
@@ -1916,10 +1893,11 @@
                 userRole = d.role || 'user';
                 const isAdminRole = userRole === 'admin' || userRole === 'superadmin';
                 const isExternalBroker = !!d.is_broker || userRole === 'broker';
+                const useBrokerHeader = isExternalBroker;
                 isClientAdminUser = !!d.is_client_admin;
                 isExternalBrokerUser = !!isExternalBroker;
                 window.__crmIsExternalBroker = !!isExternalBroker;
-                configureBrokerAccount(d, isExternalBroker);
+                configureBrokerAccount(d, useBrokerHeader);
                 // Show admin-only CRM tabs
                 if (isAdminRole) {
                     $('tab-projects').style.display = '';
@@ -3233,13 +3211,12 @@
     $('btn-pdf').addEventListener('click', () => { buildReportContent(); window.print(); });
     $('btn-close-report').addEventListener('click', () => { reportCard.style.display='none'; });
 
-    async function loadProjects() {
+    async function loadPanoramaProjects() {
         const r = await api('/api/crm/panoramas');
         if(!r.ok) throw new Error('Failed to load projects');
         const all = await r.json();
         projects = Array.isArray(all)?all:[];
         projectById = new Map(projects.map(p=>[String(p.id),p]));
-        renderProjectOptions();
         renderProjectOptions();
     }
     async function loadInterests() {
@@ -3266,7 +3243,7 @@
 
     let workspaces = [];
     let workspacesLoaded = false;
-    async function loadProjects(force) {
+    async function loadWorkspaceProjects(force) {
         if(workspacesLoaded && !force) { renderProjectsTable(); return; }
         try {
             const r = await api('/api/workspaces?include_empty_shared=1');
@@ -3277,7 +3254,7 @@
             renderProjectsTable();
         } catch(e) { console.warn(e); workspaces = []; renderProjectsTable(); }
     }
-    window.loadProjects = loadProjects;
+    window.loadProjects = loadWorkspaceProjects;
     function renderProjectsTable() {
         const tbody = document.getElementById('projects-tbody');
         const empty = document.getElementById('projects-empty');
@@ -3314,7 +3291,7 @@
     }
     async function loadPanoramas(force) {
         if(panoramasLoaded && !force) { renderPanoramaTable(); return; }
-        try { panoramasLoaded=false; await loadProjects(); panoramasLoaded=true; renderPanoramaTable(); } catch(e){ console.warn(e); }
+        try { panoramasLoaded=false; await loadPanoramaProjects(); panoramasLoaded=true; renderPanoramaTable(); } catch(e){ console.warn(e); }
     }
     window.loadPanoramas = function() { return loadPanoramas(true); };
 
@@ -3530,7 +3507,7 @@
     let lockAccessData = [];
 
     async function loadManageLock() {
-        if(!projects.length) await loadProjects();
+        if(!projects.length) await loadPanoramaProjects();
         lockPanoSelect.innerHTML = '<option value="">Select Panorama</option>'+projects.map(p=>'<option value="'+esc(p.id)+'">'+esc(p.name||'#'+p.id)+'</option>').join('');
         try {
             const r = await api('/api/crm/org-users');
@@ -3779,7 +3756,8 @@
             await loadUserInfo();
             await Promise.all([
                 loadCrmTeamUsers(),
-                loadProjects(),
+                loadPanoramaProjects(),
+                loadWorkspaceProjects(),
                 loadClientOptions(),
                 ensureInterestsLoaded(!!force),
             ]);

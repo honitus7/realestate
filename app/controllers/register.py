@@ -27,6 +27,7 @@ from itsdangerous import BadSignature, SignatureExpired
 from app import config as app_config
 from app.controllers.features import (
     register_crm_broker_routes,
+    register_crm_contact_routes,
     register_crm_lock_routes,
     register_crm_master_routes,
     register_crm_plot_routes,
@@ -4534,127 +4535,6 @@ def register_routes(app):
         except Exception:
             return None
 
-    @app.route('/api/crm/contacts', methods=['GET'])
-    @require_auth
-    def list_crm_contacts(user_id, role):
-        sb = get_supabase()
-        if not sb:
-            return jsonify({'error': 'Database not configured'}), 503
-        panorama_ids = _crm_panorama_ids(sb, user_id, role)
-        if not panorama_ids:
-            return jsonify([])
-        client_scope_ids = _crm_client_scope_ids(sb, user_id, role)
-        if client_scope_ids is not None and not client_scope_ids:
-            return jsonify([])
-        reference_scope_user_id = _crm_interest_reference_scope_user_id(sb, user_id, role, client_scope_ids)
-        requested_client_id = (request.args.get('client_id') or '').strip() or None
-        q = str(request.args.get('q') or '').strip().lower()
-        include_counts = str(request.args.get('include_counts', '1')).strip() != '0'
-        try:
-            limit = int(request.args.get('limit', 200))
-        except Exception:
-            limit = 200
-        limit = max(50, min(500, limit))
-        if requested_client_id and client_scope_ids is not None and requested_client_id not in client_scope_ids:
-            return jsonify({'error': 'Forbidden for this client group'}), 403
-        reference_interest_ids, reference_contact_ids = [], []
-        if reference_scope_user_id:
-            reference_interest_ids, reference_contact_ids = _crm_reference_linked_ids(
-                sb,
-                reference_scope_user_id,
-                panorama_ids,
-                client_ids=client_scope_ids,
-                requested_client_id=requested_client_id,
-            )
-            if not reference_contact_ids:
-                return jsonify([])
-        cache_key = (
-            'crm_contacts',
-            _crm_cache_version.get('v', 1),
-            str(user_id),
-            str(role or ''),
-            tuple(panorama_ids),
-            tuple(client_scope_ids) if isinstance(client_scope_ids, list) else '__ALL__',
-            reference_scope_user_id or '',
-            tuple(reference_interest_ids),
-            tuple(reference_contact_ids),
-            requested_client_id or '',
-            q,
-            int(include_counts),
-            limit,
-        )
-        cached = _crm_cache_get(cache_key, ttl_seconds=3)
-        if cached is not None:
-            return jsonify(cached)
-        try:
-            query = (
-                sb.table('crm_contacts')
-                .select('id, org_id, client_id, panorama_id, full_name, email, phone, notes, created_at, updated_at')
-                .in_('panorama_id', panorama_ids)
-                .order('updated_at', desc=True)
-                .limit(limit)
-            )
-            if requested_client_id:
-                query = query.eq('client_id', requested_client_id)
-            if reference_scope_user_id:
-                query = query.in_('id', reference_contact_ids)
-            if q:
-                token = q.replace('%', '').replace('(', '').replace(')', '').replace(',', '')
-                if token:
-                    query = query.or_(f"full_name.ilike.%{token}%,email.ilike.%{token}%,phone.ilike.%{token}%")
-            r = query.execute()
-            rows = r.data or []
-            # Relationship counts in one shot.
-            contact_ids = [row.get('id') for row in rows if row.get('id')]
-            deals_count = {}
-            interests_count = {}
-            if include_counts and contact_ids:
-                drq = (
-                    sb.table('crm_deals')
-                    .select('id, contact_id')
-                    .in_('contact_id', contact_ids)
-                )
-                if requested_client_id:
-                    drq = drq.eq('client_id', requested_client_id)
-                if drq is not None and reference_scope_user_id:
-                    drq = drq.in_('interest_id', reference_interest_ids)
-                dr_rows = []
-                if drq is not None:
-                    dr_rows = (drq.execute().data or [])
-                for d in dr_rows:
-                    cid = d.get('contact_id')
-                    if not cid:
-                        continue
-                    deals_count[cid] = deals_count.get(cid, 0) + 1
-                irq = (
-                    sb.table('buy_interests')
-                    .select('id, contact_id')
-                    .in_('contact_id', contact_ids)
-                )
-                if requested_client_id:
-                    irq = irq.eq('client_id', requested_client_id)
-                if irq is not None and reference_scope_user_id:
-                    irq = irq.eq('reference_user_id', reference_scope_user_id)
-                ir_rows = []
-                if irq is not None:
-                    ir_rows = (irq.execute().data or [])
-                for irow in ir_rows:
-                    cid = irow.get('contact_id')
-                    if not cid:
-                        continue
-                    interests_count[cid] = interests_count.get(cid, 0) + 1
-            out = []
-            for row in rows:
-                cid = row.get('id')
-                o = dict(row)
-                o['deals_count'] = int(deals_count.get(cid, 0))
-                o['interests_count'] = int(interests_count.get(cid, 0))
-                out.append(o)
-            _crm_cache_set(cache_key, out)
-            return jsonify(out)
-        except Exception as e:
-            return jsonify({'error': str(e)}), 500
-
     @app.route('/api/crm/contacts', methods=['POST'])
     @require_auth
     def create_crm_contact(user_id, role):
@@ -5423,6 +5303,12 @@ def register_routes(app):
         crm_apply_client_scope=_crm_apply_client_scope,
         get_contact_for_user=_get_contact_for_user,
         crm_cache_bump=_crm_cache_bump,
+    )
+    register_crm_contact_routes(
+        app,
+        crm_cache_get=_crm_cache_get,
+        crm_cache_set=_crm_cache_set,
+        crm_cache_version=_crm_cache_version,
     )
     register_crm_broker_routes(
         app,

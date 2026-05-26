@@ -1,0 +1,284 @@
+{% extends 'base.html' %}
+{% block title %}Broker Invites - MarketoState{% endblock %}
+{% block head_css %}
+<link rel="stylesheet" href="/static/css/dashboard.css">
+<link rel="stylesheet" href="/static/css/crm.css">
+{% endblock %}
+{% block content %}
+<div class="crm-page crm-page--broker-header-mode crm-page--invites-page">
+    {% include 'components/broker_header.html' %}
+    <div class="crm-page-content crm-page-content--broker-header">
+        <main class="crm-content broker-invites-page">
+            <section class="crm-section active">
+                <div class="section-header">
+                    <div>
+                        <h2>Invites</h2>
+                        <p>Review client invites and join the teams you want to work with.</p>
+                    </div>
+                </div>
+                <div class="broker-invites-shell">
+                    <div class="crm-invite-list broker-invites-list" id="crm-invite-list"></div>
+                    <div class="crm-invite-empty broker-invites-empty" id="crm-invite-empty" style="display:none;">No pending invites.</div>
+                </div>
+            </section>
+        </main>
+    </div>
+    {% include 'components/change_password_modal.html' %}
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+    window.__SUPABASE_URL__ = {{ (supabase_url or '')|tojson }};
+    window.__SUPABASE_ANON_KEY__ = {{ (supabase_anon_key or '')|tojson }};
+</script>
+<script>
+(function () {
+    var url = window.__SUPABASE_URL__;
+    var key = window.__SUPABASE_ANON_KEY__;
+    if (!url || !key || !window.supabase) return;
+    if (!window._supabase) {
+        window._supabase = window.supabase.createClient(url, key);
+    }
+
+    function waitForAuthSession(maxAttempts, delayMs) {
+        var sb = window._supabase;
+        if (!sb || !sb.auth || typeof sb.auth.getSession !== 'function') return Promise.resolve(null);
+        var remaining = Number(maxAttempts || 0);
+        function readSession() {
+            return sb.auth.getSession().then(function (r) {
+                return (r && r.data && r.data.session) ? r.data.session : null;
+            }).catch(function () { return null; });
+        }
+        function step() {
+            return readSession().then(function (session) {
+                if (session) return session;
+                remaining -= 1;
+                if (remaining <= 0) return null;
+                return new Promise(function (resolve) { setTimeout(resolve, Number(delayMs || 220)); }).then(step);
+            });
+        }
+        return step();
+    }
+
+    function ensureAuthenticated() {
+        return waitForAuthSession(12, 220).then(function (session) {
+            if (!session || !session.access_token) throw new Error('Not authenticated');
+            return { Authorization: 'Bearer ' + session.access_token, 'Content-Type': 'application/json' };
+        });
+    }
+
+    function api(path, opts) {
+        return ensureAuthenticated().then(function (headers) {
+            var merged = Object.assign({ headers: headers }, opts || {});
+            merged.headers = Object.assign({}, headers, (opts && opts.headers) || {});
+            return fetch(path, merged);
+        });
+    }
+
+    function esc(s) {
+        return String(s == null ? '' : s)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    }
+
+    function initials(name) {
+        var text = String(name || '').trim();
+        if (!text) return '--';
+        var parts = text.split(/\s+/).filter(Boolean);
+        return ((parts[0] || '')[0] || '') + ((parts[1] || '')[0] || (parts[0] || '')[1] || '');
+    }
+
+    function showToast(message, type) {
+        if (window.showToast) {
+            window.showToast(message, type);
+            return;
+        }
+        if (type === 'error') console.error(message);
+        else console.log(message);
+    }
+
+    function renderInvites(items) {
+        var list = document.getElementById('crm-invite-list');
+        var empty = document.getElementById('crm-invite-empty');
+        if (!list || !empty) return;
+        if (!items || !items.length) {
+            list.innerHTML = '';
+            empty.style.display = '';
+            return;
+        }
+        empty.style.display = 'none';
+        list.innerHTML = items.map(function (inv) {
+            var clientName = inv.client_name || 'Client Group';
+            var inviter = inv.inviter_name ? ('Invited by ' + inv.inviter_name) : 'Pending invitation';
+            return '<div class="crm-invite-card broker-invite-card" data-invite-id="' + esc(inv.id) + '" data-token="' + esc(inv.invite_token || '') + '">' +
+                '<strong>' + esc(clientName) + '</strong>' +
+                '<span>' + esc(inviter) + '</span>' +
+                '<span>Role: Broker</span>' +
+                '<div class="crm-invite-actions">' +
+                    '<button class="btn" type="button" data-invite-action="reject">Reject</button>' +
+                    '<button class="btn primary" type="button" data-invite-action="accept">Accept</button>' +
+                '</div>' +
+            '</div>';
+        }).join('');
+        list.querySelectorAll('[data-invite-action]').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                var card = btn.closest('.broker-invite-card');
+                var action = btn.getAttribute('data-invite-action');
+                if (!card || !action) return;
+                var inviteId = card.getAttribute('data-invite-id');
+                var token = card.getAttribute('data-token');
+                btn.disabled = true;
+                var request = action === 'accept'
+                    ? api('/api/client-team-invites/accept', { method: 'POST', body: JSON.stringify({ invite_token: token }) })
+                    : api('/api/client-team-invites/' + encodeURIComponent(inviteId) + '/reject', { method: 'POST' });
+                request.then(function (response) {
+                    return response.json().catch(function () { return {}; }).then(function (data) {
+                        if (!response.ok) throw new Error(data.error || 'Invite update failed');
+                        showToast(action === 'accept' ? 'Invite accepted.' : 'Invite rejected.', 'success');
+                        return loadInvites();
+                    });
+                }).catch(function (e) {
+                    showToast((e && e.message) ? e.message : 'Invite update failed', 'error');
+                }).finally(function () {
+                    btn.disabled = false;
+                });
+            });
+        });
+    }
+
+    function loadInvites() {
+        return api('/api/client-team-invites/mine').then(function (response) {
+            return response.json().catch(function () { return []; }).then(function (data) {
+                if (!response.ok) throw new Error((data && data.error) || 'Failed to load invites');
+                renderInvites(Array.isArray(data) ? data : []);
+            });
+        }).catch(function (e) {
+            renderInvites([]);
+            showToast((e && e.message) ? e.message : 'Failed to load invites', 'error');
+        });
+    }
+
+    function openChangePasswordModal() {
+        var modal = document.getElementById('change-password-modal');
+        var err = document.getElementById('change-password-error');
+        var newInput = document.getElementById('new-password-input');
+        var confirmInput = document.getElementById('confirm-password-input');
+        if (err) { err.textContent = ''; err.style.display = 'none'; }
+        if (newInput) newInput.value = '';
+        if (confirmInput) confirmInput.value = '';
+        if (modal) modal.classList.add('visible');
+        if (newInput) newInput.focus();
+    }
+
+    function closeChangePasswordModal() {
+        var modal = document.getElementById('change-password-modal');
+        var err = document.getElementById('change-password-error');
+        if (modal) modal.classList.remove('visible');
+        if (err) { err.textContent = ''; err.style.display = 'none'; }
+    }
+
+    function bindHeader(profile) {
+        var header = document.getElementById('crm-broker-header');
+        var userBtn = document.getElementById('crm-broker-user-btn');
+        var dropdown = document.getElementById('crm-broker-dropdown');
+        var avatar = document.getElementById('crm-broker-avatar');
+        var nameEl = document.getElementById('crm-broker-name');
+        var signoutBtn = document.getElementById('crm-broker-header-signout');
+        var changePasswordBtn = document.getElementById('crm-broker-change-password');
+        var displayName = String((profile && (profile.display_name || profile.name || profile.email)) || 'Broker').trim();
+        if (header) header.style.display = '';
+        if (avatar) avatar.textContent = initials(displayName).toUpperCase();
+        if (nameEl) nameEl.textContent = displayName;
+        if (userBtn && dropdown) {
+            userBtn.addEventListener('click', function (e) {
+                e.stopPropagation();
+                dropdown.classList.toggle('visible');
+            });
+            document.addEventListener('click', function (e) {
+                if (!dropdown.contains(e.target) && e.target !== userBtn) {
+                    dropdown.classList.remove('visible');
+                }
+            });
+        }
+        if (changePasswordBtn) {
+            changePasswordBtn.addEventListener('click', function () {
+                if (dropdown) dropdown.classList.remove('visible');
+                openChangePasswordModal();
+            });
+        }
+        if (signoutBtn) {
+            signoutBtn.addEventListener('click', function () {
+                var sb = window._supabase;
+                var finish = function () { window.location.href = '/login'; };
+                if (sb && sb.auth && typeof sb.auth.signOut === 'function') {
+                    Promise.resolve(sb.auth.signOut()).catch(function () {}).finally(finish);
+                } else {
+                    finish();
+                }
+            });
+        }
+    }
+
+    function bindChangePassword() {
+        var closeBtn = document.getElementById('change-password-close');
+        var cancelBtn = document.getElementById('cancel-change-password');
+        var confirmBtn = document.getElementById('confirm-change-password');
+        var newInput = document.getElementById('new-password-input');
+        var confirmInput = document.getElementById('confirm-password-input');
+        var errorEl = document.getElementById('change-password-error');
+        var modal = document.getElementById('change-password-modal');
+        if (closeBtn) closeBtn.addEventListener('click', closeChangePasswordModal);
+        if (cancelBtn) cancelBtn.addEventListener('click', closeChangePasswordModal);
+        if (modal) {
+            modal.addEventListener('click', function (e) {
+                if (e.target === modal) closeChangePasswordModal();
+            });
+        }
+        if (confirmBtn) {
+            confirmBtn.addEventListener('click', function () {
+                var sb = window._supabase;
+                var newPw = newInput ? newInput.value : '';
+                var confirmPw = confirmInput ? confirmInput.value : '';
+                if (errorEl) { errorEl.textContent = ''; errorEl.style.display = 'none'; }
+                if (newPw.length < 6) {
+                    if (errorEl) { errorEl.textContent = 'Password must be at least 6 characters'; errorEl.style.display = 'block'; }
+                    return;
+                }
+                if (newPw !== confirmPw) {
+                    if (errorEl) { errorEl.textContent = 'Passwords do not match'; errorEl.style.display = 'block'; }
+                    return;
+                }
+                confirmBtn.disabled = true;
+                Promise.resolve(sb.auth.updateUser({ password: newPw })).then(function (res) {
+                    if (res && res.error) throw res.error;
+                    showToast('Password updated successfully.', 'success');
+                    closeChangePasswordModal();
+                }).catch(function (err) {
+                    if (errorEl) { errorEl.textContent = (err && err.message) ? err.message : 'Failed to update password'; errorEl.style.display = 'block'; }
+                }).finally(function () {
+                    confirmBtn.disabled = false;
+                });
+            });
+        }
+    }
+
+    api('/api/crm/me').then(function (response) {
+        return response.json().catch(function () { return {}; }).then(function (data) {
+            if (!response.ok) throw new Error((data && data.error) || 'Failed to load profile');
+            if (!(data && (data.is_broker || String(data.role || '') === 'broker'))) {
+                window.location.replace('/crm');
+                return;
+            }
+            bindHeader(data || {});
+            bindChangePassword();
+            return loadInvites();
+        });
+    }).catch(function () {
+        window.location.replace('/crm');
+    });
+})();
+</script>
+{% endblock %}

@@ -20,6 +20,10 @@ def register_uam_page_routes(app):
     def client_management_page():
         return render_template('client_management.html', **auth_ctx())
 
+    @app.route('/broker/invites')
+    def broker_invites_page():
+        return render_template('broker_invites.html', **auth_ctx())
+
     @app.route('/panorama/<int:panorama_id>/access')
     def panorama_access_page(panorama_id):
         return render_template('panorama_access.html', panorama_id=panorama_id, **auth_ctx())

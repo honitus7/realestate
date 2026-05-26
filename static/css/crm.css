@@ -25,8 +25,12 @@
     flex-direction: column;
 }
 
-.crm-page.crm-page--broker-only .dashboard-sidebar {
+.crm-page.crm-page--broker-header-mode .dashboard-sidebar {
     display: none;
+}
+
+.crm-page-content--broker-header {
+    padding-top: 72px;
 }
 
 @media (max-width: 768px) {
@@ -37,13 +41,61 @@
         height: 100vh;
         align-self: auto;
     }
+
+    .crm-page-content--broker-header {
+        padding-top: 76px;
+    }
 }
 
 .crm-broker-account {
+    margin-left: auto;
+    position: relative;
+    z-index: 1;
+}
+
+.crm-broker-header {
     position: fixed;
-    top: 14px;
-    right: 18px;
+    top: 0;
+    left: 0;
+    right: 0;
     z-index: 1200;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    min-height: 64px;
+    padding: 0.85rem 1.2rem;
+    background: rgba(255, 255, 255, 0.96);
+    border-bottom: 1px solid var(--color-border);
+    backdrop-filter: blur(12px);
+}
+
+.crm-broker-header-brand {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    color: var(--color-text);
+    text-decoration: none;
+    font-size: 1rem;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.crm-broker-header-signout {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 38px;
+    padding: 0.45rem 0.8rem;
+    border: 1px solid var(--color-border);
+    border-radius: 999px;
+    background: var(--color-surface);
+    color: var(--color-text);
+    font: inherit;
+    font-size: 0.84rem;
+    font-weight: 700;
+    cursor: pointer;
 }
 
 .crm-broker-user-btn {
@@ -122,50 +174,26 @@
     color: var(--color-danger);
 }
 
-.crm-invite-modal-backdrop {
-    position: fixed;
-    inset: 0;
-    z-index: 1300;
-    align-items: center;
-    justify-content: center;
-    padding: 1rem;
-    background: rgba(15, 23, 42, 0.42);
-}
+@media (max-width: 768px) {
+    .crm-broker-header {
+        padding: 0.75rem 0.85rem;
+    }
 
-.crm-invite-modal-backdrop.visible {
-    display: flex !important;
-}
+    .crm-broker-header-brand {
+        position: static;
+        transform: none;
+        font-size: 0.9rem;
+        margin: 0 auto;
+    }
 
-.crm-invite-modal {
-    width: min(560px, 100%);
-    max-height: min(720px, 92vh);
-    overflow: auto;
-    border-radius: 8px;
-    border: 1px solid var(--color-border);
-    background: var(--color-surface);
-    box-shadow: 0 24px 60px rgba(15, 23, 42, 0.24);
-}
+    .crm-broker-name {
+        max-width: 112px;
+    }
 
-.crm-invite-modal-head {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 1rem;
-    padding: 1rem 1.15rem;
-    border-bottom: 1px solid var(--color-border);
-}
-
-.crm-invite-modal-head h2 {
-    margin: 0;
-    font-size: 1rem;
-}
-
-.crm-invite-close {
-    border: 0;
-    background: transparent;
-    color: var(--color-muted);
-    font-size: 1.4rem;
-    cursor: pointer;
+    .crm-broker-header-signout {
+        padding-inline: 0.7rem;
+        font-size: 0.78rem;
+    }
 }
 
 .crm-invite-list {
@@ -203,6 +231,22 @@
     padding: 1.3rem;
     color: var(--color-muted);
     text-align: center;
+}
+
+.broker-invites-page {
+    padding: 1.5rem;
+}
+
+.broker-invites-shell {
+    max-width: 760px;
+}
+
+.broker-invites-list {
+    padding: 0;
+}
+
+.broker-invite-card {
+    background: var(--color-surface);
 }
 
 .crm-page a {
