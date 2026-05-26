@@ -25,6 +25,7 @@ from werkzeug.exceptions import RequestEntityTooLarge
 from itsdangerous import BadSignature, SignatureExpired
 
 from app import config as app_config
+from app.controllers.features.crm_pagination import crm_page_payload, crm_parse_page_args
 from app.controllers.features import (
     register_crm_broker_routes,
     register_crm_contact_routes,
@@ -4275,22 +4276,20 @@ def register_routes(app):
         sb = get_supabase()
         if not sb:
             return jsonify({'error': 'Database not configured'}), 503
+        page, limit, offset = crm_parse_page_args(default_limit=10, max_limit=500)
         panorama_ids = _crm_panorama_ids(sb, user_id, role)
         if not panorama_ids:
-            return jsonify([])
+            return jsonify(crm_page_payload([], 0, page, limit))
         client_scope_ids = _crm_client_scope_ids(sb, user_id, role)
         if client_scope_ids is not None and not client_scope_ids:
-            return jsonify([])
+            return jsonify(crm_page_payload([], 0, page, limit))
         reference_scope_user_id = _crm_interest_reference_scope_user_id(sb, user_id, role, client_scope_ids)
         panorama_id = request.args.get('panorama_id')
+        workspace_id = (request.args.get('workspace_id') or '').strip() or None
+        category = (request.args.get('category') or '').strip() or None
         requested_client_id = (request.args.get('client_id') or '').strip() or None
         status = (request.args.get('status') or '').strip().lower()
         q = (request.args.get('q') or '').strip()
-        try:
-            limit = int(request.args.get('limit', 250))
-        except Exception:
-            limit = 250
-        limit = max(50, min(500, limit))
         try:
             if panorama_id is not None and str(panorama_id).strip() != '':
                 panorama_id = int(panorama_id)
@@ -4308,27 +4307,54 @@ def register_routes(app):
             reference_scope_user_id or '',
             requested_client_id or '',
             panorama_id or 0,
+            workspace_id or '',
+            category or '',
             status,
             q.lower(),
+            page,
             limit,
+            offset,
         )
         cached = _crm_cache_get(cache_key, ttl_seconds=3)
         if cached is not None:
             return jsonify(cached)
         try:
-            query = (
-                sb.table('buy_interests')
-                .select('id, client_id, panorama_id, contact_id, reference_user_id, customer_name, customer_email, customer_phone, customer_birthday, customer_address, customer_street, customer_city, customer_state, customer_country, customer_zip_code, lead_source, lead_category, lead_status, campaign_type, campaign_status, deal_stage, title, description, category, plots, status, is_contacted, contacted_at, notes, created_at, updated_at, submitted_by, assigned_to, assigned_at')
-                .in_('panorama_id', panorama_ids)
+            cols = (
+                'id, client_id, panorama_id, contact_id, reference_user_id, customer_name, customer_email, '
+                'customer_phone, customer_birthday, customer_address, customer_street, customer_city, customer_state, '
+                'customer_country, customer_zip_code, lead_source, lead_category, lead_status, campaign_type, '
+                'campaign_status, deal_stage, title, description, category, plots, status, is_contacted, contacted_at, '
+                'notes, created_at, updated_at, submitted_by, assigned_to, assigned_at'
             )
+            query = sb.table('buy_interests').select(cols, count='exact').in_('panorama_id', panorama_ids)
             if requested_client_id:
                 if client_scope_ids is not None and requested_client_id not in client_scope_ids:
                     return jsonify({'error': 'Forbidden for this client group'}), 403
                 query = query.eq('client_id', requested_client_id)
             if reference_scope_user_id:
                 query = query.eq('reference_user_id', reference_scope_user_id)
+            if workspace_id:
+                try:
+                    ws_rows = (
+                        sb.table('panoramas')
+                        .select('id')
+                        .eq('workspace_id', workspace_id)
+                        .in_('id', panorama_ids)
+                        .execute()
+                        .data
+                        or []
+                    )
+                    ws_pano_ids = [int(row.get('id')) for row in ws_rows if row.get('id') is not None]
+                    if ws_pano_ids:
+                        query = query.in_('panorama_id', ws_pano_ids)
+                    else:
+                        return jsonify(crm_page_payload([], 0, page, limit))
+                except Exception:
+                    return jsonify(crm_page_payload([], 0, page, limit))
             if panorama_id and panorama_id in panorama_ids:
                 query = query.eq('panorama_id', panorama_id)
+            if category:
+                query = query.eq('category', category)
             if status in ('new', 'contacted'):
                 if status == 'contacted':
                     query = query.eq('is_contacted', True)
@@ -4340,7 +4366,8 @@ def register_routes(app):
                     query = query.or_(
                         f"customer_name.ilike.%{token}%,customer_email.ilike.%{token}%,customer_phone.ilike.%{token}%,customer_address.ilike.%{token}%,customer_city.ilike.%{token}%,customer_state.ilike.%{token}%"
                     )
-            r = query.order('created_at', desc=True).limit(limit).execute()
+            r = query.order('created_at', desc=True).range(offset, offset + limit - 1).execute()
+            total = int(getattr(r, 'count', None) or 0)
             out = []
             for row in (r.data or []):
                 o = dict(row)
@@ -4366,8 +4393,9 @@ def register_routes(app):
                 if o.get('assigned_at'):
                     o['assigned_at'] = str(o['assigned_at'])
                 out.append(o)
-            _crm_cache_set(cache_key, out)
-            return jsonify(out)
+            payload = crm_page_payload(out, total, page, limit)
+            _crm_cache_set(cache_key, payload)
+            return jsonify(payload)
         except Exception as e:
             msg = str(e)
             if 'buy_interests' in msg and ('does not exist' in msg.lower() or 'relation' in msg.lower()):
@@ -4739,21 +4767,19 @@ def register_routes(app):
         sb = get_supabase()
         if not sb:
             return jsonify({'error': 'Database not configured'}), 503
+        page, limit, offset = crm_parse_page_args(default_limit=10, max_limit=100)
         panorama_ids = _crm_panorama_ids(sb, user_id, role)
         if not panorama_ids:
-            return jsonify([])
+            return jsonify(crm_page_payload([], 0, page, limit))
         client_scope_ids = _crm_client_scope_ids(sb, user_id, role)
         if client_scope_ids is not None and not client_scope_ids:
-            return jsonify([])
+            return jsonify(crm_page_payload([], 0, page, limit))
         reference_scope_user_id = _crm_interest_reference_scope_user_id(sb, user_id, role, client_scope_ids)
         requested_client_id = (request.args.get('client_id') or '').strip() or None
         stage = str(request.args.get('stage') or '').strip().lower()
+        project_name = str(request.args.get('project_name') or '').strip()
+        contact_id = str(request.args.get('contact_id') or '').strip()
         q = str(request.args.get('q') or '').strip().lower()
-        try:
-            limit = int(request.args.get('limit', 300))
-        except Exception:
-            limit = 300
-        limit = max(50, min(800, limit))
         if requested_client_id and client_scope_ids is not None and requested_client_id not in client_scope_ids:
             return jsonify({'error': 'Forbidden for this client group'}), 403
         reference_interest_ids, _reference_contact_ids = [], []
@@ -4766,7 +4792,7 @@ def register_routes(app):
                 requested_client_id=requested_client_id,
             )
             if not reference_interest_ids:
-                return jsonify([])
+                return jsonify(crm_page_payload([], 0, page, limit))
         allowed = ('new', 'contacted', 'site_visit', 'negotiation', 'won', 'lost')
         cache_key = (
             'crm_deals',
@@ -4779,8 +4805,12 @@ def register_routes(app):
             tuple(reference_interest_ids),
             requested_client_id or '',
             stage,
+            project_name,
+            contact_id,
             q,
+            page,
             limit,
+            offset,
         )
         cached = _crm_cache_get(cache_key, ttl_seconds=3)
         if cached is not None:
@@ -4788,7 +4818,10 @@ def register_routes(app):
         try:
             query = (
                 sb.table('crm_deals')
-                .select('id, org_id, client_id, panorama_id, interest_id, contact_id, title, stage, is_active, amount, currency, plots, project_name, notes, created_at, updated_at')
+                .select(
+                    'id, org_id, client_id, panorama_id, interest_id, contact_id, title, stage, is_active, amount, currency, plots, project_name, notes, created_at, updated_at',
+                    count='exact',
+                )
                 .in_('panorama_id', panorama_ids)
             )
             if requested_client_id:
@@ -4797,13 +4830,20 @@ def register_routes(app):
                 query = query.in_('interest_id', reference_interest_ids)
             if stage in allowed:
                 query = query.eq('stage', stage)
+            if project_name:
+                query = query.eq('project_name', project_name)
+            if contact_id:
+                query = query.eq('contact_id', contact_id)
             if q:
                 token = q.replace('%', '').replace('(', '').replace(')', '').replace(',', '')
                 if token:
                     query = query.or_(f"title.ilike.%{token}%,project_name.ilike.%{token}%,amount.ilike.%{token}%")
-            rows = (query.order('updated_at', desc=True).limit(limit).execute().data or [])
-            _crm_cache_set(cache_key, rows)
-            return jsonify(rows)
+            resp = query.order('updated_at', desc=True).range(offset, offset + limit - 1).execute()
+            rows = resp.data or []
+            total = int(getattr(resp, 'count', None) or 0)
+            payload = crm_page_payload(rows, total, page, limit)
+            _crm_cache_set(cache_key, payload)
+            return jsonify(payload)
         except Exception as e:
             return jsonify({'error': str(e)}), 500
 

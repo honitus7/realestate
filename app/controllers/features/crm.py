@@ -1,4 +1,5 @@
 from datetime import datetime
+import re
 import uuid
 
 from flask import jsonify, request
@@ -8,6 +9,7 @@ from app.core.auth import get_profile, require_admin, require_auth
 from app.core.database import get_supabase
 from app.services.access_policy import _chunks, annotate_resource_rows_with_client_scope, get_client_memberships
 from app.services.email_service import send_email as send_smtp_email
+from app.controllers.features.crm_pagination import crm_page_payload, crm_parse_page_args
 from app.services.uam_reference_service import (
     CLIENT_MEMBER_ROLE_BROKER,
     CLIENT_MEMBER_ROLE_CLIENT_ADMIN,
@@ -193,6 +195,78 @@ def register_crm_broker_routes(app, *, crm_panorama_ids, crm_client_scope_ids):
         return jsonify(out)
 
 
+def _crm_plot_status_key(status):
+    return re.sub(r'[^a-z]', '', str(status or '').lower())
+
+
+def _crm_load_all_plots(sb, pano_ids, *, crm_cache_get, crm_cache_set, crm_cache_version, user_id, role):
+    cache_key = (
+        'crm_plots',
+        crm_cache_version.get('v', 1),
+        str(user_id),
+        str(role or ''),
+        tuple(pano_ids),
+    )
+    cached = crm_cache_get(cache_key, ttl_seconds=5)
+    if cached is not None:
+        return cached
+
+    pano_rows = []
+    pano_by_id = {}
+    all_plots = []
+    for chunk in _chunks(pano_ids):
+        try:
+            panos_r = (
+                sb.table('panoramas')
+                .select('id, name, workspace_id')
+                .in_('id', chunk)
+                .execute()
+            )
+            for row in (panos_r.data or []):
+                pano_rows.append(row)
+                try:
+                    pano_by_id[int(row.get('id'))] = row
+                except Exception:
+                    continue
+        except Exception:
+            pass
+        try:
+            plots_r = (
+                sb.table('plots')
+                .select('id, panorama_id, name, area, price, status, description')
+                .in_('panorama_id', chunk)
+                .execute()
+            )
+            all_plots.extend(plots_r.data or [])
+        except Exception:
+            pass
+
+    annotated_panos = annotate_resource_rows_with_client_scope(sb, pano_rows, 'panorama')
+    pano_scope = {}
+    for row in annotated_panos:
+        try:
+            pano_scope[int(row.get('id'))] = {
+                'client_ids': [str(cid) for cid in (row.get('client_ids') or []) if cid],
+                'client_names': [str(name) for name in (row.get('client_names') or []) if name],
+            }
+        except Exception:
+            continue
+
+    for plot in all_plots:
+        try:
+            pid = int(plot.get('panorama_id'))
+        except Exception:
+            pid = None
+        pano = pano_by_id.get(pid) or {}
+        scope = pano_scope.get(pid) or {}
+        plot['panorama_name'] = pano.get('name') or ('Project #' + str(pid or ''))
+        plot['client_ids'] = scope.get('client_ids') or []
+        plot['client_names'] = scope.get('client_names') or []
+
+    crm_cache_set(cache_key, all_plots)
+    return all_plots
+
+
 def register_crm_plot_routes(app, *, crm_panorama_ids, crm_cache_get, crm_cache_set, crm_cache_version):
     @app.route('/api/crm/plots', methods=['GET'])
     @require_auth
@@ -202,72 +276,43 @@ def register_crm_plot_routes(app, *, crm_panorama_ids, crm_cache_get, crm_cache_
             return jsonify({'error': 'Database not configured'}), 503
         pano_ids = crm_panorama_ids(sb, user_id, role)
         if not pano_ids:
-            return jsonify([])
-        cache_key = (
-            'crm_plots',
-            crm_cache_version.get('v', 1),
-            str(user_id),
-            str(role or ''),
-            tuple(pano_ids),
+            return jsonify(crm_page_payload([], 0, 1, 10))
+        page, limit, offset = crm_parse_page_args(default_limit=10, max_limit=100)
+        q = str(request.args.get('q') or '').strip().lower()
+        client_id = str(request.args.get('client_id') or '').strip()
+        panorama_id = str(request.args.get('panorama_id') or '').strip()
+        status = _crm_plot_status_key(request.args.get('status') or '')
+
+        all_plots = _crm_load_all_plots(
+            sb,
+            pano_ids,
+            crm_cache_get=crm_cache_get,
+            crm_cache_set=crm_cache_set,
+            crm_cache_version=crm_cache_version,
+            user_id=user_id,
+            role=role,
         )
-        cached = crm_cache_get(cache_key, ttl_seconds=5)
-        if cached is not None:
-            return jsonify(cached)
-
-        pano_rows = []
-        pano_by_id = {}
-        all_plots = []
-        for chunk in _chunks(pano_ids):
-            try:
-                panos_r = (
-                    sb.table('panoramas')
-                    .select('id, name, workspace_id')
-                    .in_('id', chunk)
-                    .execute()
-                )
-                for row in (panos_r.data or []):
-                    pano_rows.append(row)
-                    try:
-                        pano_by_id[int(row.get('id'))] = row
-                    except Exception:
-                        continue
-            except Exception:
-                pass
-            try:
-                plots_r = (
-                    sb.table('plots')
-                    .select('id, panorama_id, name, area, price, status, description')
-                    .in_('panorama_id', chunk)
-                    .execute()
-                )
-                all_plots.extend(plots_r.data or [])
-            except Exception:
-                pass
-
-        annotated_panos = annotate_resource_rows_with_client_scope(sb, pano_rows, 'panorama')
-        pano_scope = {}
-        for row in annotated_panos:
-            try:
-                pano_scope[int(row.get('id'))] = {
-                    'client_ids': [str(cid) for cid in (row.get('client_ids') or []) if cid],
-                    'client_names': [str(name) for name in (row.get('client_names') or []) if name],
-                }
-            except Exception:
-                continue
-
-        for plot in all_plots:
-            try:
-                pid = int(plot.get('panorama_id'))
-            except Exception:
-                pid = None
-            pano = pano_by_id.get(pid) or {}
-            scope = pano_scope.get(pid) or {}
-            plot['panorama_name'] = pano.get('name') or ('Project #' + str(pid or ''))
-            plot['client_ids'] = scope.get('client_ids') or []
-            plot['client_names'] = scope.get('client_names') or []
-
-        crm_cache_set(cache_key, all_plots)
-        return jsonify(all_plots)
+        rows = list(all_plots or [])
+        if q:
+            rows = [
+                p for p in rows
+                if q in ' '.join([
+                    str(p.get('name') or ''),
+                    str(p.get('area') or ''),
+                    str(p.get('status') or ''),
+                    str(p.get('description') or ''),
+                    str(p.get('panorama_name') or ''),
+                ]).lower()
+            ]
+        if client_id:
+            rows = [p for p in rows if client_id in [str(cid) for cid in (p.get('client_ids') or [])]]
+        if panorama_id:
+            rows = [p for p in rows if str(p.get('panorama_id') or '') == panorama_id]
+        if status:
+            rows = [p for p in rows if _crm_plot_status_key(p.get('status')) == status]
+        total = len(rows)
+        page_rows = rows[offset:offset + limit]
+        return jsonify(crm_page_payload(page_rows, total, page, limit))
 
 
 def register_crm_lock_routes(
@@ -930,7 +975,8 @@ def _crm_fetch_contact_rows(
     reference_contact_ids=None,
     reference_interest_ids=None,
     q='',
-    limit=200,
+    offset=0,
+    limit=10,
 ):
     select_cols = _crm_contact_list_select()
     rows_by_id = {}
@@ -943,7 +989,7 @@ def _crm_fetch_contact_rows(
 
     if reference_scope_user_id:
         if not reference_contact_ids and not reference_interest_ids:
-            return []
+            return [], 0
         if reference_contact_ids:
             for chunk in _chunks(reference_contact_ids):
                 query = _crm_apply_contact_list_filters(
@@ -974,7 +1020,8 @@ def _crm_fetch_contact_rows(
 
     rows = list(rows_by_id.values())
     rows.sort(key=lambda row: str(row.get('updated_at') or ''), reverse=True)
-    return rows[:limit]
+    total = len(rows)
+    return rows[offset:offset + limit], total
 
 
 def register_crm_contact_routes(
@@ -995,20 +1042,16 @@ def register_crm_contact_routes(
         if not sb:
             return jsonify({'error': 'Database not configured'}), 503
         panorama_ids = crm_panorama_ids(sb, user_id, role)
+        page, limit, offset = crm_parse_page_args(default_limit=10, max_limit=100)
         if not panorama_ids:
-            return jsonify([])
+            return jsonify(crm_page_payload([], 0, page, limit))
         client_scope_ids = crm_client_scope_ids(sb, user_id, role)
         if client_scope_ids is not None and not client_scope_ids:
-            return jsonify([])
+            return jsonify(crm_page_payload([], 0, page, limit))
         reference_scope_user_id = crm_interest_reference_scope_user_id(sb, user_id, role, client_scope_ids)
         requested_client_id = (request.args.get('client_id') or '').strip() or None
         q = str(request.args.get('q') or '').strip().lower()
         include_counts = str(request.args.get('include_counts', '1')).strip() != '0'
-        try:
-            limit = int(request.args.get('limit', 200))
-        except Exception:
-            limit = 200
-        limit = max(50, min(500, limit))
         if requested_client_id and client_scope_ids is not None and requested_client_id not in client_scope_ids:
             return jsonify({'error': 'Forbidden for this client group'}), 403
         reference_interest_ids, reference_contact_ids = [], []
@@ -1021,7 +1064,7 @@ def register_crm_contact_routes(
                 requested_client_id=requested_client_id,
             )
             if not reference_interest_ids and not reference_contact_ids:
-                return jsonify([])
+                return jsonify(crm_page_payload([], 0, page, limit))
         cache_key = (
             'crm_contacts',
             crm_cache_version.get('v', 1),
@@ -1035,13 +1078,15 @@ def register_crm_contact_routes(
             requested_client_id or '',
             q,
             int(include_counts),
+            page,
             limit,
+            offset,
         )
         cached = crm_cache_get(cache_key, ttl_seconds=3)
         if cached is not None:
             return jsonify(cached)
         try:
-            rows = _crm_fetch_contact_rows(
+            rows, total = _crm_fetch_contact_rows(
                 sb,
                 panorama_ids,
                 client_scope_ids=client_scope_ids,
@@ -1050,6 +1095,7 @@ def register_crm_contact_routes(
                 reference_contact_ids=reference_contact_ids,
                 reference_interest_ids=reference_interest_ids,
                 q=q,
+                offset=offset,
                 limit=limit,
             )
         except Exception as e:
@@ -1126,8 +1172,9 @@ def register_crm_contact_routes(
             o['deals_count'] = int(deals_count.get(cid, 0))
             o['interests_count'] = int(interests_count.get(cid, 0))
             out.append(o)
-        crm_cache_set(cache_key, out)
-        return jsonify(out)
+        payload = crm_page_payload(out, total, page, limit)
+        crm_cache_set(cache_key, payload)
+        return jsonify(payload)
 
 
 def register_crm_quote_routes(

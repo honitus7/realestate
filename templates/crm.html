@@ -1,10 +1,20 @@
 {% set page_title = 'CRM - MarketoState' %}
 {% set active_nav = 'crm' %}
 {% set sneat_extra_css = '/static/crm/crm.css' %}
+{% from 'crm/components/data_table.html' import crm_data_table %}
 {% set sneat_merge_nav_into_crm = true %}
 {% include 'components/sneat_shell_start.html' %}
 <div class="crm-page crm-page--sneat">
-    <div class="crm-page-content" id="crm-page-content">
+    <div class="crm-boot-loader" id="crm-boot-loader" role="status" aria-live="polite">
+        <div class="crm-boot-loader__panel">
+            <div class="crm-spinner"></div>
+            <div>
+                <strong>Loading CRM</strong>
+                <span>Preparing leads, contacts, deals, and plots...</span>
+            </div>
+        </div>
+    </div>
+    <div class="crm-page-content" id="crm-page-content" aria-busy="true">
     {% include 'crm/components/tab_nav.html' %}
 
     <!-- Content -->
@@ -171,13 +181,13 @@
 
                             <!-- Table View -->
                             <div class="interest-table-wrap" id="interest-table-view">
-                    <div class="card">
+                    <div class="card crm-data-table">
                         <div class="card-header">
                             <div class="card-title"><strong>All Leads</strong><span id="results-meta">0 results</span></div>
                             <span class="pill new"><span class="dot"></span><span>Live</span></span>
                         </div>
                         <div class="table-wrap">
-                            <table>
+                            <table class="crm-data-table__table">
                                 <thead><tr>
                                     <th style="width:12%">Created</th>
                                     <th style="width:16%">Customer</th>
@@ -231,7 +241,7 @@
 
             <section class="crm-section" id="sec-deals">
                 <div class="section-header">
-                    <div><h2>Deals</h2><p>Move deal cards across stages and share quotations</p></div>
+                    <div><h2>Deals</h2><p>Track deals in a paginated table and share quotations</p></div>
                 </div>
                 <div class="crm-deals-toolbar">
                     <input class="toolbar-search" id="deal-q" placeholder="Search deals..." autocomplete="off">
@@ -256,15 +266,17 @@
                     <button class="btn" id="btn-clear-deal-filters" type="button">Clear</button>
                     <button class="btn" id="btn-refresh-deals" type="button">Refresh</button>
                 </div>
-                <div class="deal-board" id="deal-board">
-                    <div class="deal-col" data-stage="new"><div class="deal-col-head">New <span id="deal-count-new">0</span></div><div class="deal-col-cards" id="deal-col-new"></div></div>
-                    <div class="deal-col" data-stage="contacted"><div class="deal-col-head">Contacted <span id="deal-count-contacted">0</span></div><div class="deal-col-cards" id="deal-col-contacted"></div></div>
-                    <div class="deal-col" data-stage="site_visit"><div class="deal-col-head">Site Visit <span id="deal-count-site_visit">0</span></div><div class="deal-col-cards" id="deal-col-site_visit"></div></div>
-                    <div class="deal-col" data-stage="negotiation"><div class="deal-col-head">Negotiation <span id="deal-count-negotiation">0</span></div><div class="deal-col-cards" id="deal-col-negotiation"></div></div>
-                    <div class="deal-col" data-stage="won"><div class="deal-col-head">Won <span id="deal-count-won">0</span></div><div class="deal-col-cards" id="deal-col-won"></div></div>
-                    <div class="deal-col" data-stage="lost"><div class="deal-col-head">Lost <span id="deal-count-lost">0</span></div><div class="deal-col-cards" id="deal-col-lost"></div></div>
-                </div>
-                <div class="crm-pagination" id="deals-pagination"></div>
+                {% call crm_data_table('deals-tbody', 'deals-pagination') %}
+                <thead><tr>
+                    <th>Title</th>
+                    <th>Stage</th>
+                    <th>Contact</th>
+                    <th>Project</th>
+                    <th>Amount</th>
+                    <th>Plots</th>
+                    <th></th>
+                </tr></thead>
+                {% endcall %}
             </section>
 
             <section class="crm-section" id="sec-allotted-clients">
@@ -300,15 +312,9 @@
                     </select>
                     <button class="btn primary" id="btn-add-contact" type="button">Add Contact</button>
                 </div>
-                <div class="card">
-                    <div class="table-wrap">
-                        <table>
-                            <thead><tr><th>Name</th><th>Email</th><th>Phone</th><th>Interests</th><th>Deals</th><th></th></tr></thead>
-                            <tbody id="contacts-tbody"></tbody>
-                        </table>
-                        <div class="crm-pagination" id="contacts-pagination"></div>
-                    </div>
-                </div>
+                {% call crm_data_table('contacts-tbody', 'contacts-pagination') %}
+                <thead><tr><th>Name</th><th>Email</th><th>Phone</th><th>Interests</th><th>Deals</th><th></th></tr></thead>
+                {% endcall %}
             </section>
 
             <!-- â•â•â•â•â•â•â•â•â•â• PROJECTS SECTION â•â•â•â•â•â•â•â•â•â• -->
@@ -425,27 +431,21 @@
                         <option value="sold">Sold</option>
                     </select>
                 </div>
-                <div class="card">
-                    <div class="table-wrap">
-                        <table>
-                            <thead><tr>
-                                <th>Plot Number</th>
-                                <th>Plot Size (Area)</th>
-                                <th>Status</th>
-                                <th style="width:44px"></th>
-                                <th>Description</th>
-                                <th>Number of Interest</th>
-                                <th>Sales Agent</th>
-                                <th>Broker</th>
-                                <th style="width:80px"></th>
-                            </tr></thead>
-                            <tbody id="plots-tbody"></tbody>
-                        </table>
-                        <div class="empty" id="plots-empty" style="display:none;">
-                            <strong>No plots found</strong><div>Adjust your filters or add plots to your panoramas.</div>
-                        </div>
-                        <div class="crm-pagination" id="plots-pagination"></div>
-                    </div>
+                {% call crm_data_table('plots-tbody', 'plots-pagination') %}
+                <thead><tr>
+                    <th>Plot Number</th>
+                    <th>Plot Size (Area)</th>
+                    <th>Status</th>
+                    <th style="width:44px"></th>
+                    <th>Description</th>
+                    <th>Number of Interest</th>
+                    <th>Sales Agent</th>
+                    <th>Broker</th>
+                    <th style="width:80px"></th>
+                </tr></thead>
+                {% endcall %}
+                <div class="empty" id="plots-empty" style="display:none;">
+                    <strong>No plots found</strong><div>Adjust your filters or add plots to your panoramas.</div>
                 </div>
             </section>
 
@@ -858,6 +858,7 @@
     window.ensureAuthenticated = ensureAuthenticated;
 })();
 </script>
+<script src="/static/crm/crm-pager.js"></script>
 <script>
 (function() {
     'use strict';
@@ -870,9 +871,14 @@
     let dealClientOptionsLoaded = false;
     let dealClientFiltersEnabled = false;
     let contactsLoadedClient = null;
+    let dealContactOptions = [];
+    let dealsLoaded = false;
+    let contactsLoaded = false;
+    let contactsTableMeta = { total: 0, pages: 1 };
+    let dealsTableMeta = { total: 0, pages: 1 };
     let crmBrokerHeaderMode = false;
-    const dealsPager = { page: 1, size: 25 };
-    const contactsPager = { page: 1, size: 25 };
+    const dealsPager = { page: 1, size: (window.CrmPager && CrmPager.DEFAULT_SIZE) || 10 };
+    const contactsPager = { page: 1, size: (window.CrmPager && CrmPager.DEFAULT_SIZE) || 10 };
     let editingContactId = null;
     let editingDealId = null;
     const dealStageFilterEl = $('deal-filter-stage');
@@ -893,50 +899,6 @@
         const headers = await window.ensureAuthenticated();
         const o = Object.assign({ headers: Object.assign({ 'Content-Type': 'application/json' }, headers || {}) }, opts || {});
         return fetch(path, o);
-    }
-
-    const PAGE_SIZE_OPTIONS = [10, 25, 50, 100];
-    function pageRows(rows, pager) {
-        const total = (rows || []).length;
-        const size = Math.max(1, parseInt(pager.size || 25, 10));
-        const pages = Math.max(1, Math.ceil(total / size));
-        pager.page = Math.min(Math.max(1, parseInt(pager.page || 1, 10)), pages);
-        const start = (pager.page - 1) * size;
-        return rows.slice(start, start + size);
-    }
-    function renderPagination(containerId, total, pager, onChange) {
-        const el = $(containerId);
-        if (!el) return;
-        if (!total || total <= pager.size) {
-            el.innerHTML = '';
-            return;
-        }
-        const pages = Math.max(1, Math.ceil(total / pager.size));
-        pager.page = Math.min(Math.max(1, pager.page || 1), pages);
-        const start = ((pager.page - 1) * pager.size) + 1;
-        const end = Math.min(total, pager.page * pager.size);
-        el.innerHTML =
-            '<span>' + esc(start) + '-' + esc(end) + ' of ' + esc(total) + '</span>' +
-            '<select data-page-size>' + PAGE_SIZE_OPTIONS.map(size => '<option value="' + size + '"' + (size === pager.size ? ' selected' : '') + '>' + size + ' / page</option>').join('') + '</select>' +
-            '<button class="btn" type="button" data-page-prev' + (pager.page <= 1 ? ' disabled' : '') + '>Prev</button>' +
-            '<span>Page ' + esc(pager.page) + ' / ' + esc(pages) + '</span>' +
-            '<button class="btn" type="button" data-page-next' + (pager.page >= pages ? ' disabled' : '') + '>Next</button>';
-        const sizeEl = el.querySelector('[data-page-size]');
-        if (sizeEl) sizeEl.addEventListener('change', () => {
-            pager.size = parseInt(sizeEl.value || '25', 10);
-            pager.page = 1;
-            onChange();
-        });
-        const prev = el.querySelector('[data-page-prev]');
-        if (prev) prev.addEventListener('click', () => {
-            pager.page = Math.max(1, pager.page - 1);
-            onChange();
-        });
-        const next = el.querySelector('[data-page-next]');
-        if (next) next.addEventListener('click', () => {
-            pager.page = Math.min(pages, pager.page + 1);
-            onChange();
-        });
     }
 
     function fmtDealQuoteDate(iso) {
@@ -1159,37 +1121,76 @@
         renderDealClientOptions();
     }
 
-    async function loadContacts(clientIdOverride) {
+    async function loadDealContactOptions(selectedClient) {
+        const params = { include_counts: '0' };
+        if (selectedClient) params.client_id = selectedClient;
+        const path = '/api/crm/contacts' + CrmPager.buildQuery({ page: 1, size: 10 }, params);
+        const r = await api(path);
+        const data = await r.json().catch(() => ({}));
+        if (!r.ok) {
+            dealContactOptions = [];
+            return;
+        }
+        dealContactOptions = CrmPager.parsePageResponse(data).items;
+    }
+
+    async function loadContacts(clientIdOverride, resetPage) {
         try {
             await ensureDealClientOptions();
             const selectedClient = clientIdOverride !== undefined
                 ? String(clientIdOverride || '').trim()
                 : String((contactClientFilterEl && contactClientFilterEl.value) || '').trim();
-            const path = '/api/crm/contacts?limit=500' + (selectedClient ? '&client_id=' + encodeURIComponent(selectedClient) : '');
+            if (resetPage) contactsPager.page = 1;
+            const q = String(($('contact-q') && $('contact-q').value) || '').trim();
+            const params = { include_counts: '1' };
+            if (selectedClient) params.client_id = selectedClient;
+            if (q) params.q = q;
+            const path = '/api/crm/contacts' + CrmPager.buildQuery(contactsPager, params);
             const r = await api(path);
-            const data = await r.json().catch(() => []);
+            const data = await r.json().catch(() => ({}));
             if (!r.ok) throw new Error((data && data.error) ? data.error : ('Failed (' + r.status + ')'));
-            contacts = Array.isArray(data) ? data : [];
+            const page = CrmPager.parsePageResponse(data);
+            contacts = page.items;
+            contactsTableMeta = page;
+            contactsPager.page = page.page;
+            contactsPager.size = page.limit;
             contactsLoadedClient = selectedClient;
+            contactsLoaded = true;
             renderDealFilterOptions();
-            renderContacts();
+            renderContacts(page);
         } catch (e) {
             toast(e.message || 'Failed to load contacts', 'error');
         }
     }
 
-    async function loadDeals() {
+    async function loadDeals(resetPage) {
         try {
             await ensureDealClientOptions();
             const selectedClient = String((dealClientFilterEl && dealClientFilterEl.value) || '').trim();
-            if (contactsLoadedClient !== selectedClient) await loadContacts(selectedClient);
-            const path = '/api/crm/deals?limit=800' + (selectedClient ? '&client_id=' + encodeURIComponent(selectedClient) : '');
+            await loadDealContactOptions(selectedClient);
+            if (resetPage) dealsPager.page = 1;
+            const params = {};
+            if (selectedClient) params.client_id = selectedClient;
+            const stageFilter = String((dealStageFilterEl && dealStageFilterEl.value) || '').trim().toLowerCase();
+            const projectFilter = String((dealProjectFilterEl && dealProjectFilterEl.value) || '').trim();
+            const contactFilter = String((dealContactFilterEl && dealContactFilterEl.value) || '').trim();
+            const q = String(($('deal-q') && $('deal-q').value) || '').trim();
+            if (stageFilter) params.stage = stageFilter;
+            if (projectFilter) params.project_name = projectFilter;
+            if (contactFilter) params.contact_id = contactFilter;
+            if (q) params.q = q;
+            const path = '/api/crm/deals' + CrmPager.buildQuery(dealsPager, params);
             const r = await api(path);
-            const data = await r.json().catch(() => []);
+            const data = await r.json().catch(() => ({}));
             if (!r.ok) throw new Error((data && data.error) ? data.error : ('Failed (' + r.status + ')'));
-            deals = Array.isArray(data) ? data : [];
+            const page = CrmPager.parsePageResponse(data);
+            deals = page.items;
+            dealsTableMeta = page;
+            dealsPager.page = page.page;
+            dealsPager.size = page.limit;
+            dealsLoaded = true;
             renderDealFilterOptions();
-            renderDeals();
+            renderDeals(page);
         } catch (e) {
             toast(e.message || 'Failed to load deals', 'error');
         }
@@ -1208,7 +1209,7 @@
         }
         if (dealContactFilterEl) {
             const cur = String(dealContactFilterEl.value || '');
-            const contactRows = contacts
+            const contactRows = dealContactOptions
                 .filter(c => !selectedClient || String(c.client_id || '') === selectedClient)
                 .map(c => ({ id: String(c.id || ''), name: c.full_name || c.email || c.phone || 'Contact' }))
                 .filter(c => c.id);
@@ -1217,20 +1218,12 @@
         }
     }
 
-    function renderContacts() {
+    function renderContacts(pageMeta) {
         const tbody = $('contacts-tbody');
-        const q = String(($('contact-q') && $('contact-q').value) || '').trim().toLowerCase();
-        const clientFilter = String((contactClientFilterEl && contactClientFilterEl.value) || '').trim();
         if (!tbody) return;
-        const rows = contacts.filter(c => {
-            if (clientFilter && String(c.client_id || '') !== clientFilter) return false;
-            if (!q) return true;
-            const hay = [c.full_name, c.email, c.phone].join(' ').toLowerCase();
-            return hay.includes(q);
-        });
-        const pageItems = pageRows(rows, contactsPager);
-        renderPagination('contacts-pagination', rows.length, contactsPager, renderContacts);
-        tbody.innerHTML = pageItems.map(c =>
+        const meta = pageMeta || contactsTableMeta || { total: contacts.length, pages: 1 };
+        CrmPager.renderPagination('contacts-pagination', meta, contactsPager, function () { loadContacts(undefined, false); }, esc);
+        tbody.innerHTML = contacts.map(c =>
             '<tr data-cid="' + esc(c.id) + '">' +
             '<td style="font-weight:700">' + esc(c.full_name || 'â€”') + '</td>' +
             '<td>' + esc(c.email || 'â€”') + '</td>' +
@@ -1245,79 +1238,39 @@
         });
     }
 
-    function renderDeals() {
-        const q = String(($('deal-q') && $('deal-q').value) || '').trim().toLowerCase();
-        const stageFilter = String((dealStageFilterEl && dealStageFilterEl.value) || '').trim().toLowerCase();
-        const clientFilter = String((dealClientFilterEl && dealClientFilterEl.value) || '').trim();
-        const projectFilter = String((dealProjectFilterEl && dealProjectFilterEl.value) || '').trim();
-        const contactFilter = String((dealContactFilterEl && dealContactFilterEl.value) || '').trim();
-        const map = { new: [], contacted: [], site_visit: [], negotiation: [], won: [], lost: [] };
-        const allRows = [];
-        deals.forEach(d => {
+    function renderDeals(pageMeta) {
+        const tbody = $('deals-tbody');
+        if (!tbody) return;
+        const meta = pageMeta || dealsTableMeta || { total: deals.length, pages: 1 };
+        CrmPager.renderPagination('deals-pagination', meta, dealsPager, function () { loadDeals(false); }, esc);
+        tbody.innerHTML = deals.map(d => {
             const st = String(d.stage || 'new').toLowerCase();
-            if (!map[st]) return;
-            if (stageFilter && st !== stageFilter) return;
-            if (clientFilter && String(d.client_id || '') !== clientFilter) return;
-            if (projectFilter && String(d.project_name || '') !== projectFilter) return;
-            if (contactFilter && String(d.contact_id || '') !== contactFilter) return;
-            const hay = [d.title, d.project_name, d.amount, getContactName(d.contact_id)].join(' ').toLowerCase();
-            if (q && !hay.includes(q)) return;
-            allRows.push(d);
+            const plotCount = Array.isArray(d.plots) ? d.plots.length : 0;
+            return '<tr data-did="' + esc(d.id) + '">' +
+                '<td style="font-weight:700">' + esc(d.title || 'Deal') + '</td>' +
+                '<td><span class="pill">' + esc((st || '').replace(/_/g, ' ')) + '</span></td>' +
+                '<td>' + esc(getContactName(d.contact_id)) + '</td>' +
+                '<td>' + esc(d.project_name || 'â€”') + '</td>' +
+                '<td>' + esc(d.amount || 'â€”') + '</td>' +
+                '<td class="mono">' + esc(plotCount) + '</td>' +
+                '<td><button class="btn" type="button" data-open-deal="' + esc(d.id) + '">Edit</button></td>' +
+                '</tr>';
+        }).join('');
+        tbody.querySelectorAll('[data-open-deal]').forEach(btn => {
+            btn.addEventListener('click', () => openDealModal(btn.getAttribute('data-open-deal')));
         });
-        pageRows(allRows, dealsPager).forEach(d => {
-            const st = String(d.stage || 'new').toLowerCase();
-            if (map[st]) map[st].push(d);
-        });
-        const totalByStage = { new: 0, contacted: 0, site_visit: 0, negotiation: 0, won: 0, lost: 0 };
-        allRows.forEach(d => {
-            const st = String(d.stage || 'new').toLowerCase();
-            if (totalByStage[st] != null) totalByStage[st]++;
-        });
-        renderPagination('deals-pagination', allRows.length, dealsPager, renderDeals);
-        dealStages.forEach(st => {
-            const col = $('deal-col-' + st);
-            const cnt = $('deal-count-' + st);
-            if (!col || !cnt) return;
-            cnt.textContent = String(totalByStage[st] || 0);
-            col.innerHTML = map[st].map(d =>
-                '<div class="deal-card" draggable="true" data-did="' + esc(d.id) + '" data-stage="' + esc(st) + '">' +
-                '<div class="deal-card-topline">' +
-                '<div class="deal-card-title">' + esc(d.title || 'Deal') + '</div>' +
-                '<span class="deal-card-tag">' + esc((st || '').replace('_', ' ')) + '</span>' +
-                '</div>' +
-                '<div class="deal-card-grid">' +
-                '<div class="deal-card-meta"><span>C:</span> ' + esc(getContactName(d.contact_id)) + '</div>' +
-                '<div class="deal-card-meta"><span>P:</span> ' + esc(d.project_name || 'â€”') + '</div>' +
-                '<div class="deal-card-meta"><span>Amt:</span> ' + esc(d.amount || 'â€”') + '</div>' +
-                '<div class="deal-card-meta"><span>Plots:</span> ' + esc(Array.isArray(d.plots) ? d.plots.length : 0) + '</div>' +
-                '</div>' +
-                '</div>'
-            ).join('');
-            col.querySelectorAll('.deal-card').forEach(card => {
-                card.addEventListener('dragstart', e => {
-                    e.dataTransfer.setData('text/plain', card.getAttribute('data-did'));
-                    e.dataTransfer.effectAllowed = 'move';
-                    card.classList.add('is-dragging');
-                    document.body.classList.add('deal-dragging');
-                });
-                card.addEventListener('dragend', () => {
-                    card.classList.remove('is-dragging');
-                    document.body.classList.remove('deal-dragging');
-                    document.querySelectorAll('.deal-col-cards').forEach(z => z.classList.remove('is-drop-target'));
-                });
-                card.addEventListener('click', e => {
-                    if (e.target && e.target.closest('.deal-card-actions')) return;
-                    openDealModal(card.getAttribute('data-did'));
-                });
+        tbody.querySelectorAll('tr[data-did]').forEach(tr => {
+            tr.addEventListener('click', e => {
+                if (e.target.closest('button')) return;
+                openDealModal(tr.getAttribute('data-did'));
             });
         });
-        wireDealDragDrop();
     }
 
     function renderDealModalContactOptions(selectedId) {
         if (!dealEditContactEl) return;
         const cur = String(selectedId || '');
-        const contactRows = contacts
+        const contactRows = dealContactOptions
             .map(c => ({ id: String(c.id || ''), name: c.full_name || c.email || c.phone || 'Contact' }))
             .filter(c => c.id);
         dealEditContactEl.innerHTML = '<option value="">Select Contact</option>' + contactRows.map(c => '<option value="' + esc(c.id) + '">' + esc(c.name) + '</option>').join('');
@@ -1410,7 +1363,7 @@
                 deals[idx] = Object.assign({}, deals[idx], payload);
             }
             renderDealFilterOptions();
-            renderDeals();
+            loadDeals(false);
             closeDealModal();
             toast('Deal updated');
         } catch (e) {
@@ -1418,47 +1371,6 @@
         } finally {
             if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = 'Save Deal'; }
         }
-    }
-
-    function wireDealDragDrop() {
-        document.querySelectorAll('.deal-col-cards').forEach(zone => {
-            zone.addEventListener('dragenter', () => zone.classList.add('is-drop-target'));
-            zone.addEventListener('dragleave', e => {
-                if (!zone.contains(e.relatedTarget)) zone.classList.remove('is-drop-target');
-            });
-            zone.addEventListener('dragover', e => {
-                e.preventDefault();
-                e.dataTransfer.dropEffect = 'move';
-            });
-            zone.addEventListener('drop', async e => {
-                e.preventDefault();
-                zone.classList.remove('is-drop-target');
-                const did = e.dataTransfer.getData('text/plain');
-                const stage = (zone.closest('.deal-col') || {}).getAttribute('data-stage');
-                if (!did || !stage) return;
-                const deal = deals.find(d => String(d.id) === String(did));
-                if (!deal || String(deal.stage || '').toLowerCase() === stage) return;
-                const prev = deal.stage;
-                const draggedEl = Array.from(document.querySelectorAll('.deal-card')).find(el => String(el.getAttribute('data-did')) === String(did));
-                if (draggedEl && draggedEl.parentElement !== zone) {
-                    zone.prepend(draggedEl);
-                }
-                deal.stage = stage;
-                renderDeals();
-                try {
-                    const r = await api('/api/crm/deals/' + encodeURIComponent(String(did)) + '/move-stage', {
-                        method: 'POST',
-                        body: JSON.stringify({ stage: stage })
-                    });
-                    const data = await r.json().catch(() => ({}));
-                    if (!r.ok) throw new Error(data.error || ('Failed (' + r.status + ')'));
-                } catch (e2) {
-                    deal.stage = prev;
-                    renderDeals();
-                    toast(e2.message || 'Failed to move deal', 'error');
-                }
-            });
-        });
     }
 
     function openContactModal(contactId) {
@@ -1512,7 +1424,8 @@
             const data = await r.json().catch(() => ({}));
             if (!r.ok) throw new Error(data.error || ('Failed (' + r.status + ')'));
             closeContactModal();
-            await loadContacts();
+            await loadContacts(undefined, true);
+            await loadDealContactOptions(String((dealClientFilterEl && dealClientFilterEl.value) || '').trim());
             toast('Contact saved');
         } catch (e) {
             const msg = $('contact-msg');
@@ -1520,28 +1433,41 @@
         }
     }
 
-    if ($('btn-refresh-deals')) $('btn-refresh-deals').addEventListener('click', loadDeals);
-    if ($('deal-q')) $('deal-q').addEventListener('input', () => { dealsPager.page = 1; renderDeals(); });
-    if (dealStageFilterEl) dealStageFilterEl.addEventListener('change', () => { dealsPager.page = 1; renderDeals(); });
+    async function ensureContactsLoaded(force) {
+        if (contactsLoaded && !force) {
+            renderContacts();
+            return;
+        }
+        await loadContacts(undefined, !!force);
+    }
+
+    async function ensureDealsLoaded(force) {
+        if (dealsLoaded && !force) {
+            renderDeals();
+            return;
+        }
+        await loadDeals(!!force);
+    }
+
+    if ($('btn-refresh-deals')) $('btn-refresh-deals').addEventListener('click', () => loadDeals(true));
+    if ($('deal-q')) $('deal-q').addEventListener('input', () => { loadDeals(true); });
+    if (dealStageFilterEl) dealStageFilterEl.addEventListener('change', () => { loadDeals(true); });
     if (dealClientFilterEl) dealClientFilterEl.addEventListener('change', function() {
-        dealsPager.page = 1;
-        loadDeals();
+        loadDeals(true);
     });
-    if (dealProjectFilterEl) dealProjectFilterEl.addEventListener('change', () => { dealsPager.page = 1; renderDeals(); });
-    if (dealContactFilterEl) dealContactFilterEl.addEventListener('change', () => { dealsPager.page = 1; renderDeals(); });
+    if (dealProjectFilterEl) dealProjectFilterEl.addEventListener('change', () => { loadDeals(true); });
+    if (dealContactFilterEl) dealContactFilterEl.addEventListener('change', () => { loadDeals(true); });
     if ($('btn-clear-deal-filters')) $('btn-clear-deal-filters').addEventListener('click', function() {
         if (dealStageFilterEl) dealStageFilterEl.value = '';
         if (dealClientFilterEl) dealClientFilterEl.value = '';
         if (dealProjectFilterEl) dealProjectFilterEl.value = '';
         if (dealContactFilterEl) dealContactFilterEl.value = '';
         if ($('deal-q')) $('deal-q').value = '';
-        dealsPager.page = 1;
-        loadDeals();
+        loadDeals(true);
     });
-    if ($('contact-q')) $('contact-q').addEventListener('input', () => { contactsPager.page = 1; renderContacts(); });
+    if ($('contact-q')) $('contact-q').addEventListener('input', () => { loadContacts(undefined, true); });
     if (contactClientFilterEl) contactClientFilterEl.addEventListener('change', function() {
-        contactsPager.page = 1;
-        loadContacts();
+        loadContacts(undefined, true);
     });
     if ($('btn-add-contact')) $('btn-add-contact').addEventListener('click', () => openContactModal(null));
     if ($('contact-modal-close')) $('contact-modal-close').addEventListener('click', closeContactModal);
@@ -1590,8 +1516,14 @@
         }
     });
 
-    window.crmDealsLoad = loadDeals;
-    window.crmContactsLoad = loadContacts;
+    window.crmDealsLoad = ensureDealsLoaded;
+    window.crmContactsLoad = ensureContactsLoaded;
+    window.crmPreloadTables = async function crmPreloadTables(force) {
+        await Promise.all([
+            ensureContactsLoaded(!!force),
+            ensureDealsLoaded(!!force)
+        ]);
+    };
     window.loadDealQuotationsList = loadDealQuotationsList;
 })();
 </script>
@@ -1793,50 +1725,6 @@
         return fetch(path, o);
     }
 
-    const PAGE_SIZE_OPTIONS = [10, 25, 50, 100];
-    function pageRows(rows, pager) {
-        const total = (rows || []).length;
-        const size = Math.max(1, parseInt(pager.size || 25, 10));
-        const pages = Math.max(1, Math.ceil(total / size));
-        pager.page = Math.min(Math.max(1, parseInt(pager.page || 1, 10)), pages);
-        const start = (pager.page - 1) * size;
-        return rows.slice(start, start + size);
-    }
-    function renderPagination(containerId, total, pager, onChange) {
-        const el = $(containerId);
-        if (!el) return;
-        if (!total || total <= pager.size) {
-            el.innerHTML = '';
-            return;
-        }
-        const pages = Math.max(1, Math.ceil(total / pager.size));
-        pager.page = Math.min(Math.max(1, pager.page || 1), pages);
-        const start = ((pager.page - 1) * pager.size) + 1;
-        const end = Math.min(total, pager.page * pager.size);
-        el.innerHTML =
-            '<span>' + esc(start) + '-' + esc(end) + ' of ' + esc(total) + '</span>' +
-            '<select data-page-size>' + PAGE_SIZE_OPTIONS.map(size => '<option value="' + size + '"' + (size === pager.size ? ' selected' : '') + '>' + size + ' / page</option>').join('') + '</select>' +
-            '<button class="btn" type="button" data-page-prev' + (pager.page <= 1 ? ' disabled' : '') + '>Prev</button>' +
-            '<span>Page ' + esc(pager.page) + ' / ' + esc(pages) + '</span>' +
-            '<button class="btn" type="button" data-page-next' + (pager.page >= pages ? ' disabled' : '') + '>Next</button>';
-        const sizeEl = el.querySelector('[data-page-size]');
-        if (sizeEl) sizeEl.addEventListener('change', () => {
-            pager.size = parseInt(sizeEl.value || '25', 10);
-            pager.page = 1;
-            onChange();
-        });
-        const prev = el.querySelector('[data-page-prev]');
-        if (prev) prev.addEventListener('click', () => {
-            pager.page = Math.max(1, pager.page - 1);
-            onChange();
-        });
-        const next = el.querySelector('[data-page-next]');
-        if (next) next.addEventListener('click', () => {
-            pager.page = Math.min(pages, pager.page + 1);
-            onChange();
-        });
-    }
-
     // â”€â”€ State â”€â”€
     let userRole = 'user';
     let projects = [];
@@ -1860,9 +1748,11 @@
     let orgUsers = [];
     let crmTeamUsers = [];
     let currentView = 'table';
-    const interestsPager = { page: 1, size: 25 };
-    const plotsPager = { page: 1, size: 25 };
-    const lockPlotsPager = { page: 1, size: 25 };
+    const interestsPager = { page: 1, size: (window.CrmPager && CrmPager.DEFAULT_SIZE) || 10 };
+    const plotsPager = { page: 1, size: (window.CrmPager && CrmPager.DEFAULT_SIZE) || 10 };
+    let interestsTableMeta = { total: 0, pages: 1 };
+    let plotsTableMeta = { total: 0, pages: 1 };
+    const lockPlotsPager = { page: 1, size: (window.CrmPager && CrmPager.DEFAULT_SIZE) || 10 };
 
     // â”€â”€ DOM refs â”€â”€
     const $ = id => document.getElementById(id);
@@ -1880,12 +1770,12 @@
         tab.addEventListener('click', function() {
             const sec = this.getAttribute('data-tab');
             switchSection(sec);
-            if (sec === 'deals') window.crmDealsLoad && window.crmDealsLoad();
-            if (sec === 'contacts') window.crmContactsLoad && window.crmContactsLoad();
+            if (sec === 'deals') window.crmDealsLoad && window.crmDealsLoad(false);
+            if (sec === 'contacts') window.crmContactsLoad && window.crmContactsLoad(false);
             if (sec === 'allotted-clients') loadAllottedClients();
             if (sec === 'projects') loadWorkspaceProjects();
             if (sec === 'panoramas') loadPanoramas();
-            if (sec === 'plots') loadAllPlots();
+            if (sec === 'plots') loadAllPlots(false);
             if (sec === 'manage-lock') loadManageLock();
             if (sec === 'masters') loadCrmMasters(true);
         });
@@ -1968,9 +1858,9 @@
 
     // -- Stats --
     function renderStats() {
-        const src = filtered.length ? filtered : buildInterestGroups(interests);
-        const c = countByStatus(src);
-        const allCounts = countByStatus(buildInterestGroups(interests));
+        const grouped = buildInterestGroups(interests);
+        const c = countByStatus(grouped);
+        const allCounts = countByStatus(grouped);
         const t = Math.max(1, c.total);
         $('stat-total').textContent = c.total;
         $('stat-new').textContent = c.new;
@@ -2350,6 +2240,52 @@
         });
     }
 
+    function normalizeInterestRow(i) {
+        const contacted = !!(i && (i.is_contacted || String(i.status || '').toLowerCase() === 'contacted'));
+        return Object.assign({}, i, { is_contacted: contacted, status: contacted ? 'contacted' : (i.status || 'new') });
+    }
+
+    function interestFilterParams() {
+        const q = String(qEl.value || '').trim();
+        const status = String(statusEl.value || '').trim().toLowerCase();
+        const client = clientEl ? String(clientEl.value || '').trim() : '';
+        const category = String(categoryEl.value || '').trim();
+        const workspace = String(workspaceEl.value || '').trim();
+        const project = String(projectEl.value || '').trim();
+        const params = {};
+        if (q) params.q = q;
+        if (status) params.status = status;
+        if (client) params.client_id = client;
+        if (category) params.category = category;
+        if (workspace) params.workspace_id = workspace;
+        if (project) params.panorama_id = project;
+        return params;
+    }
+
+    async function loadInterestsTable(resetPage) {
+        if (resetPage) interestsPager.page = 1;
+        const r = await api('/api/buy-interests' + CrmPager.buildQuery(interestsPager, interestFilterParams()));
+        const data = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error((data && data.error) ? data.error : ('Failed (' + r.status + ')'));
+        const page = CrmPager.parsePageResponse(data);
+        interestsTableMeta = page;
+        interestsPager.page = page.page;
+        interestsPager.size = page.limit;
+        filtered = buildInterestGroups(page.items.map(normalizeInterestRow));
+        renderTable();
+        CrmPager.renderPagination('interests-pagination', page, interestsPager, function () { loadInterestsTable(false); }, esc);
+    }
+
+    async function loadInterestsBulk() {
+        const r = await api('/api/buy-interests?page=1&limit=10');
+        const data = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error((data && data.error) ? data.error : ('Failed (' + r.status + ')'));
+        const page = CrmPager.parsePageResponse(data);
+        interests = page.items.map(normalizeInterestRow);
+        renderCategoryOptions();
+        renderPlotOptions();
+    }
+
     // -- Filters --
     function applyFilters() {
         const q = String(qEl.value||'').trim().toLowerCase();
@@ -2490,7 +2426,8 @@
         const elMeta = $('results-meta');
         const elTbody = $('tbody');
         const elEmpty = $('table-empty');
-        elMeta.textContent = filtered.length+(filtered.length===1?' result':' results');
+        const total = interestsTableMeta.total || filtered.length;
+        elMeta.textContent = total + (total === 1 ? ' result' : ' results');
         elEmpty.style.display = filtered.length===0?'':'none';
         elTbody.innerHTML = filtered.map(i => {
             const pj = projectById.get(String(i.panorama_id));
@@ -2511,18 +2448,26 @@
         elTbody.querySelectorAll('tr[data-id]').forEach(tr => {
             tr.addEventListener('click', e => {
                 if (e.target.closest('.interest-plots-trigger')) return;
-                const item = interests.find(x => String(x.id)===tr.getAttribute('data-id'));
+                const item = interests.find(x => String(x.id)===tr.getAttribute('data-id'))
+                    || filtered.find(x => String(x.id)===tr.getAttribute('data-id'));
                 if(item) openDrawer(item);
             });
         });
     }
 
-    function refreshInterestsUI() {
+    function refreshInterestsUI(resetPage) {
         try {
+            if (currentView === 'table') {
+                loadInterestsTable(!!resetPage).then(function () {
+                    renderStats();
+                }).catch(function (e) {
+                    toast(e.message || 'Failed to load interests', 'error');
+                });
+                return;
+            }
             applyFilters();
             renderStats();
-            if(currentView === 'board') renderKanban();
-            else renderTable();
+            renderKanban();
         } catch (e) {
             console.warn('CRM UI refresh failed, falling back to basic table render:', e);
             filtered = buildInterestGroups(Array.isArray(interests) ? interests.slice() : []);
@@ -3048,7 +2993,7 @@
             plotEl.value = '';
             renderProjectOptions();
             updateFilterBadge();
-            refreshInterestsUI();
+            refreshInterestsUI(true);
             closeFilterModal();
         });
     });
@@ -3058,28 +3003,28 @@
         renderProjectOptions();
         projectEl.value = '';
         updateFilterBadge();
-        refreshInterestsUI();
+        refreshInterestsUI(true);
     });
 
     // Apply filters button
-    $('btn-apply-filters').addEventListener('click', () => { closeFilterModal(); updateFilterBadge(); refreshInterestsUI(); });
+    $('btn-apply-filters').addEventListener('click', () => { closeFilterModal(); updateFilterBadge(); refreshInterestsUI(true); });
 
     // Clear all
-    $('btn-clear').addEventListener('click', () => { qEl.value=''; statusEl.value=''; if(clientEl) clientEl.value=''; categoryEl.value=''; workspaceEl.value=''; projectEl.value=''; plotEl.value=''; renderProjectOptions(); updateFilterBadge(); refreshInterestsUI(); closeFilterModal(); });
+    $('btn-clear').addEventListener('click', () => { qEl.value=''; statusEl.value=''; if(clientEl) clientEl.value=''; categoryEl.value=''; workspaceEl.value=''; projectEl.value=''; plotEl.value=''; renderProjectOptions(); updateFilterBadge(); refreshInterestsUI(true); closeFilterModal(); });
 
     // Filters are live in the left rail.
-    qEl.addEventListener('input', () => { updateFilterBadge(); refreshInterestsUI(); });
-    statusEl.addEventListener('change', () => { updateFilterBadge(); refreshInterestsUI(); });
+    qEl.addEventListener('input', () => { updateFilterBadge(); refreshInterestsUI(true); });
+    statusEl.addEventListener('change', () => { updateFilterBadge(); refreshInterestsUI(true); });
     if (clientEl) clientEl.addEventListener('change', () => {
         renderProjectOptions();
         renderProjectOptions();
         renderPlotOptions();
         updateFilterBadge();
-        refreshInterestsUI();
+        refreshInterestsUI(true);
     });
-    categoryEl.addEventListener('change', () => { updateFilterBadge(); refreshInterestsUI(); });
-    projectEl.addEventListener('change', () => { renderPlotOptions(); updateFilterBadge(); refreshInterestsUI(); });
-    plotEl.addEventListener('change', () => { updateFilterBadge(); refreshInterestsUI(); });
+    categoryEl.addEventListener('change', () => { updateFilterBadge(); refreshInterestsUI(true); });
+    projectEl.addEventListener('change', () => { renderPlotOptions(); updateFilterBadge(); refreshInterestsUI(true); });
+    plotEl.addEventListener('change', () => { updateFilterBadge(); refreshInterestsUI(true); });
 
     // -- Reports --
     function buildReportContent() {
@@ -3355,17 +3300,8 @@
         renderProjectOptions();
     }
     async function loadInterests() {
-        const r = await api('/api/buy-interests');
-        const data = await r.json().catch(()=>[]);
-        if(!r.ok) throw new Error((data&&data.error)?data.error:('Failed ('+r.status+')'));
-        interests = Array.isArray(data)?data:[];
-        interests = interests.map(i => {
-            const contacted = !!(i && (i.is_contacted || String(i.status||'').toLowerCase()==='contacted'));
-            return Object.assign({}, i, { is_contacted: contacted, status: contacted ? 'contacted' : 'new' });
-        });
-        renderCategoryOptions();
-        renderPlotOptions();
-        refreshInterestsUI();
+        await Promise.all([loadInterestsBulk(), loadInterestsTable(true)]);
+        renderStats();
         interestsLoaded = true;
     }
     async function ensureInterestsLoaded(force) {
@@ -3553,24 +3489,53 @@
             console.warn('Plot masters load failed:', e);
         }
     }
-    async function loadAllPlots() {
+    let plotsPanoOptionsLoaded = false;
+    async function loadPlotsPanoOptions() {
+        if (plotsPanoOptionsLoaded) return;
+        try {
+            const r = await api('/api/crm/plots?page=1&limit=10');
+            const data = await r.json().catch(() => ({}));
+            const page = CrmPager.parsePageResponse(data);
+            const panoSet = new Map();
+            (page.items || []).forEach(function (p) {
+                if (p.panorama_id && p.panorama_name) panoSet.set(String(p.panorama_id), p.panorama_name);
+            });
+            plotPanoFilter.innerHTML = '<option value="">All Panoramas</option>' + Array.from(panoSet.entries()).map(function (entry) {
+                return '<option value="' + esc(entry[0]) + '">' + esc(entry[1]) + '</option>';
+            }).join('');
+            plotsPanoOptionsLoaded = true;
+        } catch (e) { console.warn(e); }
+    }
+    async function loadAllPlots(resetPage) {
+        if (plotsLoaded && !resetPage) {
+            renderPlotsTable();
+            return;
+        }
         try { await ensureInterestsLoaded(); } catch(e) { console.warn('Interests load failed for plot counts:', e); }
         await ensurePlotMasters();
-        if(!plotsLoaded) {
-            try {
-                const r = await api('/api/crm/plots');
-                const data = await r.json();
-                allPlots = Array.isArray(data)?data:[];
-                plotsLoaded = true;
-                const panoSet = new Map();
-                allPlots.forEach(p => { if(p.panorama_id && p.panorama_name) panoSet.set(String(p.panorama_id), p.panorama_name); });
-                plotPanoFilter.innerHTML = '<option value="">All Panoramas</option>'+Array.from(panoSet.entries()).map(([id,name])=>'<option value="'+esc(id)+'">'+esc(name)+'</option>').join('');
-                // Plot locking is temporarily hidden from the CRM Plots table.
-                // Restore this fetch with the Lock button block below when the feature returns.
-                // await loadLockPlots().catch(err => console.warn('Lockable plots load failed:', err));
-            } catch(e) { console.warn(e); }
-        }
-        renderPlotsTable();
+        await loadPlotsPanoOptions();
+        if (resetPage) plotsPager.page = 1;
+        try {
+            const params = {};
+            const q = String(plotSearch.value || '').trim();
+            const clientId = String((plotClientFilter && plotClientFilter.value) || '').trim();
+            const pano = String(plotPanoFilter.value || '');
+            const status = String(plotStatusFilter.value || '').toLowerCase();
+            if (q) params.q = q;
+            if (clientId) params.client_id = clientId;
+            if (pano) params.panorama_id = pano;
+            if (status) params.status = status;
+            const r = await api('/api/crm/plots' + CrmPager.buildQuery(plotsPager, params));
+            const data = await r.json().catch(() => ({}));
+            if (!r.ok) throw new Error((data && data.error) ? data.error : 'Failed');
+            const page = CrmPager.parsePageResponse(data);
+            allPlots = page.items;
+            plotsTableMeta = page;
+            plotsPager.page = page.page;
+            plotsPager.size = page.limit;
+            plotsLoaded = true;
+            renderPlotsTable(page);
+        } catch(e) { console.warn(e); }
     }
     function interestPlotMatchesPlot(plot, interestPlot) {
         if (!plot || !interestPlot) return false;
@@ -3608,20 +3573,14 @@
     function getLockablePlot(plotId) {
         return lockablePlots.find(p => String(p.id) === String(plotId)) || null;
     }
-    function renderPlotsTable() {
-        const q = String(plotSearch.value||'').trim().toLowerCase();
-        const clientId = String((plotClientFilter && plotClientFilter.value)||'').trim();
-        const pano = String(plotPanoFilter.value||'');
-        const status = String(plotStatusFilter.value||'').toLowerCase();
-        let rows = allPlots;
-        if(q) rows = rows.filter(p => [p.name, p.area, p.status, p.description, p.panorama_name].join(' ').toLowerCase().includes(q));
-        if(clientId) rows = rows.filter(p => Array.isArray(p.client_ids) && p.client_ids.map(String).includes(clientId));
-        if(pano) rows = rows.filter(p => String(p.panorama_id)===pano);
-        if(status) rows = rows.filter(p => getStatusKey(p.status)===status);
+    function renderPlotsTable(pageMeta) {
+        const rows = allPlots;
         const tbody = $('plots-tbody');
         const empty = $('plots-empty');
-        if(!rows.length) { tbody.innerHTML=''; empty.style.display=''; return; }
-        empty.style.display='none';
+        const meta = pageMeta || plotsTableMeta || { total: rows.length, pages: 1 };
+        CrmPager.renderPagination('plots-pagination', meta, plotsPager, function () { loadAllPlots(false); }, esc);
+        if(!rows.length) { tbody.innerHTML=''; if (empty) empty.style.display=''; return; }
+        if (empty) empty.style.display='none';
         tbody.innerHTML = rows.map(p => {
             const sk = getStatusKey(p.status);
             const sc = sk==='sold'?'status-pill--sold':sk==='hold'?'status-pill--hold':'status-pill--available';
@@ -3678,10 +3637,10 @@
         //     });
         // });
     }
-    plotSearch.addEventListener('input', renderPlotsTable);
-    if (plotClientFilter) plotClientFilter.addEventListener('change', renderPlotsTable);
-    plotPanoFilter.addEventListener('change', renderPlotsTable);
-    plotStatusFilter.addEventListener('change', renderPlotsTable);
+    plotSearch.addEventListener('input', function () { loadAllPlots(true); });
+    if (plotClientFilter) plotClientFilter.addEventListener('change', function () { loadAllPlots(true); });
+    plotPanoFilter.addEventListener('change', function () { loadAllPlots(true); });
+    plotStatusFilter.addEventListener('change', function () { loadAllPlots(true); });
 
     // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
     //  MANAGE LOCK SECTION (admin only)
@@ -3930,22 +3889,32 @@
     let crmHydrationInFlight = false;
     let crmLastHydrationAt = 0;
 
+    function setCrmBootLoading(isLoading) {
+        const loader = $('crm-boot-loader');
+        const content = $('crm-page-content');
+        if (content) content.setAttribute('aria-busy', isLoading ? 'true' : 'false');
+        if (loader) loader.hidden = !isLoading;
+    }
+
     async function hydrateCrmData(force) {
         if (crmHydrationInFlight) return;
         crmHydrationInFlight = true;
         try {
             await ensureAuthenticated();
-            setView('table');
             await loadUserInfo();
             await Promise.all([
                 loadCrmTeamUsers(),
                 loadPanoramaProjects(),
                 loadWorkspaceProjects(),
-                loadClientOptions(),
+                loadClientOptions()
+            ]);
+            await Promise.all([
                 ensureInterestsLoaded(!!force),
+                window.crmPreloadTables ? window.crmPreloadTables(!!force) : Promise.resolve(),
+                loadAllPlots(!!force),
             ]);
             updateFilterBadge();
-            refreshInterestsUI();
+            renderStats();
             crmLastHydrationAt = Date.now();
         } finally {
             crmHydrationInFlight = false;
@@ -3953,9 +3922,12 @@
     }
 
     (async function init() {
+        setCrmBootLoading(true);
         try {
             await hydrateCrmData(false);
+            setCrmBootLoading(false);
         } catch(e) {
+            setCrmBootLoading(false);
             $('table-empty').style.display = '';
             $('table-empty').innerHTML = '<strong>CRM unavailable</strong><div>'+esc(e.message||'Failed to load CRM')+'</div>';
         }
