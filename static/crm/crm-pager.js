@@ -46,12 +46,9 @@
         var pages = Math.max(1, parseInt(meta && meta.pages, 10) || Math.ceil(total / limit) || 1);
         pager.page = Math.min(Math.max(1, parseInt(pager.page || 1, 10)), pages);
         pager.size = limit;
-        if (!total) {
-            el.innerHTML = '<span class="crm-pagination__meta">0 results</span>';
-            return;
-        }
-        var start = ((pager.page - 1) * limit) + 1;
-        var end = Math.min(total, pager.page * limit);
+        var hasRows = total > 0;
+        var start = hasRows ? (((pager.page - 1) * limit) + 1) : 0;
+        var end = hasRows ? Math.min(total, pager.page * limit) : 0;
         el.innerHTML =
             '<span class="crm-pagination__meta">' + escape(start) + '-' + escape(end) + ' of ' + escape(total) + '</span>' +
             '<select data-page-size>' + PAGE_SIZE_OPTIONS.map(function (size) {

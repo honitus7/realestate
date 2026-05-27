@@ -29,6 +29,34 @@
 
     <script src="/static/sneat/vendor/js/helpers.js"></script>
     <script src="/static/sneat/js/config.js"></script>
+    <style>
+      #layout-menu { position: relative; }
+      #layout-menu .sneat-menu-collapse-toggle.menu-link {
+        position: absolute;
+        bottom: 10px;
+        right: 10px;
+        width: 28px;
+        height: 28px;
+        border: 1px solid rgba(67, 89, 113, 0.25);
+        border-radius: 6px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        background: #fff;
+      }
+      #layout-menu .sneat-menu-collapse-toggle.menu-link i { font-size: 1rem; }
+    </style>
+    <script>
+      (function () {
+        try {
+          var KEY = 'sneat_layout_menu_collapsed';
+          if (window.localStorage.getItem(KEY) == null) window.localStorage.setItem(KEY, '1');
+          if (window.localStorage.getItem(KEY) === '1' && window.innerWidth >= 1200) {
+            document.documentElement.classList.add('layout-menu-collapsed');
+          }
+        } catch (e) {}
+      })();
+    </script>
   </head>
 
   <body>
@@ -74,9 +102,6 @@
               <span class="app-brand-text demo menu-text fw-bold ms-2">MarketoState</span>
             </a>
 
-            <a href="javascript:void(0);" class="layout-menu-toggle menu-link text-large ms-auto">
-              <i class="bx bx-chevron-left d-block d-xl-none align-middle"></i>
-            </a>
           </div>
 
           <div class="menu-divider mt-0"></div>
@@ -116,6 +141,9 @@
               </a>
             </li>
           </ul>
+          <a href="javascript:void(0);" class="sneat-menu-collapse-toggle menu-link text-large" id="sneat-layout-menu-toggle" aria-label="Toggle menu">
+            <i class="bx bx-chevron-left d-block align-middle"></i>
+          </a>
         </aside>
 
         <div class="layout-page">
@@ -208,22 +236,7 @@
                   <a href="/customer-dashboard" class="btn btn-sm btn-outline-primary">Back to Dashboard</a>
                 </div>
               </div>
-            </div>
-
-            <footer class="content-footer footer bg-footer-theme">
-              <div class="container-xxl">
-                <div class="footer-container d-flex align-items-center justify-content-between py-4 flex-md-row flex-column">
-                  <div class="mb-2 mb-md-0">
-                    © <span id="footer-year"></span>, MarketoState — Invites
-                  </div>
-                  <div class="d-none d-lg-inline-block">
-                    <a href="/customer-dashboard" class="footer-link me-4">Dashboard</a>
-                    <a href="/crm" class="footer-link me-4">CRM</a>
-                  </div>
-                </div>
-              </div>
-            </footer>
-
+            </div>`r`n
             <div class="content-backdrop fade"></div>
           </div>
         </div>
@@ -511,7 +524,9 @@
         api('/api/crm/me').then(function (response) {
           return response.json().catch(function () { return {}; }).then(function (data) {
             if (!response.ok) throw new Error((data && data.error) || 'Failed to load profile');
-            if (!(data && (data.is_broker || String(data.role || '') === 'broker'))) {
+            var isBrokerUser = !!(data && (data.is_broker || String(data.role || '') === 'broker'));
+            try { window.localStorage.setItem('sneat_is_broker', isBrokerUser ? '1' : '0'); } catch (e) {}
+            if (!isBrokerUser) {
               window.location.replace('/crm');
               return;
             }
@@ -525,5 +540,35 @@
         });
       })();
     </script>
+    <script>
+      (function () {
+        var KEY = 'sneat_layout_menu_collapsed';
+        var root = document.documentElement;
+        var toggle = document.getElementById('sneat-layout-menu-toggle');
+        if (!toggle) return;
+        var icon = toggle.querySelector('i');
+        function isCollapsed() { return root.classList.contains('layout-menu-collapsed'); }
+        function syncIcon() {
+          if (!icon) return;
+          icon.classList.remove('bx-chevron-left', 'bx-chevron-right');
+          icon.classList.add(isCollapsed() ? 'bx-chevron-right' : 'bx-chevron-left');
+        }
+        function persist() {
+          try { window.localStorage.setItem(KEY, isCollapsed() ? '1' : '0'); } catch (e) {}
+          syncIcon();
+        }
+        toggle.addEventListener('click', function () {
+          if (window.Helpers && typeof window.Helpers.toggleCollapsed === 'function') {
+            window.Helpers.toggleCollapsed(true);
+          } else {
+            root.classList.toggle('layout-menu-collapsed');
+          }
+          window.setTimeout(persist, 10);
+        });
+        new MutationObserver(syncIcon).observe(root, { attributes: true, attributeFilter: ['class'] });
+        persist();
+      })();
+    </script>
   </body>
 </html>
+

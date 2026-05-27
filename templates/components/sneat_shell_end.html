@@ -1,18 +1,4 @@
             </div>
-            <footer class="content-footer footer bg-footer-theme">
-              <div class="container-xxl">
-                <div class="footer-container d-flex align-items-center justify-content-between py-4 flex-md-row flex-column">
-                  <div class="mb-2 mb-md-0">
-                    © <span id="footer-year"></span>, MarketoState
-                  </div>
-                  <div class="d-none d-lg-inline-block">
-                    <a href="/customer-dashboard" class="footer-link me-4" id="sneat-footer-dashboard">Dashboard</a>
-                    <a href="/crm" class="footer-link me-4">CRM</a>
-                    <a href="/broker/invites" class="footer-link me-4" id="sneat-footer-invites" style="display:none;">Invites</a>
-                  </div>
-                </div>
-              </div>
-            </footer>
             <div class="content-backdrop fade"></div>
           </div>
         </div>
@@ -52,4 +38,34 @@
     <script src="/static/sneat/vendor/libs/perfect-scrollbar/perfect-scrollbar.js"></script>
     <script src="/static/sneat/vendor/js/menu.js"></script>
     <script src="/static/sneat/js/main.js"></script>
+    <script>
+      (function () {
+        var KEY = 'sneat_layout_menu_collapsed';
+        var root = document.documentElement;
+        var toggle = document.getElementById('sneat-layout-menu-toggle');
+        if (!toggle) return;
+        var icon = toggle.querySelector('i');
+        function isCollapsed() {
+          return root.classList.contains('layout-menu-collapsed');
+        }
+        function syncIcon() {
+          if (!icon) return;
+          icon.classList.remove('bx-chevron-left', 'bx-chevron-right');
+          icon.classList.add(isCollapsed() ? 'bx-chevron-right' : 'bx-chevron-left');
+        }
+        function persistState() {
+          try {
+            var collapsed = isCollapsed();
+            window.localStorage.setItem(KEY, collapsed ? '1' : '0');
+          } catch (e) {}
+          syncIcon();
+        }
+        toggle.addEventListener('click', function () {
+          root.classList.toggle('layout-menu-collapsed');
+          window.setTimeout(persistState, 10);
+        });
+        new MutationObserver(syncIcon).observe(root, { attributes: true, attributeFilter: ['class'] });
+        persistState();
+      })();
+    </script>
     <script src="/static/js/supabase.min.js"></script>

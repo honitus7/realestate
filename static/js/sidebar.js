@@ -255,6 +255,10 @@
     var toggle = document.getElementById('sidebar-toggle');
     var sidebar = document.getElementById('dashboard-sidebar');
     if (toggle && sidebar) {
+        var isCustomerDashboard = currentPath === '/customer-dashboard' || currentPath.indexOf('/customer-dashboard/') === 0;
+        if (isCustomerDashboard) {
+            localStorage.setItem('dashboard-sidebar-collapsed', '1');
+        }
         var expanded = localStorage.getItem('dashboard-sidebar-collapsed') === '0';
         if (!expanded) sidebar.classList.add('sidebar-collapsed');
         toggle.addEventListener('click', function () {

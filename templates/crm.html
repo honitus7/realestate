@@ -6,12 +6,9 @@
 {% include 'components/sneat_shell_start.html' %}
 <div class="crm-page crm-page--sneat">
     <div class="crm-boot-loader" id="crm-boot-loader" role="status" aria-live="polite">
-        <div class="crm-boot-loader__panel">
-            <div class="crm-spinner"></div>
-            <div>
-                <strong>Loading CRM</strong>
-                <span>Preparing leads, contacts, deals, and plots...</span>
-            </div>
+        <div class="crm-boot-loader__media">
+            <img class="crm-boot-loader__svg" src="/app/lottiefiles/crmloader.svg" alt="Loading CRM">
+            <div class="crm-boot-loader__caption">Fetching Latest Leads </div>
         </div>
     </div>
     <div class="crm-page-content" id="crm-page-content" aria-busy="true">
@@ -21,39 +18,6 @@
     <main class="crm-content">
             <!-- â•â•â•â•â•â•â•â•â•â• INTERESTS SECTION â•â•â•â•â•â•â•â•â•â• -->
             <section class="crm-section active" id="sec-interests">
-                <!-- KPI Strip -->
-                <div class="kpi-strip" id="interest-stats">
-                    <div class="kpi-chip kpi-chip--accent">
-                        <div class="kpi-chip-dot kpi-chip-dot--total"></div>
-                        <div class="kpi-chip-data"><div class="kpi-chip-val" id="stat-total">0</div><div class="kpi-chip-label">Total</div></div>
-                    </div>
-                    <div class="kpi-chip">
-                        <div class="kpi-chip-dot kpi-chip-dot--new"></div>
-                        <div class="kpi-chip-data"><div class="kpi-chip-val" id="stat-new">0</div><div class="kpi-chip-label">New</div></div>
-                        <div class="kpi-chip-bar"><div class="kpi-chip-fill kpi-fill--new" id="bar-new"></div></div>
-                    </div>
-                    <div class="kpi-chip">
-                        <div class="kpi-chip-dot kpi-chip-dot--contacted"></div>
-                        <div class="kpi-chip-data"><div class="kpi-chip-val" id="stat-contacted">0</div><div class="kpi-chip-label">Contacted</div></div>
-                        <div class="kpi-chip-bar"><div class="kpi-chip-fill kpi-fill--contacted" id="bar-contacted"></div></div>
-                    </div>
-                    <div class="kpi-chip">
-                        <div class="kpi-chip-dot kpi-chip-dot--qualified"></div>
-                        <div class="kpi-chip-data"><div class="kpi-chip-val" id="stat-qualified">0</div><div class="kpi-chip-label">Qualified</div></div>
-                        <div class="kpi-chip-bar"><div class="kpi-chip-fill kpi-fill--qualified" id="bar-qualified"></div></div>
-                    </div>
-                    <div class="kpi-chip">
-                        <div class="kpi-chip-dot kpi-chip-dot--won"></div>
-                        <div class="kpi-chip-data"><div class="kpi-chip-val" id="stat-won">0</div><div class="kpi-chip-label">Won</div></div>
-                        <div class="kpi-chip-bar"><div class="kpi-chip-fill kpi-fill--won" id="bar-won"></div></div>
-                    </div>
-                    <div class="kpi-chip">
-                        <div class="kpi-chip-dot kpi-chip-dot--lost"></div>
-                        <div class="kpi-chip-data"><div class="kpi-chip-val" id="stat-lost">0</div><div class="kpi-chip-label">Lost</div></div>
-                        <div class="kpi-chip-bar"><div class="kpi-chip-fill kpi-fill--lost" id="bar-lost"></div></div>
-                    </div>
-                </div>
-
                 <div class="interest-list-shell">
                     <!-- Toolbar -->
                     <div class="interest-toolbar">
@@ -240,9 +204,6 @@
             </section>
 
             <section class="crm-section" id="sec-deals">
-                <div class="section-header">
-                    <div><h2>Deals</h2><p>Track deals in a paginated table and share quotations</p></div>
-                </div>
                 <div class="crm-deals-toolbar">
                     <input class="toolbar-search" id="deal-q" placeholder="Search deals..." autocomplete="off">
                     <select class="toolbar-select" id="deal-filter-stage">
@@ -280,9 +241,6 @@
             </section>
 
             <section class="crm-section" id="sec-allotted-clients">
-                <div class="section-header">
-                    <div><h2>Allotted Clients</h2><p>Clients assigned to this external broker</p></div>
-                </div>
                 <div class="card">
                     <div class="table-wrap">
                         <table>
@@ -302,9 +260,6 @@
             </section>
 
             <section class="crm-section" id="sec-contacts">
-                <div class="section-header">
-                    <div><h2>Contacts</h2><p>Deduped master contacts from interests and manual adds</p></div>
-                </div>
                 <div class="crm-deals-toolbar">
                     <input class="toolbar-search" id="contact-q" placeholder="Search contacts..." autocomplete="off">
                     <select class="toolbar-select" id="contact-filter-client" style="display:none;">
@@ -319,19 +274,31 @@
 
             <!-- â•â•â•â•â•â•â•â•â•â• PROJECTS SECTION â•â•â•â•â•â•â•â•â•â• -->
             <section class="crm-section" id="sec-projects">
-                <div class="section-header">
-                    <div><h2>Projects</h2><p>Publish projects to Customer Portal and edit details</p></div>
+                <div class="crm-filter-bar">
+                    <div class="crm-mode-toggle" id="projects-mode-toggle" aria-label="Projects mode">
+                        <button class="btn active" data-mode="visual" type="button" aria-pressed="true">Visual</button>
+                        <button class="btn" data-mode="normal" type="button" aria-pressed="false">Normal</button>
+                        <span class="crm-mode-toggle-loader" hidden aria-hidden="true"></span>
+                    </div>
+                </div>
+                <div class="crm-filter-bar" id="projects-normal-toolbar" style="display:none;">
+                    <button class="btn btn-primary crm-add-action" id="btn-add-normal-project" type="button">
+                        <i class="icon-base bx bx-plus icon-sm" aria-hidden="true"></i>
+                        <span>Add Project</span>
+                    </button>
                 </div>
                 <div class="card">
                     <div class="table-wrap">
                         <table>
                             <thead><tr>
                                 <th>Name</th>
+                                <th>CRM Type</th>
                                 <th>Published</th>
                                 <th></th>
                             </tr></thead>
                             <tbody id="projects-tbody"></tbody>
                         </table>
+                        <div class="crm-pagination" id="projects-pagination"></div>
                         <div class="empty" id="projects-empty" style="display:none;">
                             <strong>No projects</strong><div>Create a project (folder) from the Plotted Development to organize panoramas.</div>
                         </div>
@@ -417,10 +384,12 @@
 
             <!-- â•â•â•â•â•â•â•â•â•â• PLOTS SECTION â•â•â•â•â•â•â•â•â•â• -->
             <section class="crm-section" id="sec-plots">
-                <div class="section-header">
-                    <div><h2>Plots</h2><p>All plots across your panoramas</p></div>
-                </div>
                 <div class="crm-filter-bar">
+                    <div class="crm-mode-toggle" id="plots-mode-toggle" aria-label="Plots mode">
+                        <button class="btn active" data-mode="visual" type="button" aria-pressed="true">Visual</button>
+                        <button class="btn" data-mode="normal" type="button" aria-pressed="false">Normal</button>
+                        <span class="crm-mode-toggle-loader" hidden aria-hidden="true"></span>
+                    </div>
                     <input class="toolbar-search" id="plot-search" placeholder="Search plots..." autocomplete="off">
                     <select class="toolbar-select" id="plot-client-filter" style="display:none;"><option value="">All Clients</option></select>
                     <select class="toolbar-select" id="plot-panorama-filter"><option value="">All Panoramas</option></select>
@@ -430,11 +399,16 @@
                         <option value="hold">Hold</option>
                         <option value="sold">Sold</option>
                     </select>
+                    <button class="btn btn-primary crm-add-action" id="btn-add-normal-plot" style="display:none;" type="button">
+                        <i class="icon-base bx bx-plus icon-sm" aria-hidden="true"></i>
+                        <span>Add Plot</span>
+                    </button>
                 </div>
                 {% call crm_data_table('plots-tbody', 'plots-pagination') %}
                 <thead><tr>
                     <th>Plot Number</th>
                     <th>Plot Size (Area)</th>
+                    <th>CRM Type</th>
                     <th>Status</th>
                     <th style="width:44px"></th>
                     <th>Description</th>
@@ -466,8 +440,11 @@
                 </div>
             </section>
             <section class="crm-section" id="sec-masters">
-                <div class="section-header">
-                    <div><h2>Masters</h2><p id="master-section-desc">Manage dropdown options for lead fields</p></div>
+                <div class="crm-filter-bar">
+                    <button class="btn btn-primary crm-add-action" id="btn-add-master" type="button">
+                        <i class="icon-base bx bx-plus icon-sm" aria-hidden="true"></i>
+                        <span>Add Master</span>
+                    </button>
                 </div>
                 <div class="card">
                     <div class="card-header"><div class="card-title"><strong>Lead Attributes</strong><span id="master-meta"></span></div></div>
@@ -480,6 +457,55 @@
         </main>
 
     <!-- â•â•â•â•â•â•â•â•â•â• PANORAMA DETAIL MODAL â•â•â•â•â•â•â•â•â•â• -->
+    <div class="crm-modal-backdrop" id="master-create-modal">
+        <div class="crm-modal crm-master-create-modal" role="dialog" aria-modal="true" aria-labelledby="master-create-title">
+            <div class="crm-modal-header">
+                <h2 id="master-create-title">Add Master</h2>
+                <button class="crm-modal-close" id="master-create-close" type="button" aria-label="Close">&times;</button>
+            </div>
+            <div class="crm-modal-body crm-master-create-body">
+                <div class="form-group">
+                    <label class="form-label" for="master-create-label">Label</label>
+                    <input class="form-control" id="master-create-label" type="text" maxlength="100" placeholder="Budget Range">
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="master-create-key">Key</label>
+                    <input class="form-control" id="master-create-key" type="text" maxlength="48" placeholder="budget_range">
+                </div>
+                <div class="crm-master-create-options">
+                    <label class="form-check form-check-inline master-entity-check">
+                        <input class="form-check-input master-create-entity" type="checkbox" value="interests" checked>
+                        <span class="form-check-label">Interests</span>
+                    </label>
+                    <label class="form-check form-check-inline master-entity-check">
+                        <input class="form-check-input master-create-entity" type="checkbox" value="deals">
+                        <span class="form-check-label">Deals</span>
+                    </label>
+                    <label class="form-check form-check-inline master-entity-check">
+                        <input class="form-check-input master-create-entity" type="checkbox" value="contacts">
+                        <span class="form-check-label">Contacts</span>
+                    </label>
+                    <label class="form-check form-check-inline master-entity-check">
+                        <input class="form-check-input master-create-entity" type="checkbox" value="plots">
+                        <span class="form-check-label">Plots</span>
+                    </label>
+                </div>
+                <div class="form-check form-switch crm-master-switch">
+                    <input class="form-check-input" id="master-create-required" type="checkbox" role="switch">
+                    <label class="form-check-label" for="master-create-required">Required field</label>
+                </div>
+                <div class="msg error" id="master-create-msg" style="display:none;"></div>
+            </div>
+            <div class="crm-modal-actions">
+                <button class="btn btn-secondary" id="master-create-cancel" type="button">Cancel</button>
+                <button class="btn btn-primary crm-add-action" id="master-create-save" type="button">
+                    <i class="icon-base bx bx-plus icon-sm" aria-hidden="true"></i>
+                    <span>Add Master</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
     <div class="crm-modal-backdrop" id="panorama-modal-backdrop">
         <div class="crm-modal">
             <div class="crm-modal-header">
@@ -874,6 +900,9 @@
     let dealContactOptions = [];
     let dealsLoaded = false;
     let contactsLoaded = false;
+    let contactsLoadPromise = null;
+    let dealsLoadPromise = null;
+    let dealClientOptionsPromise = null;
     let contactsTableMeta = { total: 0, pages: 1 };
     let dealsTableMeta = { total: 0, pages: 1 };
     let crmBrokerHeaderMode = false;
@@ -977,16 +1006,30 @@
         setSneatText('navbar-user-avatar', letters);
         setSneatText('navbar-user-avatar-2', letters);
         const home = isAdmin ? '/dashboard' : '/customer-dashboard';
-        ['sneat-home-link', 'sneat-menu-dashboard', 'sneat-dropdown-dashboard', 'sneat-footer-dashboard'].forEach(function (id) {
+        ['sneat-home-link', 'sneat-menu-dashboard', 'sneat-dropdown-dashboard'].forEach(function (id) {
             const el = document.getElementById(id);
             if (el) el.setAttribute('href', home);
         });
         const showInvites = !!isBroker;
-        ['sneat-nav-invites', 'sneat-dropdown-invites-wrap', 'sneat-footer-invites'].forEach(function (id) {
+        ['sneat-nav-invites', 'sneat-dropdown-invites-wrap'].forEach(function (id) {
             const el = document.getElementById(id);
             if (el) el.style.display = showInvites ? '' : 'none';
         });
     };
+
+    function primeSneatNavFromCache() {
+        try {
+            const raw = window.sessionStorage.getItem('sidebar_cache');
+            if (!raw) return;
+            const cached = JSON.parse(raw);
+            if (!cached || !cached.isBroker) return;
+            ['sneat-nav-invites', 'sneat-dropdown-invites-wrap'].forEach(function (id) {
+                const el = document.getElementById(id);
+                if (el) el.style.display = '';
+            });
+        } catch (e) {}
+    }
+    primeSneatNavFromCache();
 
     window.configureBrokerAccount = function configureBrokerAccount(profile, useBrokerHeader) {
         crmBrokerHeaderMode = !!useBrokerHeader;
@@ -1098,32 +1141,51 @@
 
     async function ensureDealClientOptions() {
         if (dealClientOptionsLoaded) return;
-        dealClientOptionsLoaded = true;
-        try {
-            const me = await api('/api/crm/me');
-            const meData = await me.json().catch(() => ({}));
-            dealClientFiltersEnabled = !!(me.ok && (meData.is_broker || String(meData.role || '') === 'broker'));
-        } catch (e) {
-            dealClientFiltersEnabled = !!window.__crmIsExternalBroker;
-        }
-        if (!dealClientFiltersEnabled) {
-            dealClientOptions = [];
-            renderDealClientOptions();
+        if (dealClientOptionsPromise) {
+            await dealClientOptionsPromise;
             return;
         }
-        try {
-            const r = await api('/api/access/client-options');
-            const data = await r.json().catch(() => []);
-            dealClientOptions = r.ok && Array.isArray(data) ? data : [];
-        } catch (e) {
-            dealClientOptions = [];
-        }
-        renderDealClientOptions();
+        dealClientOptionsPromise = (async function () {
+            try {
+                const meData = window.__crmMeData || {};
+                dealClientFiltersEnabled = !!(
+                    window.__crmIsExternalBroker
+                    || meData.is_broker
+                    || String(meData.role || '') === 'broker'
+                );
+                if (!dealClientFiltersEnabled) {
+                    dealClientOptions = [];
+                    renderDealClientOptions();
+                    return;
+                }
+                if (Array.isArray(window.__crmClientOptions)) {
+                    dealClientOptions = window.__crmClientOptions;
+                    renderDealClientOptions();
+                    return;
+                }
+                const r = await api('/api/access/client-options');
+                const data = await r.json().catch(() => []);
+                dealClientOptions = r.ok && Array.isArray(data) ? data : [];
+                window.__crmClientOptions = dealClientOptions;
+            } catch (e) {
+                dealClientOptions = [];
+            } finally {
+                dealClientOptionsLoaded = true;
+                dealClientOptionsPromise = null;
+                renderDealClientOptions();
+            }
+        })();
+        await dealClientOptionsPromise;
     }
 
     async function loadDealContactOptions(selectedClient) {
+        const normalizedClient = String(selectedClient || '').trim();
+        if (contactsLoaded && String(contactsLoadedClient || '') === normalizedClient) {
+            dealContactOptions = Array.isArray(contacts) ? contacts.slice() : [];
+            return;
+        }
         const params = { include_counts: '0' };
-        if (selectedClient) params.client_id = selectedClient;
+        if (normalizedClient) params.client_id = normalizedClient;
         const path = '/api/crm/contacts' + CrmPager.buildQuery({ page: 1, size: 10 }, params);
         const r = await api(path);
         const data = await r.json().catch(() => ({}));
@@ -1167,7 +1229,11 @@
         try {
             await ensureDealClientOptions();
             const selectedClient = String((dealClientFilterEl && dealClientFilterEl.value) || '').trim();
-            await loadDealContactOptions(selectedClient);
+            if (contactsLoaded && String(contactsLoadedClient || '') === selectedClient) {
+                dealContactOptions = Array.isArray(contacts) ? contacts.slice() : [];
+            } else {
+                await loadDealContactOptions(selectedClient);
+            }
             if (resetPage) dealsPager.page = 1;
             const params = {};
             if (selectedClient) params.client_id = selectedClient;
@@ -1438,7 +1504,10 @@
             renderContacts();
             return;
         }
-        await loadContacts(undefined, !!force);
+        if (!contactsLoadPromise || force) {
+            contactsLoadPromise = loadContacts(undefined, !!force).finally(() => { contactsLoadPromise = null; });
+        }
+        await contactsLoadPromise;
     }
 
     async function ensureDealsLoaded(force) {
@@ -1446,7 +1515,10 @@
             renderDeals();
             return;
         }
-        await loadDeals(!!force);
+        if (!dealsLoadPromise || force) {
+            dealsLoadPromise = loadDeals(!!force).finally(() => { dealsLoadPromise = null; });
+        }
+        await dealsLoadPromise;
     }
 
     if ($('btn-refresh-deals')) $('btn-refresh-deals').addEventListener('click', () => loadDeals(true));
@@ -1519,10 +1591,8 @@
     window.crmDealsLoad = ensureDealsLoaded;
     window.crmContactsLoad = ensureContactsLoaded;
     window.crmPreloadTables = async function crmPreloadTables(force) {
-        await Promise.all([
-            ensureContactsLoaded(!!force),
-            ensureDealsLoaded(!!force)
-        ]);
+        await ensureContactsLoaded(!!force);
+        await ensureDealsLoaded(!!force);
     };
     window.loadDealQuotationsList = loadDealQuotationsList;
 })();
@@ -1719,10 +1789,31 @@
     }
     window.showToast = showToast;
 
+    function isRetryableCrmStatus(status) {
+        return status === 429 || status === 502 || status === 503 || status === 504;
+    }
+
     async function api(path, opts) {
-        const headers = await ensureAuthenticated();
-        const o = Object.assign({headers:Object.assign({'Content-Type':'application/json'}, headers)}, opts||{});
-        return fetch(path, o);
+        const maxAttempts = 3;
+        let lastResponse = null;
+        let lastError = null;
+        for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+            try {
+                const headers = await ensureAuthenticated();
+                const o = Object.assign({ headers: Object.assign({ 'Content-Type': 'application/json' }, headers) }, opts || {});
+                const response = await fetch(path, o);
+                lastResponse = response;
+                if (!isRetryableCrmStatus(response.status) || attempt >= maxAttempts) {
+                    return response;
+                }
+            } catch (err) {
+                lastError = err;
+                if (attempt >= maxAttempts) throw err;
+            }
+            await new Promise(resolve => setTimeout(resolve, 120 * attempt));
+        }
+        if (lastResponse) return lastResponse;
+        throw (lastError || new Error('CRM request failed'));
     }
 
     // â”€â”€ State â”€â”€
@@ -1748,8 +1839,10 @@
     let orgUsers = [];
     let crmTeamUsers = [];
     let currentView = 'table';
+    const projectsPager = { page: 1, size: (window.CrmPager && CrmPager.DEFAULT_SIZE) || 10 };
     const interestsPager = { page: 1, size: (window.CrmPager && CrmPager.DEFAULT_SIZE) || 10 };
     const plotsPager = { page: 1, size: (window.CrmPager && CrmPager.DEFAULT_SIZE) || 10 };
+    let projectsTableMeta = { total: 0, pages: 1 };
     let interestsTableMeta = { total: 0, pages: 1 };
     let plotsTableMeta = { total: 0, pages: 1 };
     const lockPlotsPager = { page: 1, size: (window.CrmPager && CrmPager.DEFAULT_SIZE) || 10 };
@@ -1760,10 +1853,20 @@
     // â”€â”€ Tab-based section switching â”€â”€
     const sections = document.querySelectorAll('.crm-section');
     const tabButtons = document.querySelectorAll('.crm-tab[data-tab]');
+    const workspaceTitleEl = $('crm-workspace-title-text');
+
+    function syncWorkspaceTitle(name) {
+        if (!workspaceTitleEl) return;
+        const activeTab = Array.from(tabButtons).find(function (t) {
+            return t.getAttribute('data-tab') === name;
+        });
+        workspaceTitleEl.textContent = activeTab ? String(activeTab.textContent || '').trim() : 'CRM';
+    }
 
     function switchSection(name) {
         sections.forEach(s => s.classList.toggle('active', s.id === 'sec-'+name));
         tabButtons.forEach(t => t.classList.toggle('active', t.getAttribute('data-tab') === name));
+        syncWorkspaceTitle(name);
     }
 
     tabButtons.forEach(tab => {
@@ -1780,6 +1883,7 @@
             if (sec === 'masters') loadCrmMasters(true);
         });
     });
+    syncWorkspaceTitle('interests');
 
     // â”€â”€ Load user info and set role â”€â”€
     async function loadUserInfo() {
@@ -1787,9 +1891,11 @@
             const r = await api('/api/crm/me');
             if (r.ok) {
                 const d = await r.json();
+                window.__crmMeData = d || {};
                 userRole = d.role || 'user';
                 const isAdminRole = userRole === 'admin' || userRole === 'superadmin';
                 const isExternalBroker = !!d.is_broker || userRole === 'broker';
+                try { window.localStorage.setItem('sneat_is_broker', isExternalBroker ? '1' : '0'); } catch (e) {}
                 const useBrokerHeader = isExternalBroker;
                 isClientAdminUser = !!d.is_client_admin;
                 isExternalBrokerUser = !!isExternalBroker;
@@ -1797,9 +1903,9 @@
                 window.__crmUserRole = userRole;
                 configureSneatShell(d, isExternalBroker, isAdminRole);
                 configureBrokerAccount(d, useBrokerHeader);
+                if ($('tab-projects')) $('tab-projects').style.display = '';
                 // Show admin-only CRM tabs
                 if (isAdminRole) {
-                    $('tab-projects').style.display = '';
                     $('tab-panoramas').style.display = '';
                     $('tab-manage-lock').style.display = '';
                 } else {
@@ -1862,11 +1968,11 @@
         const c = countByStatus(grouped);
         const allCounts = countByStatus(grouped);
         const t = Math.max(1, c.total);
-        $('stat-total').textContent = c.total;
-        $('stat-new').textContent = c.new;
+        if($('stat-total')) $('stat-total').textContent = c.total;
+        if($('stat-new')) $('stat-new').textContent = c.new;
         if($('stat-contacted')) $('stat-contacted').textContent = c.contacted;
-        $('stat-qualified').textContent = c.qualified;
-        $('stat-won').textContent = c.won;
+        if($('stat-qualified')) $('stat-qualified').textContent = c.qualified;
+        if($('stat-won')) $('stat-won').textContent = c.won;
         if($('stat-lost')) $('stat-lost').textContent = c.lost;
         if($('filter-saved-total')) $('filter-saved-total').textContent = '3';
         if($('filter-total-count')) $('filter-total-count').textContent = allCounts.total;
@@ -2000,9 +2106,14 @@
             return;
         }
         try {
-            const r = await api('/api/access/client-options');
-            const data = await r.json().catch(() => []);
-            clientOptions = r.ok && Array.isArray(data) ? data : [];
+            if (Array.isArray(window.__crmClientOptions)) {
+                clientOptions = window.__crmClientOptions;
+            } else {
+                const r = await api('/api/access/client-options');
+                const data = await r.json().catch(() => []);
+                clientOptions = r.ok && Array.isArray(data) ? data : [];
+                window.__crmClientOptions = clientOptions;
+            }
         } catch(e) {
             clientOptions = [];
         }
@@ -2025,7 +2136,7 @@
         lead_source: ['Partner', 'Word of Mouth', 'Web Download', 'Website', 'WhatsApp Campaign', 'Google Ad', 'Facebook Ad', 'Cold Call', 'Email Response', 'Public Relations', 'Facebook', 'YouTube', 'Networking', 'India Mart', 'Just Dial'],
         lead_status: ['Cold Lead', 'Warm Lead - Inquiring', 'Hot Lead - Purchased in Existing Project', 'Lost Lead - Lost after Quotation', 'Repeat Client - Loyal Buyer']
     };
-    const masterFieldOrder = ['lead_source','lead_category','lead_status','campaign_type','campaign_status','deal_stage','plot_status','state','country'];
+    const masterFieldOrder = ['lead_source','lead_category','lead_status','campaign_type','campaign_status','deal_stage','plot_status','title','state','country'];
     const masterEntityOptions = [
         { id: 'interests', label: 'Interests' },
         { id: 'deals', label: 'Deals' },
@@ -2035,6 +2146,10 @@
 
     function masterFields() {
         return (crmMasterConfig && Array.isArray(crmMasterConfig.fields)) ? crmMasterConfig.fields : [];
+    }
+    function masterFieldsForEntity(entity) {
+        const target = String(entity || '').toLowerCase();
+        return masterFields().filter(field => field && field.is_enabled !== false && masterAppliesList(field).includes(target));
     }
     function masterField(key) {
         return masterFields().find(f => String(f.field_key || '') === key) || null;
@@ -2053,9 +2168,9 @@
     function renderMasterEntityChecks(field) {
         const applies = masterAppliesList(field);
         const checks = masterEntityOptions.map(ent =>
-            '<label class="master-entity-check">' +
-            '<input type="checkbox" class="master-entity-cb" value="'+esc(ent.id)+'" '+(applies.includes(ent.id) ? 'checked' : '')+'>' +
-            '<span>'+esc(ent.label)+'</span></label>'
+            '<label class="form-check form-check-inline master-entity-check">' +
+            '<input type="checkbox" class="form-check-input master-entity-cb" value="'+esc(ent.id)+'" '+(applies.includes(ent.id) ? 'checked' : '')+'>' +
+            '<span class="form-check-label">'+esc(ent.label)+'</span></label>'
         ).join('');
         return '<div class="master-entity-checks">'+checks+'</div>';
     }
@@ -2132,41 +2247,51 @@
         const values = Array.isArray(field.values) ? field.values.filter(v => v && v.is_enabled !== false) : [];
         const chips = values.map(v =>
             '<span class="master-value-chip" data-value-id="'+esc(String(v.id || ''))+'">' +
-            '<span class="master-value-chip-label">'+esc(String(v.value || ''))+'</span>' +
-            '<button type="button" class="master-value-remove" aria-label="Remove option">&times;</button></span>'
+            '<button type="button" class="master-value-remove" aria-label="Remove option">&times;</button>' +
+            '<span class="master-value-chip-label">'+esc(String(v.value || ''))+'</span></span>'
         ).join('');
-        return '<tr class="master-values-row" data-field-key="'+esc(key)+'"><td colspan="4">' +
+        return '<div class="master-values-row" data-field-key="'+esc(key)+'">' +
             '<div class="master-values-editor">' +
             '<div class="master-value-chips">'+chips+'</div>' +
             '<div class="master-value-add">' +
-            '<input type="text" class="toolbar-search master-value-input" maxlength="100" placeholder="Add option" autocomplete="off">' +
-            '<button type="button" class="btn master-value-add-btn">Add</button>' +
-            '</div></div></td></tr>';
+            '<input type="text" class="form-control form-control-sm master-value-input" maxlength="100" placeholder="Add option" autocomplete="off">' +
+            '<button type="button" class="btn btn-sm btn-primary master-value-add-btn">' +
+            '<i class="icon-base bx bx-plus icon-sm" aria-hidden="true"></i><span>Add</span></button>' +
+            '</div></div></div>';
     }
     function renderMasterTable(fields) {
         const ordered = fields.slice().sort((a, b) => {
-            const ai = masterFieldOrder.indexOf(String(a.field_key || ''));
-            const bi = masterFieldOrder.indexOf(String(b.field_key || ''));
-            return (ai < 0 ? 999 : ai) - (bi < 0 ? 999 : bi);
-        }).filter(field => String(field.field_key || '') !== 'title');
+            const ak = String(a.field_key || '');
+            const bk = String(b.field_key || '');
+            const ai = masterFieldOrder.indexOf(ak);
+            const bi = masterFieldOrder.indexOf(bk);
+            if (ai >= 0 || bi >= 0) return (ai < 0 ? 999 : ai) - (bi < 0 ? 999 : bi);
+            const ao = Number(a.sort_order || 0);
+            const bo = Number(b.sort_order || 0);
+            if (ao !== bo) return ao - bo;
+            return ak.localeCompare(bk);
+        });
         const rows = ordered.map(field => {
             const key = String(field.field_key || '');
             const label = field.label || masterFieldLabels[key] || key;
             const mode = field.is_required ? 'required' : 'optional';
-            return '<tr class="master-row" data-field-key="'+esc(key)+'">' +
-                '<td><strong>'+esc(label)+'</strong><span>'+esc(key)+'</span></td>' +
-                '<td><label class="master-switch"><input type="checkbox" class="master-enabled" '+(field.is_enabled!==false?'checked':'')+'><span></span></label></td>' +
-                '<td><select class="toolbar-select master-mode-select" aria-label="'+esc(label)+' mode">' +
+            const switchId = 'master-enabled-' + key.replace(/[^a-z0-9_-]/gi, '-');
+            return '<div class="crm-master-item">' +
+                '<div class="master-row crm-master-item-main" data-field-key="'+esc(key)+'">' +
+                '<div class="crm-master-title"><strong>'+esc(label)+'</strong><span>'+esc(key)+'</span></div>' +
+                '<div class="crm-master-controls">' +
+                '<div class="form-check form-switch crm-master-switch">' +
+                    '<input type="checkbox" class="form-check-input master-enabled" role="switch" id="'+esc(switchId)+'" '+(field.is_enabled!==false?'checked':'')+'>' +
+                    '<label class="form-check-label" for="'+esc(switchId)+'">Enabled</label>' +
+                '</div>' +
+                '<select class="form-select form-select-sm master-mode-select" aria-label="'+esc(label)+' mode">' +
                     '<option value="required" '+(mode==='required'?'selected':'')+'>Required</option>' +
                     '<option value="optional" '+(mode==='optional'?'selected':'')+'>Optional</option>' +
-                '</select></td>' +
-                '<td class="master-entities-cell">'+renderMasterEntityChecks(field)+'</td>' +
-            '</tr>' + renderMasterValuesEditor(field);
+                '</select>' +
+                '<div class="master-entities-cell">'+renderMasterEntityChecks(field)+'</div>' +
+                '</div></div>' + renderMasterValuesEditor(field) + '</div>';
         }).join('');
-        return '<div class="master-table-wrap"><table class="master-table">' +
-            '<thead><tr><th>Attribute</th><th>Status</th><th>Rule</th><th>Used in</th></tr></thead>' +
-            '<tbody>'+rows+'</tbody>' +
-        '</table></div>';
+        return '<div class="crm-master-list">'+rows+'</div>';
     }
     function bindMasterActions(root) {
         root.querySelectorAll('.master-row').forEach(row => {
@@ -2238,6 +2363,101 @@
                 });
             });
         });
+    }
+    const btnAddMaster = $('btn-add-master');
+    const masterCreateModal = $('master-create-modal');
+    const masterCreateLabel = $('master-create-label');
+    const masterCreateKey = $('master-create-key');
+    const masterCreateRequired = $('master-create-required');
+    const masterCreateMsg = $('master-create-msg');
+    const masterCreateSave = $('master-create-save');
+    let masterCreateKeyTouched = false;
+
+    function normalizeMasterKey(raw) {
+        return String(raw || '').trim().toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 48);
+    }
+
+    function closeMasterCreateModal() {
+        if (masterCreateModal) masterCreateModal.classList.remove('visible');
+    }
+
+    function openMasterCreateModal() {
+        masterCreateKeyTouched = false;
+        if (masterCreateLabel) masterCreateLabel.value = '';
+        if (masterCreateKey) masterCreateKey.value = '';
+        if (masterCreateRequired) masterCreateRequired.checked = false;
+        document.querySelectorAll('.master-create-entity').forEach(cb => {
+            cb.checked = cb.value === 'interests';
+        });
+        if (masterCreateMsg) masterCreateMsg.style.display = 'none';
+        if (masterCreateModal) masterCreateModal.classList.add('visible');
+        setTimeout(() => { if (masterCreateLabel) masterCreateLabel.focus(); }, 30);
+    }
+
+    async function saveNewMaster() {
+        const label = String((masterCreateLabel && masterCreateLabel.value) || '').trim();
+        const fieldKey = normalizeMasterKey((masterCreateKey && masterCreateKey.value) || label);
+        const applies = [];
+        document.querySelectorAll('.master-create-entity').forEach(cb => {
+            if (cb.checked) applies.push(cb.value);
+        });
+        if (!label || !fieldKey || !applies.length) {
+            if (masterCreateMsg) {
+                masterCreateMsg.textContent = !applies.length ? 'Select at least one section.' : 'Label and key are required.';
+                masterCreateMsg.style.display = '';
+            }
+            return;
+        }
+        const body = Object.assign({}, masterManageBody(), {
+            label: label,
+            field_key: fieldKey,
+            applies_to: applies,
+            is_required: !!(masterCreateRequired && masterCreateRequired.checked)
+        });
+        if (masterCreateSave) masterCreateSave.disabled = true;
+        try {
+            const r = await api('/api/crm/master-attributes', { method: 'POST', body: JSON.stringify(body) });
+            const data = await r.json().catch(() => ({}));
+            if (!r.ok) throw new Error(data.error || 'Failed to add master');
+            crmMasterConfigLoaded = false;
+            closeMasterCreateModal();
+            await loadCrmMasters(true);
+            showToast('Master added');
+        } catch (e) {
+            if (masterCreateMsg) {
+                masterCreateMsg.textContent = e.message || 'Failed to add master';
+                masterCreateMsg.style.display = '';
+            } else {
+                showToast(e.message || 'Failed to add master', 'error');
+            }
+        } finally {
+            if (masterCreateSave) masterCreateSave.disabled = false;
+        }
+    }
+
+    if (masterCreateLabel && masterCreateKey) {
+        masterCreateLabel.addEventListener('input', () => {
+            if (!masterCreateKeyTouched) masterCreateKey.value = normalizeMasterKey(masterCreateLabel.value);
+        });
+        masterCreateKey.addEventListener('input', () => {
+            masterCreateKeyTouched = true;
+            masterCreateKey.value = normalizeMasterKey(masterCreateKey.value);
+        });
+        [masterCreateLabel, masterCreateKey].forEach(input => {
+            input.addEventListener('keydown', ev => {
+                if (ev.key === 'Enter') {
+                    ev.preventDefault();
+                    saveNewMaster();
+                }
+            });
+        });
+    }
+    if ($('master-create-close')) $('master-create-close').addEventListener('click', closeMasterCreateModal);
+    if ($('master-create-cancel')) $('master-create-cancel').addEventListener('click', closeMasterCreateModal);
+    if (masterCreateModal) masterCreateModal.addEventListener('click', e => { if (e.target === masterCreateModal) closeMasterCreateModal(); });
+    if (masterCreateSave) masterCreateSave.addEventListener('click', () => saveNewMaster());
+    if (btnAddMaster) {
+        btnAddMaster.addEventListener('click', openMasterCreateModal);
     }
 
     function normalizeInterestRow(i) {
@@ -2586,7 +2806,9 @@
     function renderDrawerMasterFields(item) {
         if (!dMasterFields) return;
         const parts = [];
-        masterFieldOrder.forEach(key => {
+        const interestKeys = masterFieldsForEntity('interests').map(f => String(f.field_key || '')).filter(Boolean);
+        const keys = interestKeys.length ? interestKeys : masterFieldOrder.slice();
+        keys.forEach(key => {
             if (!masterAppliesToKey(key, 'interests')) return;
             if (key === 'state') {
                 if (masterOptions('state').length) parts.push(renderDrawerMasterSelect('state', Object.assign({}, item, { state: item.customer_state })));
@@ -3300,7 +3522,11 @@
         renderProjectOptions();
     }
     async function loadInterests() {
-        await Promise.all([loadInterestsBulk(), loadInterestsTable(true)]);
+        const jobs = await Promise.allSettled([loadInterestsBulk(), loadInterestsTable(true)]);
+        const failed = jobs.find(j => j.status === 'rejected');
+        if (failed && (!filtered || !filtered.length)) {
+            throw failed.reason;
+        }
         renderStats();
         interestsLoaded = true;
     }
@@ -3314,30 +3540,63 @@
 
     let workspaces = [];
     let workspacesLoaded = false;
+    let normalProjects = [];
+    let projectsMode = 'visual';
+    let plotsMode = 'visual';
     async function loadWorkspaceProjects(force) {
-        if(workspacesLoaded && !force) { renderProjectsTable(); return; }
+        if (projectsMode === 'normal') {
+            await loadNormalProjects(force);
+            return;
+        }
+        if(workspacesLoaded && !force) { renderProjectsTable(projectsTableMeta); return; }
+        if (force) projectsPager.page = 1;
         try {
-            const r = await api('/api/workspaces?include_empty_shared=1');
+            const r = await api('/api/workspaces' + CrmPager.buildQuery(projectsPager, { include_empty_shared: 1 }));
             if(!r.ok) throw new Error('Failed to load Projects');
-            const data = await r.json();
-            workspaces = Array.isArray(data) ? data : [];
+            const data = await r.json().catch(() => ({}));
+            const page = CrmPager.parsePageResponse(data);
+            workspaces = page.items || [];
+            projectsTableMeta = page;
+            projectsPager.page = page.page;
+            projectsPager.size = page.limit;
             workspacesLoaded = true;
-            renderProjectsTable();
-        } catch(e) { console.warn(e); workspaces = []; renderProjectsTable(); }
+            renderProjectsTable(page);
+        } catch(e) { console.warn(e); workspaces = []; projectsTableMeta = { total: 0, pages: 1 }; renderProjectsTable(projectsTableMeta); }
     }
     window.loadProjects = loadWorkspaceProjects;
-    function renderProjectsTable() {
+    async function loadNormalProjects(force) {
+        if (normalProjects.length && !force) { renderProjectsTable(projectsTableMeta); return; }
+        if (force) projectsPager.page = 1;
+        const r = await api('/api/crm/normal-projects' + CrmPager.buildQuery(projectsPager, {}));
+        const data = await r.json().catch(() => ({}));
+        const page = CrmPager.parsePageResponse(data);
+        normalProjects = page.items || [];
+        projectsTableMeta = page;
+        projectsPager.page = page.page;
+        projectsPager.size = page.limit;
+        renderProjectsTable(page);
+    }
+    function renderProjectsTable(pageMeta) {
         const tbody = document.getElementById('projects-tbody');
         const empty = document.getElementById('projects-empty');
+        const meta = pageMeta || projectsTableMeta || { total: 0, pages: 1 };
         if(!tbody) return;
-        if(!workspaces.length) { tbody.innerHTML=''; if(empty) empty.style.display=''; return; }
+        const rows = projectsMode === 'normal' ? normalProjects : workspaces;
+        CrmPager.renderPagination('projects-pagination', meta, projectsPager, function () {
+            if (projectsMode === 'normal') loadNormalProjects(false);
+            else loadWorkspaceProjects(false);
+        }, esc);
+        if(!rows.length) { tbody.innerHTML=''; if(empty) empty.style.display=''; return; }
         if(empty) empty.style.display='none';
-        tbody.innerHTML = workspaces.map(ws => {
+        tbody.innerHTML = rows.map(ws => {
+            if (projectsMode === 'normal') {
+                return '<tr><td style="font-weight:700">'+esc(ws.name||'Unnamed')+'</td><td>Normal</td><td>-</td><td><span style="color:var(--muted);font-size:0.75rem;">Broker</span></td></tr>';
+            }
             const canEditProjects = !isExternalBrokerUser && userRole !== 'broker' && (userRole === 'admin' || userRole === 'superadmin' || String((ws && ws.access_type) || '') === 'owner');
             const pub = ws.is_published ? '<span style="color:var(--color-available);font-weight:600;font-size:0.75rem;">Yes</span>' : '<span style="color:var(--muted);font-size:0.75rem;">No</span>';
             const access = ws.access_type ? '<span style="color:var(--muted);font-size:0.75rem;">' + esc(ws.access_type) + '</span>' : '';
             const action = canEditProjects ? '<button class="btn" data-edit-project="'+esc(ws.id)+'">Edit Details</button>' : access;
-            return '<tr><td style="font-weight:700">'+esc(ws.name||'Unnamed')+'</td><td>'+pub+'</td><td style="display:flex;gap:0.4rem;">'+action+'</td></tr>';
+            return '<tr><td style="font-weight:700">'+esc(ws.name||'Unnamed')+'</td><td>Visual</td><td>'+pub+'</td><td style="display:flex;gap:0.4rem;">'+action+'</td></tr>';
         }).join('');
         tbody.querySelectorAll('[data-edit-project]').forEach(btn => {
             btn.addEventListener('click', () => openEditProjectModal(btn.getAttribute('data-edit-project')));
@@ -3490,30 +3749,31 @@
         }
     }
     let plotsPanoOptionsLoaded = false;
+    function renderPlotsPanoOptionsFromRows(rows) {
+        if (plotsPanoOptionsLoaded || !plotPanoFilter) return;
+        const panoSet = new Map();
+        (rows || []).forEach(function (p) {
+            if (p.panorama_id && p.panorama_name) panoSet.set(String(p.panorama_id), p.panorama_name);
+        });
+        plotPanoFilter.innerHTML = '<option value="">All Panoramas</option>' + Array.from(panoSet.entries()).map(function (entry) {
+            return '<option value="' + esc(entry[0]) + '">' + esc(entry[1]) + '</option>';
+        }).join('');
+        plotsPanoOptionsLoaded = true;
+    }
     async function loadPlotsPanoOptions() {
-        if (plotsPanoOptionsLoaded) return;
-        try {
-            const r = await api('/api/crm/plots?page=1&limit=10');
-            const data = await r.json().catch(() => ({}));
-            const page = CrmPager.parsePageResponse(data);
-            const panoSet = new Map();
-            (page.items || []).forEach(function (p) {
-                if (p.panorama_id && p.panorama_name) panoSet.set(String(p.panorama_id), p.panorama_name);
-            });
-            plotPanoFilter.innerHTML = '<option value="">All Panoramas</option>' + Array.from(panoSet.entries()).map(function (entry) {
-                return '<option value="' + esc(entry[0]) + '">' + esc(entry[1]) + '</option>';
-            }).join('');
-            plotsPanoOptionsLoaded = true;
-        } catch (e) { console.warn(e); }
+        renderPlotsPanoOptionsFromRows(allPlots);
     }
     async function loadAllPlots(resetPage) {
+        if (plotsMode === 'normal') {
+            await loadNormalPlots(resetPage);
+            return;
+        }
         if (plotsLoaded && !resetPage) {
             renderPlotsTable();
             return;
         }
         try { await ensureInterestsLoaded(); } catch(e) { console.warn('Interests load failed for plot counts:', e); }
         await ensurePlotMasters();
-        await loadPlotsPanoOptions();
         if (resetPage) plotsPager.page = 1;
         try {
             const params = {};
@@ -3534,6 +3794,7 @@
             plotsPager.page = page.page;
             plotsPager.size = page.limit;
             plotsLoaded = true;
+            renderPlotsPanoOptionsFromRows(allPlots);
             renderPlotsTable(page);
         } catch(e) { console.warn(e); }
     }
@@ -3582,6 +3843,8 @@
         if(!rows.length) { tbody.innerHTML=''; if (empty) empty.style.display=''; return; }
         if (empty) empty.style.display='none';
         tbody.innerHTML = rows.map(p => {
+            const crmType = String(p.crm_mode || (plotsMode === 'normal' ? 'normal' : 'visual'));
+            const isNormalRow = crmType === 'normal';
             const sk = getStatusKey(p.status);
             const sc = sk==='sold'?'status-pill--sold':sk==='hold'?'status-pill--hold':'status-pill--available';
             const relatedInterests = findInterestsForPlot(p);
@@ -3592,15 +3855,16 @@
             // const lockData = getLockablePlot(p.id);
             // const isLocked = !!(lockData && lockData.lock);
             return '<tr>' +
-                '<td><input class="inline-edit" value="'+esc(p.name||'')+'" data-field="name" data-pid="'+esc(p.id)+'" aria-label="Plot Number"></td>' +
-                '<td><input class="inline-edit" value="'+esc(p.area||'')+'" data-field="area" data-pid="'+esc(p.id)+'" aria-label="Plot Size Area"></td>' +
-                '<td><select class="inline-edit-select" data-field="status" data-pid="'+esc(p.id)+'">'+plotStatusOptionsHtml(p.status, false)+'</select></td>' +
+                '<td><input class="inline-edit" value="'+esc(p.name||'')+'" data-field="name" data-pid="'+esc(p.id)+'" aria-label="Plot Number" '+(isNormalRow ? 'disabled' : '')+'></td>' +
+                '<td><input class="inline-edit" value="'+esc(p.area||'')+'" data-field="area" data-pid="'+esc(p.id)+'" aria-label="Plot Size Area" '+(isNormalRow ? 'disabled' : '')+'></td>' +
+                '<td>'+esc(crmType === 'normal' ? 'Normal' : 'Visual')+'</td>' +
+                '<td><select class="inline-edit-select" data-field="status" data-pid="'+esc(p.id)+'" '+(isNormalRow ? 'disabled' : '')+'>'+plotStatusOptionsHtml(p.status, false)+'</select></td>' +
                 '<td><span class="plot-status-swatch '+sc+'" aria-label="'+esc(p.status||'available')+'"></span></td>' +
-                '<td><input class="inline-edit" value="'+esc(p.description||'')+'" data-field="description" data-pid="'+esc(p.id)+'" aria-label="Description"></td>' +
+                '<td><input class="inline-edit" value="'+esc(p.description||'')+'" data-field="description" data-pid="'+esc(p.id)+'" aria-label="Description" '+(isNormalRow ? 'disabled' : '')+'></td>' +
                 '<td class="mono">'+esc(interestCount)+'</td>' +
                 '<td>'+esc(salesAgents)+'</td>' +
                 '<td>'+esc(brokers)+'</td>' +
-                '<td><div class="plot-row-actions"><button class="btn" data-save-plot="'+esc(p.id)+'">Save</button>' +
+                '<td><div class="plot-row-actions">'+(isNormalRow ? '<span style="color:var(--muted);font-size:0.75rem;">Broker</span>' : '<button class="btn" data-save-plot="'+esc(p.id)+'">Save</button>') +
                     // Temporarily hidden; keep nearby so the lock feature can be restored later.
                     // '<button class="btn plot-lock-trigger'+(isLocked?' is-locked':'')+'" data-open-plot-lock="'+esc(p.id)+'">'+(isLocked?'Locked':'Lock')+'</button>' +
                 '</div></td>' +
@@ -3641,6 +3905,137 @@
     if (plotClientFilter) plotClientFilter.addEventListener('change', function () { loadAllPlots(true); });
     plotPanoFilter.addEventListener('change', function () { loadAllPlots(true); });
     plotStatusFilter.addEventListener('change', function () { loadAllPlots(true); });
+    const projectsModeToggle = $('projects-mode-toggle');
+    const plotsModeToggle = $('plots-mode-toggle');
+    const addNormalProjectBtn = $('btn-add-normal-project');
+    const addNormalPlotBtn = $('btn-add-normal-plot');
+    const projectsNormalToolbar = $('projects-normal-toolbar');
+
+    function applyModeToggleUI(root, mode) {
+        if (!root) return;
+        root.querySelectorAll('[data-mode]').forEach(btn => {
+            const active = btn.getAttribute('data-mode') === mode;
+            btn.classList.toggle('active', active);
+            btn.setAttribute('aria-pressed', active ? 'true' : 'false');
+        });
+    }
+
+    function setModeToggleLoading(root, isLoading) {
+        if (!root) return;
+        root.classList.toggle('is-loading', !!isLoading);
+        root.querySelectorAll('[data-mode]').forEach(btn => { btn.disabled = !!isLoading; });
+        const loader = root.querySelector('.crm-mode-toggle-loader');
+        if (loader) loader.hidden = !isLoading;
+    }
+
+    function showTableRefreshing(tbodyId, message) {
+        const tbody = document.getElementById(tbodyId);
+        if (!tbody) return;
+        const table = tbody.closest('table');
+        const cols = table ? Math.max(1, table.querySelectorAll('thead th').length) : 1;
+        tbody.innerHTML =
+            '<tr class="crm-table-refresh-row">' +
+                '<td colspan="' + cols + '">' +
+                    '<span class="crm-table-refresh-loader" aria-hidden="true"></span>' +
+                    '<span>' + esc(message || 'Table is refreshing...') + '</span>' +
+                '</td>' +
+            '</tr>';
+    }
+
+    if (projectsModeToggle) {
+        projectsModeToggle.querySelectorAll('[data-mode]').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                const nextMode = btn.getAttribute('data-mode') === 'normal' ? 'normal' : 'visual';
+                if (projectsMode === nextMode) return;
+                projectsMode = btn.getAttribute('data-mode') === 'normal' ? 'normal' : 'visual';
+                applyModeToggleUI(projectsModeToggle, projectsMode);
+                setModeToggleLoading(projectsModeToggle, true);
+                if (projectsNormalToolbar) projectsNormalToolbar.style.display = projectsMode === 'normal' ? '' : 'none';
+                showTableRefreshing('projects-tbody', 'Table is refreshing...');
+                try {
+                    await loadWorkspaceProjects(true);
+                } finally {
+                    setModeToggleLoading(projectsModeToggle, false);
+                }
+            });
+        });
+    }
+    if (plotsModeToggle) {
+        plotsModeToggle.querySelectorAll('[data-mode]').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                const nextMode = btn.getAttribute('data-mode') === 'normal' ? 'normal' : 'visual';
+                if (plotsMode === nextMode) return;
+                plotsMode = btn.getAttribute('data-mode') === 'normal' ? 'normal' : 'visual';
+                applyModeToggleUI(plotsModeToggle, plotsMode);
+                setModeToggleLoading(plotsModeToggle, true);
+                if (addNormalPlotBtn) addNormalPlotBtn.style.display = plotsMode === 'normal' ? '' : 'none';
+                showTableRefreshing('plots-tbody', 'Table is refreshing...');
+                try {
+                    await loadAllPlots(true);
+                } finally {
+                    setModeToggleLoading(plotsModeToggle, false);
+                }
+            });
+        });
+    }
+
+    if (addNormalProjectBtn) {
+        addNormalProjectBtn.addEventListener('click', async () => {
+            try {
+                const name = window.prompt('Project name');
+                if (!name) return;
+                const location = window.prompt('Location') || '';
+                const description = window.prompt('Description') || '';
+                const r = await api('/api/crm/normal-projects', {
+                    method: 'POST',
+                    body: JSON.stringify({ name: name, location: location, description: description, project_type: 'residential' }),
+                });
+                const data = await r.json().catch(() => ({}));
+                if (!r.ok) throw new Error(data.error || 'Failed to add project');
+                await loadNormalProjects(true);
+                showToast('Project added');
+            } catch (e) { showToast(e.message || 'Failed to add project', 'error'); }
+        });
+    }
+    if (addNormalPlotBtn) {
+        addNormalPlotBtn.addEventListener('click', async () => {
+            try {
+                const projectName = window.prompt('Project name');
+                if (!projectName) return;
+                const name = window.prompt('Plot name');
+                if (!name) return;
+                const area = window.prompt('Area') || '';
+                const price = window.prompt('Price') || '';
+                const status = window.prompt('Status (available/hold/sold)') || 'available';
+                const description = window.prompt('Description') || '';
+                const r = await api('/api/crm/normal-plots', {
+                    method: 'POST',
+                    body: JSON.stringify({ project_name: projectName, name: name, area: area, price: price, status: status, description: description }),
+                });
+                const data = await r.json().catch(() => ({}));
+                if (!r.ok) throw new Error(data.error || 'Failed to add plot');
+                await loadNormalPlots(true);
+                showToast('Plot added');
+            } catch (e) { showToast(e.message || 'Failed to add plot', 'error'); }
+        });
+    }
+
+    async function loadNormalPlots(resetPage) {
+        if (resetPage) plotsPager.page = 1;
+        const params = { page: plotsPager.page, limit: plotsPager.size || 10 };
+        const q = String(plotSearch.value || '').trim();
+        if (q) params.q = q;
+        const r = await api('/api/crm/normal-plots' + CrmPager.buildQuery(plotsPager, q ? { q: q } : {}));
+        const data = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error((data && data.error) || 'Failed to load normal plots');
+        const page = CrmPager.parsePageResponse(data);
+        allPlots = page.items || [];
+        plotsTableMeta = page;
+        plotsPager.page = page.page;
+        plotsPager.size = page.limit;
+        plotsLoaded = true;
+        renderPlotsTable(page);
+    }
 
     // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
     //  MANAGE LOCK SECTION (admin only)
@@ -3889,9 +4284,33 @@
     let crmHydrationInFlight = false;
     let crmLastHydrationAt = 0;
 
+    function syncCrmBootLoaderOffset() {
+        const loader = $('crm-boot-loader');
+        if (!loader) return;
+        if (window.matchMedia && window.matchMedia('(max-width: 991.98px)').matches) {
+            loader.style.left = '0px';
+            return;
+        }
+        const crmRoot = document.querySelector('.crm-page');
+        if (crmRoot && crmRoot.classList.contains('crm-page--broker-header-mode')) {
+            loader.style.left = '0px';
+            return;
+        }
+        const sidebars = [
+            document.getElementById('layout-menu'),
+            document.getElementById('dashboard-sidebar')
+        ].filter(Boolean);
+        let width = 0;
+        sidebars.forEach(function (el) {
+            width = Math.max(width, Math.round(el.getBoundingClientRect().width || 0));
+        });
+        loader.style.left = width > 0 ? (width + 'px') : '0px';
+    }
+
     function setCrmBootLoading(isLoading) {
         const loader = $('crm-boot-loader');
         const content = $('crm-page-content');
+        syncCrmBootLoaderOffset();
         if (content) content.setAttribute('aria-busy', isLoading ? 'true' : 'false');
         if (loader) loader.hidden = !isLoading;
     }
@@ -3912,6 +4331,7 @@
                 ensureInterestsLoaded(!!force),
                 window.crmPreloadTables ? window.crmPreloadTables(!!force) : Promise.resolve(),
                 loadAllPlots(!!force),
+                isExternalBrokerUser ? loadAllottedClients(!!force) : Promise.resolve(),
             ]);
             updateFilterBadge();
             renderStats();
@@ -3945,6 +4365,25 @@
             hydrateCrmData(true).catch(function(err) { console.warn('CRM visibility refresh failed:', err); });
         }
     });
+    window.addEventListener('resize', syncCrmBootLoaderOffset);
+    window.addEventListener('load', syncCrmBootLoaderOffset);
+    const menuToggle = document.getElementById('sneat-layout-menu-toggle');
+    if (menuToggle) {
+        menuToggle.addEventListener('click', function () {
+            window.setTimeout(syncCrmBootLoaderOffset, 20);
+            window.setTimeout(syncCrmBootLoaderOffset, 220);
+        });
+    }
+    const layoutMenu = document.getElementById('layout-menu');
+    if (layoutMenu && typeof MutationObserver !== 'undefined') {
+        new MutationObserver(function () { syncCrmBootLoaderOffset(); })
+            .observe(layoutMenu, { attributes: true, attributeFilter: ['class', 'style'] });
+    }
+    if (document.documentElement && typeof MutationObserver !== 'undefined') {
+        new MutationObserver(function () { syncCrmBootLoaderOffset(); })
+            .observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+    }
+
 })();
 </script>
 <script>

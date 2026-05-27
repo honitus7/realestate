@@ -27,10 +27,12 @@ from itsdangerous import BadSignature, SignatureExpired
 from app import config as app_config
 from app.controllers.features.crm_pagination import crm_page_payload, crm_parse_page_args
 from app.controllers.features import (
+    register_asset_routes,
     register_crm_broker_routes,
     register_crm_contact_routes,
     register_crm_lock_routes,
     register_crm_master_routes,
+    register_crm_normal_routes,
     register_crm_plot_routes,
     register_crm_quote_routes,
     register_daynight_routes,
@@ -988,6 +990,35 @@ def register_routes(app):
 
     def _crm_cache_set(key, data):
         _crm_cache[key] = {'ts': time.time(), 'data': data}
+
+    def _is_transient_supabase_error(err):
+        msg = str(err or '').lower()
+        transient_tokens = (
+            'connectionterminated',
+            'connection terminated',
+            'connection closed',
+            'server closed the connection',
+            'stream error',
+            'eof',
+            'timeout',
+            'timed out',
+            'temporarily unavailable',
+        )
+        return any(token in msg for token in transient_tokens)
+
+    def _with_supabase_retry(fn, attempts=2, sleep_seconds=0.18):
+        last_err = None
+        tries = max(1, int(attempts or 1))
+        for idx in range(tries):
+            try:
+                return fn()
+            except Exception as err:
+                last_err = err
+                if not _is_transient_supabase_error(err) or idx >= (tries - 1):
+                    raise
+                time.sleep(sleep_seconds)
+        if last_err:
+            raise last_err
 
     @app.errorhandler(RequestEntityTooLarge)
     def handle_request_too_large(_error):
@@ -4277,13 +4308,34 @@ def register_routes(app):
         if not sb:
             return jsonify({'error': 'Database not configured'}), 503
         page, limit, offset = crm_parse_page_args(default_limit=10, max_limit=500)
-        panorama_ids = _crm_panorama_ids(sb, user_id, role)
+        try:
+            panorama_ids = _with_supabase_retry(lambda: _crm_panorama_ids(sb, user_id, role), attempts=2)
+        except Exception as e:
+            msg = str(e)
+            if _is_transient_supabase_error(e):
+                return jsonify({'error': 'Temporary CRM connection issue. Please retry.'}), 503
+            return jsonify({'error': msg}), 500
         if not panorama_ids:
             return jsonify(crm_page_payload([], 0, page, limit))
-        client_scope_ids = _crm_client_scope_ids(sb, user_id, role)
+        try:
+            client_scope_ids = _with_supabase_retry(lambda: _crm_client_scope_ids(sb, user_id, role), attempts=2)
+        except Exception as e:
+            msg = str(e)
+            if _is_transient_supabase_error(e):
+                return jsonify({'error': 'Temporary CRM connection issue. Please retry.'}), 503
+            return jsonify({'error': msg}), 500
         if client_scope_ids is not None and not client_scope_ids:
             return jsonify(crm_page_payload([], 0, page, limit))
-        reference_scope_user_id = _crm_interest_reference_scope_user_id(sb, user_id, role, client_scope_ids)
+        try:
+            reference_scope_user_id = _with_supabase_retry(
+                lambda: _crm_interest_reference_scope_user_id(sb, user_id, role, client_scope_ids),
+                attempts=2,
+            )
+        except Exception as e:
+            msg = str(e)
+            if _is_transient_supabase_error(e):
+                return jsonify({'error': 'Temporary CRM connection issue. Please retry.'}), 503
+            return jsonify({'error': msg}), 500
         panorama_id = request.args.get('panorama_id')
         workspace_id = (request.args.get('workspace_id') or '').strip() or None
         category = (request.args.get('category') or '').strip() or None
@@ -4335,14 +4387,17 @@ def register_routes(app):
                 query = query.eq('reference_user_id', reference_scope_user_id)
             if workspace_id:
                 try:
-                    ws_rows = (
-                        sb.table('panoramas')
-                        .select('id')
-                        .eq('workspace_id', workspace_id)
-                        .in_('id', panorama_ids)
-                        .execute()
-                        .data
-                        or []
+                    ws_rows = _with_supabase_retry(
+                        lambda: (
+                            sb.table('panoramas')
+                            .select('id')
+                            .eq('workspace_id', workspace_id)
+                            .in_('id', panorama_ids)
+                            .execute()
+                            .data
+                            or []
+                        ),
+                        attempts=2,
                     )
                     ws_pano_ids = [int(row.get('id')) for row in ws_rows if row.get('id') is not None]
                     if ws_pano_ids:
@@ -4366,7 +4421,10 @@ def register_routes(app):
                     query = query.or_(
                         f"customer_name.ilike.%{token}%,customer_email.ilike.%{token}%,customer_phone.ilike.%{token}%,customer_address.ilike.%{token}%,customer_city.ilike.%{token}%,customer_state.ilike.%{token}%"
                     )
-            r = query.order('created_at', desc=True).range(offset, offset + limit - 1).execute()
+            r = _with_supabase_retry(
+                lambda: query.order('created_at', desc=True).range(offset, offset + limit - 1).execute(),
+                attempts=2,
+            )
             total = int(getattr(r, 'count', None) or 0)
             out = []
             for row in (r.data or []):
@@ -4398,6 +4456,8 @@ def register_routes(app):
             return jsonify(payload)
         except Exception as e:
             msg = str(e)
+            if _is_transient_supabase_error(e):
+                return jsonify({'error': 'Temporary CRM connection issue. Please retry.'}), 503
             if 'buy_interests' in msg and ('does not exist' in msg.lower() or 'relation' in msg.lower()):
                 return jsonify({'error': 'buy_interests table not found. Run db/schema.sql in Supabase SQL Editor.'}), 503
             return jsonify({'error': msg}), 500
@@ -5375,6 +5435,7 @@ def register_routes(app):
         crm_cache_set=_crm_cache_set,
         crm_cache_version=_crm_cache_version,
     )
+    register_crm_normal_routes(app)
     register_crm_lock_routes(
         app,
         crm_panorama_ids=_crm_panorama_ids,
@@ -7258,6 +7319,7 @@ h1 {{ margin:0 0 8px; font-size:22px; }}
     # ==================================================================
     # Galleries
     # ==================================================================
+    register_asset_routes(app)
     register_gallery_routes(app)
 
     # ==================================================================

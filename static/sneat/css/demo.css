@@ -46,6 +46,27 @@
   z-index: auto;
 }
 
+/* Remove left gutter beside expanded desktop menu across app pages */
+@media (min-width: 1200px) {
+  .layout-menu-fixed:not(.layout-menu-collapsed) .layout-page,
+  .layout-menu-fixed-offcanvas:not(.layout-menu-collapsed) .layout-page {
+    padding-inline-start: 20px !important;
+    -webkit-padding-start: 20px !important;
+  }
+
+  .layout-menu-fixed:not(.layout-menu-collapsed) .layout-page > .content-wrapper > .container-xxl,
+  .layout-menu-fixed:not(.layout-menu-collapsed) .layout-page > .content-wrapper > .container-xl,
+  .layout-menu-fixed:not(.layout-menu-collapsed) .layout-page > .content-wrapper > .container-lg,
+  .layout-menu-fixed:not(.layout-menu-collapsed) .layout-page > .content-wrapper > .container-fluid {
+    max-width: 100% !important;
+    width: 100% !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+  }
+}
+
 /*
 * Content
 ******************************************************************************/

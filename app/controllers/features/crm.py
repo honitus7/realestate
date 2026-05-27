@@ -1,5 +1,6 @@
 from datetime import datetime
 import re
+import time
 import uuid
 
 from flask import jsonify, request
@@ -57,6 +58,11 @@ CRM_MASTER_DEFAULT_VALUES = {
     'country': ['India'],
 }
 
+_CRM_MASTER_CONFIG_CACHE = {}
+_CRM_MASTER_CONFIG_CACHE_TTL_SECONDS = 10
+_CRM_ALLOTTED_CLIENTS_CACHE = {}
+_CRM_ALLOTTED_CLIENTS_CACHE_TTL_SECONDS = 10
+
 
 def _fetch_pages(fetch_page, page_size=1000):
     rows = []
@@ -76,6 +82,10 @@ def register_crm_broker_routes(app, *, crm_panorama_ids, crm_client_scope_ids):
         sb = get_supabase()
         if not sb:
             return jsonify({'error': 'Database not configured'}), 503
+        cache_key = ('allotted_clients', str(user_id), str(role or ''))
+        cached = _CRM_ALLOTTED_CLIENTS_CACHE.get(cache_key)
+        if cached and time.time() - cached[0] <= _CRM_ALLOTTED_CLIENTS_CACHE_TTL_SECONDS:
+            return jsonify(cached[1])
 
         memberships = [
             row for row in get_client_memberships(sb, user_id)
@@ -161,10 +171,9 @@ def register_crm_broker_routes(app, *, crm_panorama_ids, crm_client_scope_ids):
                 rows = _fetch_pages(
                     lambda start, end: (
                         sb.table('buy_interests')
-                        .select('id, client_id, contact_id')
+                        .select('client_id, contact_id')
                         .eq('reference_user_id', str(user_id))
                         .in_('client_id', chunk)
-                        .order('created_at', desc=False)
                         .range(start, end)
                         .execute()
                         .data or []
@@ -192,6 +201,10 @@ def register_crm_broker_routes(app, *, crm_panorama_ids, crm_client_scope_ids):
                 'contact_count': len(contact_sets.get(cid) or set()),
             })
         out.sort(key=lambda row: row.get('client_name') or '')
+        _CRM_ALLOTTED_CLIENTS_CACHE[cache_key] = (time.time(), out)
+        if len(_CRM_ALLOTTED_CLIENTS_CACHE) > 128:
+            oldest_key = min(_CRM_ALLOTTED_CLIENTS_CACHE, key=lambda key: _CRM_ALLOTTED_CLIENTS_CACHE[key][0])
+            _CRM_ALLOTTED_CLIENTS_CACHE.pop(oldest_key, None)
         return jsonify(out)
 
 
@@ -558,6 +571,12 @@ def register_crm_lock_routes(
 def register_crm_master_routes(app, *, crm_client_scope_ids, crm_cache_bump):
     field_by_key = {row['key']: row for row in CRM_MASTER_FIELDS}
 
+    def _normalize_master_field_key(raw):
+        key = re.sub(r'[^a-z0-9_]+', '_', str(raw or '').strip().lower()).strip('_')
+        if not key:
+            return ''
+        return key[:48]
+
     def _default_applies_to(field_key):
         base = field_by_key.get(field_key) or {}
         raw = base.get('applies_to') or ['interests']
@@ -672,6 +691,8 @@ def register_crm_master_routes(app, *, crm_client_scope_ids, crm_cache_bump):
         attr_existing = {str(row.get('field_key') or '') for row in attr_rows}
         value_rows = value_q.execute().data or []
         value_existing = {(str(row.get('field_key') or ''), str(row.get('value') or '')) for row in value_rows}
+        attr_inserts = []
+        value_inserts = []
         for field in CRM_MASTER_FIELDS:
             if field['key'] not in attr_existing:
                 row = {
@@ -690,7 +711,7 @@ def register_crm_master_routes(app, *, crm_client_scope_ids, crm_cache_bump):
                 else:
                     row['client_id'] = client_id
                     row['owner_user_id'] = None
-                sb.table('crm_master_attributes').insert(row).execute()
+                attr_inserts.append(row)
             for idx, value in enumerate(CRM_MASTER_DEFAULT_VALUES.get(field['key'], [])):
                 value_key = (field['key'], value)
                 if value_key in value_existing:
@@ -708,7 +729,63 @@ def register_crm_master_routes(app, *, crm_client_scope_ids, crm_cache_bump):
                 else:
                     row['client_id'] = client_id
                     row['owner_user_id'] = None
-                sb.table('crm_master_values').insert(row).execute()
+                value_inserts.append(row)
+        if attr_inserts:
+            sb.table('crm_master_attributes').insert(attr_inserts).execute()
+        if value_inserts:
+            sb.table('crm_master_values').insert(value_inserts).execute()
+
+    def _master_cache_key(master_scope, include_disabled):
+        return (
+            str(master_scope.get('scope') or ''),
+            str(master_scope.get('owner_user_id') or ''),
+            str(master_scope.get('client_id') or ''),
+            int(bool(include_disabled)),
+        )
+
+    def _master_cache_get(cache_key):
+        entry = _CRM_MASTER_CONFIG_CACHE.get(cache_key)
+        if not entry:
+            return None
+        created_at, payload = entry
+        if time.time() - created_at > _CRM_MASTER_CONFIG_CACHE_TTL_SECONDS:
+            _CRM_MASTER_CONFIG_CACHE.pop(cache_key, None)
+            return None
+        return payload
+
+    def _master_cache_set(cache_key, payload):
+        _CRM_MASTER_CONFIG_CACHE[cache_key] = (time.time(), payload)
+        if len(_CRM_MASTER_CONFIG_CACHE) > 128:
+            oldest_key = min(_CRM_MASTER_CONFIG_CACHE, key=lambda key: _CRM_MASTER_CONFIG_CACHE[key][0])
+            _CRM_MASTER_CONFIG_CACHE.pop(oldest_key, None)
+
+    def _is_transient_supabase_error(exc):
+        msg = str(exc)
+        return (
+            'ConnectionTerminated' in msg
+            or 'StreamReset' in msg
+            or 'RemoteProtocolError' in msg
+            or 'Server disconnected' in msg
+            or 'connection reset' in msg.lower()
+        )
+
+    def _load_master_config_with_retry(sb, master_scope, include_disabled=False):
+        cache_key = _master_cache_key(master_scope, include_disabled)
+        cached = _master_cache_get(cache_key)
+        if cached is not None:
+            return cached
+        last_error = None
+        for attempt in range(3):
+            try:
+                fields = _load_master_config(sb, master_scope, include_disabled=include_disabled)
+                _master_cache_set(cache_key, fields)
+                return fields
+            except Exception as exc:
+                last_error = exc
+                if not _is_transient_supabase_error(exc) or attempt >= 2:
+                    raise
+                time.sleep(0.2 * (attempt + 1))
+        raise last_error
 
     def _load_master_config(sb, master_scope, include_disabled=False):
         _seed_defaults(sb, master_scope)
@@ -761,6 +838,15 @@ def register_crm_master_routes(app, *, crm_client_scope_ids, crm_cache_bump):
             return query.eq('owner_user_id', master_scope['owner_user_id']).is_('client_id', 'null')
         return query.eq('client_id', master_scope['client_id']).is_('owner_user_id', 'null')
 
+    def _master_field_exists(sb, master_scope, field_key):
+        try:
+            q = sb.table('crm_master_attributes').select('id').eq('field_key', str(field_key or '').strip()).limit(1)
+            q = _apply_master_scope_filter(q, master_scope)
+            rows = q.execute().data or []
+            return bool(rows)
+        except Exception:
+            return False
+
     @app.route('/api/crm/master-config', methods=['GET'])
     @require_auth
     def crm_master_config(user_id, role):
@@ -778,7 +864,7 @@ def register_crm_master_routes(app, *, crm_client_scope_ids, crm_cache_bump):
             return err, status
         try:
             include_disabled = str(request.args.get('include_disabled') or '').lower() in ('1', 'true', 'yes')
-            fields = _load_master_config(sb, master_scope, include_disabled=include_disabled)
+            fields = _load_master_config_with_retry(sb, master_scope, include_disabled=include_disabled)
             payload = {'scope': master_scope['scope'], 'fields': fields, 'can_manage': True}
             if master_scope['scope'] == 'broker':
                 payload['owner_user_id'] = master_scope['owner_user_id']
@@ -809,7 +895,9 @@ def register_crm_master_routes(app, *, crm_client_scope_ids, crm_cache_bump):
             return err, status
         field_key = str(data.get('field_key') or '').strip()
         value = str(data.get('value') or '').strip()
-        if field_key not in field_by_key:
+        if not field_key:
+            return jsonify({'error': 'Invalid field'}), 400
+        if field_key not in field_by_key and not _master_field_exists(sb, master_scope, field_key):
             return jsonify({'error': 'Invalid field'}), 400
         if not value:
             return jsonify({'error': 'Value is required'}), 400
@@ -856,6 +944,7 @@ def register_crm_master_routes(app, *, crm_client_scope_ids, crm_cache_bump):
             else:
                 r = sb.table('crm_master_values').insert(row).execute()
             crm_cache_bump()
+            _CRM_MASTER_CONFIG_CACHE.clear()
             return jsonify({'success': True, 'value': (r.data or [row])[0]}), 201
         except Exception as e:
             return jsonify({'error': str(e)}), 500
@@ -900,6 +989,7 @@ def register_crm_master_routes(app, *, crm_client_scope_ids, crm_cache_bump):
         q = sb.table('crm_master_values').update(upd).eq('id', str(value_id))
         r = _apply_master_scope_filter(q, master_scope).execute()
         crm_cache_bump()
+        _CRM_MASTER_CONFIG_CACHE.clear()
         return jsonify({'success': True, 'value': (r.data or [upd])[0]})
 
     @app.route('/api/crm/master-attributes/<field_key>', methods=['PATCH'])
@@ -919,7 +1009,7 @@ def register_crm_master_routes(app, *, crm_client_scope_ids, crm_cache_bump):
         if err:
             return err, status
         field_key = str(field_key or '').strip()
-        if field_key not in field_by_key:
+        if field_key not in field_by_key and not _master_field_exists(sb, master_scope, field_key):
             return jsonify({'error': 'Invalid field'}), 400
         _seed_defaults(sb, master_scope)
         upd = {'updated_at': datetime.utcnow().isoformat()}
@@ -945,7 +1035,67 @@ def register_crm_master_routes(app, *, crm_client_scope_ids, crm_cache_bump):
         q = sb.table('crm_master_attributes').update(upd).eq('field_key', field_key)
         r = _apply_master_scope_filter(q, master_scope).execute()
         crm_cache_bump()
+        _CRM_MASTER_CONFIG_CACHE.clear()
         return jsonify({'success': True, 'attribute': (r.data or [upd])[0]})
+
+    @app.route('/api/crm/master-attributes', methods=['POST'])
+    @require_auth
+    def crm_master_attribute_create(user_id, role):
+        sb = get_supabase()
+        if not sb:
+            return jsonify({'error': 'Database not configured'}), 503
+        data = request.get_json(silent=True) or {}
+        master_scope, err, status = _resolve_master_scope(
+            sb, user_id, role,
+            scope_hint=data.get('scope'),
+            client_id_hint=data.get('client_id'),
+            panorama_id=data.get('panorama_id'),
+            for_write=True,
+        )
+        if err:
+            return err, status
+        _seed_defaults(sb, master_scope)
+        field_key = _normalize_master_field_key(data.get('field_key'))
+        if not field_key:
+            return jsonify({'error': 'Field key is required'}), 400
+        label = str(data.get('label') or '').strip() or field_key.replace('_', ' ').title()
+        applies_to = _normalize_applies_to(data.get('applies_to'), field_key)
+        now = datetime.utcnow().isoformat()
+        existing = (
+            _apply_master_scope_filter(
+                sb.table('crm_master_attributes').select('id').eq('field_key', field_key).limit(1),
+                master_scope,
+            ).execute().data or []
+        )
+        if existing:
+            return jsonify({'error': 'Master already exists for this key'}), 409
+        sort_rows = (
+            _apply_master_scope_filter(
+                sb.table('crm_master_attributes').select('sort_order').order('sort_order', desc=True).limit(1),
+                master_scope,
+            ).execute().data or []
+        )
+        sort_order = int((sort_rows[0] or {}).get('sort_order') or 0) + 10 if sort_rows else 10
+        row = {
+            'field_key': field_key,
+            'label': label[:100],
+            'is_required': bool(data.get('is_required')),
+            'is_optional': not bool(data.get('is_required')),
+            'is_enabled': True,
+            'sort_order': sort_order,
+            'applies_to': applies_to,
+            'updated_at': now,
+        }
+        if master_scope['scope'] == 'broker':
+            row['owner_user_id'] = master_scope['owner_user_id']
+            row['client_id'] = None
+        else:
+            row['client_id'] = master_scope['client_id']
+            row['owner_user_id'] = None
+        created = sb.table('crm_master_attributes').insert(row).execute().data or []
+        crm_cache_bump()
+        _CRM_MASTER_CONFIG_CACHE.clear()
+        return jsonify({'success': True, 'attribute': (created[0] if created else row)}), 201
 
 
 def _crm_contact_list_select():
@@ -1009,6 +1159,15 @@ def _crm_fetch_contact_rows(
                 )
                 add_rows(query.execute().data)
     else:
+        if len(panorama_ids) <= 100:
+            query = _crm_apply_contact_list_filters(
+                sb.table('crm_contacts').select(select_cols, count='exact').in_('panorama_id', panorama_ids),
+                requested_client_id=requested_client_id,
+                client_scope_ids=client_scope_ids,
+                q=q,
+            )
+            resp = query.order('updated_at', desc=True).range(offset, offset + limit - 1).execute()
+            return resp.data or [], int(getattr(resp, 'count', None) or 0)
         for chunk in _chunks(panorama_ids):
             query = _crm_apply_contact_list_filters(
                 sb.table('crm_contacts').select(select_cols).in_('panorama_id', chunk),
