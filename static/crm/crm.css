@@ -1882,7 +1882,55 @@ html.layout-navbar-fixed .layout-page--crm-merged-nav .container-p-y:not([class^
     gap: 0.35rem;
     border-color: #696cff;
     background-color: #696cff;
+    color: #fff;
     box-shadow: 0 0.125rem 0.375rem rgba(105, 108, 255, 0.35);
+}
+
+.crm-page--sneat .crm-add-action span,
+.crm-page--sneat #btn-add-normal-project span,
+.crm-page--sneat #btn-add-normal-plot span,
+.crm-page--sneat #btn-add-master span,
+.crm-page--sneat .crm-add-action i,
+.crm-page--sneat #btn-add-normal-project i,
+.crm-page--sneat #btn-add-normal-plot i,
+.crm-page--sneat #btn-add-master i {
+    color: #fff;
+}
+
+/* Keep all primary action buttons consistent */
+.crm-page--sneat .btn.btn-primary,
+.crm-page--sneat .btn.btn-primary:hover,
+.crm-page--sneat .btn.btn-primary:focus,
+.crm-page--sneat .btn.btn-primary:active {
+    color: #fff;
+}
+
+.crm-page--sneat .btn.btn-primary span,
+.crm-page--sneat .btn.btn-primary i,
+.crm-page--sneat .btn.btn-primary svg,
+.crm-page--sneat .btn.btn-primary iconify-icon {
+    color: #fff;
+    fill: currentColor;
+}
+
+/* Masters-specific Add buttons */
+.crm-page--sneat #btn-add-master,
+.crm-page--sneat #master-create-save,
+.crm-page--sneat .master-value-add .btn {
+    color: #fff;
+}
+
+.crm-page--sneat #btn-add-master span,
+.crm-page--sneat #master-create-save span,
+.crm-page--sneat .master-value-add .btn span,
+.crm-page--sneat #btn-add-master i,
+.crm-page--sneat #master-create-save i,
+.crm-page--sneat .master-value-add .btn i,
+.crm-page--sneat #btn-add-master svg,
+.crm-page--sneat #master-create-save svg,
+.crm-page--sneat .master-value-add .btn svg {
+    color: #fff;
+    fill: currentColor;
 }
 
 .crm-page--sneat .crm-add-action:hover,

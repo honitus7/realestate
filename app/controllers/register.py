@@ -613,6 +613,21 @@ def register_routes(app):
             return value
         return fallback
 
+    def _extract_custom_fields_payload(data, known_keys):
+        payload = {}
+        if isinstance(data.get('custom_fields'), dict):
+            for k, v in data.get('custom_fields').items():
+                key = str(k or '').strip()
+                if key:
+                    payload[key] = v
+        known = {str(k or '').strip() for k in (known_keys or []) if str(k or '').strip()}
+        for k, v in (data or {}).items():
+            key = str(k or '').strip()
+            if not key or key in known or key == 'custom_fields':
+                continue
+            payload[key] = v
+        return payload
+
     def _is_truthy(value):
         if isinstance(value, bool):
             return value
@@ -772,6 +787,13 @@ def register_routes(app):
                 has_reference_scope = True
         return str(user_id) if has_reference_scope else None
 
+    def _crm_apply_broker_interest_visibility(query, broker_user_id):
+        broker_uid = str(broker_user_id or '').strip()
+        if not broker_uid:
+            return query
+        # Strict broker visibility: only interests referenced to broker OR created by broker.
+        return query.or_(f"reference_user_id.eq.{broker_uid},submitted_by.eq.{broker_uid}")
+
     def _crm_reference_linked_ids(sb, reference_user_id, panorama_ids, client_ids=None, requested_client_id=None):
         ref_uid = str(reference_user_id or '').strip()
         if not ref_uid or not panorama_ids:
@@ -780,9 +802,9 @@ def register_routes(app):
             q = (
                 sb.table('buy_interests')
                 .select('id, contact_id')
-                .eq('reference_user_id', ref_uid)
                 .in_('panorama_id', panorama_ids)
             )
+            q = _crm_apply_broker_interest_visibility(q, ref_uid)
             req_client_id = str(requested_client_id or '').strip()
             if req_client_id:
                 q = q.eq('client_id', req_client_id)
@@ -1906,6 +1928,7 @@ def register_routes(app):
         if not sb:
             return jsonify({'error': 'Database not configured'}), 503
         data = request.get_json(silent=True) or {}
+        request_origin = str(data.get('origin') or '').strip().lower()
         panorama_id = data.get('panorama_id')
         try:
             panorama_id = int(panorama_id)
@@ -1930,10 +1953,19 @@ def register_routes(app):
                 title = 'Dr' if first == 'dr' else first.capitalize()
         description = str(data.get('description') or '').strip()
         category = str(data.get('category') or '').strip()
+        requested_lead_source = str(data.get('lead_source') or '').strip()
+        lead_source = 'SalesTool' if request_origin == 'plot' else (requested_lead_source or 'SalesTool')
         requested_reference_user_id = str(data.get('reference_user_id') or '').strip()
         items = data.get('items') or data.get('plots') or []
         if not isinstance(items, list):
             items = []
+        if not panorama_id and request_origin == 'manual_normal':
+            try:
+                pano_ids_for_manual = _crm_panorama_ids(sb, user_id, role)
+                if pano_ids_for_manual:
+                    panorama_id = int(pano_ids_for_manual[0])
+            except Exception:
+                panorama_id = None
         if not panorama_id:
             return jsonify({'error': 'panorama_id is required'}), 400
         if not customer_name:
@@ -2001,6 +2033,32 @@ def register_routes(app):
             if 'plots' in msg and ('does not exist' in msg.lower() or 'relation' in msg.lower()):
                 return jsonify({'error': 'plots table not found. Run db/schema.sql in Supabase SQL Editor.'}), 503
             return jsonify({'error': msg}), 500
+        if not plots_snapshot and request_origin == 'manual_normal':
+            try:
+                normal_plot_ids = [int(x) for x in (data.get('normal_plot_ids') or []) if str(x).strip()]
+            except Exception:
+                normal_plot_ids = []
+            if not normal_plot_ids:
+                normal_plot_ids = plot_ids[:]
+            if normal_plot_ids:
+                nr = (
+                    sb.table('crm_normal_plots')
+                    .select('id, project_id, project_name, name, area, price, status')
+                    .eq('owner_user_id', str(user_id))
+                    .in_('id', normal_plot_ids)
+                    .execute()
+                )
+                for row in (nr.data or []):
+                    plots_snapshot.append({
+                        'plot_id': int(row.get('id')),
+                        'normal_plot_id': int(row.get('id')),
+                        'normal_project_id': row.get('project_id'),
+                        'normal_project_name': row.get('project_name') or '',
+                        'name': row.get('name') or '',
+                        'area': row.get('area') or '',
+                        'price': row.get('price') or '',
+                        'status': row.get('status') or '',
+                    })
         if not plots_snapshot:
             return jsonify({'error': 'No valid plots found'}), 400
         client_id = None
@@ -2030,6 +2088,7 @@ def register_routes(app):
             'customer_zip_code': customer_zip_code or None,
             'title': title or None,
             'description': description or None,
+            'lead_source': lead_source,
             'category': category,
             'plots': plots_snapshot,
             'status': 'new',
@@ -2039,6 +2098,7 @@ def register_routes(app):
             'created_at': now,
             'updated_at': now,
         }
+        insert_row['custom_fields'] = _extract_custom_fields_payload(data, set(insert_row.keys()))
         try:
             r = sb.table('buy_interests').insert(insert_row).execute()
             row = (r.data or [None])[0] if hasattr(r, 'data') else None
@@ -4154,10 +4214,20 @@ def register_routes(app):
                 title = 'Dr' if first == 'dr' else first.capitalize()
         description = str(data.get('description') or '').strip()
         category = str(data.get('category') or '').strip()
+        request_origin = str(data.get('origin') or '').strip().lower()
+        requested_lead_source = str(data.get('lead_source') or '').strip()
+        lead_source = 'SalesTool' if request_origin == 'plot' else (requested_lead_source or 'SalesTool')
         requested_reference_user_id = str(data.get('reference_user_id') or '').strip()
         items = data.get('items') or data.get('plots') or []
         if not isinstance(items, list):
             items = []
+        if not panorama_id and request_origin == 'manual_normal':
+            try:
+                pano_ids_for_manual = _crm_panorama_ids(sb, user_id, role)
+                if pano_ids_for_manual:
+                    panorama_id = int(pano_ids_for_manual[0])
+            except Exception:
+                panorama_id = None
         if not panorama_id:
             return jsonify({'error': 'panorama_id is required'}), 400
         if not customer_name:
@@ -4218,6 +4288,32 @@ def register_routes(app):
             if 'plots' in msg and ('does not exist' in msg.lower() or 'relation' in msg.lower()):
                 return jsonify({'error': 'plots table not found. Run db/schema.sql in Supabase SQL Editor.'}), 503
             return jsonify({'error': msg}), 500
+        if not plots_snapshot and request_origin == 'manual_normal':
+            try:
+                normal_plot_ids = [int(x) for x in (data.get('normal_plot_ids') or []) if str(x).strip()]
+            except Exception:
+                normal_plot_ids = []
+            if not normal_plot_ids:
+                normal_plot_ids = plot_ids[:]
+            if normal_plot_ids:
+                nr = (
+                    sb.table('crm_normal_plots')
+                    .select('id, project_id, project_name, name, area, price, status')
+                    .eq('owner_user_id', str(user_id))
+                    .in_('id', normal_plot_ids)
+                    .execute()
+                )
+                for row in (nr.data or []):
+                    plots_snapshot.append({
+                        'plot_id': int(row.get('id')),
+                        'normal_plot_id': int(row.get('id')),
+                        'normal_project_id': row.get('project_id'),
+                        'normal_project_name': row.get('project_name') or '',
+                        'name': row.get('name') or '',
+                        'area': row.get('area') or '',
+                        'price': row.get('price') or '',
+                        'status': row.get('status') or '',
+                    })
         if not plots_snapshot:
             return jsonify({'error': 'No valid plots found'}), 400
         requested_client_id = data.get('client_id')
@@ -4263,6 +4359,7 @@ def register_routes(app):
             'customer_zip_code': customer_zip_code or None,
             'title': title or None,
             'description': description or None,
+            'lead_source': lead_source,
             'category': category,
             'plots': plots_snapshot,
             'status': 'new',
@@ -4376,7 +4473,7 @@ def register_routes(app):
                 'customer_phone, customer_birthday, customer_address, customer_street, customer_city, customer_state, '
                 'customer_country, customer_zip_code, lead_source, lead_category, lead_status, campaign_type, '
                 'campaign_status, deal_stage, title, description, category, plots, status, is_contacted, contacted_at, '
-                'notes, created_at, updated_at, submitted_by, assigned_to, assigned_at'
+                'notes, custom_fields, created_at, updated_at, submitted_by, assigned_to, assigned_at'
             )
             query = sb.table('buy_interests').select(cols, count='exact').in_('panorama_id', panorama_ids)
             if requested_client_id:
@@ -4384,7 +4481,7 @@ def register_routes(app):
                     return jsonify({'error': 'Forbidden for this client group'}), 403
                 query = query.eq('client_id', requested_client_id)
             if reference_scope_user_id:
-                query = query.eq('reference_user_id', reference_scope_user_id)
+                query = _crm_apply_broker_interest_visibility(query, reference_scope_user_id)
             if workspace_id:
                 try:
                     ws_rows = _with_supabase_retry(
@@ -4478,6 +4575,16 @@ def register_routes(app):
         if client_scope_ids is not None and not client_scope_ids:
             return jsonify({'error': 'Forbidden'}), 403
         reference_scope_user_id = _crm_interest_reference_scope_user_id(sb, user_id, role, client_scope_ids)
+        existing_interest = _get_interest_for_user(
+            sb,
+            interest_id,
+            panorama_ids,
+            client_ids=client_scope_ids,
+            reference_user_id=reference_scope_user_id,
+        )
+        if not existing_interest:
+            return jsonify({'error': 'Not found or access denied'}), 404
+
         if 'assigned_to' in data:
             iq = (
                 sb.table('buy_interests')
@@ -4486,7 +4593,7 @@ def register_routes(app):
                 .in_('panorama_id', panorama_ids)
             )
             if reference_scope_user_id:
-                iq = iq.eq('reference_user_id', reference_scope_user_id)
+                iq = _crm_apply_broker_interest_visibility(iq, reference_scope_user_id)
             ir = iq.limit(1).execute()
             if not ir.data:
                 return jsonify({'error': 'Not found or access denied'}), 404
@@ -4534,6 +4641,11 @@ def register_routes(app):
             'customer_address',
         ):
             if key in data:
+                if key == 'lead_source':
+                    existing_source = str(existing_interest.get('lead_source') or '').strip().lower()
+                    has_plot_origin = isinstance(existing_interest.get('plots'), list) and len(existing_interest.get('plots') or []) > 0
+                    if has_plot_origin and existing_source == 'salestool':
+                        return jsonify({'error': 'Lead Source is locked for plot-origin interests'}), 400
                 value = str(data.get(key) or '').strip()
                 if key in ('title', 'customer_zip_code') and len(value) > 40:
                     return jsonify({'error': f'{key} must be 40 characters or less'}), 400
@@ -4542,6 +4654,9 @@ def register_routes(app):
                 if key not in ('description', 'customer_address') and len(value) > 100:
                     return jsonify({'error': f'{key} must be 100 characters or less'}), 400
                 upd[key] = value or None
+        dynamic_custom_fields = _extract_custom_fields_payload(data, set(upd.keys()) | {'is_contacted', 'status', 'assigned_to', 'notes'})
+        if dynamic_custom_fields:
+            upd['custom_fields'] = dynamic_custom_fields
         if not upd:
             return jsonify({'error': 'Nothing to update'}), 400
         upd['updated_at'] = now
@@ -4549,7 +4664,7 @@ def register_routes(app):
         try:
             uq = sb.table('buy_interests').update(upd).eq('id', interest_id).in_('panorama_id', panorama_ids)
             if reference_scope_user_id:
-                uq = uq.eq('reference_user_id', reference_scope_user_id)
+                uq = _crm_apply_broker_interest_visibility(uq, reference_scope_user_id)
             r = uq.execute()
             if not r.data or len(r.data) == 0:
                 return jsonify({'error': 'Not found or access denied'}), 404
@@ -4582,13 +4697,13 @@ def register_routes(app):
                 .in_('panorama_id', panorama_ids)
             )
             if reference_scope_user_id:
-                eq = eq.eq('reference_user_id', reference_scope_user_id)
+                eq = _crm_apply_broker_interest_visibility(eq, reference_scope_user_id)
             existing = eq.limit(1).execute()
             if not (existing.data or []):
                 return jsonify({'error': 'Not found or access denied'}), 404
             dq = sb.table('buy_interests').delete().eq('id', str(interest_id)).in_('panorama_id', panorama_ids)
             if reference_scope_user_id:
-                dq = dq.eq('reference_user_id', reference_scope_user_id)
+                dq = _crm_apply_broker_interest_visibility(dq, reference_scope_user_id)
             dq.execute()
             _crm_cache_bump()
             return jsonify({'success': True})
@@ -4604,12 +4719,12 @@ def register_routes(app):
         try:
             q = (
                 sb.table('buy_interests')
-                .select('id, client_id, panorama_id, contact_id, reference_user_id, customer_name, customer_email, customer_phone, customer_birthday, customer_address, customer_street, customer_city, customer_state, customer_country, customer_zip_code, lead_source, lead_category, lead_status, campaign_type, campaign_status, deal_stage, title, description, category, plots, notes, created_at, is_contacted, contacted_at, status, assigned_to, assigned_at')
+                .select('id, client_id, panorama_id, contact_id, reference_user_id, submitted_by, customer_name, customer_email, customer_phone, customer_birthday, customer_address, customer_street, customer_city, customer_state, customer_country, customer_zip_code, lead_source, lead_category, lead_status, campaign_type, campaign_status, deal_stage, title, description, category, plots, notes, custom_fields, created_at, is_contacted, contacted_at, status, assigned_to, assigned_at')
                 .eq('id', str(interest_id))
                 .in_('panorama_id', panorama_ids)
             )
             if reference_user_id:
-                q = q.eq('reference_user_id', str(reference_user_id))
+                q = _crm_apply_broker_interest_visibility(q, str(reference_user_id))
             r = q.limit(1).execute()
             rows = r.data or []
             return rows[0] if rows else None
@@ -4622,7 +4737,7 @@ def register_routes(app):
         try:
             q = (
                 sb.table('crm_contacts')
-                .select('id, org_id, client_id, panorama_id, full_name, email, phone, email_norm, phone_norm, notes, created_at, updated_at')
+                .select('id, org_id, client_id, panorama_id, full_name, email, phone, email_norm, phone_norm, notes, custom_fields, created_at, updated_at')
                 .eq('id', str(contact_id))
                 .in_('panorama_id', panorama_ids)
             )
@@ -4692,6 +4807,7 @@ def register_routes(app):
             'source_interest_id': None,
             'created_by': user_id,
             'notes': notes,
+            'custom_fields': _extract_custom_fields_payload(data, {'full_name', 'name', 'email', 'phone', 'notes', 'panorama_id', 'client_id'}),
             'created_at': now,
             'updated_at': now,
         }
@@ -4712,7 +4828,7 @@ def register_routes(app):
         if not contact:
             return jsonify({'error': 'Not found or access denied'}), 404
         data = request.get_json(silent=True) or {}
-        if not any(k in data for k in ('full_name', 'email', 'phone', 'notes')):
+        if not any(k in data for k in ('full_name', 'email', 'phone', 'notes', 'custom_fields')):
             return jsonify({'error': 'Nothing to update'}), 400
         incoming_name = str(data.get('full_name') or contact.get('full_name') or '').strip()
         incoming_email = str(data.get('email') or contact.get('email') or '').strip()
@@ -4720,6 +4836,9 @@ def register_routes(app):
         incoming_notes = str(data.get('notes') or contact.get('notes') or '').strip()
         now = datetime.utcnow().isoformat()
         upd = _merge_contact_payload(contact, full_name=incoming_name, email=incoming_email, phone=incoming_phone, notes=incoming_notes)
+        dynamic_contact_custom = _extract_custom_fields_payload(data, {'full_name', 'email', 'phone', 'notes'})
+        if dynamic_contact_custom:
+            upd['custom_fields'] = dynamic_contact_custom
         upd['updated_at'] = now
         org_id = contact.get('org_id')
         try:
@@ -4879,7 +4998,7 @@ def register_routes(app):
             query = (
                 sb.table('crm_deals')
                 .select(
-                    'id, org_id, client_id, panorama_id, interest_id, contact_id, title, stage, is_active, amount, currency, plots, project_name, notes, created_at, updated_at',
+                    'id, org_id, client_id, panorama_id, interest_id, contact_id, title, stage, is_active, amount, currency, plots, project_name, notes, custom_fields, created_at, updated_at',
                     count='exact',
                 )
                 .in_('panorama_id', panorama_ids)
@@ -5002,6 +5121,7 @@ def register_routes(app):
             'plots': plots if isinstance(plots, list) else [],
             'project_name': pinfo.get('panorama_name') or '',
             'notes': str(data.get('notes') or interest.get('notes') or '').strip(),
+            'custom_fields': _extract_custom_fields_payload(data, {'contact_id', 'client_id', 'title', 'stage', 'amount', 'plots', 'notes'}) or _safe_json(interest.get('custom_fields'), {}),
             'created_by': user_id,
             'created_at': now,
             'updated_at': now,
@@ -5131,6 +5251,7 @@ def register_routes(app):
             'plots': plots if isinstance(plots, list) else [],
             'project_name': pinfo.get('panorama_name') or '',
             'notes': str(data.get('notes') or interest.get('notes') or '').strip(),
+            'custom_fields': _extract_custom_fields_payload(data, {'contact_id', 'client_id', 'title', 'stage', 'amount', 'plots', 'notes'}) or _safe_json(interest.get('custom_fields'), {}),
             'created_by': user_id,
             'created_at': now,
             'updated_at': now,
@@ -5208,6 +5329,7 @@ def register_routes(app):
             'plots': _safe_json(data.get('plots'), []),
             'project_name': str(data.get('project_name') or (pmap.get(panorama_id) or {}).get('panorama_name') or '').strip(),
             'notes': str(data.get('notes') or '').strip(),
+            'custom_fields': _extract_custom_fields_payload(data, {'panorama_id', 'contact_id', 'client_id', 'interest_id', 'title', 'stage', 'amount', 'currency', 'plots', 'project_name', 'notes'}),
             'created_by': user_id,
             'created_at': now,
             'updated_at': now,
@@ -5272,6 +5394,9 @@ def register_routes(app):
                 return jsonify({'error': 'Invalid stage'}), 400
             upd['stage'] = stage
             upd['is_active'] = _touch_deal_active_state_from_stage(stage)
+        dynamic_deal_custom = _extract_custom_fields_payload(data, set(upd.keys()) | {'title', 'amount', 'currency', 'project_name', 'notes', 'plots', 'contact_id', 'stage'})
+        if dynamic_deal_custom:
+            upd['custom_fields'] = dynamic_deal_custom
         if not upd:
             return jsonify({'error': 'Nothing to update'}), 400
         upd['updated_at'] = datetime.utcnow().isoformat()

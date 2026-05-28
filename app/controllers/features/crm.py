@@ -20,7 +20,7 @@ from app.services.uam_reference_service import (
     _project_reference_client_ids,
 )
 
-CRM_MASTER_APPLIES_ENTITIES = ('interests', 'deals', 'contacts', 'plots')
+CRM_MASTER_APPLIES_ENTITIES = ('interests', 'deals', 'contacts', 'plots', 'projects')
 
 CRM_MASTER_FIELDS = [
     {'key': 'lead_source', 'label': 'Lead Source', 'sort_order': 10, 'required': True, 'optional': False, 'applies_to': ['interests', 'deals']},
@@ -30,6 +30,7 @@ CRM_MASTER_FIELDS = [
     {'key': 'campaign_status', 'label': 'Campaign Status', 'sort_order': 50, 'required': False, 'optional': True, 'applies_to': ['interests']},
     {'key': 'deal_stage', 'label': 'Deal Stage', 'sort_order': 60, 'required': False, 'optional': True, 'applies_to': ['deals']},
     {'key': 'plot_status', 'label': 'Plot Status', 'sort_order': 65, 'required': False, 'optional': True, 'applies_to': ['plots']},
+    {'key': 'builder_name', 'label': 'Builder Name', 'sort_order': 68, 'required': False, 'optional': True, 'applies_to': ['projects']},
     {'key': 'title', 'label': 'Title', 'sort_order': 70, 'required': False, 'optional': True, 'applies_to': ['contacts']},
     {'key': 'state', 'label': 'State', 'sort_order': 80, 'required': False, 'optional': True, 'applies_to': ['interests', 'contacts']},
     {'key': 'country', 'label': 'Country', 'sort_order': 90, 'required': False, 'optional': True, 'applies_to': ['interests', 'contacts']},
@@ -53,6 +54,7 @@ CRM_MASTER_DEFAULT_VALUES = {
     'campaign_status': ['Draft', 'Active', 'Paused', 'Completed', 'Disabled'],
     'deal_stage': ['New', 'Contacted', 'Site Visit', 'Negotiation', 'Won', 'Lost'],
     'plot_status': ['Available', 'On Hold', 'Sold'],
+    'builder_name': ['Sun Builders', 'Skyline Developers', 'Greenfield Realty'],
     'title': ['Mr', 'Mrs', 'Ms', 'Dr'],
     'state': [],
     'country': ['India'],
@@ -62,6 +64,21 @@ _CRM_MASTER_CONFIG_CACHE = {}
 _CRM_MASTER_CONFIG_CACHE_TTL_SECONDS = 10
 _CRM_ALLOTTED_CLIENTS_CACHE = {}
 _CRM_ALLOTTED_CLIENTS_CACHE_TTL_SECONDS = 10
+
+
+def _with_retry(fn, attempts=2, sleep_seconds=0.12):
+    last_error = None
+    for idx in range(max(1, int(attempts))):
+        try:
+            return fn()
+        except Exception as e:
+            last_error = e
+            if idx >= max(1, int(attempts)) - 1:
+                break
+            time.sleep(sleep_seconds)
+    if last_error is not None:
+        raise last_error
+    return fn()
 
 
 def _fetch_pages(fetch_page, page_size=1000):
@@ -1099,7 +1116,7 @@ def register_crm_master_routes(app, *, crm_client_scope_ids, crm_cache_bump):
 
 
 def _crm_contact_list_select():
-    return 'id, org_id, client_id, panorama_id, full_name, email, phone, notes, created_at, updated_at'
+    return 'id, org_id, client_id, panorama_id, full_name, email, phone, notes, custom_fields, created_at, updated_at'
 
 
 def _crm_apply_contact_list_filters(query, *, requested_client_id=None, client_scope_ids=None, q=''):
@@ -1200,14 +1217,26 @@ def register_crm_contact_routes(
         sb = get_supabase()
         if not sb:
             return jsonify({'error': 'Database not configured'}), 503
-        panorama_ids = crm_panorama_ids(sb, user_id, role)
+        try:
+            panorama_ids = _with_retry(lambda: crm_panorama_ids(sb, user_id, role), attempts=2)
+        except Exception as e:
+            return jsonify({'error': str(e) or 'Failed to load CRM panoramas'}), 503
         page, limit, offset = crm_parse_page_args(default_limit=10, max_limit=100)
         if not panorama_ids:
             return jsonify(crm_page_payload([], 0, page, limit))
-        client_scope_ids = crm_client_scope_ids(sb, user_id, role)
+        try:
+            client_scope_ids = _with_retry(lambda: crm_client_scope_ids(sb, user_id, role), attempts=2)
+        except Exception as e:
+            return jsonify({'error': str(e) or 'Failed to load CRM client scope'}), 503
         if client_scope_ids is not None and not client_scope_ids:
             return jsonify(crm_page_payload([], 0, page, limit))
-        reference_scope_user_id = crm_interest_reference_scope_user_id(sb, user_id, role, client_scope_ids)
+        try:
+            reference_scope_user_id = _with_retry(
+                lambda: crm_interest_reference_scope_user_id(sb, user_id, role, client_scope_ids),
+                attempts=2,
+            )
+        except Exception:
+            reference_scope_user_id = None
         requested_client_id = (request.args.get('client_id') or '').strip() or None
         q = str(request.args.get('q') or '').strip().lower()
         include_counts = str(request.args.get('include_counts', '1')).strip() != '0'
@@ -1215,13 +1244,19 @@ def register_crm_contact_routes(
             return jsonify({'error': 'Forbidden for this client group'}), 403
         reference_interest_ids, reference_contact_ids = [], []
         if reference_scope_user_id:
-            reference_interest_ids, reference_contact_ids = crm_reference_linked_ids(
-                sb,
-                reference_scope_user_id,
-                panorama_ids,
-                client_ids=client_scope_ids,
-                requested_client_id=requested_client_id,
-            )
+            try:
+                reference_interest_ids, reference_contact_ids = _with_retry(
+                    lambda: crm_reference_linked_ids(
+                        sb,
+                        reference_scope_user_id,
+                        panorama_ids,
+                        client_ids=client_scope_ids,
+                        requested_client_id=requested_client_id,
+                    ),
+                    attempts=2,
+                )
+            except Exception:
+                reference_interest_ids, reference_contact_ids = [], []
             if not reference_interest_ids and not reference_contact_ids:
                 return jsonify(crm_page_payload([], 0, page, limit))
         cache_key = (
@@ -1245,17 +1280,20 @@ def register_crm_contact_routes(
         if cached is not None:
             return jsonify(cached)
         try:
-            rows, total = _crm_fetch_contact_rows(
-                sb,
-                panorama_ids,
-                client_scope_ids=client_scope_ids,
-                requested_client_id=requested_client_id,
-                reference_scope_user_id=reference_scope_user_id,
-                reference_contact_ids=reference_contact_ids,
-                reference_interest_ids=reference_interest_ids,
-                q=q,
-                offset=offset,
-                limit=limit,
+            rows, total = _with_retry(
+                lambda: _crm_fetch_contact_rows(
+                    sb,
+                    panorama_ids,
+                    client_scope_ids=client_scope_ids,
+                    requested_client_id=requested_client_id,
+                    reference_scope_user_id=reference_scope_user_id,
+                    reference_contact_ids=reference_contact_ids,
+                    reference_interest_ids=reference_interest_ids,
+                    q=q,
+                    offset=offset,
+                    limit=limit,
+                ),
+                attempts=2,
             )
         except Exception as e:
             msg = str(e)
