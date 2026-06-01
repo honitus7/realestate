@@ -8,6 +8,7 @@
 /* Stabilize Add Project / Add Plot modals */
 #add-normal-project-modal.visible,
 #add-normal-plot-modal.visible,
+#edit-plot-modal.visible,
 #add-interest-modal.visible,
 #contact-modal-backdrop.visible {
     display: flex !important;
@@ -27,6 +28,7 @@
 }
 #add-normal-project-modal .crm-modal,
 #add-normal-plot-modal .crm-modal,
+#edit-plot-modal .crm-modal,
 #add-interest-modal .crm-modal,
 #contact-modal-backdrop .crm-modal {
     width: min(860px, 96vw) !important;
@@ -52,6 +54,7 @@
 }
 #add-normal-project-modal .crm-simple-modal-head,
 #add-normal-plot-modal .crm-simple-modal-head,
+#edit-plot-modal .crm-simple-modal-head,
 #add-interest-modal .crm-simple-modal-head,
 #contact-modal-backdrop .crm-simple-modal-head {
     display: flex;
@@ -62,6 +65,7 @@
 }
 #add-normal-project-modal .crm-simple-modal-body,
 #add-normal-plot-modal .crm-simple-modal-body,
+#edit-plot-modal .crm-simple-modal-body,
 #add-interest-modal .crm-simple-modal-body,
 #contact-modal-backdrop .crm-simple-modal-body {
     display: grid;
@@ -69,6 +73,7 @@
 }
 #add-normal-project-modal .crm-simple-modal-body .form-group,
 #add-normal-plot-modal .crm-simple-modal-body .form-group,
+#edit-plot-modal .crm-simple-modal-body .form-group,
 #add-interest-modal .crm-simple-modal-body .form-group {
     display: grid;
     grid-template-columns: 180px minmax(0, 1fr);
@@ -85,6 +90,7 @@
 }
 #add-normal-project-modal .crm-simple-modal-body .form-label,
 #add-normal-plot-modal .crm-simple-modal-body .form-label,
+#edit-plot-modal .crm-simple-modal-body .form-label,
 #add-interest-modal .crm-simple-modal-body .form-label {
     margin: 0;
     font-size: 0.9rem;
@@ -93,12 +99,14 @@
 }
 #add-normal-project-modal .crm-simple-modal-body .form-input,
 #add-normal-plot-modal .crm-simple-modal-body .form-input,
+#edit-plot-modal .crm-simple-modal-body .form-input,
 #add-interest-modal .crm-simple-modal-body .form-input {
     width: 100%;
     min-width: 0;
 }
 #add-normal-project-modal .crm-simple-modal-body textarea.form-input,
 #add-normal-plot-modal .crm-simple-modal-body textarea.form-input,
+#edit-plot-modal .crm-simple-modal-body textarea.form-input,
 #add-interest-modal .crm-simple-modal-body textarea.form-input {
     min-height: 84px;
 }
@@ -128,6 +136,7 @@
 }
 #add-normal-project-modal .modal-actions,
 #add-normal-plot-modal .modal-actions,
+#edit-plot-modal .modal-actions,
 #add-interest-modal .modal-actions,
 #contact-modal-backdrop .modal-actions {
     margin-top: 1rem;
@@ -141,6 +150,7 @@
 @media (max-width: 768px) {
     #add-normal-project-modal .crm-simple-modal-body .form-group,
     #add-normal-plot-modal .crm-simple-modal-body .form-group,
+    #edit-plot-modal .crm-simple-modal-body .form-group,
     #add-interest-modal .crm-simple-modal-body .form-group,
     #contact-modal-backdrop .crm-simple-modal-body .form-group {
         grid-template-columns: 1fr;
@@ -833,6 +843,27 @@
             </div>
 
             <!-- â•â•â•â•â•â•â•â•â•â• MANAGE LOCK SECTION (admin only) â•â•â•â•â•â•â•â•â•â• -->
+            <div class="crm-modal-backdrop" id="edit-plot-modal">
+                <div class="crm-modal">
+                    <div class="crm-simple-modal-head">
+                        <div class="modal-title" style="margin:0;">Edit Plot Details</div>
+                        <button type="button" class="modal-close" id="edit-plot-close" aria-label="Close">&times;</button>
+                    </div>
+                    <div id="edit-plot-error" class="msg error" style="display:none;margin-bottom:1rem;"></div>
+                    <div class="crm-simple-modal-body">
+                        <div class="form-group"><label class="form-label">Plot Number *</label><input type="text" class="form-input" id="ep-name" maxlength="120" readonly></div>
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;">
+                            <div class="form-group"><label class="form-label">Area</label><input type="text" class="form-input" id="ep-area" maxlength="100"></div>
+                            <div class="form-group"><label class="form-label">Status</label><select class="form-input" id="ep-status"></select></div>
+                        </div>
+                        <div class="form-group"><label class="form-label">Description</label><textarea class="form-input" id="ep-description" rows="3" style="resize:vertical;"></textarea></div>
+                    </div>
+                    <div class="modal-actions" style="margin-top:1rem;">
+                        <button class="btn btn-secondary" id="edit-plot-cancel" type="button">Cancel</button>
+                        <button class="btn btn-primary crm-add-action" id="edit-plot-save" type="button">Save</button>
+                    </div>
+                </div>
+            </div>
             <section class="crm-section" id="sec-manage-lock">
                 <div class="section-header">
                     <div><h2>Manage Lock Access</h2><p>Grant or revoke plot lock access for users in your organization</p></div>
@@ -4953,35 +4984,23 @@
             // const lockData = getLockablePlot(p.id);
             // const isLocked = !!(lockData && lockData.lock);
             return '<tr>' +
-                '<td><input class="inline-edit" value="'+esc(p.name||'')+'" data-field="name" data-pid="'+esc(p.id)+'" aria-label="Plot Number" '+(isNormalRow ? 'disabled' : '')+'></td>' +
-                '<td><input class="inline-edit" value="'+esc(p.area||'')+'" data-field="area" data-pid="'+esc(p.id)+'" aria-label="Plot Size Area" '+(isNormalRow ? 'disabled' : '')+'></td>' +
+                '<td>'+esc(p.name||'—')+'</td>' +
+                '<td>'+esc(p.area||'—')+'</td>' +
                 '<td>'+esc(crmType === 'normal' ? 'Normal' : 'Visual')+'</td>' +
-                '<td><select class="inline-edit-select" data-field="status" data-pid="'+esc(p.id)+'" '+(isNormalRow ? 'disabled' : '')+'>'+plotStatusOptionsHtml(p.status, false)+'</select></td>' +
+                '<td>'+esc(p.status || '—')+'</td>' +
                 '<td><span class="plot-status-swatch '+sc+'" aria-label="'+esc(p.status||'available')+'"></span></td>' +
-                '<td><input class="inline-edit" value="'+esc(p.description||'')+'" data-field="description" data-pid="'+esc(p.id)+'" aria-label="Description" '+(isNormalRow ? 'disabled' : '')+'></td>' +
+                '<td>'+esc(p.description||'—')+'</td>' +
                 '<td class="mono">'+esc(interestCount)+'</td>' +
                 '<td>'+esc(salesAgents)+'</td>' +
                 '<td>'+esc(brokers)+'</td>' +
-                '<td><div class="plot-row-actions">'+(isNormalRow ? '<span style="color:var(--muted);font-size:0.75rem;">Broker</span>' : '<button class="btn" data-save-plot="'+esc(p.id)+'">Save</button>') +
+                '<td><div class="plot-row-actions">'+(isNormalRow ? '<span style="color:var(--muted);font-size:0.75rem;">Broker</span>' : '<button class="btn" data-edit-plot="'+esc(p.id)+'">Edit</button>') +
                     // Temporarily hidden; keep nearby so the lock feature can be restored later.
                     // '<button class="btn plot-lock-trigger'+(isLocked?' is-locked':'')+'" data-open-plot-lock="'+esc(p.id)+'">'+(isLocked?'Locked':'Lock')+'</button>' +
                 '</div></td>' +
             '</tr>';
         }).join('');
-        tbody.querySelectorAll('[data-save-plot]').forEach(btn => {
-            btn.addEventListener('click', async () => {
-                const pid = btn.getAttribute('data-save-plot');
-                const upd = {};
-                document.querySelectorAll('[data-pid="'+pid+'"]').forEach(el => { upd[el.getAttribute('data-field')] = el.value; });
-                btn.disabled=true; btn.textContent='Saving...';
-                try {
-                    const r = await api('/api/plots/'+encodeURIComponent(pid),{method:'PUT',body:JSON.stringify(upd)});
-                    if(!r.ok) { const d=await r.json().catch(()=>({})); throw new Error(d.error||'Failed'); }
-                    const idx = allPlots.findIndex(x=>String(x.id)===String(pid));
-                    if(idx>=0) Object.assign(allPlots[idx], upd);
-                    btn.textContent='Saved!'; setTimeout(()=>{btn.textContent='Save'; btn.disabled=false;},1500);
-                } catch(e) { btn.textContent='Error'; setTimeout(()=>{btn.textContent='Save'; btn.disabled=false;},2000); }
-            });
+        tbody.querySelectorAll('[data-edit-plot]').forEach(btn => {
+            btn.addEventListener('click', () => openPlotEditModal(btn.getAttribute('data-edit-plot')));
         });
         // Plot locking is temporarily hidden from the CRM Plots table.
         // tbody.querySelectorAll('[data-open-plot-lock]').forEach(btn => {
@@ -4999,6 +5018,63 @@
         //     });
         // });
     }
+    let editPlotModal = null;
+    let editingCrmPlotId = null;
+    function closePlotEditModal() {
+        editingCrmPlotId = null;
+        if ($('edit-plot-error')) $('edit-plot-error').style.display = 'none';
+        if (editPlotModal) editPlotModal.classList.remove('visible');
+    }
+    function openPlotEditModal(plotId) {
+        const pid = String(plotId || '').trim();
+        const plot = (allPlots || []).find(x => String(x.id) === pid);
+        if (!plot || !editPlotModal) return;
+        editingCrmPlotId = pid;
+        if ($('ep-name')) $('ep-name').value = String(plot.name || '');
+        if ($('ep-area')) $('ep-area').value = String(plot.area || '');
+        if ($('ep-description')) $('ep-description').value = String(plot.description || '');
+        if ($('ep-status')) {
+            $('ep-status').innerHTML = plotStatusOptionsHtml(plot.status, false);
+            $('ep-status').value = String(getStatusKey(plot.status) || 'available');
+        }
+        if ($('edit-plot-error')) $('edit-plot-error').style.display = 'none';
+        editPlotModal.classList.add('visible');
+    }
+    if ($('edit-plot-close')) $('edit-plot-close').addEventListener('click', closePlotEditModal);
+    if ($('edit-plot-cancel')) $('edit-plot-cancel').addEventListener('click', closePlotEditModal);
+    if ($('edit-plot-save')) {
+        $('edit-plot-save').addEventListener('click', async () => {
+            const pid = String(editingCrmPlotId || '').trim();
+            const err = $('edit-plot-error');
+            const saveBtn = $('edit-plot-save');
+            if (!pid) return;
+            const upd = {
+                area: String(($('ep-area') && $('ep-area').value) || '').trim(),
+                status: String(($('ep-status') && $('ep-status').value) || 'available').trim() || 'available',
+                description: String(($('ep-description') && $('ep-description').value) || '').trim()
+            };
+            if (err) err.style.display = 'none';
+            saveBtn.disabled = true;
+            saveBtn.textContent = 'Saving...';
+            try {
+                const r = await api('/api/plots/' + encodeURIComponent(pid), { method: 'PUT', body: JSON.stringify(upd) });
+                if (!r.ok) {
+                    const d = await r.json().catch(() => ({}));
+                    throw new Error(d.error || 'Failed to save plot');
+                }
+                const idx = allPlots.findIndex(x => String(x.id) === String(pid));
+                if (idx >= 0) Object.assign(allPlots[idx], upd);
+                renderPlotsTable();
+                closePlotEditModal();
+                showToast('Plot updated');
+            } catch (e) {
+                if (err) { err.textContent = e.message || 'Failed to save plot'; err.style.display = 'block'; }
+            } finally {
+                saveBtn.disabled = false;
+                saveBtn.textContent = 'Save';
+            }
+        });
+    }
     plotSearch.addEventListener('input', function () { loadAllPlots(true); });
     if (plotClientFilter) plotClientFilter.addEventListener('change', function () { loadAllPlots(true); });
     plotPanoFilter.addEventListener('change', function () { loadAllPlots(true); });
@@ -5009,6 +5085,10 @@
     const addNormalPlotBtn = $('btn-add-normal-plot');
     const addNormalProjectModal = $('add-normal-project-modal');
     const addNormalPlotModal = $('add-normal-plot-modal');
+    editPlotModal = $('edit-plot-modal');
+    if (editPlotModal) {
+        editPlotModal.addEventListener('click', (e) => { if (e.target === editPlotModal) closePlotEditModal(); });
+    }
     const normalProjectMasterFieldsEl = $('normal-project-master-fields');
     const normalPlotMasterFieldsEl = $('normal-plot-master-fields');
     const projectsNormalToolbar = $('projects-normal-toolbar');
