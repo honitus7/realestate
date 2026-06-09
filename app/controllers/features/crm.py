@@ -104,14 +104,18 @@ def register_crm_broker_routes(app, *, crm_panorama_ids, crm_client_scope_ids):
         if cached and time.time() - cached[0] <= _CRM_ALLOTTED_CLIENTS_CACHE_TTL_SECONDS:
             return jsonify(cached[1])
 
-        memberships = [
-            row for row in get_client_memberships(sb, user_id)
+        all_memberships = get_client_memberships(sb, user_id)
+        client_admin_memberships = [
+            row for row in all_memberships
+            if _normalize_client_member_role(row.get('member_role')) == CLIENT_MEMBER_ROLE_CLIENT_ADMIN
+        ]
+        broker_memberships = [
+            row for row in all_memberships
             if _normalize_client_member_role(row.get('member_role')) == CLIENT_MEMBER_ROLE_BROKER
         ]
-        if (
-            not memberships
-            and _normalize_client_member_role(role) != CLIENT_MEMBER_ROLE_BROKER
-        ):
+        is_client_admin = bool(client_admin_memberships)
+        memberships = client_admin_memberships if is_client_admin else broker_memberships
+        if not memberships and _normalize_client_member_role(role) != CLIENT_MEMBER_ROLE_BROKER:
             return jsonify([])
 
         client_scope_ids = crm_client_scope_ids(sb, user_id, role)
@@ -122,12 +126,30 @@ def register_crm_broker_routes(app, *, crm_panorama_ids, crm_client_scope_ids):
         if not client_ids:
             return jsonify([])
 
-        member_ids_by_client = {}
-        for member in memberships:
-            cid = member.get('client_id')
-            mid = member.get('id')
-            if cid in client_ids and mid:
-                member_ids_by_client.setdefault(cid, []).append(mid)
+        member_ids_by_client = {cid: [] for cid in client_ids}
+        if is_client_admin:
+            try:
+                for chunk in _chunks(client_ids):
+                    rows = (
+                        sb.table('client_members')
+                        .select('id, client_id')
+                        .in_('client_id', chunk)
+                        .execute()
+                        .data or []
+                    )
+                    for row in rows:
+                        cid = str(row.get('client_id') or '')
+                        mid = row.get('id')
+                        if cid in member_ids_by_client and mid:
+                            member_ids_by_client[cid].append(mid)
+            except Exception:
+                pass
+        else:
+            for member in memberships:
+                cid = member.get('client_id')
+                mid = member.get('id')
+                if cid in member_ids_by_client and mid:
+                    member_ids_by_client[cid].append(mid)
 
         client_names = {}
         try:
@@ -141,7 +163,7 @@ def register_crm_broker_routes(app, *, crm_panorama_ids, crm_client_scope_ids):
             client_names = {}
 
         project_sets = {cid: set() for cid in client_ids}
-        panorama_to_clients = {}
+        panorama_sets = {cid: set() for cid in client_ids}
         for cid, member_ids in member_ids_by_client.items():
             for chunk in _chunks(member_ids):
                 try:
@@ -158,16 +180,38 @@ def register_crm_broker_routes(app, *, crm_panorama_ids, crm_client_scope_ids):
                         pid = row.get('panorama_id')
                         try:
                             if pid is not None:
-                                panorama_to_clients.setdefault(int(pid), set()).add(cid)
+                                panorama_sets[cid].add(int(pid))
                         except Exception:
                             continue
                 except Exception:
                     pass
 
-        if panorama_to_clients:
+        workspace_to_clients = {}
+        for cid, workspace_ids in project_sets.items():
+            for workspace_id in workspace_ids:
+                workspace_to_clients.setdefault(workspace_id, set()).add(cid)
+        if workspace_to_clients:
             try:
-                pano_ids = list(panorama_to_clients.keys())
-                for chunk in _chunks(pano_ids):
+                for chunk in _chunks(workspace_to_clients.keys()):
+                    rows = sb.table('panoramas').select('id, workspace_id').in_('workspace_id', chunk).execute().data or []
+                    for row in rows:
+                        try:
+                            pid = int(row.get('id'))
+                        except Exception:
+                            continue
+                        wsid = str(row.get('workspace_id') or '')
+                        for cid in workspace_to_clients.get(wsid, set()):
+                            panorama_sets.setdefault(cid, set()).add(pid)
+            except Exception:
+                pass
+
+        direct_panorama_to_clients = {}
+        for cid, panorama_ids in panorama_sets.items():
+            for panorama_id in panorama_ids:
+                direct_panorama_to_clients.setdefault(panorama_id, set()).add(cid)
+        if direct_panorama_to_clients:
+            try:
+                for chunk in _chunks(direct_panorama_to_clients.keys()):
                     rows = sb.table('panoramas').select('id, workspace_id').in_('id', chunk).execute().data or []
                     for row in rows:
                         try:
@@ -176,8 +220,38 @@ def register_crm_broker_routes(app, *, crm_panorama_ids, crm_client_scope_ids):
                             continue
                         wsid = row.get('workspace_id')
                         if wsid:
-                            for cid in panorama_to_clients.get(pid, set()):
+                            for cid in direct_panorama_to_clients.get(pid, set()):
                                 project_sets.setdefault(cid, set()).add(str(wsid))
+            except Exception:
+                pass
+
+        plot_counts = {
+            cid: {'total': 0, 'sold': 0, 'pending': 0, 'available': 0}
+            for cid in client_ids
+        }
+        panorama_to_clients = {}
+        for cid, panorama_ids in panorama_sets.items():
+            for panorama_id in panorama_ids:
+                panorama_to_clients.setdefault(panorama_id, set()).add(cid)
+        if panorama_to_clients:
+            try:
+                for chunk in _chunks(panorama_to_clients.keys()):
+                    rows = sb.table('plots').select('panorama_id, status').in_('panorama_id', chunk).execute().data or []
+                    for row in rows:
+                        try:
+                            pid = int(row.get('panorama_id'))
+                        except Exception:
+                            continue
+                        status_key = _crm_plot_status_key(row.get('status'))
+                        for cid in panorama_to_clients.get(pid, set()):
+                            counts = plot_counts[cid]
+                            counts['total'] += 1
+                            if status_key == 'sold':
+                                counts['sold'] += 1
+                            elif status_key in ('reserved', 'onhold', 'pending'):
+                                counts['pending'] += 1
+                            elif status_key == 'available':
+                                counts['available'] += 1
             except Exception:
                 pass
 
@@ -185,17 +259,17 @@ def register_crm_broker_routes(app, *, crm_panorama_ids, crm_client_scope_ids):
         contact_sets = {cid: set() for cid in client_ids}
         try:
             for chunk in _chunks(client_ids):
-                rows = _fetch_pages(
-                    lambda start, end: (
+                def fetch_interest_page(start, end):
+                    query = (
                         sb.table('buy_interests')
                         .select('client_id, contact_id')
-                        .eq('reference_user_id', str(user_id))
                         .in_('client_id', chunk)
-                        .range(start, end)
-                        .execute()
-                        .data or []
                     )
-                )
+                    if not is_client_admin:
+                        query = query.eq('reference_user_id', str(user_id))
+                    return query.range(start, end).execute().data or []
+
+                rows = _fetch_pages(fetch_interest_page)
                 for row in rows:
                     cid = str(row.get('client_id') or '')
                     if cid not in lead_counts:
@@ -215,7 +289,12 @@ def register_crm_broker_routes(app, *, crm_panorama_ids, crm_client_scope_ids):
                 'member_role': next((m.get('member_role') for m in memberships if m.get('client_id') == cid), ''),
                 'project_count': len(project_sets.get(cid) or set()),
                 'lead_count': int(lead_counts.get(cid, 0)),
+                'interest_count': int(lead_counts.get(cid, 0)),
                 'contact_count': len(contact_sets.get(cid) or set()),
+                'plot_count': int(plot_counts.get(cid, {}).get('total', 0)),
+                'sold_plot_count': int(plot_counts.get(cid, {}).get('sold', 0)),
+                'pending_plot_count': int(plot_counts.get(cid, {}).get('pending', 0)),
+                'available_plot_count': int(plot_counts.get(cid, {}).get('available', 0)),
             })
         out.sort(key=lambda row: row.get('client_name') or '')
         _CRM_ALLOTTED_CLIENTS_CACHE[cache_key] = (time.time(), out)

@@ -6,7 +6,7 @@ from app import config as app_config
 from app.core.auth import get_profile, require_admin, require_auth, require_superadmin
 from app.core.database import get_supabase
 from app.services.org_service import slugify_org_name
-from app.services.uam_reference_service import user_is_broker
+from app.services.uam_reference_service import user_is_broker, user_is_client_admin
 
 
 def register_uam_profile_org_routes(app):
@@ -71,6 +71,7 @@ def register_uam_profile_org_routes(app):
                 org['slug'] = slugify_org_name(org.get('name'))
         profile_role = str(profile.get('role') or role or 'user')
         is_broker = user_is_broker(sb, user_id, profile_role)
+        is_client_admin = user_is_client_admin(sb, user_id)
         out_profile = {
             'user_id': str(profile.get('user_id') or user_id),
             'role': profile_role,
@@ -78,11 +79,12 @@ def register_uam_profile_org_routes(app):
             'display_name': profile.get('display_name'),
             'email': profile.get('email'),
             'is_broker': is_broker,
+            'is_client_admin': is_client_admin,
         }
         return jsonify({
             'profile': out_profile,
             'org': org,
-            'post_login_path': '/customer-dashboard' if is_broker else None,
+            'post_login_path': '/customer-dashboard' if is_broker or is_client_admin else None,
         })
 
     @app.route('/api/orgs', methods=['GET'])

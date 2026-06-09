@@ -376,7 +376,7 @@
         if (!orgMeData) return defaultUrl;
         if (orgMeData.post_login_path) return orgMeData.post_login_path;
         var p = orgMeData.profile || {};
-        if (p.is_broker || String(p.role || '') === 'broker') return '/customer-dashboard';
+        if (p.is_broker || p.is_client_admin || String(p.role || '') === 'broker') return '/customer-dashboard';
         return defaultUrl;
     }
 
@@ -405,9 +405,9 @@
                 });
                 return;
             }
-            return redirectAfterAuth(session, orgMeData);
+            return redirectAfterAuth(session, inv && inv.attempted ? null : orgMeData);
         }).catch(function () {
-            return redirectAfterAuth(session, orgMeData);
+            return redirectAfterAuth(session, null);
         });
     }
 

@@ -70,6 +70,20 @@ def user_is_broker(sb, user_id, role=None):
         pass
     return False
 
+def user_is_client_admin(sb, user_id):
+    try:
+        row = (
+            sb.table('client_members')
+            .select('id')
+            .eq('user_id', str(user_id))
+            .eq('member_role', CLIENT_MEMBER_ROLE_CLIENT_ADMIN)
+            .limit(1)
+            .execute()
+        )
+        return bool(row.data)
+    except Exception:
+        return False
+
 def _project_reference_client_ids(sb, workspace_id=None, panorama_id=None):
     resolved_workspace_id = str(workspace_id or '').strip() or None
     panorama_ids = []

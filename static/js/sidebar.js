@@ -8,7 +8,7 @@
 (function () {
     'use strict';
 
-    var CACHE_KEY = 'sidebar_cache';
+    var CACHE_KEY = 'sidebar_cache_v2_client_admin';
     var AUTH_FALLBACK_KEY = 'marketostate_auth_session_v1';
 
     var url = window.__SUPABASE_URL__;
@@ -369,59 +369,49 @@
                 var orgName = data && data.org && data.org.name ? String(data.org.name) : '';
                 var userName = profile ? (profile.name || profile.email || '') : '';
 
-                // CRM: visible for admin/superadmin immediately.
-                // For regular users, check if they have client access to any plot.
-                if (isAdmin) {
+                // Resolve client membership for every profile role. A client admin can
+                // also have a platform admin profile, and client-admin routing wins.
+                _pmFetchWithRetry('/api/crm/me', {}, {
+                    retries: 1,
+                    retryAuth: true,
+                    waitAttempts: 6,
+                    waitDelayMs: 120,
+                    baseDelayMs: 180
+                })
+                .then(function (r) { return r && r.ok ? r.json() : null; })
+                .then(function (crmData) {
+                    var hasCrm = isAdmin || !!(crmData && crmData.has_crm_access);
+                    var isBroker = !!(crmData && crmData.is_broker) || role === 'broker';
+                    var isClientAdmin = !!(crmData && crmData.is_client_admin);
+                    var isClientMember = !!(crmData && crmData.is_client_member);
+                    var clientGroupName = String((crmData && crmData.client_group_name) || '').trim();
+                    var isDashboardPath = currentPath === '/dashboard' || currentPath.indexOf('/dashboard/') === 0;
+                    var displayOrgName = (isDashboardPath && isClientMember && clientGroupName) ? clientGroupName : orgName;
                     var state = {
-                        role: role, isAdmin: isAdmin, showCrm: true,
+                        role: role, isAdmin: isAdmin, showCrm: hasCrm,
+                        isBroker: isBroker,
+                        isClientAdmin: isClientAdmin,
+                        isClientMember: isClientMember,
+                        clientGroupName: clientGroupName,
+                        avatarText: avatarText, orgName: orgName, displayOrgName: displayOrgName, userName: userName
+                    };
+                    applySidebarState(state);
+                    try { sessionStorage.setItem(CACHE_KEY, JSON.stringify(state)); } catch (e) { /* ignore */ }
+                    finishSidebar(state);
+                })
+                .catch(function () {
+                    var state = {
+                        role: role, isAdmin: isAdmin, showCrm: isAdmin,
+                        isBroker: role === 'broker',
+                        isClientAdmin: !!(profile && profile.is_client_admin),
+                        isClientMember: false,
+                        clientGroupName: '',
                         avatarText: avatarText, orgName: orgName, displayOrgName: orgName, userName: userName
                     };
                     applySidebarState(state);
                     try { sessionStorage.setItem(CACHE_KEY, JSON.stringify(state)); } catch (e) { /* ignore */ }
                     finishSidebar(state);
-                } else {
-                    _pmFetchWithRetry('/api/crm/me', {}, {
-                        retries: 1,
-                        retryAuth: true,
-                        waitAttempts: 6,
-                        waitDelayMs: 120,
-                        baseDelayMs: 180
-                    })
-                    .then(function (r) { return r && r.ok ? r.json() : null; })
-                    .then(function (crmData) {
-                        var hasCrm = crmData && crmData.has_crm_access;
-                        var isBroker = !!(crmData && crmData.is_broker) || role === 'broker';
-                        var isClientAdmin = !!(crmData && crmData.is_client_admin);
-                        var isClientMember = !!(crmData && crmData.is_client_member);
-                        var clientGroupName = String((crmData && crmData.client_group_name) || '').trim();
-                        var isDashboardPath = currentPath === '/dashboard' || currentPath.indexOf('/dashboard/') === 0;
-                        var displayOrgName = (isDashboardPath && isClientMember && clientGroupName) ? clientGroupName : orgName;
-                        var state = {
-                            role: role, isAdmin: isAdmin, showCrm: hasCrm,
-                            isBroker: isBroker,
-                            isClientAdmin: isClientAdmin,
-                            isClientMember: isClientMember,
-                            clientGroupName: clientGroupName,
-                            avatarText: avatarText, orgName: orgName, displayOrgName: displayOrgName, userName: userName
-                        };
-                        applySidebarState(state);
-                        try { sessionStorage.setItem(CACHE_KEY, JSON.stringify(state)); } catch (e) { /* ignore */ }
-                        finishSidebar(state);
-                    })
-                    .catch(function () {
-                        var state = {
-                            role: role, isAdmin: isAdmin, showCrm: false,
-                            isBroker: role === 'broker',
-                            isClientAdmin: false,
-                            isClientMember: false,
-                            clientGroupName: '',
-                            avatarText: avatarText, orgName: orgName, displayOrgName: orgName, userName: userName
-                        };
-                        applySidebarState(state);
-                        try { sessionStorage.setItem(CACHE_KEY, JSON.stringify(state)); } catch (e) { /* ignore */ }
-                        finishSidebar(state);
-                    });
-                }
+                });
 
                 function finishSidebar(state) {
                     var resolved = state || {};
@@ -433,12 +423,16 @@
                         isAdmin: isAdmin,
                         clientGroupName: resolved.clientGroupName || '',
                         isBroker: !!resolved.isBroker,
+                        isClientAdmin: !!resolved.isClientAdmin,
                         isClientMember: !!resolved.isClientMember,
                         displayOrgName: resolved.displayOrgName || orgName || ''
                     });
-                    var brokerPaths = ['/customer-dashboard', '/crm', '/broker/invites'];
-                    var onBrokerPath = brokerPaths.indexOf(currentPath) !== -1 || (currentPath && currentPath.indexOf('/broker/') === 0);
-                    if (!isAdmin && resolved.isBroker && !onBrokerPath) {
+                    var customerPaths = ['/customer-dashboard', '/crm'];
+                    if (resolved.isBroker) customerPaths.push('/broker/invites');
+                    if (resolved.isClientAdmin) customerPaths.push('/client-management');
+                    var onCustomerPath = customerPaths.indexOf(currentPath) !== -1
+                        || (resolved.isBroker && currentPath && currentPath.indexOf('/broker/') === 0);
+                    if (((!isAdmin && resolved.isBroker) || resolved.isClientAdmin) && !onCustomerPath) {
                         window.location.replace('/customer-dashboard');
                     }
                 }

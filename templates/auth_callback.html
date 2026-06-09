@@ -150,7 +150,7 @@
                     }
                     var target = defaultTarget;
                     if (data && data.post_login_path) target = data.post_login_path;
-                    else if (data && data.profile && (data.profile.is_broker || data.profile.role === 'broker')) {
+                    else if (data && data.profile && (data.profile.is_broker || data.profile.is_client_admin || data.profile.role === 'broker')) {
                         target = '/customer-dashboard';
                     }
                     msg.textContent = 'Done. Redirecting…';
