@@ -1,204 +1,283 @@
-{% extends 'base.html' %}
-{% block title %}My Team - MarketoState{% endblock %}
-{% block head_css %}
-<link rel="stylesheet" href="/static/css/dashboard.css">
-<link rel="stylesheet" href="/static/css/user_management.css">
-{% endblock %}
-{% block content %}
-<div class="user-mgmt-page" id="client-mgmt-page">
-    {% set active_page = 'client-management' %}
-    {% include 'components/sidebar.html' %}
+{% set page_title = 'My Team - MarketoState' %}
+{% set active_nav = 'team' %}
+{% set sneat_extra_css = '/static/css/client_management_sneat.css?v=20260610-3' %}
+{% include 'components/sneat_shell_start.html' %}
 
-    <div class="main-content">
-        <div class="page-header">
-            <div class="page-title">My Team</div>
-            <div class="page-subtitle">Manage roles for users in your client groups.</div>
-        </div>
-
-        <div class="banner" id="banner" style="display:none;"></div>
-
-        <div id="groups-loading" style="color:var(--color-text-dim);font-size:0.9rem;">Loading your groups...</div>
-        <div id="groups-empty" class="empty" style="display:none;">You are not a client admin in any group.</div>
-        <div id="groups-container"></div>
-    </div>
-
-    <div class="modal-backdrop" id="modal-invite-member">
-        <div class="modal modal--sm" role="dialog" aria-modal="true" aria-label="Invite external user">
-            <div class="modal-head">
-                <div class="modal-title">Invite User to <span id="invite-group-name"></span></div>
-                <button class="btn btn-secondary" id="close-invite-member-modal" type="button">Close</button>
+<div class="team-page" id="client-mgmt-page">
+    <div class="team-heading">
+        <div>
+            <div class="d-flex align-items-center gap-2 mb-2">
+                <span class="badge bg-label-primary">Team Management</span>
+                <span class="text-body-secondary small" id="team-group-count">Loading teams...</span>
             </div>
-            <div class="modal-body-edit">
-                <div class="edit-section edit-section--invite">
-                    <div class="form-field">
-                        <label class="label" for="invite-member-name">Display Name <span style="color:var(--color-danger);">*</span></label>
-                        <input class="input" id="invite-member-name" type="text" placeholder="Full name" autocomplete="name">
-                    </div>
-                    <div class="form-field" style="margin-top:0.75rem;">
-                        <label class="label" for="invite-member-email">Email <span style="color:var(--color-danger);">*</span></label>
-                        <input class="input" id="invite-member-email" type="email" placeholder="user@example.com" autocomplete="email">
-                    </div>
-                    <div class="form-field" style="margin-top:0.75rem;">
-                        <label class="label" for="invite-member-role">Role</label>
-                        <select class="input" id="invite-member-role">
-                            <option value="client_user" selected>Sales Agent</option>
-                            <option value="broker">Broker</option>
-                        </select>
-                    </div>
-                    <div class="msg error" id="invite-member-error" style="display:none;"></div>
-                    <div class="msg success" id="invite-member-success" style="display:none;"></div>
-                </div>
-            </div>
-            <div class="modal-actions">
-                <button class="btn btn-secondary" id="cancel-invite-member" type="button">Cancel</button>
-                <button class="btn btn-primary" id="confirm-invite-member" type="button">Send Invite</button>
-            </div>
+            <h4>My Team</h4>
+            <p class="text-body-secondary mb-0">Manage members, invitations, roles, and project access across your client teams.</p>
         </div>
     </div>
 
-    <div class="modal-backdrop" id="modal-add-member">
-        <div class="modal modal--sm" role="dialog" aria-modal="true" aria-label="Add existing user">
-            <div class="modal-head">
-                <div class="modal-title">Add User to <span id="add-group-name"></span></div>
-                <button class="btn btn-secondary" id="close-add-member-modal" type="button">Close</button>
-            </div>
-            <div class="modal-body-edit">
-                <div class="edit-section">
-                    <div class="form-field">
-                        <label class="label" for="add-member-user">User</label>
-                        <select class="input" id="add-member-user"></select>
+    <div class="alert alert-danger" id="banner" style="display:none;" role="alert"></div>
+
+    <div class="row g-4 mb-4">
+        <div class="col-sm-6 col-xl-3">
+            <div class="card team-kpi-card h-100">
+                <div class="card-body">
+                    <div class="d-flex align-items-start justify-content-between">
+                        <span class="team-kpi-icon bg-label-primary"><i class="bx bx-group"></i></span>
+                        <span class="badge bg-label-primary">All teams</span>
                     </div>
-                    <div class="form-field" style="margin-top:0.75rem;">
-                        <label class="label" for="add-member-role">Role</label>
-                        <select class="input" id="add-member-role">
-                            <option value="client_user" selected>Sales Agent</option>
-                            <option value="broker">Broker</option>
-                        </select>
-                    </div>
-                    <div class="msg error" id="add-member-error" style="display:none;"></div>
+                    <h3 class="mt-3 mb-1" id="team-total-members">0</h3>
+                    <span class="text-body-secondary">Total members</span>
                 </div>
             </div>
-            <div class="modal-actions">
-                <button class="btn btn-secondary" id="cancel-add-member" type="button">Cancel</button>
-                <button class="btn btn-primary" id="confirm-add-member" type="button">Add User</button>
+        </div>
+        <div class="col-sm-6 col-xl-3">
+            <div class="card team-kpi-card h-100">
+                <div class="card-body">
+                    <div class="d-flex align-items-start justify-content-between">
+                        <span class="team-kpi-icon bg-label-success"><i class="bx bx-user-check"></i></span>
+                        <span class="badge bg-label-success">Active</span>
+                    </div>
+                    <h3 class="mt-3 mb-1" id="team-sales-agents">0</h3>
+                    <span class="text-body-secondary">Sales agents</span>
+                </div>
+            </div>
+        </div>
+        <div class="col-sm-6 col-xl-3">
+            <div class="card team-kpi-card h-100">
+                <div class="card-body">
+                    <div class="d-flex align-items-start justify-content-between">
+                        <span class="team-kpi-icon bg-label-info"><i class="bx bx-briefcase-alt-2"></i></span>
+                        <span class="badge bg-label-info">Partners</span>
+                    </div>
+                    <h3 class="mt-3 mb-1" id="team-brokers">0</h3>
+                    <span class="text-body-secondary">Brokers</span>
+                </div>
+            </div>
+        </div>
+        <div class="col-sm-6 col-xl-3">
+            <div class="card team-kpi-card h-100">
+                <div class="card-body">
+                    <div class="d-flex align-items-start justify-content-between">
+                        <span class="team-kpi-icon bg-label-warning"><i class="bx bx-envelope"></i></span>
+                        <span class="badge bg-label-warning">Awaiting</span>
+                    </div>
+                    <h3 class="mt-3 mb-1" id="team-pending-invites">0</h3>
+                    <span class="text-body-secondary">Pending invites</span>
+                </div>
             </div>
         </div>
     </div>
 
-    <div class="modal-backdrop" id="modal-member-view">
-        <div class="modal modal--sm modal--member-view" role="dialog" aria-modal="true" aria-label="View member" style="width:min(720px,96vw);max-width:720px;">
-            <div class="modal-head">
-                <div class="modal-title">Member Details</div>
-                <button class="btn btn-secondary" id="close-member-view-modal" type="button">Close</button>
+    <div class="card mb-4">
+        <div class="card-body team-toolbar">
+            <div>
+                <h5 class="mb-1">Team Directory</h5>
+                <span class="text-body-secondary small">Search members or filter the directory by role.</span>
             </div>
-            <div class="modal-body">
-                <div class="form-field">
-                    <label class="label">Name</label>
-                    <div class="delete-user-info" id="member-view-name">-</div>
+            <div class="team-toolbar-controls">
+                <div class="input-group input-group-merge team-search">
+                    <span class="input-group-text"><i class="bx bx-search"></i></span>
+                    <input class="form-control" id="team-search-input" type="search" placeholder="Search name or email" aria-label="Search team members">
                 </div>
-                <div class="form-field" style="margin-top:0.6rem;">
-                    <label class="label">Email</label>
-                    <div class="delete-user-info" id="member-view-email">-</div>
-                </div>
-                <div class="form-field" style="margin-top:0.6rem;">
-                    <label class="label">Role</label>
-                    <div class="delete-user-info" id="member-view-role">-</div>
-                </div>
-                <div class="form-field" style="margin-top:0.6rem;">
-                    <label class="label">Joined</label>
-                    <div class="delete-user-info" id="member-view-joined">-</div>
-                </div>
-                <div class="form-field" style="margin-top:0.6rem;">
-                    <label class="label">Status</label>
-                    <div class="delete-user-info">Active</div>
-                </div>
-            </div>
-            <div class="modal-actions">
-                <button class="btn btn-secondary" id="dismiss-member-view" type="button">Close</button>
+                <select class="form-select team-role-filter" id="team-role-filter" aria-label="Filter by role">
+                    <option value="">All roles</option>
+                    <option value="client_admin">Client Admin</option>
+                    <option value="client_user">Sales Agent</option>
+                    <option value="broker">Broker</option>
+                </select>
             </div>
         </div>
     </div>
 
-    <div class="modal-backdrop" id="modal-member-access">
-        <div class="modal modal--sm modal--member-access" role="dialog" aria-modal="true" aria-label="Manage project access">
-            <div class="modal-head">
-                <div class="modal-title">Project Access: <span id="access-member-name"></span></div>
-                <button class="btn btn-secondary" id="close-member-access-modal" type="button">Close</button>
-            </div>
-            <div class="modal-body-edit">
-                <div class="edit-section member-access-section">
-                    <div class="member-access-layout">
-                        <div class="member-access-pane member-access-pane--form">
-                            <div class="form-grid" style="grid-template-columns:1fr 1fr;">
-                                <div class="form-field">
-                                    <label class="label" for="member-access-resource-type">Resource Type</label>
-                                    <select class="input" id="member-access-resource-type">
-                                        <option value="workspace">Project</option>
-                                        <option value="panorama">Panorama</option>
-                                    </select>
-                                </div>
-                                <div class="form-field">
-                                    <label class="label" for="member-access-level">Access Level</label>
-                                    <select class="input" id="member-access-level">
-                                        <option value="client">Client</option>
-                                        <option value="broker">Broker</option>
-                                        <option value="viewer">Viewer</option>
-                                    </select>
-                                </div>
-                            </div>
-                            <div class="form-field" style="margin-top:0.75rem;">
-                                <label class="label" for="member-access-resource-id">Project</label>
-                                <select class="input" id="member-access-resource-id"></select>
-                            </div>
-                            <div class="msg error" id="member-access-error" style="display:none;"></div>
-                        </div>
-                        <div class="member-access-pane member-access-pane--list">
-                            <div class="member-access-list-title">Current Access</div>
-                            <div class="access-list" id="member-access-list"></div>
-                            <div class="empty" id="member-access-empty" style="display:none;">No project access assigned yet.</div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="modal-actions">
-                <button class="btn btn-secondary" id="cancel-member-access" type="button">Cancel</button>
-                <button class="btn btn-primary" id="confirm-member-access" type="button">Grant Access</button>
-            </div>
+    <div class="card team-loading" id="groups-loading">
+        <div class="text-center">
+            <div class="spinner-border text-primary mb-3" role="status"><span class="visually-hidden">Loading</span></div>
+            <div>Loading your teams...</div>
         </div>
     </div>
+    <div class="card team-empty" id="groups-empty" style="display:none;">
+        <div>
+            <span class="team-kpi-icon bg-label-secondary mb-3"><i class="bx bx-group"></i></span>
+            <h5>No client teams found</h5>
+            <p class="mb-0">You are not currently assigned as a client admin for any team.</p>
+        </div>
+    </div>
+    <div id="groups-container"></div>
+</div>
 
-    <div class="modal-backdrop" id="modal-edit-member-role">
-        <div class="modal modal--sm" role="dialog" aria-modal="true" aria-label="Edit member role">
-            <div class="modal-head">
-                <div class="modal-title">Edit Member Role</div>
-                <button class="btn btn-secondary" id="close-edit-member-role-modal" type="button">Close</button>
+<div class="team-modal-backdrop" id="modal-invite-member">
+    <div class="team-dialog" role="dialog" aria-modal="true" aria-label="Invite external user">
+        <div class="team-dialog-header">
+            <div>
+                <h5 class="mb-1">Invite Team Member</h5>
+                <span class="text-body-secondary small">Send an invitation to <strong id="invite-group-name"></strong>.</span>
             </div>
-            <div class="modal-body-edit">
-                <div class="edit-section">
-                    <div class="form-field">
-                        <label class="label">Member</label>
-                        <div class="delete-user-info" id="edit-member-role-name">-</div>
-                    </div>
-                    <div class="form-field" style="margin-top:0.75rem;">
-                        <label class="label" for="edit-member-role-select">Role</label>
-                        <select class="input" id="edit-member-role-select">
-                            <option value="client_admin">Client Admin</option>
-                            <option value="client_user">Sales Agent</option>
-                            <option value="broker">Broker</option>
-                        </select>
-                    </div>
-                    <div class="msg error" id="edit-member-role-error" style="display:none;"></div>
-                </div>
+            <button class="btn-close" id="close-invite-member-modal" type="button" aria-label="Close"></button>
+        </div>
+        <div class="team-dialog-body">
+            <div class="mb-4">
+                <label class="form-label" for="invite-member-name">Display Name <span class="text-danger">*</span></label>
+                <input class="form-control" id="invite-member-name" type="text" placeholder="Full name" autocomplete="name">
             </div>
-            <div class="modal-actions">
-                <button class="btn btn-secondary" id="cancel-edit-member-role" type="button">Cancel</button>
-                <button class="btn btn-primary" id="confirm-edit-member-role" type="button">Save Role</button>
+            <div class="mb-4">
+                <label class="form-label" for="invite-member-email">Email <span class="text-danger">*</span></label>
+                <input class="form-control" id="invite-member-email" type="email" placeholder="user@example.com" autocomplete="email">
             </div>
+            <div>
+                <label class="form-label" for="invite-member-role">Role</label>
+                <select class="form-select" id="invite-member-role">
+                    <option value="client_user" selected>Sales Agent</option>
+                    <option value="broker">Broker</option>
+                </select>
+            </div>
+            <div class="alert alert-danger mt-4 mb-0" id="invite-member-error" style="display:none;"></div>
+            <div class="alert alert-success mt-4 mb-0" id="invite-member-success" style="display:none;"></div>
+        </div>
+        <div class="team-dialog-footer">
+            <button class="btn btn-outline-secondary" id="cancel-invite-member" type="button">Cancel</button>
+            <button class="btn btn-primary" id="confirm-invite-member" type="button"><i class="bx bx-send me-1"></i>Send Invite</button>
         </div>
     </div>
 </div>
-{% endblock %}
-{% block scripts %}
+
+<div class="team-modal-backdrop" id="modal-add-member">
+    <div class="team-dialog" role="dialog" aria-modal="true" aria-label="Add existing user">
+        <div class="team-dialog-header">
+            <div>
+                <h5 class="mb-1">Add Existing User</h5>
+                <span class="text-body-secondary small">Add a registered user to <strong id="add-group-name"></strong>.</span>
+            </div>
+            <button class="btn-close" id="close-add-member-modal" type="button" aria-label="Close"></button>
+        </div>
+        <div class="team-dialog-body">
+            <div class="mb-4">
+                <label class="form-label" for="add-member-user">User</label>
+                <select class="form-select" id="add-member-user"></select>
+            </div>
+            <div>
+                <label class="form-label" for="add-member-role">Role</label>
+                <select class="form-select" id="add-member-role">
+                    <option value="client_user" selected>Sales Agent</option>
+                    <option value="broker">Broker</option>
+                </select>
+            </div>
+            <div class="alert alert-danger mt-4 mb-0" id="add-member-error" style="display:none;"></div>
+        </div>
+        <div class="team-dialog-footer">
+            <button class="btn btn-outline-secondary" id="cancel-add-member" type="button">Cancel</button>
+            <button class="btn btn-primary" id="confirm-add-member" type="button"><i class="bx bx-user-plus me-1"></i>Add User</button>
+        </div>
+    </div>
+</div>
+
+<div class="team-modal-backdrop" id="modal-member-view">
+    <div class="team-dialog" role="dialog" aria-modal="true" aria-label="View member">
+        <div class="team-dialog-header">
+            <div>
+                <h5 class="mb-1">Member Details</h5>
+                <span class="text-body-secondary small">Account and team membership information.</span>
+            </div>
+            <button class="btn-close" id="close-member-view-modal" type="button" aria-label="Close"></button>
+        </div>
+        <div class="team-dialog-body">
+            <div class="team-detail-list">
+                <div class="team-detail-item"><span class="team-detail-label">Name</span><span class="team-detail-value" id="member-view-name">-</span></div>
+                <div class="team-detail-item"><span class="team-detail-label">Email</span><span class="team-detail-value" id="member-view-email">-</span></div>
+                <div class="team-detail-item"><span class="team-detail-label">Role</span><span class="team-detail-value" id="member-view-role">-</span></div>
+                <div class="team-detail-item"><span class="team-detail-label">Joined</span><span class="team-detail-value" id="member-view-joined">-</span></div>
+                <div class="team-detail-item"><span class="team-detail-label">Status</span><span class="badge bg-label-success justify-self-start">Active</span></div>
+            </div>
+        </div>
+        <div class="team-dialog-footer">
+            <button class="btn btn-outline-secondary" id="dismiss-member-view" type="button">Close</button>
+        </div>
+    </div>
+</div>
+
+<div class="team-modal-backdrop" id="modal-member-access">
+    <div class="team-dialog team-dialog-lg" role="dialog" aria-modal="true" aria-label="Manage project access">
+        <div class="team-dialog-header">
+            <div>
+                <h5 class="mb-1">Project Access</h5>
+                <span class="text-body-secondary small">Manage resources available to <strong id="access-member-name"></strong>.</span>
+            </div>
+            <button class="btn-close" id="close-member-access-modal" type="button" aria-label="Close"></button>
+        </div>
+        <div class="team-dialog-body">
+            <div class="team-access-grid">
+                <div>
+                    <h6>Grant New Access</h6>
+                    <p class="text-body-secondary small">Choose a project or panorama and its access level.</p>
+                    <div class="row g-3">
+                        <div class="col-sm-6">
+                            <label class="form-label" for="member-access-resource-type">Resource Type</label>
+                            <select class="form-select" id="member-access-resource-type">
+                                <option value="workspace">Project</option>
+                                <option value="panorama">Panorama</option>
+                            </select>
+                        </div>
+                        <div class="col-sm-6">
+                            <label class="form-label" for="member-access-level">Access Level</label>
+                            <select class="form-select" id="member-access-level">
+                                <option value="client">Client</option>
+                                <option value="broker">Broker</option>
+                                <option value="viewer">Viewer</option>
+                            </select>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label" for="member-access-resource-id">Resource</label>
+                            <select class="form-select" id="member-access-resource-id"></select>
+                        </div>
+                    </div>
+                    <div class="alert alert-danger mt-4 mb-0" id="member-access-error" style="display:none;"></div>
+                </div>
+                <div>
+                    <h6>Current Access</h6>
+                    <p class="text-body-secondary small">Resources already assigned to this member.</p>
+                    <div class="access-list" id="member-access-list"></div>
+                    <div class="team-empty team-empty--compact" id="member-access-empty" style="display:none;">No project access assigned yet.</div>
+                </div>
+            </div>
+        </div>
+        <div class="team-dialog-footer">
+            <button class="btn btn-outline-secondary" id="cancel-member-access" type="button">Cancel</button>
+            <button class="btn btn-primary" id="confirm-member-access" type="button"><i class="bx bx-lock-open-alt me-1"></i>Grant Access</button>
+        </div>
+    </div>
+</div>
+
+<div class="team-modal-backdrop" id="modal-edit-member-role">
+    <div class="team-dialog" role="dialog" aria-modal="true" aria-label="Edit member role">
+        <div class="team-dialog-header">
+            <div>
+                <h5 class="mb-1">Edit Member Role</h5>
+                <span class="text-body-secondary small">Update this member's team permissions.</span>
+            </div>
+            <button class="btn-close" id="close-edit-member-role-modal" type="button" aria-label="Close"></button>
+        </div>
+        <div class="team-dialog-body">
+            <div class="mb-4">
+                <label class="form-label">Member</label>
+                <div class="form-control bg-lighter" id="edit-member-role-name">-</div>
+            </div>
+            <div>
+                <label class="form-label" for="edit-member-role-select">Role</label>
+                <select class="form-select" id="edit-member-role-select">
+                    <option value="client_admin">Client Admin</option>
+                    <option value="client_user">Sales Agent</option>
+                    <option value="broker">Broker</option>
+                </select>
+            </div>
+            <div class="alert alert-danger mt-4 mb-0" id="edit-member-role-error" style="display:none;"></div>
+        </div>
+        <div class="team-dialog-footer">
+            <button class="btn btn-outline-secondary" id="cancel-edit-member-role" type="button">Cancel</button>
+            <button class="btn btn-primary" id="confirm-edit-member-role" type="button">Save Role</button>
+        </div>
+    </div>
+</div>
+
+{% include 'components/sneat_shell_end.html' %}
 <script>
     window.__SUPABASE_URL__      = {{ (supabase_url or '') | tojson }};
     window.__SUPABASE_ANON_KEY__ = {{ (supabase_anon_key or '') | tojson }};
@@ -228,6 +307,8 @@
     var modalMemberAccess = null;
     var modalEditMemberRole = null;
     var membersByGroup = {};
+    var invitesByGroup = {};
+    var groupsById = {};
     var memberRoleEditState = { groupId: '', userId: '', currentRole: '' };
     var memberAccessState = {
         groupId: '',
@@ -275,8 +356,123 @@
         el.style.display = msg ? 'block' : 'none';
     }
 
-    function openModal(el) { if (el) el.classList.add('visible'); }
-    function closeModal(el) { if (el) el.classList.remove('visible'); }
+    function openModal(el) {
+        if (!el) return;
+        el.classList.add('visible');
+        document.body.classList.add('team-modal-open');
+    }
+    function closeModal(el) {
+        if (!el) return;
+        el.classList.remove('visible');
+        if (!document.querySelector('.team-modal-backdrop.visible')) {
+            document.body.classList.remove('team-modal-open');
+        }
+    }
+    function getInitials(name, email) {
+        var value = String(name || email || 'User').trim();
+        var parts = value.split(/\s+/).filter(Boolean);
+        if (parts.length > 1) return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase();
+        return value.slice(0, 2).toUpperCase();
+    }
+    function updateTeamSummary() {
+        var total = 0;
+        var salesAgents = 0;
+        var brokers = 0;
+        var pendingInvites = 0;
+        Object.keys(membersByGroup).forEach(function (groupId) {
+            (membersByGroup[groupId] || []).forEach(function (member) {
+                total += 1;
+                var role = normalizeMemberRole(member.member_role);
+                if (role === 'client_user') salesAgents += 1;
+                if (role === 'broker') brokers += 1;
+            });
+        });
+        Object.keys(invitesByGroup).forEach(function (groupId) {
+            (invitesByGroup[groupId] || []).forEach(function (invite) {
+                if (String(invite.status || '').toLowerCase() === 'pending') pendingInvites += 1;
+            });
+        });
+        var totalEl = document.getElementById('team-total-members');
+        var salesEl = document.getElementById('team-sales-agents');
+        var brokersEl = document.getElementById('team-brokers');
+        var invitesEl = document.getElementById('team-pending-invites');
+        if (totalEl) totalEl.textContent = String(total);
+        if (salesEl) salesEl.textContent = String(salesAgents);
+        if (brokersEl) brokersEl.textContent = String(brokers);
+        if (invitesEl) invitesEl.textContent = String(pendingInvites);
+    }
+    function activePendingInviteCount(invites) {
+        return (invites || []).filter(function (invite) {
+            if (String(invite.status || '').toLowerCase() !== 'pending') return false;
+            if (!invite.expires_at) return true;
+            var expiry = new Date(invite.expires_at).getTime();
+            return !isFinite(expiry) || expiry >= Date.now();
+        }).length;
+    }
+    function groupCapacityState(groupId) {
+        var key = String(groupId || '');
+        var group = groupsById[key] || {};
+        var membersAllowed = parseInt(group.members_allowed, 10);
+        if (!membersAllowed || membersAllowed < 1) membersAllowed = 10;
+        var memberCount = Object.prototype.hasOwnProperty.call(membersByGroup, key)
+            ? (membersByGroup[key] || []).length
+            : (parseInt(group.member_count, 10) || 0);
+        var pendingInviteCount = Object.prototype.hasOwnProperty.call(invitesByGroup, key)
+            ? activePendingInviteCount(invitesByGroup[key])
+            : (parseInt(group.pending_invite_count, 10) || 0);
+        var occupiedCount = memberCount + pendingInviteCount;
+        return {
+            membersAllowed: membersAllowed,
+            memberCount: memberCount,
+            pendingInviteCount: pendingInviteCount,
+            occupiedCount: occupiedCount,
+            atCapacity: occupiedCount >= membersAllowed
+        };
+    }
+    function groupLimitMessage(groupId) {
+        return 'Restricted to ' + groupCapacityState(groupId).membersAllowed + ' users. Contact Admin to Unlock More';
+    }
+    function syncGroupCapacityUi(groupId) {
+        var key = String(groupId || '');
+        var state = groupCapacityState(key);
+        var group = groupsById[key];
+        if (group) {
+            group.member_count = state.memberCount;
+            group.pending_invite_count = state.pendingInviteCount;
+            group.occupied_count = state.occupiedCount;
+            group.at_capacity = state.atCapacity;
+        }
+        var indicator = document.getElementById('team-capacity-' + key);
+        if (indicator) {
+            indicator.textContent = state.occupiedCount + ' / ' + state.membersAllowed + ' slots';
+            indicator.classList.toggle('team-capacity-indicator--full', state.atCapacity);
+            indicator.title = state.memberCount + ' active member(s), ' + state.pendingInviteCount + ' pending invitation(s)';
+        }
+        document.querySelectorAll('[data-capacity-group="' + key + '"]').forEach(function (wrapper) {
+            var button = wrapper.querySelector('button');
+            wrapper.title = state.atCapacity ? groupLimitMessage(key) : '';
+            if (button) button.disabled = state.atCapacity;
+        });
+    }
+    function applyMemberFilters() {
+        var searchEl = document.getElementById('team-search-input');
+        var roleEl = document.getElementById('team-role-filter');
+        var search = String(searchEl ? searchEl.value : '').trim().toLowerCase();
+        var role = String(roleEl ? roleEl.value : '').trim().toLowerCase();
+        document.querySelectorAll('.team-group-card').forEach(function (card) {
+            var visibleCount = 0;
+            card.querySelectorAll('.member-row').forEach(function (row) {
+                var matchesSearch = !search || String(row.getAttribute('data-search') || '').indexOf(search) !== -1;
+                var matchesRole = !role || String(row.getAttribute('data-role') || '') === role;
+                var visible = matchesSearch && matchesRole;
+                row.classList.toggle('team-row-hidden', !visible);
+                if (visible) visibleCount += 1;
+            });
+            var filteredEmpty = card.querySelector('.members-filter-empty');
+            var hasMembers = card.querySelectorAll('.member-row').length > 0;
+            if (filteredEmpty) filteredEmpty.style.display = hasMembers && !visibleCount ? 'block' : 'none';
+        });
+    }
     function formatDate(dateStr) {
         if (!dateStr) return '-';
         try {
@@ -312,6 +508,10 @@
     }
 
     function openInviteMemberModal(groupId, groupName) {
+        if (groupCapacityState(groupId).atCapacity) {
+            showBanner(groupLimitMessage(groupId));
+            return;
+        }
         inviteTargetGroupId = groupId;
         document.getElementById('invite-group-name').textContent = groupName || '';
         document.getElementById('invite-member-name').value = '';
@@ -324,6 +524,10 @@
     }
 
     function openAddMemberModal(groupId, groupName) {
+        if (groupCapacityState(groupId).atCapacity) {
+            showBanner(groupLimitMessage(groupId));
+            return;
+        }
         addTargetGroupId = groupId;
         document.getElementById('add-group-name').textContent = groupName || '';
         setError(document.getElementById('add-member-error'), '');
@@ -506,9 +710,9 @@
         if (emptyEl) emptyEl.style.display = rows.length ? 'none' : 'block';
         listEl.innerHTML = rows.map(function (row) {
             return '<div class="access-row">' +
-                '<span class="pill user" style="font-size:0.7rem;">' + escapeHtml(row.type) + '</span>' +
-                '<span>' + escapeHtml(row.name || row.id || '') + '</span>' +
-                '<span class="pill admin" style="font-size:0.7rem;margin-left:auto;">' + escapeHtml(row.access_type || '') + '</span>' +
+                '<span class="badge bg-label-primary">' + escapeHtml(row.type) + '</span>' +
+                '<span class="fw-medium text-truncate">' + escapeHtml(row.name || row.id || '') + '</span>' +
+                '<span class="badge bg-label-info">' + escapeHtml(row.access_type || '') + '</span>' +
                 '<button class="btn-sm btn-sm--danger member-access-revoke" type="button" data-rtype="' + escapeHtml(row.type) + '" data-rid="' + escapeHtml(String(row.id || '')) + '">Revoke</button>' +
             '</div>';
         }).join('');
@@ -620,6 +824,8 @@
     // -- Render members table --
     function renderMembers(groupId, members) {
         membersByGroup[String(groupId)] = Array.isArray(members) ? members.slice() : [];
+        updateTeamSummary();
+        syncGroupCapacityUi(groupId);
         var listEl = document.getElementById('members-list-' + groupId);
         var listWrapEl = document.getElementById('members-list-wrap-' + groupId);
         var emptyEl = document.getElementById('members-empty-' + groupId);
@@ -629,6 +835,7 @@
         if (listWrapEl) listWrapEl.style.display = 'none';
         if (!members.length) {
             if (emptyEl) emptyEl.style.display = 'block';
+            applyMemberFilters();
             return;
         }
         if (listWrapEl) listWrapEl.style.display = '';
@@ -638,25 +845,32 @@
             var uid = String(m.user_id || '');
             var normalizedRole = normalizeMemberRole(m.member_role);
             var roleLabel = escapeHtml(roleLabels[normalizedRole] || normalizedRole || '-');
+            var roleTone = normalizedRole === 'broker'
+                ? ' member-role-label--broker'
+                : (normalizedRole === 'client_admin' ? ' member-role-label--admin' : '');
             var createdAt = escapeHtml(formatRelativeTime(m.created_at));
             var createdAtFull = escapeHtml(formatDateTime(m.created_at));
+            var displayName = String(m.display_name || m.email || 'Member');
+            var searchValue = (String(m.display_name || '') + ' ' + String(m.email || '')).toLowerCase();
+            var initials = escapeHtml(getInitials(m.display_name, m.email));
             var canEditRole = true;
             var canManageProjectAccess = normalizedRole === 'client_user' || normalizedRole === 'broker';
-            var roleCellHtml = '<span class="member-role-label">' + roleLabel + '</span>';
+            var roleCellHtml = '<span class="member-role-label' + roleTone + '">' + roleLabel + '</span>';
             var actionButtons = canEditRole
                 ? (
-                    '<button class="icon-action-btn member-edit-btn" title="Edit role" aria-label="Edit role" type="button" data-group="' + escapeHtml(groupId) + '" data-uid="' + escapeHtml(uid) + '" data-name="' + escapeHtml(m.display_name || m.email || 'member') + '" data-role="' + escapeHtml(normalizedRole) + '">' + actionIcon('edit') + '</button>' +
+                    '<button class="icon-action-btn member-edit-btn" title="Edit role" aria-label="Edit role" type="button" data-group="' + escapeHtml(groupId) + '" data-uid="' + escapeHtml(uid) + '" data-name="' + escapeHtml(displayName) + '" data-role="' + escapeHtml(normalizedRole) + '">' + actionIcon('edit') + '</button>' +
                     '<button class="icon-action-btn member-view-btn" title="View member" aria-label="View member" type="button" data-group="' + escapeHtml(groupId) + '" data-uid="' + escapeHtml(uid) + '">' + actionIcon('view') + '</button>' +
-                    (canManageProjectAccess ? '<button class="icon-action-btn member-access-btn" title="Manage access" aria-label="Manage access" type="button" data-group="' + escapeHtml(groupId) + '" data-uid="' + escapeHtml(uid) + '" data-name="' + escapeHtml(m.display_name || m.email || 'member') + '" data-role="' + escapeHtml(normalizedRole) + '">' + actionIcon('access') + '</button>' : '') +
-                    '<button class="icon-action-btn icon-action-btn--danger member-delete-btn" title="Remove member" aria-label="Remove member" type="button" data-group="' + escapeHtml(groupId) + '" data-uid="' + escapeHtml(uid) + '" data-name="' + escapeHtml(m.display_name || m.email || 'member') + '">' + actionIcon('delete') + '</button>'
+                    (canManageProjectAccess ? '<button class="icon-action-btn member-access-btn" title="Manage access" aria-label="Manage access" type="button" data-group="' + escapeHtml(groupId) + '" data-uid="' + escapeHtml(uid) + '" data-name="' + escapeHtml(displayName) + '" data-role="' + escapeHtml(normalizedRole) + '">' + actionIcon('access') + '</button>' : '') +
+                    '<button class="icon-action-btn icon-action-btn--danger member-delete-btn" title="Remove member" aria-label="Remove member" type="button" data-group="' + escapeHtml(groupId) + '" data-uid="' + escapeHtml(uid) + '" data-name="' + escapeHtml(displayName) + '">' + actionIcon('delete') + '</button>'
                 )
                 : (
                     '<button class="icon-action-btn member-view-btn" title="View member" aria-label="View member" type="button" data-group="' + escapeHtml(groupId) + '" data-uid="' + escapeHtml(uid) + '">' + actionIcon('view') + '</button>'
                 );
-            return '<tr class="member-row" data-group="' + escapeHtml(groupId) + '" data-uid="' + escapeHtml(uid) + '">' +
+            return '<tr class="member-row" data-group="' + escapeHtml(groupId) + '" data-uid="' + escapeHtml(uid) + '" data-role="' + escapeHtml(normalizedRole) + '" data-search="' + escapeHtml(searchValue) + '">' +
                 '<td>' +
                     '<div class="member-name-cell">' +
-                        '<div class="member-name-cell__title">' + escapeHtml(m.display_name || '-') + '</div>' +
+                        '<span class="member-avatar bg-label-primary">' + initials + '</span>' +
+                        '<div><div class="member-name-cell__title">' + escapeHtml(m.display_name || '-') + '</div><span class="text-body-secondary small">Team member</span></div>' +
                     '</div>' +
                 '</td>' +
                 '<td><span class="member-email-text">' + escapeHtml(m.email || '-') + '</span></td>' +
@@ -666,6 +880,7 @@
                 '<td><div class="actions-cell actions-cell--icons">' + actionButtons + '</div></td>' +
                 '</tr>';
         }).join('');
+        applyMemberFilters();
 
         function refreshMembers(gid) {
             return getAuthHeaders().then(function (h) {
@@ -749,6 +964,9 @@
     }
 
     function renderInvites(groupId, invites) {
+        invitesByGroup[String(groupId)] = Array.isArray(invites) ? invites.slice() : [];
+        updateTeamSummary();
+        syncGroupCapacityUi(groupId);
         var loadingEl = document.getElementById('invites-loading-' + groupId);
         var tableEl = document.getElementById('invites-table-' + groupId);
         var tbody = document.getElementById('invites-body-' + groupId);
@@ -764,15 +982,20 @@
         if (tableEl) tableEl.style.display = '';
 
         tbody.innerHTML = invites.map(function (inv) {
-            var canCopy = Boolean(inv.invite_link) && String(inv.status || '').toLowerCase() === 'pending';
+            var status = String(inv.status || '').toLowerCase();
+            var statusLabel = status ? status.charAt(0).toUpperCase() + status.slice(1) : '-';
+            var statusClass = status === 'pending'
+                ? 'bg-label-warning'
+                : (status === 'accepted' ? 'bg-label-success' : 'bg-label-secondary');
+            var canCopy = Boolean(inv.invite_link) && status === 'pending';
             var copyBtn = canCopy
-                ? '<button class="btn btn-secondary btn-sm invite-copy-btn" data-link="' + escapeHtml(inv.invite_link) + '" type="button">Copy Link</button>'
-                : '<span style="color:var(--color-text-dim);font-size:0.78rem;">-</span>';
+                ? '<button class="btn btn-sm btn-outline-primary invite-copy-btn" data-link="' + escapeHtml(inv.invite_link) + '" type="button"><i class="bx bx-copy me-1"></i>Copy Link</button>'
+                : '<span class="text-body-secondary">-</span>';
             return '<tr>' +
-                '<td>' + escapeHtml(inv.display_name || '-') + '</td>' +
-                '<td>' + escapeHtml(inv.email || '-') + '</td>' +
-                '<td>' + escapeHtml(roleLabels[normalizeMemberRole(inv.member_role)] || normalizeMemberRole(inv.member_role) || '-') + '</td>' +
-                '<td>' + escapeHtml(inv.status || '-') + '</td>' +
+                '<td><span class="fw-medium">' + escapeHtml(inv.display_name || '-') + '</span></td>' +
+                '<td><span class="text-body-secondary">' + escapeHtml(inv.email || '-') + '</span></td>' +
+                '<td><span class="member-role-label">' + escapeHtml(roleLabels[normalizeMemberRole(inv.member_role)] || normalizeMemberRole(inv.member_role) || '-') + '</span></td>' +
+                '<td><span class="badge ' + statusClass + '">' + escapeHtml(statusLabel) + '</span></td>' +
                 '<td>' + formatDate(inv.created_at) + '</td>' +
                 '<td>' + copyBtn + '</td>' +
             '</tr>';
@@ -808,56 +1031,81 @@
             if (emptyEl) emptyEl.style.display = 'block';
             return;
         }
+        var groupCountEl = document.getElementById('team-group-count');
+        if (groupCountEl) {
+            groupCountEl.textContent = groups.length + ' client team' + (groups.length === 1 ? '' : 's');
+        }
+        groupsById = {};
+        groups.forEach(function (group) {
+            groupsById[String(group.id || '')] = group;
+        });
 
         // Build all group cards first (instant paint)
         container.innerHTML = groups.map(function (group) {
             var gid = escapeHtml(group.id);
-            return '<div class="client-section" style="margin-bottom:1.25rem;">' +
-                '<div class="client-section-header"><div>' +
-                    '<div class="client-section-title">' + escapeHtml(group.name) + '</div>' +
-                    (group.description
-                        ? '<div style="font-size:0.78rem;color:var(--color-text-dim);margin-top:0.15rem;">' + escapeHtml(group.description) + '</div>'
-                        : '') +
-                '</div><div style="display:flex;gap:0.45rem;flex-wrap:wrap;justify-content:flex-end;">' +
-                    '<button class="btn btn-secondary btn-sm invite-member-btn" data-group-id="' + gid + '" data-group-name="' + escapeHtml(group.name || '') + '" type="button">Invite User</button>' +
-                '</div></div>' +
-                '<div class="group-subtabs" data-group="' + gid + '">' +
-                    '<button class="group-subtab active" data-group="' + gid + '" data-target="members" type="button">Members</button>' +
-                    '<button class="group-subtab" data-group="' + gid + '" data-target="invites" type="button">Invited Users</button>' +
+            var groupName = escapeHtml(group.name || 'Client Team');
+            var groupInitials = escapeHtml(getInitials(group.name, 'Team'));
+            var capacity = groupCapacityState(group.id);
+            var limitMessage = capacity.atCapacity ? groupLimitMessage(group.id) : '';
+            return '<section class="card team-group-card">' +
+                '<div class="team-group-header">' +
+                    '<div class="d-flex align-items-center gap-3">' +
+                        '<span class="team-group-avatar bg-label-primary">' + groupInitials + '</span>' +
+                        '<div>' +
+                            '<div class="d-flex align-items-center gap-2 flex-wrap"><h5 class="mb-0">' + groupName + '</h5><span class="badge bg-label-primary">Client Team</span>' +
+                            '<span class="team-capacity-indicator' + (capacity.atCapacity ? ' team-capacity-indicator--full' : '') + '" id="team-capacity-' + gid + '" title="' +
+                            escapeHtml(capacity.memberCount + ' active member(s), ' + capacity.pendingInviteCount + ' pending invitation(s)') + '">' +
+                            capacity.occupiedCount + ' / ' + capacity.membersAllowed + ' slots</span></div>' +
+                            '<p class="text-body-secondary small mb-0 mt-1">' + escapeHtml(group.description || 'Manage this team and its resource permissions.') + '</p>' +
+                        '</div>' +
+                    '</div>' +
+                    '<div class="team-group-actions">' +
+                        '<span class="team-capacity-action" data-capacity-group="' + gid + '" title="' + escapeHtml(limitMessage) + '">' +
+                        '<button class="btn btn-outline-primary btn-sm add-member-btn" data-group-id="' + gid + '" data-group-name="' + groupName + '" type="button"' + (capacity.atCapacity ? ' disabled' : '') + '><i class="bx bx-user-plus me-1"></i>Add Existing</button></span>' +
+                        '<span class="team-capacity-action" data-capacity-group="' + gid + '" title="' + escapeHtml(limitMessage) + '">' +
+                        '<button class="btn btn-primary btn-sm invite-member-btn" data-group-id="' + gid + '" data-group-name="' + groupName + '" type="button"' + (capacity.atCapacity ? ' disabled' : '') + '><i class="bx bx-envelope me-1"></i>Invite Member</button></span>' +
+                    '</div>' +
                 '</div>' +
-                '<div id="group-panel-members-' + gid + '" class="group-subpanel">' +
-                    '<div id="members-loading-' + gid + '" style="font-size:0.83rem;color:var(--color-text-dim);">Loading members...</div>' +
-                    '<div class="members-table-wrap" id="members-list-wrap-' + gid + '" style="display:none;">' +
-                        '<table class="table members-table">' +
+                '<div class="team-group-tabs" data-group="' + gid + '">' +
+                    '<button class="group-subtab active" data-group="' + gid + '" data-target="members" type="button">Members</button>' +
+                    '<button class="group-subtab" data-group="' + gid + '" data-target="invites" type="button">Invitations</button>' +
+                '</div>' +
+                '<div id="group-panel-members-' + gid + '" class="team-group-panel">' +
+                    '<div id="members-loading-' + gid + '" class="team-panel-loading"><span class="spinner-border spinner-border-sm text-primary me-2"></span>Loading members...</div>' +
+                    '<div class="team-table-wrap" id="members-list-wrap-' + gid + '" style="display:none;">' +
+                        '<table class="table team-table">' +
                             '<thead><tr>' +
-                                '<th style="width:24%;">Name</th>' +
-                                '<th style="width:28%;">Email ID</th>' +
-                                '<th style="width:18%;">Permission</th>' +
-                                '<th style="width:14%;">Created</th>' +
-                                '<th style="width:10%;">Status</th>' +
-                                '<th style="width:12%;">Actions</th>' +
+                                '<th>Member</th>' +
+                                '<th>Email</th>' +
+                                '<th>Role</th>' +
+                                '<th>Joined</th>' +
+                                '<th>Status</th>' +
+                                '<th>Actions</th>' +
                             '</tr></thead>' +
                             '<tbody id="members-list-' + gid + '"></tbody>' +
                         '</table>' +
                     '</div>' +
-                    '<div class="empty" id="members-empty-' + gid + '" style="display:none;">No members in this group.</div>' +
+                    '<div class="team-panel-empty" id="members-empty-' + gid + '" style="display:none;"><i class="bx bx-user-x"></i><span>No members in this team.</span></div>' +
+                    '<div class="team-panel-empty members-filter-empty" style="display:none;"><i class="bx bx-search-alt"></i><span>No members match your filters.</span></div>' +
                 '</div>' +
-                '<div id="group-panel-invites-' + gid + '" class="group-subpanel" style="display:none;">' +
-                    '<div id="invites-loading-' + gid + '" style="font-size:0.83rem;color:var(--color-text-dim);">Loading invites...</div>' +
-                    '<table class="table" id="invites-table-' + gid + '" style="display:none;">' +
-                        '<thead><tr>' +
-                            '<th style="width:22%;">Name</th>' +
-                            '<th style="width:25%;">Email</th>' +
-                            '<th style="width:13%;">Role</th>' +
-                            '<th style="width:12%;">Status</th>' +
-                            '<th style="width:14%;">Invited</th>' +
-                            '<th style="width:14%;">Action</th>' +
-                        '</tr></thead>' +
-                        '<tbody id="invites-body-' + gid + '"></tbody>' +
-                    '</table>' +
-                    '<div class="empty" id="invites-empty-' + gid + '" style="display:none;">No invites yet.</div>' +
+                '<div id="group-panel-invites-' + gid + '" class="team-group-panel" style="display:none;">' +
+                    '<div id="invites-loading-' + gid + '" class="team-panel-loading"><span class="spinner-border spinner-border-sm text-primary me-2"></span>Loading invitations...</div>' +
+                    '<div class="team-table-wrap" id="invites-table-' + gid + '" style="display:none;">' +
+                        '<table class="table team-table">' +
+                            '<thead><tr>' +
+                                '<th>Name</th>' +
+                                '<th>Email</th>' +
+                                '<th>Role</th>' +
+                                '<th>Status</th>' +
+                                '<th>Invited</th>' +
+                                '<th>Action</th>' +
+                            '</tr></thead>' +
+                            '<tbody id="invites-body-' + gid + '"></tbody>' +
+                        '</table>' +
+                    '</div>' +
+                    '<div class="team-panel-empty" id="invites-empty-' + gid + '" style="display:none;"><i class="bx bx-envelope-open"></i><span>No invitations yet.</span></div>' +
                 '</div>' +
-            '</div>';
+            '</section>';
         }).join('');
 
         container.querySelectorAll('.invite-member-btn').forEach(function (btn) {
@@ -934,6 +1182,33 @@
         var closeEditRoleBtn = document.getElementById('close-edit-member-role-modal');
         var cancelEditRoleBtn = document.getElementById('cancel-edit-member-role');
         var confirmEditRoleBtn = document.getElementById('confirm-edit-member-role');
+        var searchInput = document.getElementById('team-search-input');
+        var roleFilter = document.getElementById('team-role-filter');
+        var menuSignout = document.getElementById('menu-signout');
+        var dropdownSignout = document.getElementById('dropdown-signout');
+
+        var profile = ctx.profile || {};
+        var profileName = profile.name || profile.display_name || profile.email || 'User';
+        var profileRole = ctx.isClientAdmin ? 'Client Admin' : (roleLabels[normalizeMemberRole(ctx.role)] || ctx.role || 'Member');
+        var profileInitials = getInitials(profileName, profile.email);
+        var navbarName = document.getElementById('navbar-user-name');
+        var navbarRole = document.getElementById('navbar-user-role');
+        var navbarAvatar = document.getElementById('navbar-user-avatar');
+        var navbarAvatarTwo = document.getElementById('navbar-user-avatar-2');
+        if (navbarName) navbarName.textContent = profileName;
+        if (navbarRole) navbarRole.textContent = profileRole;
+        if (navbarAvatar) navbarAvatar.textContent = profileInitials;
+        if (navbarAvatarTwo) navbarAvatarTwo.textContent = profileInitials;
+
+        function signOutFromTeamPage(event) {
+            if (event) event.preventDefault();
+            try {
+                sessionStorage.removeItem('sidebar_cache_v2_client_admin');
+            } catch (e) {}
+            supabase.auth.signOut().finally(function () {
+                window.location.href = '/login';
+            });
+        }
 
         if (closeInviteBtn) closeInviteBtn.addEventListener('click', function () { closeModal(modalInviteMember); });
         if (cancelInviteBtn) cancelInviteBtn.addEventListener('click', function () { closeModal(modalInviteMember); });
@@ -955,8 +1230,18 @@
         if (cancelEditRoleBtn) cancelEditRoleBtn.addEventListener('click', function () { closeModal(modalEditMemberRole); });
         if (confirmEditRoleBtn) confirmEditRoleBtn.addEventListener('click', doEditMemberRole);
         if (modalEditMemberRole) modalEditMemberRole.addEventListener('click', function (e) { if (e.target === modalEditMemberRole) closeModal(modalEditMemberRole); });
+        if (searchInput) searchInput.addEventListener('input', applyMemberFilters);
+        if (roleFilter) roleFilter.addEventListener('change', applyMemberFilters);
+        if (menuSignout) menuSignout.addEventListener('click', signOutFromTeamPage);
+        if (dropdownSignout) dropdownSignout.addEventListener('click', signOutFromTeamPage);
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') return;
+            document.querySelectorAll('.team-modal-backdrop.visible').forEach(function (modal) {
+                closeModal(modal);
+            });
+        });
 
-        if (ctx.role === 'admin' || ctx.role === 'superadmin') {
+        if ((ctx.role === 'admin' || ctx.role === 'superadmin') && !ctx.isClientAdmin) {
             window.location.replace('/user-management');
             return;
         }
@@ -967,9 +1252,13 @@
             var groupsRes = results[0];
             var headers   = results[1];
             if (!groupsRes.ok || !Array.isArray(groupsRes.data) || !groupsRes.data.length) {
-                showBanner('Access denied: you are not a client admin.');
+                showBanner(groupsRes.ok ? '' : 'Unable to load your client teams.');
                 var el = document.getElementById('groups-loading');
                 if (el) el.style.display = 'none';
+                var emptyEl = document.getElementById('groups-empty');
+                if (emptyEl) emptyEl.style.display = '';
+                var groupCountEl = document.getElementById('team-group-count');
+                if (groupCountEl) groupCountEl.textContent = 'No client teams';
                 return;
             }
             renderGroups(groupsRes.data, headers);
@@ -981,5 +1270,6 @@
     });
 })();
 </script>
-{% endblock %}
+</body>
+</html>
 

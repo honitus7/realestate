@@ -599,7 +599,7 @@
     min-height: 400px;
 }
 .client-list-panel {
-    width: 300px;
+    width: 390px;
     flex-shrink: 0;
 }
 .client-detail-panel {
@@ -617,11 +617,43 @@
     margin-bottom: 0.4rem;
     background: var(--color-surface);
     transition: background 0.12s, border-color 0.12s;
+    display: grid;
+    grid-template-columns: 34px minmax(0, 1fr) 92px;
+    align-items: center;
+    gap: 0.65rem;
 }
+.client-list-columns {
+    display: grid;
+    grid-template-columns: 34px minmax(0, 1fr) 92px;
+    gap: 0.65rem;
+    padding: 0 0.85rem 0.45rem;
+    color: var(--color-text-dim);
+    font-size: 0.66rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+.client-list-columns span:last-child { text-align: center; }
 .client-row:hover { background: var(--color-bg-hover, #f5f0e8); }
 .client-row.selected { border-color: var(--color-accent, #c9a962); background: rgba(201,169,98,0.08); }
+.client-row-number {
+    color: var(--color-text-dim);
+    font-size: 0.75rem;
+    font-weight: 600;
+}
 .client-row-name { font-weight: 600; font-size: 0.9rem; color: var(--color-text); }
 .client-row-meta { font-size: 0.75rem; color: var(--color-text-dim); margin-top: 0.15rem; }
+.client-row-limit {
+    justify-self: center;
+    min-width: 42px;
+    padding: 0.28rem 0.5rem;
+    border-radius: 999px;
+    background: rgba(37, 99, 235, 0.08);
+    color: #1e40af;
+    text-align: center;
+    font-size: 0.78rem;
+    font-weight: 700;
+}
 .client-detail-header {
     display: flex;
     align-items: flex-start;
@@ -635,6 +667,27 @@
 .client-detail-actions { display: flex; gap: 0.5rem; flex-shrink: 0; }
 .client-detail-name { font-size: 1.05rem; font-weight: 700; color: var(--color-text); }
 .client-detail-desc { font-size: 0.8rem; color: var(--color-text-dim); margin-top: 0.2rem; }
+.client-capacity-summary {
+    display: inline-flex;
+    align-items: center;
+    width: fit-content;
+    margin-top: 0.55rem;
+    padding: 0.25rem 0.55rem;
+    border-radius: 999px;
+    background: rgba(37, 99, 235, 0.08);
+    color: #1e40af;
+    font-size: 0.72rem;
+    font-weight: 700;
+}
+.client-capacity-summary.at-capacity {
+    background: rgba(239, 68, 68, 0.08);
+    color: #b91c1c;
+}
+.client-limit-help {
+    margin-top: 0.35rem;
+    color: var(--color-text-dim);
+    font-size: 0.72rem;
+}
 .client-section {
     background: var(--color-surface);
     border: 1px solid var(--color-border);

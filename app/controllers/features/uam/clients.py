@@ -13,15 +13,20 @@ from .shared import (
     CLIENT_MEMBER_ROLE_BROKER,
     CLIENT_MEMBER_ROLE_CLIENT_ADMIN,
     CLIENT_MEMBER_ROLE_CLIENT_USER,
+    DEFAULT_CLIENT_MEMBERS_ALLOWED,
     _accept_client_team_invite_token,
     _build_client_team_invite_link,
     _cascade_access_for_new_member,
+    _client_capacity_snapshot,
     _client_admin_has_resource_in_group_scope,
+    _client_member_limit_message,
     _get_caller_org_id,
     _get_client_member_row,
     _get_client_member_rows,
     _get_client_org,
+    _is_active_pending_client_invite,
     _is_client_admin_of,
+    _normalize_client_members_allowed,
     _normalize_client_member_role,
     _project_access_type_for_member_role,
     _propagate_new_member_access_to_group,
@@ -58,6 +63,44 @@ def _client_member_counts(sb, client_ids):
     return counts
 
 
+def _client_pending_invite_counts(sb, client_ids):
+    client_ids = _unique_values(client_ids)
+    counts = {str(client_id): 0 for client_id in client_ids}
+    if not client_ids:
+        return counts
+    rows = (
+        sb.table('client_team_invites')
+        .select('client_id, status, expires_at')
+        .in_('client_id', client_ids)
+        .eq('status', 'pending')
+        .execute()
+    )
+    for row in (rows.data or []):
+        client_id = str(row.get('client_id') or '')
+        if client_id in counts and _is_active_pending_client_invite(row):
+            counts[client_id] += 1
+    return counts
+
+
+def _with_client_capacity(row, member_counts, pending_invite_counts):
+    output = dict(row)
+    client_id = str(output.get('id') or '')
+    members_allowed = _normalize_client_members_allowed(
+        output.get('members_allowed'),
+        DEFAULT_CLIENT_MEMBERS_ALLOWED,
+    )
+    member_count = member_counts.get(client_id, 0)
+    pending_invite_count = pending_invite_counts.get(client_id, 0)
+    occupied_count = member_count + pending_invite_count
+    output['members_allowed'] = members_allowed
+    output['member_count'] = member_count
+    output['pending_invite_count'] = pending_invite_count
+    output['occupied_count'] = occupied_count
+    output['remaining_slots'] = max(0, members_allowed - occupied_count)
+    output['at_capacity'] = occupied_count >= members_allowed
+    return output
+
+
 def _id_name_map(sb, table_name, ids):
     ids = _unique_values(ids)
     if not ids:
@@ -81,16 +124,17 @@ def register_uam_client_routes(app):
         if not org_id:
             return jsonify({'error': 'Organization not set'}), 403
         try:
-            r = sb.table('clients').select('id, name, description, created_by, created_at, updated_at').eq('org_id', org_id).order('name').execute()
-            member_counts = _client_member_counts(sb, [row.get('id') for row in (r.data or [])])
+            r = sb.table('clients').select('id, name, description, members_allowed, created_by, created_at, updated_at').eq('org_id', org_id).order('name').execute()
+            client_ids = [row.get('id') for row in (r.data or [])]
+            member_counts = _client_member_counts(sb, client_ids)
+            pending_invite_counts = _client_pending_invite_counts(sb, client_ids)
             out = []
             for row in (r.data or []):
-                o = dict(row)
+                o = _with_client_capacity(row, member_counts, pending_invite_counts)
                 if o.get('created_at'):
                     o['created_at'] = str(o['created_at'])
                 if o.get('updated_at'):
                     o['updated_at'] = str(o['updated_at'])
-                o['member_count'] = member_counts.get(str(o.get('id')), 0)
                 out.append(o)
             return jsonify(out)
         except Exception as e:
@@ -111,14 +155,26 @@ def register_uam_client_routes(app):
         if not name:
             return jsonify({'error': 'Client name is required'}), 400
         try:
+            members_allowed = _normalize_client_members_allowed(
+                data.get('members_allowed'),
+                DEFAULT_CLIENT_MEMBERS_ALLOWED,
+            )
+        except ValueError as e:
+            return jsonify({'error': str(e)}), 400
+        try:
             r = sb.table('clients').insert({
                 'org_id': str(org_id), 'name': name, 'description': description,
+                'members_allowed': members_allowed,
                 'created_by': str(user_id),
             }).execute()
             row = dict(r.data[0]) if r.data else {}
             if row.get('created_at'):
                 row['created_at'] = str(row['created_at'])
             row['member_count'] = 0
+            row['pending_invite_count'] = 0
+            row['occupied_count'] = 0
+            row['remaining_slots'] = members_allowed
+            row['at_capacity'] = False
             return jsonify(row), 201
         except Exception as e:
             msg = str(e)
@@ -144,6 +200,24 @@ def register_uam_client_routes(app):
             updates['name'] = name
         if 'description' in data:
             updates['description'] = (data.get('description') or '').strip()
+        if 'members_allowed' in data:
+            try:
+                members_allowed = _normalize_client_members_allowed(data.get('members_allowed'))
+            except ValueError as e:
+                return jsonify({'error': str(e)}), 400
+            try:
+                capacity = _client_capacity_snapshot(sb, client_id, _client)
+            except Exception as e:
+                return jsonify({'error': str(e)}), 500
+            if capacity and members_allowed < capacity['occupied_count']:
+                return jsonify({
+                    'error': (
+                        f'Members allowed cannot be lower than the {capacity["occupied_count"]} '
+                        'currently occupied member and invitation slots'
+                    ),
+                    'occupied_count': capacity['occupied_count'],
+                }), 400
+            updates['members_allowed'] = members_allowed
         if not updates:
             return jsonify({'success': True})
         try:
@@ -182,14 +256,15 @@ def register_uam_client_routes(app):
             client_ids = [r.get('client_id') for r in (rows.data or []) if r.get('client_id')]
             if not client_ids:
                 return jsonify([])
-            r = sb.table('clients').select('id, name, description, created_at').in_('id', client_ids).order('name').execute()
-            member_counts = _client_member_counts(sb, [row.get('id') for row in (r.data or [])])
+            r = sb.table('clients').select('id, name, description, members_allowed, created_at').in_('id', client_ids).order('name').execute()
+            selected_client_ids = [row.get('id') for row in (r.data or [])]
+            member_counts = _client_member_counts(sb, selected_client_ids)
+            pending_invite_counts = _client_pending_invite_counts(sb, selected_client_ids)
             out = []
             for row in (r.data or []):
-                o = dict(row)
+                o = _with_client_capacity(row, member_counts, pending_invite_counts)
                 if o.get('created_at'):
                     o['created_at'] = str(o['created_at'])
-                o['member_count'] = member_counts.get(str(o.get('id')), 0)
                 out.append(o)
             return jsonify(out)
         except Exception as e:
@@ -287,7 +362,7 @@ def register_uam_client_routes(app):
                 return err
         else:
             try:
-                r = sb.table('clients').select('id, org_id').eq('id', client_id).limit(1).execute()
+                r = sb.table('clients').select('id, org_id, members_allowed').eq('id', client_id).limit(1).execute()
                 client = r.data[0] if r.data else None
             except Exception:
                 client = None
@@ -321,6 +396,18 @@ def register_uam_client_routes(app):
                 return jsonify({'error': 'User is not in your organization'}), 403
         except Exception as e:
             return jsonify({'error': str(e)}), 500
+        try:
+            capacity = _client_capacity_snapshot(sb, client_id, client)
+        except Exception as e:
+            return jsonify({'error': str(e)}), 500
+        if not capacity:
+            return jsonify({'error': 'Client group not found'}), 404
+        if capacity['at_capacity']:
+            return jsonify({
+                'error': _client_member_limit_message(capacity['members_allowed']),
+                'code': 'client_member_limit_reached',
+                **capacity,
+            }), 409
         try:
             r = sb.table('client_members').insert({
                 'client_id': str(client_id), 'user_id': str(target_user_id),
@@ -430,7 +517,7 @@ def register_uam_client_routes(app):
         if not is_admin and not is_client_admin_flag:
             return jsonify({'error': 'Forbidden'}), 403
         try:
-            cr = sb.table('clients').select('id, org_id, name').eq('id', client_id).limit(1).execute()
+            cr = sb.table('clients').select('id, org_id, name, members_allowed').eq('id', client_id).limit(1).execute()
             if not cr.data:
                 return jsonify({'error': 'Client group not found'}), 404
             client = cr.data[0]
@@ -488,9 +575,19 @@ def register_uam_client_routes(app):
             token = None
             invite_id = None
             existing_row = (existing.data or [None])[0]
-            if existing_row and str(existing_row.get('status') or '').lower() == 'pending':
+            if existing_row and _is_active_pending_client_invite(existing_row):
                 token = str(existing_row.get('invite_token') or '').strip()
                 invite_id = existing_row.get('id')
+            if not invite_id:
+                capacity = _client_capacity_snapshot(sb, client_id, client)
+                if not capacity:
+                    return jsonify({'error': 'Client group not found'}), 404
+                if capacity['at_capacity']:
+                    return jsonify({
+                        'error': _client_member_limit_message(capacity['members_allowed']),
+                        'code': 'client_member_limit_reached',
+                        **capacity,
+                    }), 409
             if not token:
                 token = secrets.token_urlsafe(24)
             invite_link = _build_client_team_invite_link(token)

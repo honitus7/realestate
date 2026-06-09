@@ -297,4 +297,17 @@ def client_group_resource_ids_for_admin(sb, user_id):
                     panorama_ids.add(int(pid))
             except Exception:
                 continue
+    # A project assignment grants access to every panorama/plot inside that
+    # workspace, even when no separate panorama_access row was created.
+    for chunk in _chunks(workspace_ids):
+        try:
+            rows = sb.table('panoramas').select('id').in_('workspace_id', chunk).execute()
+        except Exception:
+            continue
+        for row in (rows.data or []):
+            try:
+                if row.get('id') is not None:
+                    panorama_ids.add(int(row.get('id')))
+            except Exception:
+                continue
     return workspace_ids, panorama_ids

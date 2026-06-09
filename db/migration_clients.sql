@@ -23,6 +23,7 @@ create table if not exists public.clients (
   org_id       uuid not null references public.organizations(id) on delete cascade,
   name         text not null,
   description  text not null default '',
+  members_allowed integer not null default 10 check (members_allowed >= 1),
   created_by   uuid references auth.users(id) on delete set null,
   created_at   timestamptz default now(),
   updated_at   timestamptz default now(),

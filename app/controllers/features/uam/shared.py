@@ -24,6 +24,87 @@ from app.services.uam_reference_service import (
     _validate_project_reference_user,
 )
 
+DEFAULT_CLIENT_MEMBERS_ALLOWED = 10
+MAX_CLIENT_MEMBERS_ALLOWED = 100000
+
+
+def _normalize_client_members_allowed(value, default=DEFAULT_CLIENT_MEMBERS_ALLOWED):
+    if value is None or value == '':
+        return int(default)
+    try:
+        normalized = int(value)
+    except (TypeError, ValueError):
+        raise ValueError('Members allowed must be a whole number')
+    if normalized < 1:
+        raise ValueError('Members allowed must be at least 1')
+    if normalized > MAX_CLIENT_MEMBERS_ALLOWED:
+        raise ValueError(f'Members allowed cannot exceed {MAX_CLIENT_MEMBERS_ALLOWED}')
+    return normalized
+
+
+def _client_member_limit_message(members_allowed):
+    return f'Restricted to {int(members_allowed)} users. Contact Admin to Unlock More'
+
+
+def _is_active_pending_client_invite(row):
+    if str((row or {}).get('status') or '').strip().lower() != 'pending':
+        return False
+    expires_at = (row or {}).get('expires_at')
+    if not expires_at:
+        return True
+    try:
+        expiry = datetime.fromisoformat(str(expires_at).replace('Z', '+00:00'))
+        now = datetime.utcnow().replace(tzinfo=expiry.tzinfo)
+        return now <= expiry
+    except Exception:
+        return True
+
+
+def _client_capacity_snapshot(sb, client_id, client=None):
+    client_row = client
+    if not client_row:
+        result = (
+            sb.table('clients')
+            .select('id, members_allowed')
+            .eq('id', str(client_id))
+            .limit(1)
+            .execute()
+        )
+        client_row = (result.data or [None])[0]
+    if not client_row:
+        return None
+
+    members_allowed = _normalize_client_members_allowed(
+        client_row.get('members_allowed'),
+        DEFAULT_CLIENT_MEMBERS_ALLOWED,
+    )
+    members = (
+        sb.table('client_members')
+        .select('id')
+        .eq('client_id', str(client_id))
+        .execute()
+    )
+    invites = (
+        sb.table('client_team_invites')
+        .select('id, status, expires_at')
+        .eq('client_id', str(client_id))
+        .eq('status', 'pending')
+        .execute()
+    )
+    member_count = len(members.data or [])
+    pending_invite_count = sum(
+        1 for row in (invites.data or []) if _is_active_pending_client_invite(row)
+    )
+    occupied_count = member_count + pending_invite_count
+    return {
+        'members_allowed': members_allowed,
+        'member_count': member_count,
+        'pending_invite_count': pending_invite_count,
+        'occupied_count': occupied_count,
+        'remaining_slots': max(0, members_allowed - occupied_count),
+        'at_capacity': occupied_count >= members_allowed,
+    }
+
 
 
 def _get_caller_org_id(sb, user_id):
@@ -334,6 +415,16 @@ def _accept_client_team_invite_token(sb, token, user_id):
                 'invited_by': invite.get('invited_by'),
             }).eq('id', member_id).execute()
     else:
+        capacity = _client_capacity_snapshot(sb, client_id)
+        if not capacity:
+            return False, 'Client group not found', 404
+        limit_reached = (
+            capacity['occupied_count'] > capacity['members_allowed']
+            if status == 'pending'
+            else capacity['at_capacity']
+        )
+        if limit_reached:
+            return False, _client_member_limit_message(capacity['members_allowed']), 409
         ins = (
             sb.table('client_members')
             .insert({

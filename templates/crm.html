@@ -1566,7 +1566,7 @@
         if (el) el.textContent = value;
     }
 
-    window.configureSneatShell = function configureSneatShell(profile, isBroker, isAdmin) {
+    window.configureSneatShell = function configureSneatShell(profile, isBroker, isAdmin, isClientAdmin) {
         const displayName = String((profile && (profile.display_name || profile.name || profile.email)) || 'User').trim() || 'User';
         const roleLabel = String((profile && profile.role) || 'user');
         const letters = initials(displayName);
@@ -1584,25 +1584,37 @@
             const el = document.getElementById(id);
             if (el) el.style.display = showInvites ? '' : 'none';
         });
+        ['sneat-nav-team', 'sneat-dropdown-team-wrap'].forEach(function (id) {
+            const el = document.getElementById(id);
+            if (el) el.style.display = isClientAdmin ? '' : 'none';
+        });
     };
 
     function primeSneatNavFromCache() {
         try {
-            const raw = window.sessionStorage.getItem('sidebar_cache');
+            const raw = window.sessionStorage.getItem('sidebar_cache_v2_client_admin');
             if (!raw) return;
             const cached = JSON.parse(raw);
-            if (!cached || !cached.isBroker) return;
-            ['sneat-nav-invites', 'sneat-dropdown-invites-wrap'].forEach(function (id) {
-                const el = document.getElementById(id);
-                if (el) el.style.display = '';
-            });
+            if (!cached) return;
+            if (cached.isBroker) {
+                ['sneat-nav-invites', 'sneat-dropdown-invites-wrap'].forEach(function (id) {
+                    const el = document.getElementById(id);
+                    if (el) el.style.display = '';
+                });
+            }
+            if (cached.isClientAdmin) {
+                ['sneat-nav-team', 'sneat-dropdown-team-wrap'].forEach(function (id) {
+                    const el = document.getElementById(id);
+                    if (el) el.style.display = '';
+                });
+            }
         } catch (e) {}
     }
     primeSneatNavFromCache();
 
     window.configureBrokerAccount = function configureBrokerAccount(profile, useBrokerHeader) {
         crmBrokerHeaderMode = !!useBrokerHeader;
-        configureSneatShell(profile, useBrokerHeader, false);
+        configureSneatShell(profile, useBrokerHeader, false, isClientAdminUser);
     };
 
     function bindSneatShellActions() {
@@ -3023,7 +3035,7 @@
                 isExternalBrokerUser = !!isExternalBroker;
                 window.__crmIsExternalBroker = !!isExternalBroker;
                 window.__crmUserRole = userRole;
-                configureSneatShell(d, isExternalBroker, isAdminRole);
+                configureSneatShell(d, isExternalBroker, isAdminRole, isClientAdminUser);
                 configureBrokerAccount(d, useBrokerHeader);
                 if ($('tab-projects')) $('tab-projects').style.display = '';
                 // Show admin-only CRM tabs

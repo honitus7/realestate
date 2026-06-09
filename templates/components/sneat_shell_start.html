@@ -33,6 +33,12 @@
       html.sneat-broker-cached #sneat-dropdown-invites-wrap {
         display: block !important;
       }
+      html.sneat-client-admin-cached #sneat-nav-team {
+        display: list-item !important;
+      }
+      html.sneat-client-admin-cached #sneat-dropdown-team-wrap {
+        display: block !important;
+      }
       #layout-menu {
         position: relative;
       }
@@ -71,10 +77,13 @@
     <script>
       (function () {
         try {
-          var cached = JSON.parse(window.sessionStorage.getItem('sidebar_cache') || 'null');
+          var cached = JSON.parse(window.sessionStorage.getItem('sidebar_cache_v2_client_admin') || 'null');
           var brokerFlag = window.localStorage.getItem('sneat_is_broker');
           if ((cached && cached.isBroker) || brokerFlag === '1') {
             document.documentElement.classList.add('sneat-broker-cached');
+          }
+          if (cached && cached.isClientAdmin) {
+            document.documentElement.classList.add('sneat-client-admin-cached');
           }
         } catch (e) {}
         try {
@@ -157,6 +166,12 @@
                 <div class="text-truncate">Invites</div>
               </a>
             </li>
+            <li class="menu-item{% if _nav == 'team' %} active{% endif %}" id="sneat-nav-team"{% if _nav != 'team' %} style="display:none;"{% endif %}>
+              <a href="/client-management" class="menu-link">
+                <i class="menu-icon tf-icons bx bx-group"></i>
+                <div class="text-truncate">My Team</div>
+              </a>
+            </li>
             <li class="menu-header small text-uppercase">
               <span class="menu-header-text">Account</span>
             </li>
@@ -219,6 +234,11 @@
                     <li>
                       <a class="dropdown-item" href="/crm">
                         <i class="icon-base bx bx-briefcase-alt-2 icon-md me-3"></i><span>CRM</span>
+                      </a>
+                    </li>
+                    <li id="sneat-dropdown-team-wrap"{% if _nav != 'team' %} style="display:none;"{% endif %}>
+                      <a class="dropdown-item" href="/client-management">
+                        <i class="icon-base bx bx-group icon-md me-3"></i><span>My Team</span>
                       </a>
                     </li>
                     <li>
