@@ -4,9 +4,7 @@ Entry point: creates app via app package (controller/service structure).
 """
 import os
 
-from app import create_app
-
-app = create_app()
+from app import app
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
