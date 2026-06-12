@@ -26,7 +26,7 @@ create table if not exists public.full_view_tabs (
   name text not null,
   -- tab_type values: 360_pano | daynight | floor_plan | gallery | project_plan |
   --                  sales_map | drone_view | location | highlights | amenities |
-  --                  brochure | custom
+  --                  brochure | link | custom
   tab_type text not null default '360_pano',
   -- Content references (only one set depending on type)
   ref_panorama_id bigint,

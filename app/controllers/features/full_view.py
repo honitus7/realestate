@@ -1,5 +1,6 @@
 import os
 import uuid
+from urllib.parse import urlsplit
 
 from flask import current_app, jsonify, render_template, request
 from werkzeug.utils import secure_filename
@@ -40,6 +41,37 @@ from app.services.storage_service import (
 from app.services.workspace_service import get_workspace_by_id
 
 from .shared import auth_ctx, is_truthy, json_payload
+
+
+def _normalize_embedded_link_url(raw_url):
+    url = str(raw_url or '').strip()
+    if not url:
+        raise ValueError('URL is required')
+    if url.startswith('//'):
+        url = 'https:' + url
+    elif url.startswith('/'):
+        return url
+    elif not urlsplit(url).scheme:
+        url = 'https://' + url
+
+    parsed = urlsplit(url)
+    if parsed.scheme.lower() not in {'http', 'https'} or not parsed.netloc:
+        raise ValueError('URL must use http:// or https://')
+    return url
+
+
+def _normalize_link_tab_payload(data):
+    payload = dict(data or {})
+    if str(payload.get('tab_type') or '').strip().lower() != 'link':
+        return payload
+
+    content_data = payload.get('content_data')
+    if not isinstance(content_data, dict):
+        raise ValueError('content_data must be a JSON object')
+    normalized_content = dict(content_data)
+    normalized_content['url'] = _normalize_embedded_link_url(content_data.get('url'))
+    payload['content_data'] = normalized_content
+    return payload
 
 
 def register_full_view_routes(app):
@@ -223,7 +255,10 @@ def register_full_view_routes(app):
         sb = get_supabase()
         if not sb:
             return jsonify({'error': 'Database not configured'}), 503
-        data = json_payload()
+        try:
+            data = _normalize_link_tab_payload(json_payload())
+        except ValueError as exc:
+            return jsonify({'error': str(exc)}), 400
         config_id = (data.get('config_id') or '').strip()
         workspace_id = (data.get('workspace_id') or '').strip()
         icon = (data.get('icon') or 'ph:house').strip()
@@ -274,7 +309,10 @@ def register_full_view_routes(app):
         sb = get_supabase()
         if not sb:
             return jsonify({'error': 'Database not configured'}), 503
-        data = json_payload()
+        try:
+            data = _normalize_link_tab_payload(json_payload())
+        except ValueError as exc:
+            return jsonify({'error': str(exc)}), 400
         updated = fv_update_tab(sb, tab_id, **data)
         return jsonify({'tab': updated})
 

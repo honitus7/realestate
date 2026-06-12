@@ -1961,6 +1961,7 @@
         if (!url) return '';
         if (/^(www\.|youtu\.be\/|youtube\.com\/|m\.youtube\.com\/)/i.test(url)) return 'https://' + url;
         if (/^\/\//.test(url)) return 'https:' + url;
+        if (/^[a-z][a-z0-9+.-]*:/i.test(url) && !/^https?:/i.test(url)) return '';
         return url;
     }
 
@@ -2058,6 +2059,7 @@
         if (type === 'video') return ytEmbed;
         if (type === 'location' && contentUrl) return contentUrl;
         if (type === 'brochure' && contentUrl) return contentUrl;
+        if (type === 'link' && contentUrl) return sanitizeUrl(contentUrl);
         if (type === 'custom' && contentUrl) return contentUrl;
         return null;
     }
@@ -2099,6 +2101,7 @@
             url &&
             !isYouTubeEmbedUrl(url) &&
             type !== 'video' &&
+            type !== 'link' &&
             (url.indexOf('http://') === 0 || url.indexOf('https://') === 0 || url.indexOf('//') === 0)
         );
         var isEmbeddable = Boolean(url && !opensNewWindow);

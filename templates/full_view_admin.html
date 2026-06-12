@@ -241,6 +241,7 @@
                     <option value="sales_flat360">Sales 360 View</option>
                     <option value="location">Location / Map</option>
                     <option value="brochure">Brochure / PDF</option>
+                    <option value="link">Website Link (Iframe)</option>
                     <option value="custom">Custom URL / Embed</option>
                 </select>
             </div>
@@ -1058,6 +1059,7 @@ function typeLabel(t) {
         'highlights': 'Gallery',
         'amenities': 'Gallery', 'project_plan': 'Project Plan', 'sales_map': 'Sales Route Map', 'sales_flat360': 'Sales 360 View',
         'location': 'Location', 'brochure': 'Brochure',
+        'link': 'Website Link',
         'custom': 'Custom',
     };
     return map[t] || t;
@@ -1393,12 +1395,13 @@ function updateTypeFields(type) {
     show('fv-ref-projectplan-wrap', type === 'project_plan');
     show('fv-ref-salesmap-wrap',    type === 'sales_map');
     show('fv-ref-salesflat360-wrap', type === 'sales_flat360');
-    show('fv-ref-url-wrap',         ['location', 'brochure', 'custom', 'video'].includes(type));
+    show('fv-ref-url-wrap',         ['location', 'brochure', 'link', 'custom', 'video'].includes(type));
 
     const urlHint = document.getElementById('fv-ref-url-hint');
     urlHint.textContent = type === 'video' ? 'Paste a YouTube watch/share URL. It will autoplay in Full View.'
         : type === 'brochure' ? 'PDF or webpage URL (opens in new tab).'
         : type === 'location' ? 'Google Maps, Earth View, or any map URL.'
+        : type === 'link' ? 'The website opens inside Full View while the sidebar stays visible. Some websites may block iframe embedding.'
         : 'URL to embed or open in new tab.';
 
 }
@@ -1426,8 +1429,25 @@ function fallbackTabName(type) {
     if (type === 'video') return 'Video';
     if (type === 'brochure') return 'Brochure';
     if (type === 'location') return 'Location';
+    if (type === 'link') return 'Website';
     if (type === 'custom') return 'Custom';
     return '';
+}
+
+function normalizeWebsiteLink(rawValue) {
+    var value = String(rawValue || '').trim();
+    if (!value) return '';
+    if (value.startsWith('/')) return value;
+    if (value.startsWith('//')) value = 'https:' + value;
+    else if (!/^[a-z][a-z0-9+.-]*:/i.test(value)) value = 'https://' + value;
+
+    try {
+        var parsed = new URL(value);
+        if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return '';
+        return parsed.href;
+    } catch (e) {
+        return '';
+    }
 }
 
 async function ensureCurrentConfigId() {
@@ -1509,9 +1529,13 @@ async function saveTab() {
         if (!v) { alert('Please select a Sales 360 View.'); return; }
         if (v) body.ref_sales_flat360_id = v;
     }
-    if (['location', 'brochure', 'custom', 'video'].includes(type)) {
+    if (['location', 'brochure', 'link', 'custom', 'video'].includes(type)) {
         var urlValue = document.getElementById('fv-ref-url').value.trim();
         if (!urlValue) { alert('Please enter a URL.'); return; }
+        if (type === 'link') {
+            urlValue = normalizeWebsiteLink(urlValue);
+            if (!urlValue) { alert('Please enter a valid http:// or https:// website URL.'); return; }
+        }
         body.content_data.url = urlValue;
     }
 
