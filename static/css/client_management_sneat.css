@@ -441,6 +441,12 @@
   display: grid;
   grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
   gap: 1.25rem;
+  align-items: start;
+}
+
+.team-access-grid .access-list,
+.team-access-grid .team-empty--compact {
+  margin-top: 1.5rem;
 }
 
 .team-detail-list {
@@ -510,6 +516,11 @@
 
   .team-access-grid {
     grid-template-columns: 1fr;
+  }
+
+  .team-access-grid .access-list,
+  .team-access-grid .team-empty--compact {
+    margin-top: 0;
   }
 
   .team-detail-item {

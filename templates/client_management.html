@@ -126,6 +126,7 @@
             <div>
                 <label class="form-label" for="invite-member-role">Role</label>
                 <select class="form-select" id="invite-member-role">
+                    <option value="client_admin">Client Admin</option>
                     <option value="client_user" selected>Sales Agent</option>
                     <option value="broker">Broker</option>
                 </select>
@@ -140,35 +141,6 @@
     </div>
 </div>
 
-<div class="team-modal-backdrop" id="modal-add-member">
-    <div class="team-dialog" role="dialog" aria-modal="true" aria-label="Add existing user">
-        <div class="team-dialog-header">
-            <div>
-                <h5 class="mb-1">Add Existing User</h5>
-                <span class="text-body-secondary small">Add a registered user to <strong id="add-group-name"></strong>.</span>
-            </div>
-            <button class="btn-close" id="close-add-member-modal" type="button" aria-label="Close"></button>
-        </div>
-        <div class="team-dialog-body">
-            <div class="mb-4">
-                <label class="form-label" for="add-member-user">User</label>
-                <select class="form-select" id="add-member-user"></select>
-            </div>
-            <div>
-                <label class="form-label" for="add-member-role">Role</label>
-                <select class="form-select" id="add-member-role">
-                    <option value="client_user" selected>Sales Agent</option>
-                    <option value="broker">Broker</option>
-                </select>
-            </div>
-            <div class="alert alert-danger mt-4 mb-0" id="add-member-error" style="display:none;"></div>
-        </div>
-        <div class="team-dialog-footer">
-            <button class="btn btn-outline-secondary" id="cancel-add-member" type="button">Cancel</button>
-            <button class="btn btn-primary" id="confirm-add-member" type="button"><i class="bx bx-user-plus me-1"></i>Add User</button>
-        </div>
-    </div>
-</div>
 
 <div class="team-modal-backdrop" id="modal-member-view">
     <div class="team-dialog" role="dialog" aria-modal="true" aria-label="View member">
@@ -207,14 +179,11 @@
             <div class="team-access-grid">
                 <div>
                     <h6>Grant New Access</h6>
-                    <p class="text-body-secondary small">Choose a project or panorama and its access level.</p>
+                    <p class="text-body-secondary small">Choose a project and its access level.</p>
                     <div class="row g-3">
                         <div class="col-sm-6">
-                            <label class="form-label" for="member-access-resource-type">Resource Type</label>
-                            <select class="form-select" id="member-access-resource-type">
-                                <option value="workspace">Project</option>
-                                <option value="panorama">Panorama</option>
-                            </select>
+                            <label class="form-label" for="member-access-resource-id">Project</label>
+                            <select class="form-select" id="member-access-resource-id"></select>
                         </div>
                         <div class="col-sm-6">
                             <label class="form-label" for="member-access-level">Access Level</label>
@@ -223,10 +192,6 @@
                                 <option value="broker">Broker</option>
                                 <option value="viewer">Viewer</option>
                             </select>
-                        </div>
-                        <div class="col-12">
-                            <label class="form-label" for="member-access-resource-id">Resource</label>
-                            <select class="form-select" id="member-access-resource-id"></select>
                         </div>
                     </div>
                     <div class="alert alert-danger mt-4 mb-0" id="member-access-error" style="display:none;"></div>
@@ -300,9 +265,7 @@
         return key;
     }
     var inviteTargetGroupId = null;
-    var addTargetGroupId = null;
     var modalInviteMember = null;
-    var modalAddMember = null;
     var modalMemberView = null;
     var modalMemberAccess = null;
     var modalEditMemberRole = null;
@@ -523,63 +486,6 @@
         setTimeout(function () { document.getElementById('invite-member-name').focus(); }, 20);
     }
 
-    function openAddMemberModal(groupId, groupName) {
-        if (groupCapacityState(groupId).atCapacity) {
-            showBanner(groupLimitMessage(groupId));
-            return;
-        }
-        addTargetGroupId = groupId;
-        document.getElementById('add-group-name').textContent = groupName || '';
-        setError(document.getElementById('add-member-error'), '');
-        var userSelect = document.getElementById('add-member-user');
-        var roleSelect = document.getElementById('add-member-role');
-        if (roleSelect) roleSelect.value = 'client_user';
-        if (userSelect) userSelect.innerHTML = '<option value="">Loading...</option>';
-        openModal(modalAddMember);
-        getAuthHeaders().then(function (h) {
-            return fetchJson('/api/clients/' + encodeURIComponent(groupId) + '/available-users', { headers: h });
-        }).then(function (res) {
-            if (!res.ok) throw new Error((res.data && res.data.error) || 'Failed to load users');
-            var users = Array.isArray(res.data) ? res.data : [];
-            userSelect.innerHTML = users.length ? users.map(function (u) {
-                return '<option value="' + escapeHtml(u.user_id) + '">' + escapeHtml(u.display_name || u.email || u.user_id) + '</option>';
-            }).join('') : '<option value="">No users available</option>';
-        }).catch(function (err) {
-            userSelect.innerHTML = '<option value="">No users available</option>';
-            setError(document.getElementById('add-member-error'), err && err.message ? err.message : 'Failed to load users');
-        });
-    }
-
-    function doAddMember() {
-        var errEl = document.getElementById('add-member-error');
-        var userSelect = document.getElementById('add-member-user');
-        var roleSelect = document.getElementById('add-member-role');
-        var targetUid = userSelect ? String(userSelect.value || '').trim() : '';
-        var memberRole = roleSelect ? String(roleSelect.value || 'client_user') : 'client_user';
-        var btn = document.getElementById('confirm-add-member');
-        if (!addTargetGroupId) { setError(errEl, 'Please pick a client group first.'); return; }
-        if (!targetUid) { setError(errEl, 'Please select a user.'); return; }
-        setError(errEl, '');
-        if (btn) btn.disabled = true;
-        getAuthHeaders().then(function (h) {
-            return fetchJson('/api/clients/' + encodeURIComponent(addTargetGroupId) + '/members', {
-                method: 'POST',
-                headers: h,
-                body: JSON.stringify({ user_id: targetUid, member_role: memberRole })
-            });
-        }).then(function (res) {
-            if (!res.ok) { setError(errEl, (res.data && res.data.error) || 'Failed to add user'); return; }
-            closeModal(modalAddMember);
-            return getAuthHeaders().then(function (h) {
-                return fetchJson('/api/clients/' + encodeURIComponent(addTargetGroupId) + '/members', { headers: h });
-            }).then(function (membersRes) {
-                if (membersRes.ok && Array.isArray(membersRes.data)) renderMembers(addTargetGroupId, membersRes.data);
-            });
-        }).finally(function () {
-            if (btn) btn.disabled = false;
-        });
-    }
-
     function doInviteMember() {
         var errEl = document.getElementById('invite-member-error');
         var successEl = document.getElementById('invite-member-success');
@@ -684,15 +590,11 @@
     }
 
     function loadMemberAccessResources() {
-        var type = document.getElementById('member-access-resource-type').value || 'workspace';
         var sel = document.getElementById('member-access-resource-id');
         if (!sel) return;
-        var rows = type === 'workspace'
-            ? (memberAccessState.groupAccess.workspaces || [])
-            : (memberAccessState.groupAccess.panoramas || []);
+        var rows = memberAccessState.groupAccess.workspaces || [];
         sel.innerHTML = rows.length ? rows.map(function (row) {
-            var id = type === 'workspace' ? row.workspace_id : row.panorama_id;
-            return '<option value="' + escapeHtml(String(id || '')) + '">' + escapeHtml(row.name || id || '') + '</option>';
+            return '<option value="' + escapeHtml(String(row.workspace_id || '')) + '">' + escapeHtml(row.name || row.workspace_id || '') + '</option>';
         }).join('') : '<option value="">No projects available</option>';
     }
 
@@ -761,7 +663,6 @@
         memberAccessState.userId = String(userId || '');
         memberAccessState.memberRole = normalizeMemberRole(role);
         document.getElementById('access-member-name').textContent = name || 'Member';
-        document.getElementById('member-access-resource-type').value = 'workspace';
         var levelSelect = document.getElementById('member-access-level');
         if (levelSelect) {
             levelSelect.value = projectAccessDefaultForRole(role);
@@ -776,7 +677,7 @@
 
     function grantMemberAccess() {
         var errEl = document.getElementById('member-access-error');
-        var rtype = document.getElementById('member-access-resource-type').value || 'workspace';
+        var rtype = 'workspace';
         var rid = document.getElementById('member-access-resource-id').value;
         var accessType = document.getElementById('member-access-level').value || projectAccessDefaultForRole(memberAccessState.memberRole);
         var btn = document.getElementById('confirm-member-access');
@@ -1061,8 +962,6 @@
                     '</div>' +
                     '<div class="team-group-actions">' +
                         '<span class="team-capacity-action" data-capacity-group="' + gid + '" title="' + escapeHtml(limitMessage) + '">' +
-                        '<button class="btn btn-outline-primary btn-sm add-member-btn" data-group-id="' + gid + '" data-group-name="' + groupName + '" type="button"' + (capacity.atCapacity ? ' disabled' : '') + '><i class="bx bx-user-plus me-1"></i>Add Existing</button></span>' +
-                        '<span class="team-capacity-action" data-capacity-group="' + gid + '" title="' + escapeHtml(limitMessage) + '">' +
                         '<button class="btn btn-primary btn-sm invite-member-btn" data-group-id="' + gid + '" data-group-name="' + groupName + '" type="button"' + (capacity.atCapacity ? ' disabled' : '') + '><i class="bx bx-envelope me-1"></i>Invite Member</button></span>' +
                     '</div>' +
                 '</div>' +
@@ -1113,11 +1012,6 @@
                 openInviteMemberModal(btn.getAttribute('data-group-id'), btn.getAttribute('data-group-name'));
             });
         });
-        container.querySelectorAll('.add-member-btn').forEach(function (btn) {
-            btn.addEventListener('click', function () {
-                openAddMemberModal(btn.getAttribute('data-group-id'), btn.getAttribute('data-group-name'));
-            });
-        });
 
         container.querySelectorAll('.group-subtab').forEach(function (btn) {
             btn.addEventListener('click', function () {
@@ -1163,22 +1057,17 @@
     // -- sidebarReady: auth gate only (data already in-flight) --
     window.sidebarReady.then(function (ctx) {
         modalInviteMember = document.getElementById('modal-invite-member');
-        modalAddMember = document.getElementById('modal-add-member');
         modalMemberView = document.getElementById('modal-member-view');
         modalMemberAccess = document.getElementById('modal-member-access');
         modalEditMemberRole = document.getElementById('modal-edit-member-role');
         var closeInviteBtn = document.getElementById('close-invite-member-modal');
         var cancelInviteBtn = document.getElementById('cancel-invite-member');
         var confirmInviteBtn = document.getElementById('confirm-invite-member');
-        var closeAddBtn = document.getElementById('close-add-member-modal');
-        var cancelAddBtn = document.getElementById('cancel-add-member');
-        var confirmAddBtn = document.getElementById('confirm-add-member');
         var closeMemberViewBtn = document.getElementById('close-member-view-modal');
         var dismissMemberViewBtn = document.getElementById('dismiss-member-view');
         var closeMemberAccessBtn = document.getElementById('close-member-access-modal');
         var cancelMemberAccessBtn = document.getElementById('cancel-member-access');
         var confirmMemberAccessBtn = document.getElementById('confirm-member-access');
-        var memberAccessTypeSel = document.getElementById('member-access-resource-type');
         var closeEditRoleBtn = document.getElementById('close-edit-member-role-modal');
         var cancelEditRoleBtn = document.getElementById('cancel-edit-member-role');
         var confirmEditRoleBtn = document.getElementById('confirm-edit-member-role');
@@ -1214,17 +1103,12 @@
         if (cancelInviteBtn) cancelInviteBtn.addEventListener('click', function () { closeModal(modalInviteMember); });
         if (confirmInviteBtn) confirmInviteBtn.addEventListener('click', doInviteMember);
         if (modalInviteMember) modalInviteMember.addEventListener('click', function (e) { if (e.target === modalInviteMember) closeModal(modalInviteMember); });
-        if (closeAddBtn) closeAddBtn.addEventListener('click', function () { closeModal(modalAddMember); });
-        if (cancelAddBtn) cancelAddBtn.addEventListener('click', function () { closeModal(modalAddMember); });
-        if (confirmAddBtn) confirmAddBtn.addEventListener('click', doAddMember);
-        if (modalAddMember) modalAddMember.addEventListener('click', function (e) { if (e.target === modalAddMember) closeModal(modalAddMember); });
         if (closeMemberViewBtn) closeMemberViewBtn.addEventListener('click', function () { closeModal(modalMemberView); });
         if (dismissMemberViewBtn) dismissMemberViewBtn.addEventListener('click', function () { closeModal(modalMemberView); });
         if (modalMemberView) modalMemberView.addEventListener('click', function (e) { if (e.target === modalMemberView) closeModal(modalMemberView); });
         if (closeMemberAccessBtn) closeMemberAccessBtn.addEventListener('click', function () { closeModal(modalMemberAccess); });
         if (cancelMemberAccessBtn) cancelMemberAccessBtn.addEventListener('click', function () { closeModal(modalMemberAccess); });
         if (confirmMemberAccessBtn) confirmMemberAccessBtn.addEventListener('click', grantMemberAccess);
-        if (memberAccessTypeSel) memberAccessTypeSel.addEventListener('change', loadMemberAccessResources);
         if (modalMemberAccess) modalMemberAccess.addEventListener('click', function (e) { if (e.target === modalMemberAccess) closeModal(modalMemberAccess); });
         if (closeEditRoleBtn) closeEditRoleBtn.addEventListener('click', function () { closeModal(modalEditMemberRole); });
         if (cancelEditRoleBtn) cancelEditRoleBtn.addEventListener('click', function () { closeModal(modalEditMemberRole); });
