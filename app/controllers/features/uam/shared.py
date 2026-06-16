@@ -375,6 +375,24 @@ def _accept_client_team_invite_token(sb, token, user_id):
     session_email = str(profile.get('email') or '').strip().lower()
     invite_email = str(invite.get('email') or '').strip().lower()
     if session_email and invite_email and session_email != invite_email:
+        # If email mismatch, still allow if user is already a member of this client
+        if client_id:
+            existing_member = (
+                sb.table('client_members')
+                .select('id, member_role')
+                .eq('client_id', client_id)
+                .eq('user_id', str(user_id))
+                .limit(1)
+                .execute()
+            )
+            if existing_member.data:
+                member_row = existing_member.data[0]
+                return True, {
+                    'client_id': client_id,
+                    'member_role': member_row.get('member_role') or member_role,
+                    'member_id': member_row.get('id'),
+                    'already_member': True,
+                }, 200
         return False, 'This invite belongs to a different email address', 403
 
     status = str(invite.get('status') or '').lower()
