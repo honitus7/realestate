@@ -360,9 +360,46 @@ def _accept_client_team_invite_token(sb, token, user_id):
     invite = (ir.data or [None])[0]
     if not invite:
         return False, 'Invite not found', 404
+
+    client_id = str(invite.get('client_id') or '')
+    member_role = _normalize_client_member_role(invite.get('member_role')) or CLIENT_MEMBER_ROLE_CLIENT_USER
+    if member_role not in (
+        CLIENT_MEMBER_ROLE_CLIENT_ADMIN,
+        CLIENT_MEMBER_ROLE_CLIENT_USER,
+        CLIENT_MEMBER_ROLE_BROKER,
+    ):
+        member_role = CLIENT_MEMBER_ROLE_CLIENT_USER
+
+    # Validate email ownership to prevent token misuse
+    profile = get_profile(sb, user_id) or {}
+    session_email = str(profile.get('email') or '').strip().lower()
+    invite_email = str(invite.get('email') or '').strip().lower()
+    if session_email and invite_email and session_email != invite_email:
+        return False, 'This invite belongs to a different email address', 403
+
     status = str(invite.get('status') or '').lower()
+
+    # If invite is not active, check if user is already a member — let them log in gracefully
     if status not in ('pending', 'accepted'):
+        if client_id:
+            existing_member = (
+                sb.table('client_members')
+                .select('id, member_role')
+                .eq('client_id', client_id)
+                .eq('user_id', str(user_id))
+                .limit(1)
+                .execute()
+            )
+            if existing_member.data:
+                member_row = existing_member.data[0]
+                return True, {
+                    'client_id': client_id,
+                    'member_role': member_row.get('member_role') or member_role,
+                    'member_id': member_row.get('id'),
+                    'already_member': True,
+                }, 200
         return False, 'Invite is not active', 400
+
     expires_at = invite.get('expires_at')
     if expires_at:
         try:
@@ -373,27 +410,30 @@ def _accept_client_team_invite_token(sb, token, user_id):
                     sb.table('client_team_invites').update({'status': 'expired', 'updated_at': datetime.utcnow().isoformat()}).eq('id', invite.get('id')).execute()
                 except Exception:
                     pass
+                # Even if expired, let existing members log in gracefully
+                if client_id:
+                    existing_member = (
+                        sb.table('client_members')
+                        .select('id, member_role')
+                        .eq('client_id', client_id)
+                        .eq('user_id', str(user_id))
+                        .limit(1)
+                        .execute()
+                    )
+                    if existing_member.data:
+                        member_row = existing_member.data[0]
+                        return True, {
+                            'client_id': client_id,
+                            'member_role': member_row.get('member_role') or member_role,
+                            'member_id': member_row.get('id'),
+                            'already_member': True,
+                        }, 200
                 return False, 'Invite has expired', 400
         except Exception:
             pass
 
-    # Validate email ownership to prevent token misuse
-    profile = get_profile(sb, user_id) or {}
-    session_email = str(profile.get('email') or '').strip().lower()
-    invite_email = str(invite.get('email') or '').strip().lower()
-    if session_email and invite_email and session_email != invite_email:
-        return False, 'This invite belongs to a different email address', 403
-
-    client_id = str(invite.get('client_id') or '')
     if not client_id:
         return False, 'Invalid invite', 400
-    member_role = _normalize_client_member_role(invite.get('member_role')) or CLIENT_MEMBER_ROLE_CLIENT_USER
-    if member_role not in (
-        CLIENT_MEMBER_ROLE_CLIENT_ADMIN,
-        CLIENT_MEMBER_ROLE_CLIENT_USER,
-        CLIENT_MEMBER_ROLE_BROKER,
-    ):
-        member_role = CLIENT_MEMBER_ROLE_CLIENT_USER
 
     # Already a member -> just mark accepted
     existing_member = (

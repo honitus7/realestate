@@ -353,6 +353,11 @@
                     clearPendingClientInviteToken();
                     return { attempted: true, applied: true, status: r.status, data: data || {} };
                 }
+                // Graceful handling: if user is already a member, don't block login
+                if (data && data.result && data.result.already_member) {
+                    clearPendingClientInviteToken();
+                    return { attempted: true, applied: true, status: r.status, data: data || {}, alreadyMember: true };
+                }
                 return {
                     attempted: true,
                     applied: false,
@@ -398,7 +403,7 @@
         return applyPendingSignupProfile(session).then(function () {
             return applyPendingClientInvite(session);
         }).then(function (inv) {
-            if (inv && inv.attempted && !inv.applied) {
+            if (inv && inv.attempted && !inv.applied && !inv.alreadyMember) {
                 safeSignOut(function () {
                     showAuthUI();
                     setError(document.getElementById('signin-error'), inv.error || 'Invite acceptance failed. Please sign in with invited email.');
@@ -514,7 +519,7 @@
                 return applyPendingSignupProfile(res.data.session).then(function () {
                     return applyPendingClientInvite(res.data.session);
                 }).then(function (inv) {
-                        if (inv && inv.attempted && !inv.applied) {
+                        if (inv && inv.attempted && !inv.applied && !inv.alreadyMember) {
                             throw new Error(inv.error || 'Invite acceptance failed. Please sign in with invited email.');
                         }
                         return redirectAfterAuth(res.data.session);
@@ -550,7 +555,7 @@
                 return applyPendingSignupProfile(res.data.session).then(function () {
                     return applyPendingClientInvite(res.data.session);
                 }).then(function (inv) {
-                        if (inv && inv.attempted && !inv.applied) {
+                        if (inv && inv.attempted && !inv.applied && !inv.alreadyMember) {
                             throw new Error(inv.error || 'Invite acceptance failed. Please sign in with invited email.');
                         }
                         return redirectAfterAuth(res.data.session);
