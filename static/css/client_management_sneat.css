@@ -288,9 +288,27 @@
   background: rgba(255, 171, 0, 0.14);
 }
 
-.team-page .member-status-pill {
+.team-page .member-status-pill--active {
   color: #71dd37;
   background: rgba(113, 221, 55, 0.12);
+}
+
+.team-page .member-status-pill--inactive {
+  color: #ffab00;
+  background: rgba(255, 171, 0, 0.14);
+}
+
+.team-page .actions-cell--buttons {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+  white-space: nowrap;
+}
+
+.team-page .actions-cell--buttons .btn {
+  font-size: 0.75rem;
+  padding: 0.3rem 0.55rem;
 }
 
 .team-page .team-panel-empty {

@@ -1,6 +1,6 @@
 {% set page_title = 'My Team - MarketoState' %}
 {% set active_nav = 'team' %}
-{% set sneat_extra_css = '/static/css/client_management_sneat.css?v=20260610-3' %}
+{% set sneat_extra_css = '/static/css/client_management_sneat.css?v=20260619-merged-roster' %}
 {% include 'components/sneat_shell_start.html' %}
 
 <div class="team-page" id="client-mgmt-page">
@@ -11,7 +11,7 @@
                 <span class="text-body-secondary small" id="team-group-count">Loading teams...</span>
             </div>
             <h4>My Team</h4>
-            <p class="text-body-secondary mb-0">Manage members, invitations, roles, and project access across your client teams.</p>
+            <p class="text-body-secondary mb-0">Manage members, roles, and project access across your client teams.</p>
         </div>
     </div>
 
@@ -62,7 +62,7 @@
                         <span class="badge bg-label-warning">Awaiting</span>
                     </div>
                     <h3 class="mt-3 mb-1" id="team-pending-invites">0</h3>
-                    <span class="text-body-secondary">Pending invites</span>
+                    <span class="text-body-secondary">Inactive (pending)</span>
                 </div>
             </div>
         </div>
@@ -81,7 +81,7 @@
                 </div>
                 <select class="form-select team-role-filter" id="team-role-filter" aria-label="Filter by role">
                     <option value="">All roles</option>
-                    <option value="client_admin">Client Admin</option>
+                    <option value="client_admin">Admin</option>
                     <option value="client_user">Sales Agent</option>
                     <option value="broker">Broker</option>
                 </select>
@@ -106,11 +106,11 @@
 </div>
 
 <div class="team-modal-backdrop" id="modal-invite-member">
-    <div class="team-dialog" role="dialog" aria-modal="true" aria-label="Invite external user">
+    <div class="team-dialog" role="dialog" aria-modal="true" aria-label="Add team member">
         <div class="team-dialog-header">
             <div>
-                <h5 class="mb-1">Invite Team Member</h5>
-                <span class="text-body-secondary small">Send an invitation to <strong id="invite-group-name"></strong>.</span>
+                <h5 class="mb-1">Add Team Member</h5>
+                <span class="text-body-secondary small">Send an invitation to join <strong id="invite-group-name"></strong>.</span>
             </div>
             <button class="btn-close" id="close-invite-member-modal" type="button" aria-label="Close"></button>
         </div>
@@ -126,7 +126,7 @@
             <div>
                 <label class="form-label" for="invite-member-role">Role</label>
                 <select class="form-select" id="invite-member-role">
-                    <option value="client_admin">Client Admin</option>
+                    <option value="client_admin">Admin</option>
                     <option value="client_user" selected>Sales Agent</option>
                     <option value="broker">Broker</option>
                 </select>
@@ -136,7 +136,7 @@
         </div>
         <div class="team-dialog-footer">
             <button class="btn btn-outline-secondary" id="cancel-invite-member" type="button">Cancel</button>
-            <button class="btn btn-primary" id="confirm-invite-member" type="button"><i class="bx bx-send me-1"></i>Send Invite</button>
+            <button class="btn btn-primary" id="confirm-invite-member" type="button"><i class="bx bx-user-plus me-1"></i>Add Member</button>
         </div>
     </div>
 </div>
@@ -228,7 +228,7 @@
             <div>
                 <label class="form-label" for="edit-member-role-select">Role</label>
                 <select class="form-select" id="edit-member-role-select">
-                    <option value="client_admin">Client Admin</option>
+                    <option value="client_admin">Admin</option>
                     <option value="client_user">Sales Agent</option>
                     <option value="broker">Broker</option>
                 </select>
@@ -256,7 +256,7 @@
     if (!supabase) return;
 
     var roleLabels = {
-        client_admin: 'Client Admin',
+        client_admin: 'Admin',
         client_user: 'Sales Agent',
         broker: 'Broker'
     };
@@ -417,6 +417,18 @@
             if (button) button.disabled = state.atCapacity;
         });
     }
+    function pendingInvitesForRoster(members, invites) {
+        var memberEmails = {};
+        (members || []).forEach(function (m) {
+            var em = String(m.email || '').trim().toLowerCase();
+            if (em) memberEmails[em] = true;
+        });
+        return (invites || []).filter(function (inv) {
+            if (String(inv.status || '').toLowerCase() !== 'pending') return false;
+            var em = String(inv.email || '').trim().toLowerCase();
+            return em && !memberEmails[em];
+        });
+    }
     function applyMemberFilters() {
         var searchEl = document.getElementById('team-search-input');
         var roleEl = document.getElementById('team-role-filter');
@@ -424,7 +436,7 @@
         var role = String(roleEl ? roleEl.value : '').trim().toLowerCase();
         document.querySelectorAll('.team-group-card').forEach(function (card) {
             var visibleCount = 0;
-            card.querySelectorAll('.member-row').forEach(function (row) {
+            card.querySelectorAll('.team-roster-row').forEach(function (row) {
                 var matchesSearch = !search || String(row.getAttribute('data-search') || '').indexOf(search) !== -1;
                 var matchesRole = !role || String(row.getAttribute('data-role') || '') === role;
                 var visible = matchesSearch && matchesRole;
@@ -432,8 +444,8 @@
                 if (visible) visibleCount += 1;
             });
             var filteredEmpty = card.querySelector('.members-filter-empty');
-            var hasMembers = card.querySelectorAll('.member-row').length > 0;
-            if (filteredEmpty) filteredEmpty.style.display = hasMembers && !visibleCount ? 'block' : 'none';
+            var hasRows = card.querySelectorAll('.team-roster-row').length > 0;
+            if (filteredEmpty) filteredEmpty.style.display = hasRows && !visibleCount ? 'block' : 'none';
         });
     }
     function formatDate(dateStr) {
@@ -526,7 +538,10 @@
             getAuthHeaders().then(function (h) {
                 return fetchJson('/api/clients/' + encodeURIComponent(inviteTargetGroupId) + '/invites', { headers: h });
             }).then(function (invRes) {
-                if (invRes.ok && Array.isArray(invRes.data)) renderInvites(inviteTargetGroupId, invRes.data);
+                if (invRes.ok && Array.isArray(invRes.data)) {
+                    invitesByGroup[String(inviteTargetGroupId)] = invRes.data.slice();
+                    renderTeamRoster(inviteTargetGroupId);
+                }
             });
         }).finally(function () {
             if (confirmInviteBtn) confirmInviteBtn.disabled = false;
@@ -576,7 +591,7 @@
                 if (!membersRes.ok || !Array.isArray(membersRes.data)) {
                     throw new Error((membersRes.data && membersRes.data.error) || 'Failed to reload members');
                 }
-                renderMembers(groupId, membersRes.data);
+                renderTeamRoster(groupId, membersRes.data);
             });
         }).catch(function (err) {
             setError(errEl, err && err.message ? err.message : 'Failed to update role');
@@ -722,19 +737,61 @@
         return '';
     }
 
-    // -- Render members table --
-    function renderMembers(groupId, members) {
-        membersByGroup[String(groupId)] = Array.isArray(members) ? members.slice() : [];
+    function refreshTeamRoster(gid) {
+        return getAuthHeaders().then(function (h) {
+            return Promise.all([
+                fetchJson('/api/clients/' + encodeURIComponent(gid) + '/members', { headers: h }),
+                fetchJson('/api/clients/' + encodeURIComponent(gid) + '/invites', { headers: h })
+            ]);
+        }).then(function (results) {
+            if (!results[0].ok || !Array.isArray(results[0].data)) {
+                throw new Error((results[0].data && results[0].data.error) || 'Failed to reload members');
+            }
+            membersByGroup[String(gid)] = results[0].data.slice();
+            if (results[1].ok && Array.isArray(results[1].data)) {
+                invitesByGroup[String(gid)] = results[1].data.slice();
+            }
+            renderTeamRoster(gid);
+        });
+    }
+
+    function copyInviteLink(link, btn) {
+        if (!link) return;
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(link).then(function () {
+                if (!btn) return;
+                var old = btn.innerHTML;
+                btn.innerHTML = '<i class="bx bx-check me-1"></i>Copied';
+                setTimeout(function () { btn.innerHTML = old; }, 1400);
+            }).catch(function () {
+                alert(link);
+            });
+        } else {
+            alert(link);
+        }
+    }
+
+    function renderTeamRoster(groupId, membersOverride) {
+        var key = String(groupId || '');
+        if (membersOverride !== undefined) {
+            membersByGroup[key] = Array.isArray(membersOverride) ? membersOverride.slice() : [];
+        }
+        var members = membersByGroup[key] || [];
+        var invites = invitesByGroup[key] || [];
+        var pendingInvites = pendingInvitesForRoster(members, invites);
         updateTeamSummary();
         syncGroupCapacityUi(groupId);
-        var listEl = document.getElementById('members-list-' + groupId);
-        var listWrapEl = document.getElementById('members-list-wrap-' + groupId);
-        var emptyEl = document.getElementById('members-empty-' + groupId);
-        var loadingEl = document.getElementById('members-loading-' + groupId);
+
+        var listEl = document.getElementById('members-list-' + key);
+        var listWrapEl = document.getElementById('members-list-wrap-' + key);
+        var emptyEl = document.getElementById('members-empty-' + key);
+        var loadingEl = document.getElementById('members-loading-' + key);
         if (loadingEl) loadingEl.style.display = 'none';
         if (emptyEl) emptyEl.style.display = 'none';
         if (listWrapEl) listWrapEl.style.display = 'none';
-        if (!members.length) {
+
+        var hasRows = members.length || pendingInvites.length;
+        if (!hasRows) {
             if (emptyEl) emptyEl.style.display = 'block';
             applyMemberFilters();
             return;
@@ -742,7 +799,7 @@
         if (listWrapEl) listWrapEl.style.display = '';
         if (!listEl) return;
 
-        listEl.innerHTML = members.map(function (m) {
+        var rowsHtml = members.map(function (m) {
             var uid = String(m.user_id || '');
             var normalizedRole = normalizeMemberRole(m.member_role);
             var roleLabel = escapeHtml(roleLabels[normalizedRole] || normalizedRole || '-');
@@ -754,20 +811,14 @@
             var displayName = String(m.display_name || m.email || 'Member');
             var searchValue = (String(m.display_name || '') + ' ' + String(m.email || '')).toLowerCase();
             var initials = escapeHtml(getInitials(m.display_name, m.email));
-            var canEditRole = true;
             var canManageProjectAccess = normalizedRole === 'client_user' || normalizedRole === 'broker';
             var roleCellHtml = '<span class="member-role-label' + roleTone + '">' + roleLabel + '</span>';
-            var actionButtons = canEditRole
-                ? (
-                    '<button class="icon-action-btn member-edit-btn" title="Edit role" aria-label="Edit role" type="button" data-group="' + escapeHtml(groupId) + '" data-uid="' + escapeHtml(uid) + '" data-name="' + escapeHtml(displayName) + '" data-role="' + escapeHtml(normalizedRole) + '">' + actionIcon('edit') + '</button>' +
-                    '<button class="icon-action-btn member-view-btn" title="View member" aria-label="View member" type="button" data-group="' + escapeHtml(groupId) + '" data-uid="' + escapeHtml(uid) + '">' + actionIcon('view') + '</button>' +
-                    (canManageProjectAccess ? '<button class="icon-action-btn member-access-btn" title="Manage access" aria-label="Manage access" type="button" data-group="' + escapeHtml(groupId) + '" data-uid="' + escapeHtml(uid) + '" data-name="' + escapeHtml(displayName) + '" data-role="' + escapeHtml(normalizedRole) + '">' + actionIcon('access') + '</button>' : '') +
-                    '<button class="icon-action-btn icon-action-btn--danger member-delete-btn" title="Remove member" aria-label="Remove member" type="button" data-group="' + escapeHtml(groupId) + '" data-uid="' + escapeHtml(uid) + '" data-name="' + escapeHtml(displayName) + '">' + actionIcon('delete') + '</button>'
-                )
-                : (
-                    '<button class="icon-action-btn member-view-btn" title="View member" aria-label="View member" type="button" data-group="' + escapeHtml(groupId) + '" data-uid="' + escapeHtml(uid) + '">' + actionIcon('view') + '</button>'
-                );
-            return '<tr class="member-row" data-group="' + escapeHtml(groupId) + '" data-uid="' + escapeHtml(uid) + '" data-role="' + escapeHtml(normalizedRole) + '" data-search="' + escapeHtml(searchValue) + '">' +
+            var actionButtons =
+                '<button class="icon-action-btn member-edit-btn" title="Edit role" aria-label="Edit role" type="button" data-group="' + escapeHtml(key) + '" data-uid="' + escapeHtml(uid) + '" data-name="' + escapeHtml(displayName) + '" data-role="' + escapeHtml(normalizedRole) + '">' + actionIcon('edit') + '</button>' +
+                '<button class="icon-action-btn member-view-btn" title="View member" aria-label="View member" type="button" data-group="' + escapeHtml(key) + '" data-uid="' + escapeHtml(uid) + '">' + actionIcon('view') + '</button>' +
+                (canManageProjectAccess ? '<button class="icon-action-btn member-access-btn" title="Manage access" aria-label="Manage access" type="button" data-group="' + escapeHtml(key) + '" data-uid="' + escapeHtml(uid) + '" data-name="' + escapeHtml(displayName) + '" data-role="' + escapeHtml(normalizedRole) + '">' + actionIcon('access') + '</button>' : '') +
+                '<button class="icon-action-btn icon-action-btn--danger member-delete-btn" title="Remove member" aria-label="Remove member" type="button" data-group="' + escapeHtml(key) + '" data-uid="' + escapeHtml(uid) + '" data-name="' + escapeHtml(displayName) + '">' + actionIcon('delete') + '</button>';
+            return '<tr class="team-roster-row" data-kind="active" data-group="' + escapeHtml(key) + '" data-uid="' + escapeHtml(uid) + '" data-role="' + escapeHtml(normalizedRole) + '" data-search="' + escapeHtml(searchValue) + '">' +
                 '<td>' +
                     '<div class="member-name-cell">' +
                         '<span class="member-avatar bg-label-primary">' + initials + '</span>' +
@@ -777,20 +828,46 @@
                 '<td><span class="member-email-text">' + escapeHtml(m.email || '-') + '</span></td>' +
                 '<td>' + roleCellHtml + '</td>' +
                 '<td title="' + createdAtFull + '">' + createdAt + '</td>' +
-                '<td><span class="member-status-pill">Active</span></td>' +
+                '<td><span class="member-status-pill member-status-pill--active">Active</span></td>' +
                 '<td><div class="actions-cell actions-cell--icons">' + actionButtons + '</div></td>' +
                 '</tr>';
         }).join('');
-        applyMemberFilters();
 
-        function refreshMembers(gid) {
-            return getAuthHeaders().then(function (h) {
-                return fetchJson('/api/clients/' + encodeURIComponent(gid) + '/members', { headers: h });
-            }).then(function (res) {
-                if (!res.ok || !Array.isArray(res.data)) throw new Error((res.data && res.data.error) || 'Failed to reload members');
-                renderMembers(gid, res.data);
-            });
-        }
+        rowsHtml += pendingInvites.map(function (inv) {
+            var inviteId = String(inv.id || '');
+            var normalizedRole = normalizeMemberRole(inv.member_role);
+            var roleLabel = escapeHtml(roleLabels[normalizedRole] || normalizedRole || '-');
+            var roleTone = normalizedRole === 'broker'
+                ? ' member-role-label--broker'
+                : (normalizedRole === 'client_admin' ? ' member-role-label--admin' : '');
+            var invitedAt = escapeHtml(formatRelativeTime(inv.created_at));
+            var invitedAtFull = escapeHtml(formatDateTime(inv.created_at));
+            var displayName = String(inv.display_name || inv.email || 'Invitee');
+            var searchValue = (String(inv.display_name || '') + ' ' + String(inv.email || '')).toLowerCase();
+            var initials = escapeHtml(getInitials(inv.display_name, inv.email));
+            var inviteLink = String(inv.invite_link || '');
+            var actionButtons =
+                '<button class="btn btn-sm btn-outline-primary invite-resend-btn" data-group="' + escapeHtml(key) + '" data-invite-id="' + escapeHtml(inviteId) + '" type="button"><i class="bx bx-envelope me-1"></i>Resend</button>' +
+                (inviteLink
+                    ? '<button class="btn btn-sm btn-outline-secondary invite-copy-btn" data-link="' + escapeHtml(inviteLink) + '" type="button"><i class="bx bx-link-alt me-1"></i>Share Link</button>'
+                    : '');
+            return '<tr class="team-roster-row" data-kind="inactive" data-group="' + escapeHtml(key) + '" data-invite-id="' + escapeHtml(inviteId) + '" data-role="' + escapeHtml(normalizedRole) + '" data-search="' + escapeHtml(searchValue) + '">' +
+                '<td>' +
+                    '<div class="member-name-cell">' +
+                        '<span class="member-avatar bg-label-warning">' + initials + '</span>' +
+                        '<div><div class="member-name-cell__title">' + escapeHtml(inv.display_name || '-') + '</div><span class="text-body-secondary small">Awaiting acceptance</span></div>' +
+                    '</div>' +
+                '</td>' +
+                '<td><span class="member-email-text">' + escapeHtml(inv.email || '-') + '</span></td>' +
+                '<td><span class="member-role-label' + roleTone + '">' + roleLabel + '</span></td>' +
+                '<td title="' + invitedAtFull + '">' + invitedAt + '</td>' +
+                '<td><span class="member-status-pill member-status-pill--inactive">Inactive</span></td>' +
+                '<td><div class="actions-cell actions-cell--buttons">' + actionButtons + '</div></td>' +
+                '</tr>';
+        }).join('');
+
+        listEl.innerHTML = rowsHtml;
+        applyMemberFilters();
 
         listEl.querySelectorAll('.member-edit-btn').forEach(function (btn) {
             btn.addEventListener('click', function () {
@@ -854,7 +931,7 @@
                     );
                 }).then(function (res) {
                     if (!res.ok) throw new Error((res.data && res.data.error) || 'Failed to remove member');
-                    return refreshMembers(gid);
+                    return refreshTeamRoster(gid);
                 }).catch(function (err) {
                     alert(err && err.message ? err.message : 'Failed to remove member');
                 }).finally(function () {
@@ -862,61 +939,47 @@
                 });
             });
         });
-    }
 
-    function renderInvites(groupId, invites) {
-        invitesByGroup[String(groupId)] = Array.isArray(invites) ? invites.slice() : [];
-        updateTeamSummary();
-        syncGroupCapacityUi(groupId);
-        var loadingEl = document.getElementById('invites-loading-' + groupId);
-        var tableEl = document.getElementById('invites-table-' + groupId);
-        var tbody = document.getElementById('invites-body-' + groupId);
-        var emptyEl = document.getElementById('invites-empty-' + groupId);
-        if (loadingEl) loadingEl.style.display = 'none';
-        if (!tbody) return;
-        if (!invites || !invites.length) {
-            if (tableEl) tableEl.style.display = 'none';
-            if (emptyEl) emptyEl.style.display = 'block';
-            return;
-        }
-        if (emptyEl) emptyEl.style.display = 'none';
-        if (tableEl) tableEl.style.display = '';
-
-        tbody.innerHTML = invites.map(function (inv) {
-            var status = String(inv.status || '').toLowerCase();
-            var statusLabel = status ? status.charAt(0).toUpperCase() + status.slice(1) : '-';
-            var statusClass = status === 'pending'
-                ? 'bg-label-warning'
-                : (status === 'accepted' ? 'bg-label-success' : 'bg-label-secondary');
-            var canCopy = Boolean(inv.invite_link) && status === 'pending';
-            var copyBtn = canCopy
-                ? '<button class="btn btn-sm btn-outline-primary invite-copy-btn" data-link="' + escapeHtml(inv.invite_link) + '" type="button"><i class="bx bx-copy me-1"></i>Copy Link</button>'
-                : '<span class="text-body-secondary">-</span>';
-            return '<tr>' +
-                '<td><span class="fw-medium">' + escapeHtml(inv.display_name || '-') + '</span></td>' +
-                '<td><span class="text-body-secondary">' + escapeHtml(inv.email || '-') + '</span></td>' +
-                '<td><span class="member-role-label">' + escapeHtml(roleLabels[normalizeMemberRole(inv.member_role)] || normalizeMemberRole(inv.member_role) || '-') + '</span></td>' +
-                '<td><span class="badge ' + statusClass + '">' + escapeHtml(statusLabel) + '</span></td>' +
-                '<td>' + formatDate(inv.created_at) + '</td>' +
-                '<td>' + copyBtn + '</td>' +
-            '</tr>';
-        }).join('');
-
-        tbody.querySelectorAll('.invite-copy-btn').forEach(function (btn) {
+        listEl.querySelectorAll('.invite-copy-btn').forEach(function (btn) {
             btn.addEventListener('click', function () {
-                var link = btn.getAttribute('data-link') || '';
-                if (!link) return;
-                if (navigator.clipboard && navigator.clipboard.writeText) {
-                    navigator.clipboard.writeText(link).then(function () {
-                        var old = btn.textContent;
-                        btn.textContent = 'Copied!';
-                        setTimeout(function () { btn.textContent = old; }, 1400);
-                    }).catch(function () {
-                        alert(link);
-                    });
-                } else {
-                    alert(link);
-                }
+                copyInviteLink(btn.getAttribute('data-link') || '', btn);
+            });
+        });
+
+        listEl.querySelectorAll('.invite-resend-btn').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                var gid = btn.getAttribute('data-group');
+                var inviteId = btn.getAttribute('data-invite-id');
+                if (!gid || !inviteId) return;
+                btn.disabled = true;
+                getAuthHeaders().then(function (h) {
+                    return fetchJson(
+                        '/api/clients/' + encodeURIComponent(gid) + '/invites/' + encodeURIComponent(inviteId) + '/resend',
+                        { method: 'POST', headers: h }
+                    );
+                }).then(function (res) {
+                    if (!res.ok) throw new Error((res.data && res.data.error) || 'Failed to resend invite');
+                    var inviteLink = (res.data && res.data.invite_link) ? String(res.data.invite_link) : '';
+                    var emailSent = res.data && res.data.email_sent;
+                    if (inviteLink) {
+                        var invites = invitesByGroup[String(gid)] || [];
+                        invites.forEach(function (inv) {
+                            if (String(inv.id || '') === String(inviteId)) inv.invite_link = inviteLink;
+                        });
+                        invitesByGroup[String(gid)] = invites;
+                        renderTeamRoster(gid);
+                    }
+                    if (emailSent) {
+                        showBanner('Invitation email resent successfully.');
+                    } else {
+                        var emailErr = (res.data && res.data.email_error) ? String(res.data.email_error) : '';
+                        showBanner('Invite refreshed, but email could not be sent.' + (emailErr ? (' ' + emailErr) : ''));
+                    }
+                }).catch(function (err) {
+                    alert(err && err.message ? err.message : 'Failed to resend invite');
+                }).finally(function () {
+                    btn.disabled = false;
+                });
             });
         });
     }
@@ -962,47 +1025,26 @@
                     '</div>' +
                     '<div class="team-group-actions">' +
                         '<span class="team-capacity-action" data-capacity-group="' + gid + '" title="' + escapeHtml(limitMessage) + '">' +
-                        '<button class="btn btn-primary btn-sm invite-member-btn" data-group-id="' + gid + '" data-group-name="' + groupName + '" type="button"' + (capacity.atCapacity ? ' disabled' : '') + '><i class="bx bx-envelope me-1"></i>Invite Member</button></span>' +
+                        '<button class="btn btn-primary btn-sm invite-member-btn" data-group-id="' + gid + '" data-group-name="' + groupName + '" type="button"' + (capacity.atCapacity ? ' disabled' : '') + '><i class="bx bx-user-plus me-1"></i>Add Member</button></span>' +
                     '</div>' +
                 '</div>' +
-                '<div class="team-group-tabs" data-group="' + gid + '">' +
-                    '<button class="group-subtab active" data-group="' + gid + '" data-target="members" type="button">Members</button>' +
-                    '<button class="group-subtab" data-group="' + gid + '" data-target="invites" type="button">Invitations</button>' +
-                '</div>' +
                 '<div id="group-panel-members-' + gid + '" class="team-group-panel">' +
-                    '<div id="members-loading-' + gid + '" class="team-panel-loading"><span class="spinner-border spinner-border-sm text-primary me-2"></span>Loading members...</div>' +
+                    '<div id="members-loading-' + gid + '" class="team-panel-loading"><span class="spinner-border spinner-border-sm text-primary me-2"></span>Loading team roster...</div>' +
                     '<div class="team-table-wrap" id="members-list-wrap-' + gid + '" style="display:none;">' +
                         '<table class="table team-table">' +
                             '<thead><tr>' +
                                 '<th>Member</th>' +
                                 '<th>Email</th>' +
                                 '<th>Role</th>' +
-                                '<th>Joined</th>' +
+                                '<th>Joined / Invited</th>' +
                                 '<th>Status</th>' +
                                 '<th>Actions</th>' +
                             '</tr></thead>' +
                             '<tbody id="members-list-' + gid + '"></tbody>' +
                         '</table>' +
                     '</div>' +
-                    '<div class="team-panel-empty" id="members-empty-' + gid + '" style="display:none;"><i class="bx bx-user-x"></i><span>No members in this team.</span></div>' +
+                    '<div class="team-panel-empty" id="members-empty-' + gid + '" style="display:none;"><i class="bx bx-user-x"></i><span>No members in this team yet.</span></div>' +
                     '<div class="team-panel-empty members-filter-empty" style="display:none;"><i class="bx bx-search-alt"></i><span>No members match your filters.</span></div>' +
-                '</div>' +
-                '<div id="group-panel-invites-' + gid + '" class="team-group-panel" style="display:none;">' +
-                    '<div id="invites-loading-' + gid + '" class="team-panel-loading"><span class="spinner-border spinner-border-sm text-primary me-2"></span>Loading invitations...</div>' +
-                    '<div class="team-table-wrap" id="invites-table-' + gid + '" style="display:none;">' +
-                        '<table class="table team-table">' +
-                            '<thead><tr>' +
-                                '<th>Name</th>' +
-                                '<th>Email</th>' +
-                                '<th>Role</th>' +
-                                '<th>Status</th>' +
-                                '<th>Invited</th>' +
-                                '<th>Action</th>' +
-                            '</tr></thead>' +
-                            '<tbody id="invites-body-' + gid + '"></tbody>' +
-                        '</table>' +
-                    '</div>' +
-                    '<div class="team-panel-empty" id="invites-empty-' + gid + '" style="display:none;"><i class="bx bx-envelope-open"></i><span>No invitations yet.</span></div>' +
                 '</div>' +
             '</section>';
         }).join('');
@@ -1013,21 +1055,7 @@
             });
         });
 
-        container.querySelectorAll('.group-subtab').forEach(function (btn) {
-            btn.addEventListener('click', function () {
-                var gid = btn.getAttribute('data-group');
-                var target = btn.getAttribute('data-target');
-                container.querySelectorAll('.group-subtab[data-group="' + gid + '"]').forEach(function (b) {
-                    b.classList.toggle('active', b === btn);
-                });
-                var membersPanel = document.getElementById('group-panel-members-' + gid);
-                var invitesPanel = document.getElementById('group-panel-invites-' + gid);
-                if (membersPanel) membersPanel.style.display = target === 'members' ? '' : 'none';
-                if (invitesPanel) invitesPanel.style.display = target === 'invites' ? '' : 'none';
-            });
-        });
-
-        // Fetch all groups' members in parallel
+        // Fetch all groups' roster data in parallel
         Promise.all(groups.map(function (group) {
             return Promise.all([
                 fetchJson('/api/clients/' + encodeURIComponent(group.id) + '/members', { headers: headers }),
@@ -1035,21 +1063,17 @@
             ]).then(function (results) {
                 var membersRes = results[0];
                 var invitesRes = results[1];
-                if (membersRes.ok && Array.isArray(membersRes.data)) renderMembers(group.id, membersRes.data);
-                else {
-                    var el = document.getElementById('members-loading-' + group.id);
-                    if (el) el.style.display = 'none';
+                var gid = String(group.id || '');
+                if (membersRes.ok && Array.isArray(membersRes.data)) {
+                    membersByGroup[gid] = membersRes.data.slice();
                 }
-                if (invitesRes.ok && Array.isArray(invitesRes.data)) renderInvites(group.id, invitesRes.data);
-                else {
-                    var il = document.getElementById('invites-loading-' + group.id);
-                    if (il) il.style.display = 'none';
+                if (invitesRes.ok && Array.isArray(invitesRes.data)) {
+                    invitesByGroup[gid] = invitesRes.data.slice();
                 }
+                renderTeamRoster(group.id);
             }).catch(function () {
                 var el = document.getElementById('members-loading-' + group.id);
                 if (el) el.style.display = 'none';
-                var il = document.getElementById('invites-loading-' + group.id);
-                if (il) il.style.display = 'none';
             });
         }));
     }
@@ -1078,7 +1102,7 @@
 
         var profile = ctx.profile || {};
         var profileName = profile.name || profile.display_name || profile.email || 'User';
-        var profileRole = ctx.isClientAdmin ? 'Client Admin' : (roleLabels[normalizeMemberRole(ctx.role)] || ctx.role || 'Member');
+        var profileRole = ctx.isClientAdmin ? 'Admin' : (roleLabels[normalizeMemberRole(ctx.role)] || ctx.role || 'Member');
         var profileInitials = getInitials(profileName, profile.email);
         var navbarName = document.getElementById('navbar-user-name');
         var navbarRole = document.getElementById('navbar-user-role');

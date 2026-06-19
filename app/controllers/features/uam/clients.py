@@ -850,6 +850,75 @@ def register_uam_client_routes(app):
                 return jsonify([])
             return jsonify({'error': msg}), 500
 
+    @app.route('/api/clients/<client_id>/invites/<invite_id>/resend', methods=['POST'])
+    @require_auth
+    def resend_client_team_invite(user_id, role, client_id, invite_id):
+        """Resend a pending team invite email and refresh the invite link if needed."""
+        sb = get_supabase()
+        if not sb:
+            return jsonify({'error': 'Database not configured'}), 503
+        is_admin = role in ('admin', 'superadmin')
+        if not is_admin and not _is_client_admin_of(sb, user_id, client_id):
+            return jsonify({'error': 'Forbidden'}), 403
+        if is_admin:
+            _client, err = _get_client_org(sb, client_id, user_id, role)
+            if err:
+                return err
+        try:
+            r = (
+                sb.table('client_team_invites')
+                .select('id, client_id, email, display_name, member_role, status, invite_token, invite_link, expires_at')
+                .eq('id', str(invite_id))
+                .eq('client_id', str(client_id))
+                .limit(1)
+                .execute()
+            )
+            invite = (r.data or [None])[0]
+            if not invite:
+                return jsonify({'error': 'Invite not found'}), 404
+            if str(invite.get('status') or '').strip().lower() != 'pending':
+                return jsonify({'error': 'Only pending invites can be resent'}), 400
+
+            cr = sb.table('clients').select('id, name').eq('id', str(client_id)).limit(1).execute()
+            client = (cr.data or [None])[0]
+            if not client:
+                return jsonify({'error': 'Client group not found'}), 404
+
+            token = str(invite.get('invite_token') or '').strip()
+            if not token:
+                token = secrets.token_urlsafe(24)
+            invite_link = _build_client_team_invite_link(token)
+            now_iso = datetime.utcnow().isoformat()
+            expires_iso = (datetime.utcnow() + timedelta(days=7)).isoformat()
+            sb.table('client_team_invites').update({
+                'invite_token': token,
+                'invite_link': invite_link,
+                'expires_at': expires_iso,
+                'updated_at': now_iso,
+            }).eq('id', str(invite_id)).execute()
+
+            email_sent = False
+            email_error = None
+            try:
+                inviter_profile = get_profile(sb, user_id) or {}
+                inviter_name = str(inviter_profile.get('display_name') or inviter_profile.get('email') or 'Client').strip()
+                client_name = str(client.get('name') or 'Team').strip()
+                invite_email = str(invite.get('email') or '').strip()
+                _send_client_team_invite_email(invite_email, inviter_name, client_name, invite_link)
+                email_sent = True
+            except Exception as e:
+                email_error = str(e)
+
+            return jsonify({
+                'success': True,
+                'invite_link': invite_link,
+                'email_sent': email_sent,
+                'email_error': email_error,
+                'expires_at': expires_iso,
+            })
+        except Exception as e:
+            return jsonify({'error': str(e)}), 500
+
     @app.route('/client-invite/<invite_token>')
     def client_team_invite_page(invite_token):
         token = str(invite_token or '').strip()
