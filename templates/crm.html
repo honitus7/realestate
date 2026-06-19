@@ -1,5 +1,6 @@
 {% set page_title = 'CRM - MarketoState' %}
 {% set active_nav = 'crm' %}
+{% set use_marketostate_brand_theme = true %}
 {% set sneat_extra_css = '/static/crm/crm.css' %}
 {% from 'crm/components/data_table.html' import crm_data_table %}
 {% set sneat_merge_nav_into_crm = true %}
@@ -201,8 +202,8 @@
     gap: 0.6rem;
 }
 .crm-page--sneat .view-btn.active {
-    background: #696cff !important;
-    border-color: #696cff !important;
+    background: var(--ms-brand-primary, var(--crm-blue, #696cff)) !important;
+    border-color: var(--ms-brand-primary, var(--crm-blue, #696cff)) !important;
     color: #fff !important;
 }
 #deals-kanban-board {
@@ -226,9 +227,9 @@
     box-shadow: 0 2px 8px rgba(20, 28, 45, 0.06);
 }
 #deals-kanban-board .kanban-cards.dk-drop-active {
-    outline: 2px dashed #696cff;
+    outline: 2px dashed var(--ms-brand-primary, var(--crm-blue, #696cff));
     outline-offset: -3px;
-    background: rgba(105, 108, 255, 0.06);
+    background: rgba(var(--ms-brand-primary-rgb, 105, 108, 255), 0.06);
 }
 #deals-kanban-board .kanban-card.dk-dragging {
     opacity: 0.55;
@@ -1392,17 +1393,16 @@
 (function () {
     var y = document.getElementById('footer-year');
     if (y) y.textContent = new Date().getFullYear();
-    var url = window.__SUPABASE_URL__;
-    var key = window.__SUPABASE_ANON_KEY__;
-    if (url && key && window.supabase && !window._supabase) {
-        window._supabase = window.supabase.createClient(url, key);
-    }
 })();
 </script>
+<script src="/static/js/sidebar.js?v=20260610-client-admin-2"></script>
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 <script>
 (function () {
     function waitForAuthSession(maxAttempts, delayMs) {
+        if (window.pmApi && typeof window.pmApi.waitForSession === 'function') {
+            return window.pmApi.waitForSession(maxAttempts, delayMs);
+        }
         var sb = window._supabase;
         if (!sb || !sb.auth || typeof sb.auth.getSession !== 'function') return Promise.resolve(null);
         var remaining = Number(maxAttempts || 0);
@@ -1422,7 +1422,10 @@
         return step();
     }
     function getAuthHeaders() {
-        return waitForAuthSession(10, 300).then(function (session) {
+        if (window.pmApi && typeof window.pmApi.getAuthHeaders === 'function') {
+            return window.pmApi.getAuthHeaders();
+        }
+        return waitForAuthSession(14, 140).then(function (session) {
             var h = {};
             if (session && session.access_token) h['Authorization'] = 'Bearer ' + session.access_token;
             return h;
@@ -5827,6 +5830,9 @@
     (async function init() {
         setCrmBootLoading(true);
         try {
+            if (window.sidebarReady && typeof window.sidebarReady.then === 'function') {
+                await window.sidebarReady;
+            }
             await hydrateCrmData(false);
             setCrmBootLoading(false);
         } catch(e) {

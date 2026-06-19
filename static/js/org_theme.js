@@ -1,5 +1,13 @@
 /**
- * Org theme – no-op. Unified theme is applied via theme.css (customer_3d palette).
- * This stub exists so templates that still reference the script do not 404.
+ * Legacy org theme hook — delegates to MarketoState brand theme when config is present.
  */
-(function () { 'use strict'; })();
+(function (global) {
+    'use strict';
+    if (typeof global.applyMarketostateBrandTheme === 'function') {
+        global.applyOrgTheme = global.applyMarketostateBrandTheme;
+        return;
+    }
+    global.applyOrgTheme = function applyOrgTheme() {
+        return false;
+    };
+})(window);

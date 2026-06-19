@@ -22,7 +22,13 @@
     <link rel="stylesheet" href="/static/sneat/vendor/css/core.css" />
     <link rel="stylesheet" href="/static/sneat/css/demo.css" />
     <link rel="stylesheet" href="/static/sneat/vendor/libs/perfect-scrollbar/perfect-scrollbar.css" />
+    <link rel="stylesheet" href="/static/css/sneat_sidebar_layout.css?v=20260619-3" />
     {% if sneat_extra_css %}<link rel="stylesheet" href="{{ sneat_extra_css }}" />{% endif %}
+    {% if use_marketostate_brand_theme|default(false) %}
+    <link rel="stylesheet" href="/static/css/marketostate_brand_theme.css?v=20260619-3" />
+    <script src="/static/js/marketostate_brand_theme_config.js?v=20260619-3"></script>
+    <script src="/static/js/marketostate_brand_theme.js?v=20260619-3"></script>
+    {% endif %}
     <script src="/static/sneat/vendor/js/helpers.js"></script>
     <script src="/static/sneat/js/config.js"></script>
     <style>
@@ -38,40 +44,6 @@
       }
       html.sneat-client-admin-cached #sneat-dropdown-team-wrap {
         display: block !important;
-      }
-      #layout-menu {
-        position: relative;
-      }
-      #layout-menu .sneat-menu-collapse-toggle.menu-link {
-        position: absolute;
-        bottom: 10px;
-        right: 10px;
-        width: 36px;
-        height: 36px;
-        border: 1px solid rgba(67, 89, 113, 0.2);
-        border-radius: 8px;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        background: #fff;
-        color: #566a7f;
-        box-shadow: 0 2px 8px rgba(67, 89, 113, 0.12);
-        transition: all 0.2s ease;
-        z-index: 5;
-      }
-      #layout-menu .sneat-menu-collapse-toggle.menu-link i {
-        font-size: 1.2rem;
-        font-weight: 700;
-      }
-      #layout-menu .sneat-menu-collapse-toggle.menu-link:hover {
-        background: #f5f5f9;
-        color: #696cff;
-        border-color: rgba(105, 108, 255, 0.35);
-      }
-      html.layout-menu-collapsed #layout-menu .sneat-menu-collapse-toggle.menu-link {
-        right: auto;
-        left: 50%;
-        transform: translateX(-50%);
       }
     </style>
     <script>

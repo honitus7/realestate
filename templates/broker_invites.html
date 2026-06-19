@@ -540,35 +540,7 @@
         });
       })();
     </script>
-    <script>
-      (function () {
-        var KEY = 'sneat_layout_menu_collapsed';
-        var root = document.documentElement;
-        var toggle = document.getElementById('sneat-layout-menu-toggle');
-        if (!toggle) return;
-        var icon = toggle.querySelector('i');
-        function isCollapsed() { return root.classList.contains('layout-menu-collapsed'); }
-        function syncIcon() {
-          if (!icon) return;
-          icon.classList.remove('bx-chevron-left', 'bx-chevron-right');
-          icon.classList.add(isCollapsed() ? 'bx-chevron-right' : 'bx-chevron-left');
-        }
-        function persist() {
-          try { window.localStorage.setItem(KEY, isCollapsed() ? '1' : '0'); } catch (e) {}
-          syncIcon();
-        }
-        toggle.addEventListener('click', function () {
-          if (window.Helpers && typeof window.Helpers.toggleCollapsed === 'function') {
-            window.Helpers.toggleCollapsed(true);
-          } else {
-            root.classList.toggle('layout-menu-collapsed');
-          }
-          window.setTimeout(persist, 10);
-        });
-        new MutationObserver(syncIcon).observe(root, { attributes: true, attributeFilter: ['class'] });
-        persist();
-      })();
-    </script>
+    <script src="/static/js/sneat_menu_toggle.js?v=20260619"></script>
   </body>
 </html>
 
