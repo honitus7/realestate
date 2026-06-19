@@ -8,7 +8,7 @@
 
 .crm-page {
     --crm-sidebar-visible-width: 96px;
-    --crm-blue: #696cff;
+    --crm-blue: var(--ms-brand-primary, #FFA300);
     --crm-blue-strong: #5f61e6;
     --crm-canvas: #edf1f7;
     --crm-panel: #ffffff;
@@ -228,10 +228,10 @@
 }
 
 .crm-tab.active {
-    color: #fff;
+    color: var(--ms-brand-dark, #333333);
     border-color: var(--crm-blue);
     background: var(--crm-blue);
-    box-shadow: 0 8px 20px rgba(23, 105, 255, 0.22);
+    box-shadow: 0 4px 14px rgba(var(--ms-brand-primary-rgb, 255, 163, 0), 0.32);
 }
 
 .crm-tab-action {
@@ -1854,10 +1854,10 @@ html.layout-navbar-fixed .layout-page--crm-merged-nav .container-p-y:not([class^
 }
 
 .crm-page--sneat .crm-tab.active {
-    color: #fff;
-    border-color: var(--bs-primary);
-    background: var(--bs-primary);
-    box-shadow: 0 4px 12px rgba(105, 108, 255, 0.35);
+    color: var(--ms-brand-dark, #333333);
+    border-color: var(--ms-brand-primary, var(--bs-primary));
+    background: var(--ms-brand-primary, var(--bs-primary));
+    box-shadow: 0 4px 14px rgba(var(--ms-brand-primary-rgb, 255, 163, 0), 0.38);
 }
 
 .crm-page--sneat .crm-tab {
@@ -1865,8 +1865,8 @@ html.layout-navbar-fixed .layout-page--crm-merged-nav .container-p-y:not([class^
 }
 
 .crm-page--sneat .crm-tab:hover {
-    color: var(--bs-body-color);
-    background: rgba(67, 89, 113, 0.06);
+    color: var(--ms-brand-primary-strong, var(--bs-body-color));
+    background: rgba(var(--ms-brand-primary-rgb, 255, 163, 0), 0.12);
 }
 
 .crm-page--sneat .kpi-chip-val {

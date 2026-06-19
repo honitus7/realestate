@@ -1,39 +1,13 @@
-import time
-
 from flask import jsonify, request
 
 from app.controllers.features.crm_pagination import crm_page_payload, crm_parse_page_args
 from app.core.auth import require_auth
-from app.core.database import get_supabase
-
-
-def _is_transient_supabase_error(error):
-    message = str(error or '').lower()
-    return any(token in message for token in (
-        'connectionterminated',
-        'connection terminated',
-        'connection closed',
-        'server closed the connection',
-        'stream error',
-        'eof',
-        'timeout',
-        'timed out',
-        'temporarily unavailable',
-    ))
-
-
-def _with_retry(fn, attempts=2, sleep_seconds=0.18):
-    last_error = None
-    for index in range(max(1, int(attempts or 1))):
-        try:
-            return fn()
-        except Exception as error:
-            last_error = error
-            if not _is_transient_supabase_error(error) or index >= attempts - 1:
-                raise
-            time.sleep(sleep_seconds)
-    if last_error is not None:
-        raise last_error
+from app.core.database import (
+    get_supabase,
+    is_transient_supabase_error,
+    require_supabase,
+    with_supabase_retry,
+)
 
 
 def _apply_client_scope(query, *, requested_client_id=None, client_scope_ids=None):
@@ -64,28 +38,39 @@ def register_crm_record_list_routes(
             return jsonify({'error': 'Database not configured'}), 503
         page, limit, offset = crm_parse_page_args(default_limit=10, max_limit=500)
         try:
-            panorama_ids = _with_retry(lambda: crm_panorama_ids(sb, user_id, role), attempts=2)
+            panorama_ids = with_supabase_retry(
+                lambda: crm_panorama_ids(require_supabase(), user_id, role),
+                attempts=3,
+            )
         except Exception as error:
-            if _is_transient_supabase_error(error):
+            if is_transient_supabase_error(error):
                 return jsonify({'error': 'Temporary CRM connection issue. Please retry.'}), 503
             return jsonify({'error': str(error)}), 500
         if not panorama_ids:
             return jsonify(crm_page_payload([], 0, page, limit))
         try:
-            client_scope_ids = _with_retry(lambda: crm_client_scope_ids(sb, user_id, role), attempts=2)
+            client_scope_ids = with_supabase_retry(
+                lambda: crm_client_scope_ids(require_supabase(), user_id, role),
+                attempts=3,
+            )
         except Exception as error:
-            if _is_transient_supabase_error(error):
+            if is_transient_supabase_error(error):
                 return jsonify({'error': 'Temporary CRM connection issue. Please retry.'}), 503
             return jsonify({'error': str(error)}), 500
         if client_scope_ids is not None and not client_scope_ids:
             return jsonify(crm_page_payload([], 0, page, limit))
         try:
-            reference_scope_user_id = _with_retry(
-                lambda: crm_interest_reference_scope_user_id(sb, user_id, role, client_scope_ids),
-                attempts=2,
+            reference_scope_user_id = with_supabase_retry(
+                lambda: crm_interest_reference_scope_user_id(
+                    require_supabase(),
+                    user_id,
+                    role,
+                    client_scope_ids,
+                ),
+                attempts=3,
             )
         except Exception as error:
-            if _is_transient_supabase_error(error):
+            if is_transient_supabase_error(error):
                 return jsonify({'error': 'Temporary CRM connection issue. Please retry.'}), 503
             return jsonify({'error': str(error)}), 500
 
@@ -132,53 +117,54 @@ def register_crm_record_list_routes(
                 'campaign_status, deal_stage, title, description, category, plots, status, is_contacted, contacted_at, '
                 'notes, custom_fields, created_at, updated_at, submitted_by, assigned_to, assigned_at'
             )
-            query = sb.table('buy_interests').select(columns, count='exact').in_('panorama_id', panorama_ids)
-            query = _apply_client_scope(
-                query,
-                requested_client_id=requested_client_id,
-                client_scope_ids=client_scope_ids,
-            )
-            if reference_scope_user_id:
-                query = crm_apply_broker_interest_visibility(query, reference_scope_user_id)
-            if workspace_id:
-                workspace_rows = _with_retry(
-                    lambda: (
-                        sb.table('panoramas')
+
+            def _fetch_buy_interests_page():
+                active_sb = require_supabase()
+                query = active_sb.table('buy_interests').select(columns, count='exact').in_('panorama_id', panorama_ids)
+                query = _apply_client_scope(
+                    query,
+                    requested_client_id=requested_client_id,
+                    client_scope_ids=client_scope_ids,
+                )
+                if reference_scope_user_id:
+                    query = crm_apply_broker_interest_visibility(query, reference_scope_user_id)
+                if workspace_id:
+                    workspace_rows = (
+                        active_sb.table('panoramas')
                         .select('id')
                         .eq('workspace_id', workspace_id)
                         .in_('id', panorama_ids)
                         .execute()
                         .data
                         or []
-                    ),
-                    attempts=2,
-                )
-                workspace_panorama_ids = [
-                    int(row.get('id'))
-                    for row in workspace_rows
-                    if row.get('id') is not None
-                ]
-                if not workspace_panorama_ids:
-                    return jsonify(crm_page_payload([], 0, page, limit))
-                query = query.in_('panorama_id', workspace_panorama_ids)
-            if panorama_id and panorama_id in panorama_ids:
-                query = query.eq('panorama_id', panorama_id)
-            if category:
-                query = query.eq('category', category)
-            if status in ('new', 'contacted'):
-                query = query.eq('is_contacted', status == 'contacted')
-            if search_query:
-                token = search_query.replace('%', '').replace('(', '').replace(')', '').replace(',', '')
-                if token:
-                    query = query.or_(
-                        f"customer_name.ilike.%{token}%,customer_email.ilike.%{token}%,"
-                        f"customer_phone.ilike.%{token}%,customer_address.ilike.%{token}%,"
-                        f"customer_city.ilike.%{token}%,customer_state.ilike.%{token}%"
                     )
-            response = _with_retry(
-                lambda: query.order('created_at', desc=True).range(offset, offset + limit - 1).execute(),
-                attempts=2,
-            )
+                    workspace_panorama_ids = [
+                        int(row.get('id'))
+                        for row in workspace_rows
+                        if row.get('id') is not None
+                    ]
+                    if not workspace_panorama_ids:
+                        return None
+                    query = query.in_('panorama_id', workspace_panorama_ids)
+                if panorama_id and panorama_id in panorama_ids:
+                    query = query.eq('panorama_id', panorama_id)
+                if category:
+                    query = query.eq('category', category)
+                if status in ('new', 'contacted'):
+                    query = query.eq('is_contacted', status == 'contacted')
+                if search_query:
+                    token = search_query.replace('%', '').replace('(', '').replace(')', '').replace(',', '')
+                    if token:
+                        query = query.or_(
+                            f"customer_name.ilike.%{token}%,customer_email.ilike.%{token}%,"
+                            f"customer_phone.ilike.%{token}%,customer_address.ilike.%{token}%,"
+                            f"customer_city.ilike.%{token}%,customer_state.ilike.%{token}%"
+                        )
+                return query.order('created_at', desc=True).range(offset, offset + limit - 1).execute()
+
+            response = with_supabase_retry(_fetch_buy_interests_page, attempts=3)
+            if response is None:
+                return jsonify(crm_page_payload([], 0, page, limit))
             total = int(getattr(response, 'count', None) or 0)
             rows = []
             for row in (response.data or []):
@@ -202,7 +188,7 @@ def register_crm_record_list_routes(
             return jsonify(payload)
         except Exception as error:
             message = str(error)
-            if _is_transient_supabase_error(error):
+            if is_transient_supabase_error(error):
                 return jsonify({'error': 'Temporary CRM connection issue. Please retry.'}), 503
             if 'buy_interests' in message and (
                 'does not exist' in message.lower() or 'relation' in message.lower()
@@ -219,18 +205,42 @@ def register_crm_record_list_routes(
         if not sb:
             return jsonify({'error': 'Database not configured'}), 503
         page, limit, offset = crm_parse_page_args(default_limit=10, max_limit=100)
-        panorama_ids = crm_panorama_ids(sb, user_id, role)
+        try:
+            panorama_ids = with_supabase_retry(
+                lambda: crm_panorama_ids(require_supabase(), user_id, role),
+                attempts=3,
+            )
+        except Exception as error:
+            if is_transient_supabase_error(error):
+                return jsonify({'error': 'Temporary CRM connection issue. Please retry.'}), 503
+            return jsonify({'error': str(error)}), 500
         if not panorama_ids:
             return jsonify(crm_page_payload([], 0, page, limit))
-        client_scope_ids = crm_client_scope_ids(sb, user_id, role)
+        try:
+            client_scope_ids = with_supabase_retry(
+                lambda: crm_client_scope_ids(require_supabase(), user_id, role),
+                attempts=3,
+            )
+        except Exception as error:
+            if is_transient_supabase_error(error):
+                return jsonify({'error': 'Temporary CRM connection issue. Please retry.'}), 503
+            return jsonify({'error': str(error)}), 500
         if client_scope_ids is not None and not client_scope_ids:
             return jsonify(crm_page_payload([], 0, page, limit))
-        reference_scope_user_id = crm_interest_reference_scope_user_id(
-            sb,
-            user_id,
-            role,
-            client_scope_ids,
-        )
+        try:
+            reference_scope_user_id = with_supabase_retry(
+                lambda: crm_interest_reference_scope_user_id(
+                    require_supabase(),
+                    user_id,
+                    role,
+                    client_scope_ids,
+                ),
+                attempts=3,
+            )
+        except Exception as error:
+            if is_transient_supabase_error(error):
+                return jsonify({'error': 'Temporary CRM connection issue. Please retry.'}), 503
+            return jsonify({'error': str(error)}), 500
         requested_client_id = (request.args.get('client_id') or '').strip() or None
         stage = str(request.args.get('stage') or '').strip().lower()
         project_name = str(request.args.get('project_name') or '').strip()
@@ -241,13 +251,21 @@ def register_crm_record_list_routes(
 
         reference_interest_ids = []
         if reference_scope_user_id:
-            reference_interest_ids, _reference_contact_ids = crm_reference_linked_ids(
-                sb,
-                reference_scope_user_id,
-                panorama_ids,
-                client_ids=client_scope_ids,
-                requested_client_id=requested_client_id,
-            )
+            try:
+                reference_interest_ids, _reference_contact_ids = with_supabase_retry(
+                    lambda: crm_reference_linked_ids(
+                        require_supabase(),
+                        reference_scope_user_id,
+                        panorama_ids,
+                        client_ids=client_scope_ids,
+                        requested_client_id=requested_client_id,
+                    ),
+                    attempts=3,
+                )
+            except Exception as error:
+                if is_transient_supabase_error(error):
+                    return jsonify({'error': 'Temporary CRM connection issue. Please retry.'}), 503
+                return jsonify({'error': str(error)}), 500
             if not reference_interest_ids:
                 return jsonify(crm_page_payload([], 0, page, limit))
 
@@ -275,35 +293,39 @@ def register_crm_record_list_routes(
             return jsonify(cached)
 
         try:
-            query = (
-                sb.table('crm_deals')
-                .select(
-                    'id, org_id, client_id, panorama_id, interest_id, contact_id, title, stage, is_active, '
-                    'amount, currency, plots, project_name, notes, custom_fields, created_at, updated_at',
-                    count='exact',
-                )
-                .in_('panorama_id', panorama_ids)
-            )
-            query = _apply_client_scope(
-                query,
-                requested_client_id=requested_client_id,
-                client_scope_ids=client_scope_ids,
-            )
-            if reference_scope_user_id:
-                query = query.in_('interest_id', reference_interest_ids)
-            if stage in allowed_stages:
-                query = query.eq('stage', stage)
-            if project_name:
-                query = query.eq('project_name', project_name)
-            if contact_id:
-                query = query.eq('contact_id', contact_id)
-            if search_query:
-                token = search_query.replace('%', '').replace('(', '').replace(')', '').replace(',', '')
-                if token:
-                    query = query.or_(
-                        f"title.ilike.%{token}%,project_name.ilike.%{token}%,amount.ilike.%{token}%"
+            def _fetch_deals_page():
+                active_sb = require_supabase()
+                query = (
+                    active_sb.table('crm_deals')
+                    .select(
+                        'id, org_id, client_id, panorama_id, interest_id, contact_id, title, stage, is_active, '
+                        'amount, currency, plots, project_name, notes, custom_fields, created_at, updated_at',
+                        count='exact',
                     )
-            response = query.order('updated_at', desc=True).range(offset, offset + limit - 1).execute()
+                    .in_('panorama_id', panorama_ids)
+                )
+                query = _apply_client_scope(
+                    query,
+                    requested_client_id=requested_client_id,
+                    client_scope_ids=client_scope_ids,
+                )
+                if reference_scope_user_id:
+                    query = query.in_('interest_id', reference_interest_ids)
+                if stage in allowed_stages:
+                    query = query.eq('stage', stage)
+                if project_name:
+                    query = query.eq('project_name', project_name)
+                if contact_id:
+                    query = query.eq('contact_id', contact_id)
+                if search_query:
+                    token = search_query.replace('%', '').replace('(', '').replace(')', '').replace(',', '')
+                    if token:
+                        query = query.or_(
+                            f"title.ilike.%{token}%,project_name.ilike.%{token}%,amount.ilike.%{token}%"
+                        )
+                return query.order('updated_at', desc=True).range(offset, offset + limit - 1).execute()
+
+            response = with_supabase_retry(_fetch_deals_page, attempts=3)
             payload = crm_page_payload(
                 response.data or [],
                 int(getattr(response, 'count', None) or 0),
@@ -313,4 +335,13 @@ def register_crm_record_list_routes(
             crm_cache_set(cache_key, payload)
             return jsonify(payload)
         except Exception as error:
-            return jsonify({'error': str(error)}), 500
+            message = str(error)
+            if is_transient_supabase_error(error):
+                return jsonify({'error': 'Temporary CRM connection issue. Please retry.'}), 503
+            if 'crm_deals' in message and (
+                'does not exist' in message.lower() or 'relation' in message.lower()
+            ):
+                return jsonify({
+                    'error': 'crm_deals table not found. Run db/migration_crm_contacts_deals_quotes.sql in Supabase.'
+                }), 503
+            return jsonify({'error': message}), 500

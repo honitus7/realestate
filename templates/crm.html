@@ -1810,6 +1810,8 @@
     }
 
     async function loadDeals(resetPage) {
+        const prevDeals = Array.isArray(deals) ? deals.slice() : [];
+        const prevMeta = Object.assign({}, dealsTableMeta);
         try {
             await ensureDealClientOptions();
             const selectedClient = String((dealClientFilterEl && dealClientFilterEl.value) || '').trim();
@@ -1832,7 +1834,14 @@
             const path = '/api/crm/deals' + CrmPager.buildQuery(dealsPager, params);
             const r = await api(path);
             const data = await r.json().catch(() => ({}));
-            if (!r.ok) throw new Error((data && data.error) ? data.error : ('Failed (' + r.status + ')'));
+            if (!r.ok) {
+                if (prevDeals.length) {
+                    deals = prevDeals;
+                    dealsTableMeta = prevMeta;
+                    renderDeals(prevMeta);
+                }
+                throw new Error((data && data.error) ? data.error : ('Failed (' + r.status + ')'));
+            }
             const page = CrmPager.parsePageResponse(data);
             deals = page.items;
             dealsTableMeta = page;
@@ -1842,7 +1851,7 @@
             renderDealFilterOptions();
             renderDeals(page);
         } catch (e) {
-            toast(e.message || 'Failed to load deals', 'error');
+            if (!prevDeals.length) toast(e.message || 'Failed to load deals', 'error');
         }
     }
 
@@ -3622,12 +3631,34 @@
         return params;
     }
 
+    function interestFiltersActive() {
+        return Object.keys(interestFilterParams()).length > 0;
+    }
+
     async function loadInterestsTable(resetPage) {
         if (resetPage) interestsPager.page = 1;
+        const prevFiltered = Array.isArray(filtered) ? filtered.slice() : [];
+        const prevMeta = Object.assign({}, interestsTableMeta);
         const r = await api('/api/buy-interests' + CrmPager.buildQuery(interestsPager, interestFilterParams()));
         const data = await r.json().catch(() => ({}));
-        if (!r.ok) throw new Error((data && data.error) ? data.error : ('Failed (' + r.status + ')'));
+        if (!r.ok) {
+            if (prevFiltered.length) {
+                filtered = prevFiltered;
+                interestsTableMeta = prevMeta;
+                renderTable();
+                CrmPager.renderPagination('interests-pagination', prevMeta, interestsPager, function () { loadInterestsTable(false); }, esc);
+            }
+            throw new Error((data && data.error) ? data.error : ('Failed (' + r.status + ')'));
+        }
         const page = CrmPager.parsePageResponse(data);
+        if (page.total === 0 && prevMeta.total > 0 && !interestFiltersActive()) {
+            console.warn('CRM interests returned empty unexpectedly; keeping previous results');
+            filtered = prevFiltered;
+            interestsTableMeta = prevMeta;
+            renderTable();
+            CrmPager.renderPagination('interests-pagination', prevMeta, interestsPager, function () { loadInterestsTable(false); }, esc);
+            return;
+        }
         interestsTableMeta = page;
         interestsPager.page = page.page;
         interestsPager.size = page.limit;
@@ -3637,7 +3668,7 @@
     }
 
     async function loadInterestsBulk() {
-        const r = await api('/api/buy-interests?page=1&limit=10');
+        const r = await api('/api/buy-interests?page=1&limit=500');
         const data = await r.json().catch(() => ({}));
         if (!r.ok) throw new Error((data && data.error) ? data.error : ('Failed (' + r.status + ')'));
         const page = CrmPager.parsePageResponse(data);
@@ -4671,8 +4702,29 @@
         if (failed && (!filtered || !filtered.length)) {
             throw failed.reason;
         }
+        if (currentView === 'board') {
+            applyFilters();
+            renderKanban();
+        }
         renderStats();
         interestsLoaded = true;
+    }
+
+    let interestsRefreshInFlight = false;
+    const CRM_INTERESTS_STALE_MS = 5 * 60 * 1000;
+
+    async function refreshInterestsIfStale(force) {
+        if (interestsRefreshInFlight || crmHydrationInFlight) return;
+        if (!force && interestsLoaded && (Date.now() - crmLastHydrationAt < CRM_INTERESTS_STALE_MS)) return;
+        interestsRefreshInFlight = true;
+        try {
+            await ensureInterestsLoaded(!!force);
+            crmLastHydrationAt = Date.now();
+        } catch (err) {
+            console.warn('CRM interests refresh failed:', err);
+        } finally {
+            interestsRefreshInFlight = false;
+        }
     }
     async function ensureInterestsLoaded(force) {
         if (interestsLoaded && !force) return;
@@ -5843,16 +5895,11 @@
     })();
 
     window.addEventListener('focus', function() {
-        if (crmHydrationInFlight) return;
-        if (!interestsLoaded || (Array.isArray(interests) && interests.length === 0) || (Date.now() - crmLastHydrationAt > 20000)) {
-            hydrateCrmData(true).catch(function(err) { console.warn('CRM focus refresh failed:', err); });
-        }
+        refreshInterestsIfStale(false);
     });
     document.addEventListener('visibilitychange', function() {
-        if (document.visibilityState !== 'visible' || crmHydrationInFlight) return;
-        if (!interestsLoaded || (Date.now() - crmLastHydrationAt > 20000)) {
-            hydrateCrmData(true).catch(function(err) { console.warn('CRM visibility refresh failed:', err); });
-        }
+        if (document.visibilityState !== 'visible') return;
+        refreshInterestsIfStale(false);
     });
     window.addEventListener('resize', syncCrmBootLoaderOffset);
     window.addEventListener('load', syncCrmBootLoaderOffset);

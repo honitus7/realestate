@@ -165,7 +165,13 @@ html.ms-brand-theme .crm-page--sneat .crm-tab {
   color: var(--ms-brand-on-dark-muted);
 }
 
-html.ms-brand-theme .crm-page--sneat .crm-tab.active,
+html.ms-brand-theme .crm-page--sneat .crm-tab.active {
+  color: var(--ms-brand-dark) !important;
+  border-color: var(--ms-brand-primary) !important;
+  background: var(--ms-brand-primary) !important;
+  box-shadow: 0 4px 14px rgba(var(--ms-brand-primary-rgb), 0.38) !important;
+}
+
 html.ms-brand-theme .crm-page--sneat .crm-tab:hover {
   color: var(--ms-brand-primary);
   background: rgba(var(--ms-brand-primary-rgb), 0.14);
@@ -216,10 +222,15 @@ html.ms-brand-theme .crm-page .btn-outline-primary:hover {
   color: var(--ms-brand-dark);
 }
 
-html.ms-brand-theme .crm-page .interest-primary,
 html.ms-brand-theme .crm-page .crm-pill--primary {
   background: rgba(var(--ms-brand-primary-rgb), 0.16);
   color: var(--ms-brand-primary-strong);
+}
+
+html.ms-brand-theme .crm-page .interest-primary {
+  background: transparent;
+  color: inherit;
+  font-weight: 600;
 }
 
 html.ms-brand-theme .crm-page .spinner-border.text-primary,
@@ -541,10 +552,6 @@ html.ms-brand-theme .kpi-chip-dot {
 
 html.ms-brand-theme .kpi-chip--accent .kpi-chip-dot {
   background: var(--ms-brand-dark) !important;
-}
-
-html.ms-brand-theme .crm-page .interest-primary {
-  color: var(--ms-brand-primary-strong);
 }
 
 html.ms-brand-theme .crm-page .btn-check:checked + .btn-outline-primary,

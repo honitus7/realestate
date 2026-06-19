@@ -7,7 +7,7 @@ from flask import jsonify, request
 
 from app import config as app_config
 from app.core.auth import get_profile, require_admin, require_auth
-from app.core.database import get_supabase
+from app.core.database import get_supabase, is_transient_supabase_error, require_supabase, with_supabase_retry
 from app.services.access_policy import _chunks, annotate_resource_rows_with_client_scope, get_client_memberships
 from app.services.email_service import send_email as send_smtp_email
 from app.controllers.features.crm_pagination import crm_page_payload, crm_parse_page_args
@@ -1297,22 +1297,37 @@ def register_crm_contact_routes(
         if not sb:
             return jsonify({'error': 'Database not configured'}), 503
         try:
-            panorama_ids = _with_retry(lambda: crm_panorama_ids(sb, user_id, role), attempts=2)
+            panorama_ids = with_supabase_retry(
+                lambda: crm_panorama_ids(require_supabase(), user_id, role),
+                attempts=3,
+            )
         except Exception as e:
+            if is_transient_supabase_error(e):
+                return jsonify({'error': 'Temporary CRM connection issue. Please retry.'}), 503
             return jsonify({'error': str(e) or 'Failed to load CRM panoramas'}), 503
         page, limit, offset = crm_parse_page_args(default_limit=10, max_limit=100)
         if not panorama_ids:
             return jsonify(crm_page_payload([], 0, page, limit))
         try:
-            client_scope_ids = _with_retry(lambda: crm_client_scope_ids(sb, user_id, role), attempts=2)
+            client_scope_ids = with_supabase_retry(
+                lambda: crm_client_scope_ids(require_supabase(), user_id, role),
+                attempts=3,
+            )
         except Exception as e:
+            if is_transient_supabase_error(e):
+                return jsonify({'error': 'Temporary CRM connection issue. Please retry.'}), 503
             return jsonify({'error': str(e) or 'Failed to load CRM client scope'}), 503
         if client_scope_ids is not None and not client_scope_ids:
             return jsonify(crm_page_payload([], 0, page, limit))
         try:
-            reference_scope_user_id = _with_retry(
-                lambda: crm_interest_reference_scope_user_id(sb, user_id, role, client_scope_ids),
-                attempts=2,
+            reference_scope_user_id = with_supabase_retry(
+                lambda: crm_interest_reference_scope_user_id(
+                    require_supabase(),
+                    user_id,
+                    role,
+                    client_scope_ids,
+                ),
+                attempts=3,
             )
         except Exception:
             reference_scope_user_id = None
@@ -1324,15 +1339,15 @@ def register_crm_contact_routes(
         reference_interest_ids, reference_contact_ids = [], []
         if reference_scope_user_id:
             try:
-                reference_interest_ids, reference_contact_ids = _with_retry(
+                reference_interest_ids, reference_contact_ids = with_supabase_retry(
                     lambda: crm_reference_linked_ids(
-                        sb,
+                        require_supabase(),
                         reference_scope_user_id,
                         panorama_ids,
                         client_ids=client_scope_ids,
                         requested_client_id=requested_client_id,
                     ),
-                    attempts=2,
+                    attempts=3,
                 )
             except Exception:
                 reference_interest_ids, reference_contact_ids = [], []
@@ -1359,9 +1374,9 @@ def register_crm_contact_routes(
         if cached is not None:
             return jsonify(cached)
         try:
-            rows, total = _with_retry(
+            rows, total = with_supabase_retry(
                 lambda: _crm_fetch_contact_rows(
-                    sb,
+                    require_supabase(),
                     panorama_ids,
                     client_scope_ids=client_scope_ids,
                     requested_client_id=requested_client_id,
@@ -1372,10 +1387,12 @@ def register_crm_contact_routes(
                     offset=offset,
                     limit=limit,
                 ),
-                attempts=2,
+                attempts=3,
             )
         except Exception as e:
             msg = str(e)
+            if is_transient_supabase_error(e):
+                return jsonify({'error': 'Temporary CRM connection issue. Please retry.'}), 503
             if 'crm_contacts' in msg and ('does not exist' in msg.lower() or 'relation' in msg.lower()):
                 return jsonify({'error': 'crm_contacts table not found. Run db/migration_crm_contacts_deals_quotes.sql in Supabase.'}), 503
             return jsonify({'error': msg}), 500
@@ -1386,9 +1403,10 @@ def register_crm_contact_routes(
         if include_counts and contact_ids:
             try:
                 dr_rows = []
+                counts_sb = require_supabase()
                 for chunk in _chunks(contact_ids):
                     drq = (
-                        sb.table('crm_deals')
+                        counts_sb.table('crm_deals')
                         .select('id, contact_id, interest_id')
                         .in_('contact_id', chunk)
                     )
@@ -1410,9 +1428,10 @@ def register_crm_contact_routes(
                 deals_count = {}
             try:
                 ir_rows = []
+                counts_sb = require_supabase()
                 for chunk in _chunks(contact_ids):
                     irq = (
-                        sb.table('buy_interests')
+                        counts_sb.table('buy_interests')
                         .select('id, contact_id')
                         .in_('contact_id', chunk)
                     )
