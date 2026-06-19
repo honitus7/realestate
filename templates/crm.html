@@ -1,7 +1,7 @@
 {% set page_title = 'CRM - MarketoState' %}
 {% set active_nav = 'crm' %}
 {% set use_marketostate_brand_theme = true %}
-{% set sneat_extra_css = '/static/crm/crm.css' %}
+{% set sneat_extra_css = '/static/crm/crm.css?v=20260620-4' %}
 {% from 'crm/components/data_table.html' import crm_data_table %}
 {% set sneat_merge_nav_into_crm = true %}
 {% include 'components/sneat_shell_start.html' %}
@@ -335,8 +335,10 @@
 <div class="crm-page crm-page--sneat">
     <div class="crm-boot-loader" id="crm-boot-loader" role="status" aria-live="polite">
         <div class="crm-boot-loader__media">
-            <img class="crm-boot-loader__svg" src="/app/lottiefiles/crmloader.svg" alt="Loading CRM">
-            <div class="crm-boot-loader__caption">Fetching Latest Leads </div>
+            <div class="crm-boot-loader__svg-stage" aria-hidden="true">
+                <img class="crm-boot-loader__svg" src="/app/lottiefiles/crmloader-smooth.svg?v=20260620-1" alt="" decoding="async" fetchpriority="high">
+            </div>
+            <div class="crm-boot-loader__caption">Fetching Latest Leads</div>
         </div>
     </div>
     <div class="crm-page-content" id="crm-page-content" aria-busy="true">
@@ -5822,27 +5824,32 @@
     let crmHydrationInFlight = false;
     let crmLastHydrationAt = 0;
 
+    let crmBootLoaderOffsetRaf = 0;
     function syncCrmBootLoaderOffset() {
-        const loader = $('crm-boot-loader');
-        if (!loader) return;
-        if (window.matchMedia && window.matchMedia('(max-width: 991.98px)').matches) {
-            loader.style.left = '0px';
-            return;
-        }
-        const crmRoot = document.querySelector('.crm-page');
-        if (crmRoot && crmRoot.classList.contains('crm-page--broker-header-mode')) {
-            loader.style.left = '0px';
-            return;
-        }
-        const sidebars = [
-            document.getElementById('layout-menu'),
-            document.getElementById('dashboard-sidebar')
-        ].filter(Boolean);
-        let width = 0;
-        sidebars.forEach(function (el) {
-            width = Math.max(width, Math.round(el.getBoundingClientRect().width || 0));
+        if (crmBootLoaderOffsetRaf) return;
+        crmBootLoaderOffsetRaf = window.requestAnimationFrame(function () {
+            crmBootLoaderOffsetRaf = 0;
+            const loader = $('crm-boot-loader');
+            if (!loader || loader.hidden) return;
+            if (window.matchMedia && window.matchMedia('(max-width: 991.98px)').matches) {
+                loader.style.left = '0px';
+                return;
+            }
+            const crmRoot = document.querySelector('.crm-page');
+            if (crmRoot && crmRoot.classList.contains('crm-page--broker-header-mode')) {
+                loader.style.left = '0px';
+                return;
+            }
+            const sidebars = [
+                document.getElementById('layout-menu'),
+                document.getElementById('dashboard-sidebar')
+            ].filter(Boolean);
+            let width = 0;
+            sidebars.forEach(function (el) {
+                width = Math.max(width, Math.round(el.getBoundingClientRect().width || 0));
+            });
+            loader.style.left = width > 0 ? (width + 'px') : '0px';
         });
-        loader.style.left = width > 0 ? (width + 'px') : '0px';
     }
 
     function setCrmBootLoading(isLoading) {

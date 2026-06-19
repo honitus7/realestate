@@ -201,3 +201,7 @@ html.layout-menu-collapsed #layout-menu .sneat-menu-collapse-toggle.menu-link {
   object-fit: contain;
   display: none;
 }
+
+#layout-menu .menu-header::before {
+  display: none !important;
+}

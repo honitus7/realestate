@@ -1,7 +1,7 @@
 {% set page_title = 'My Team - MarketoState' %}
 {% set active_nav = 'team' %}
 {% set use_marketostate_brand_theme = true %}
-{% set sneat_extra_css = '/static/css/client_management_sneat.css?v=20260619-merged-roster' %}
+{% set sneat_extra_css = '/static/css/client_management_sneat.css?v=20260620-1' %}
 {% include 'components/sneat_shell_start.html' %}
 
 <div class="team-page" id="client-mgmt-page">
@@ -740,6 +740,8 @@
         if (kind === 'view') return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2.06 12.35a1 1 0 0 1 0-.7C3.41 7.84 7.36 5 12 5s8.59 2.84 9.94 6.65a1 1 0 0 1 0 .7C20.59 16.16 16.64 19 12 19s-8.59-2.84-9.94-6.65Z"></path><circle cx="12" cy="12" r="3"></circle></svg>';
         if (kind === 'access') return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="10" rx="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>';
         if (kind === 'delete') return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"></path><path d="M8 6V4h8v2"></path><path d="M19 6l-1 14H6L5 6"></path></svg>';
+        if (kind === 'resend') return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"></rect><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"></path></svg>';
+        if (kind === 'share') return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>';
         return '';
     }
 
@@ -853,9 +855,9 @@
             var initials = escapeHtml(getInitials(inv.display_name, inv.email));
             var inviteLink = String(inv.invite_link || '');
             var actionButtons =
-                '<button class="btn btn-sm btn-outline-primary invite-resend-btn" data-group="' + escapeHtml(key) + '" data-invite-id="' + escapeHtml(inviteId) + '" type="button"><i class="bx bx-envelope me-1"></i>Resend</button>' +
+                '<button class="icon-action-btn invite-resend-btn" title="Resend invite" aria-label="Resend invite" data-group="' + escapeHtml(key) + '" data-invite-id="' + escapeHtml(inviteId) + '" type="button">' + actionIcon('resend') + '</button>' +
                 (inviteLink
-                    ? '<button class="btn btn-sm btn-outline-secondary invite-copy-btn" data-link="' + escapeHtml(inviteLink) + '" type="button"><i class="bx bx-link-alt me-1"></i>Share Link</button>'
+                    ? '<button class="icon-action-btn invite-copy-btn" title="Share link" aria-label="Share link" data-link="' + escapeHtml(inviteLink) + '" type="button">' + actionIcon('share') + '</button>'
                     : '');
             return '<tr class="team-roster-row" data-kind="inactive" data-group="' + escapeHtml(key) + '" data-invite-id="' + escapeHtml(inviteId) + '" data-role="' + escapeHtml(normalizedRole) + '" data-search="' + escapeHtml(searchValue) + '">' +
                 '<td>' +
@@ -868,7 +870,7 @@
                 '<td><span class="member-role-label' + roleTone + '">' + roleLabel + '</span></td>' +
                 '<td title="' + invitedAtFull + '">' + invitedAt + '</td>' +
                 '<td><span class="member-status-pill member-status-pill--inactive">Inactive</span></td>' +
-                '<td><div class="actions-cell actions-cell--buttons">' + actionButtons + '</div></td>' +
+                '<td><div class="actions-cell actions-cell--icons">' + actionButtons + '</div></td>' +
                 '</tr>';
         }).join('');
 

@@ -298,19 +298,6 @@
   background: rgba(255, 171, 0, 0.14);
 }
 
-.team-page .actions-cell--buttons {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-  flex-wrap: wrap;
-  white-space: nowrap;
-}
-
-.team-page .actions-cell--buttons .btn {
-  font-size: 0.75rem;
-  padding: 0.3rem 0.55rem;
-}
-
 .team-page .team-panel-empty {
   min-height: 145px;
   display: flex;

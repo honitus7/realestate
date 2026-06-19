@@ -28,11 +28,11 @@
     <link rel="stylesheet" href="/static/sneat/css/demo.css" />
 
     <link rel="stylesheet" href="/static/sneat/vendor/libs/perfect-scrollbar/perfect-scrollbar.css" />
-    <link rel="stylesheet" href="/static/css/sneat_sidebar_layout.css?v=20260619-5" />
+    <link rel="stylesheet" href="/static/css/sneat_sidebar_layout.css?v=20260619-6" />
 
     <link rel="stylesheet" href="/static/sneat/vendor/libs/apex-charts/apex-charts.css" />
 
-    <link rel="stylesheet" href="/static/css/marketostate_brand_theme.css?v=20260619-4" />
+    <link rel="stylesheet" href="/static/css/marketostate_brand_theme.css?v=20260620-4" />
     <script src="/static/js/marketostate_brand_theme_config.js?v=20260619-3"></script>
     <script src="/static/js/marketostate_brand_theme.js?v=20260619-3"></script>
 
@@ -119,14 +119,22 @@
 
             <div class="navbar-nav-right d-flex align-items-center justify-content-end" id="navbar-collapse">
               <div class="navbar-nav align-items-center me-auto">
-                <div class="nav-item d-flex align-items-center">
+                <div class="nav-item d-flex align-items-center dashboard-plot-search-wrap" id="dashboard-search-wrap">
                   <span class="w-px-22 h-px-22"><i class="icon-base bx bx-search icon-md"></i></span>
                   <input
                     type="text"
                     class="form-control border-0 shadow-none ps-1 ps-sm-2 d-md-block d-none"
                     placeholder="Search clients..."
                     aria-label="Search clients..."
-                    id="navbar-client-search" />
+                    id="navbar-client-search"
+                    autocomplete="off"
+                    aria-autocomplete="list"
+                    aria-controls="navbar-plot-search-list"
+                    aria-expanded="false" />
+                  <div class="dashboard-plot-search-dropdown" id="navbar-plot-search-dropdown" hidden>
+                    <div class="dashboard-plot-search-list" id="navbar-plot-search-list" role="listbox"></div>
+                    <div class="dashboard-plot-search-empty" id="navbar-plot-search-empty" hidden>No plots found</div>
+                  </div>
                 </div>
               </div>
 
@@ -186,25 +194,12 @@
               <div class="row">
                 <div class="col-xxl-8 mb-6 order-0">
                   <div class="card">
-                    <div class="d-flex align-items-start row">
-                      <div class="col-sm-8">
-                        <div class="card-body">
-                          <h5 class="card-title text-primary mb-3" id="welcome-headline">Welcome back!</h5>
-                          <p class="mb-6" id="welcome-subtitle">
-                            Track your allotted clients, projects and leads in one place.
-                          </p>
-                          <a href="/crm" class="btn btn-sm btn-outline-primary">Open CRM</a>
-                        </div>
-                      </div>
-                      <div class="col-sm-4 text-center text-sm-left">
-                        <div class="card-body pb-0 px-0 px-md-6">
-                          <div class="d-flex align-items-center justify-content-center" style="height:175px;">
-                            <span class="avatar avatar-xl">
-                              <span class="avatar-initial rounded-circle bg-label-primary" id="hero-avatar" style="font-size:2rem;">--</span>
-                            </span>
-                          </div>
-                        </div>
-                      </div>
+                    <div class="card-body">
+                      <h5 class="card-title text-primary mb-3" id="welcome-headline">Welcome back!</h5>
+                      <p class="mb-6" id="welcome-subtitle">
+                        Track your allotted clients, projects and leads in one place.
+                      </p>
+                      <a href="/crm" class="btn btn-sm btn-outline-primary">Open CRM</a>
                     </div>
                   </div>
                 </div>
@@ -435,7 +430,10 @@
             setText('kpi-quaternary-label', 'Contacts');
             setText('kpi-quaternary-subtitle', 'Unique interested contacts');
             setText('clients-title', 'Client Portfolio');
-            if (search) search.placeholder = 'Search client groups...';
+            if (search) {
+              search.placeholder = 'Search plots...';
+              search.setAttribute('aria-label', 'Search plots...');
+            }
             var adminHead = document.getElementById('clients-thead');
             if (adminHead) {
               adminHead.innerHTML =
@@ -462,7 +460,6 @@
           var letters = initials(displayName);
           setText('navbar-user-avatar', letters);
           setText('navbar-user-avatar-2', letters);
-          setText('hero-avatar', letters);
         }
 
         function renderClients(rows, isClientAdmin) {
@@ -533,6 +530,114 @@
           });
         }
 
+        function bindPlotSearch() {
+          var input = document.getElementById('navbar-client-search');
+          var dropdown = document.getElementById('navbar-plot-search-dropdown');
+          var list = document.getElementById('navbar-plot-search-list');
+          var empty = document.getElementById('navbar-plot-search-empty');
+          if (!input || !dropdown || !list) return;
+
+          var debounceTimer = null;
+          var blurTimer = null;
+          var requestId = 0;
+
+          function hideDropdown() {
+            dropdown.setAttribute('hidden', '');
+            input.setAttribute('aria-expanded', 'false');
+            list.innerHTML = '';
+            if (empty) empty.setAttribute('hidden', '');
+          }
+
+          function plotStatusLabel(status) {
+            var key = String(status || '').trim().toLowerCase();
+            if (key === 'sold') return 'Sold';
+            if (key === 'hold' || key === 'pending') return 'Pending';
+            return 'Available';
+          }
+
+          function renderPlotResults(plots) {
+            list.innerHTML = '';
+            if (!plots.length) {
+              dropdown.removeAttribute('hidden');
+              input.setAttribute('aria-expanded', 'true');
+              if (empty) empty.removeAttribute('hidden');
+              return;
+            }
+            if (empty) empty.setAttribute('hidden', '');
+            plots.forEach(function (plot) {
+              var btn = document.createElement('button');
+              btn.type = 'button';
+              btn.className = 'dashboard-plot-search-item';
+              btn.setAttribute('role', 'option');
+
+              var title = document.createElement('span');
+              title.className = 'dashboard-plot-search-item-title';
+              title.textContent = String(plot.name || 'Unnamed plot');
+
+              var sub = document.createElement('span');
+              sub.className = 'dashboard-plot-search-item-sub';
+              var parts = [];
+              if (plot.panorama_name) parts.push(String(plot.panorama_name));
+              if (plot.area) parts.push(String(plot.area));
+              parts.push(plotStatusLabel(plot.status));
+              sub.textContent = parts.join(' · ');
+
+              btn.appendChild(title);
+              btn.appendChild(sub);
+              btn.addEventListener('mousedown', function (event) {
+                event.preventDefault();
+                window.location.href = '/crm';
+              });
+              list.appendChild(btn);
+            });
+            dropdown.removeAttribute('hidden');
+            input.setAttribute('aria-expanded', 'true');
+          }
+
+          function fetchPlots(query) {
+            var q = String(query || '').trim();
+            if (!q) {
+              hideDropdown();
+              return;
+            }
+            var currentRequest = ++requestId;
+            api('/api/crm/plots?q=' + encodeURIComponent(q) + '&limit=8&page=1')
+              .then(function (response) {
+                return response.json().catch(function () { return {}; }).then(function (data) {
+                  if (currentRequest !== requestId) return;
+                  if (!response.ok) throw new Error((data && data.error) || 'Search failed');
+                  var items = Array.isArray(data) ? data : (Array.isArray(data.items) ? data.items : []);
+                  renderPlotResults(items);
+                });
+              })
+              .catch(function () {
+                if (currentRequest !== requestId) return;
+                renderPlotResults([]);
+              });
+          }
+
+          input.addEventListener('input', function () {
+            if (debounceTimer) clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(function () {
+              fetchPlots(input.value);
+            }, 280);
+          });
+          input.addEventListener('focus', function () {
+            if (String(input.value || '').trim()) fetchPlots(input.value);
+          });
+          input.addEventListener('blur', function () {
+            if (blurTimer) clearTimeout(blurTimer);
+            blurTimer = setTimeout(hideDropdown, 160);
+          });
+          input.addEventListener('keydown', function (event) {
+            if (event.key === 'Escape') hideDropdown();
+          });
+          document.addEventListener('mousedown', function (event) {
+            var wrap = document.getElementById('dashboard-search-wrap');
+            if (wrap && !wrap.contains(event.target)) hideDropdown();
+          });
+        }
+
         function bindSignout() {
           function signOut() {
             var sb = window._supabase;
@@ -562,6 +667,7 @@
             configureDashboard(isClientAdmin);
             renderProfile(data || {}, isClientAdmin);
             bindSignout();
+            if (isClientAdmin) bindPlotSearch();
             return loadClients(isClientAdmin);
           });
         }).catch(function () {

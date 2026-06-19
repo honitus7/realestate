@@ -79,6 +79,65 @@ html.ms-brand-theme .layout-navbar.bg-navbar-theme {
   box-shadow: 0 4px 18px rgba(var(--ms-brand-primary-rgb), 0.12);
 }
 
+.dashboard-plot-search-wrap {
+  position: relative;
+  min-width: 12rem;
+}
+
+.dashboard-plot-search-dropdown {
+  position: absolute;
+  top: calc(100% + 0.35rem);
+  left: 0;
+  right: 0;
+  z-index: 1080;
+  background: var(--bs-body-bg, #fff);
+  border: 1px solid var(--ms-brand-border-warm, rgba(0, 0, 0, 0.08));
+  border-radius: 0.5rem;
+  box-shadow: 0 12px 28px rgba(var(--ms-brand-dark-rgb, 30, 41, 59), 0.14);
+  overflow: hidden;
+}
+
+.dashboard-plot-search-list {
+  max-height: 16rem;
+  overflow-y: auto;
+}
+
+.dashboard-plot-search-item {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.15rem;
+  width: 100%;
+  padding: 0.55rem 0.75rem;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.dashboard-plot-search-item:hover,
+.dashboard-plot-search-item:focus-visible {
+  background: rgba(var(--ms-brand-primary-rgb, 255, 163, 0), 0.1);
+  outline: none;
+}
+
+.dashboard-plot-search-item-title {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--bs-heading-color, #384551);
+}
+
+.dashboard-plot-search-item-sub {
+  font-size: 0.75rem;
+  color: var(--bs-secondary-color, #697a8d);
+}
+
+.dashboard-plot-search-empty {
+  padding: 0.65rem 0.75rem;
+  font-size: 0.8125rem;
+  color: var(--bs-secondary-color, #697a8d);
+}
+
 /* ── Cards & panels ── */
 html.ms-brand-theme .card {
   background: var(--ms-brand-surface-card);
@@ -147,9 +206,8 @@ html.ms-brand-theme .crm-page--sneat .crm-tabs {
   box-shadow: 0 6px 22px rgba(var(--ms-brand-dark-rgb), 0.22);
 }
 
-html.ms-brand-theme .crm-page--sneat .crm-tabs-top,
 html.ms-brand-theme .crm-page--sneat .crm-tabs-bottom {
-  border-top-color: rgba(var(--ms-brand-primary-rgb), 0.22);
+  border-top: none;
 }
 
 html.ms-brand-theme .crm-page--sneat .crm-workspace-title {
@@ -169,16 +227,12 @@ html.ms-brand-theme .crm-page--sneat .crm-tab.active {
   color: var(--ms-brand-dark) !important;
   border-color: var(--ms-brand-primary) !important;
   background: var(--ms-brand-primary) !important;
-  box-shadow: 0 4px 14px rgba(var(--ms-brand-primary-rgb), 0.38) !important;
+  box-shadow: none !important;
 }
 
 html.ms-brand-theme .crm-page--sneat .crm-tab:hover {
   color: var(--ms-brand-primary);
   background: rgba(var(--ms-brand-primary-rgb), 0.14);
-}
-
-html.ms-brand-theme .crm-page--sneat .crm-top-search {
-  color: rgba(var(--ms-brand-primary-rgb), 0.65);
 }
 
 html.ms-brand-theme .crm-page--sneat .crm-tab-action {
@@ -373,6 +427,29 @@ html.ms-brand-theme .bg-label-primary {
   background-color: rgba(var(--ms-brand-primary-rgb), 0.16) !important;
   color: var(--ms-brand-primary-strong) !important;
 }
+
+/* Sneat avatars default to white text on gray — override on warm cards */
+html.ms-brand-theme .avatar .avatar-initial.bg-label-primary {
+  background: linear-gradient(
+    145deg,
+    rgba(var(--ms-brand-primary-rgb), 0.28) 0%,
+    rgba(var(--ms-brand-primary-rgb), 0.14) 100%
+  ) !important;
+  color: var(--ms-brand-dark) !important;
+  border: 1.5px solid rgba(var(--ms-brand-primary-rgb), 0.42);
+  font-weight: 700;
+}
+
+/* Navbar / CRM header user avatar — solid brand primary (not washed-out label tint) */
+html.ms-brand-theme #navbar-user-avatar,
+html.ms-brand-theme #navbar-user-avatar-2 {
+  background: var(--ms-brand-primary) !important;
+  color: var(--ms-brand-dark) !important;
+  border: none !important;
+  font-weight: 700;
+}
+
+
 
 html.ms-brand-theme .text-primary {
   color: var(--ms-brand-primary) !important;
