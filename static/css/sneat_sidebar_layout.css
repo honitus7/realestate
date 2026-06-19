@@ -167,3 +167,37 @@ html.layout-menu-collapsed #layout-menu .sneat-menu-collapse-toggle.menu-link {
 .layout-page.layout-page--crm-merged-nav .content-wrapper {
   overflow-x: hidden;
 }
+
+/* Sidebar brand — MarketoState logo instead of text */
+#layout-menu .app-brand.demo {
+  padding-inline: 0.85rem;
+}
+
+#layout-menu .app-brand-link {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  width: 100%;
+  min-width: 0;
+}
+
+#layout-menu .app-brand-logo.demo {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+#layout-menu .ms-sidebar-brand-logo {
+  height: 34px;
+  width: auto;
+  max-width: min(100%, 11.5rem);
+  object-fit: contain;
+  display: block;
+}
+
+#layout-menu .ms-sidebar-brand-icon {
+  height: 30px;
+  width: 30px;
+  object-fit: contain;
+  display: none;
+}
