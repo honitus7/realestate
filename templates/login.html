@@ -1,12 +1,13 @@
 {% extends 'base.html' %}
 {% block title %}Sign In – MarketoState{% endblock %}
 {% block head_css %}
-<link rel="stylesheet" href="/static/css/login.css">
+<link rel="stylesheet" href="/static/css/login.css?v=20260619-1">
 {% endblock %}
 {% block content %}
 <div class="login-page">
     <!-- Left decorative panel -->
     <div class="login-left" aria-hidden="true">
+        <div class="login-left-glow"></div>
         <div class="login-orbit-ring"></div>
         <div class="login-orbit-dot"></div>
         <div class="login-orbit-dot"></div>
@@ -16,13 +17,22 @@
             <div class="login-left-logo">
                 <img src="/static/Marketostate/Marketostate%20logo.png" alt="MarketoState">
             </div>
-            <h2>Immersive Property Visualization</h2>
-            <p>Upload panoramas, mark interactive plots, and share stunning 360-degree property views with your clients.</p>
+            <div class="login-kicker">Real Estate Visualization Platform</div>
+            <h2>Visualize Properties in <span class="login-accent">Immersive 360&deg;</span></h2>
+            <p>Upload panoramas, mark interactive plots, manage leads in CRM, and share stunning property views with your clients.</p>
+            <ul class="login-feature-list">
+                <li>360&deg; panoramic project views</li>
+                <li>Interactive plot mapping</li>
+                <li>Built-in CRM for leads &amp; deals</li>
+            </ul>
         </div>
     </div>
 
     <!-- Right auth panel -->
     <div class="login-right">
+        <a href="/" class="login-mobile-logo" aria-label="MarketoState home">
+            <img src="/static/Marketostate/Marketostate%20logo.png" alt="MarketoState">
+        </a>
         <div class="auth-wrap">
             <div class="card" id="card">
                 <div id="loading-msg" class="loading">Loading…</div>
