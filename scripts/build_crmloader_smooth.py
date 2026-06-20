@@ -157,16 +157,6 @@ def main() -> None:
 
     body = [
         '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 700" fill="none" role="img" aria-hidden="true">',
-        "  <defs>",
-        '    <radialGradient id="crmLoaderBg" cx="50%" cy="46%" r="62%">',
-        '      <stop offset="0%" stop-color="#FFFCF7"/>',
-        '      <stop offset="100%" stop-color="#FFF4E0"/>',
-        "    </radialGradient>",
-        "  </defs>",
-        '  <rect width="700" height="700" fill="url(#crmLoaderBg)"/>',
-        '  <circle cx="350" cy="350" r="286" fill="none" stroke="#FFA300" stroke-opacity="0.14" stroke-width="3"/>',
-        '  <circle cx="350" cy="350" r="244" fill="none" stroke="#FFA300" stroke-opacity="0.07" stroke-width="2"/>',
-        '  <ellipse cx="350" cy="518" rx="118" ry="16" fill="#333333" fill-opacity="0.08"/>',
     ]
     body.extend(wrap_paths(layers))
     body.append("</svg>")

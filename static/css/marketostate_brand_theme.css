@@ -10,10 +10,11 @@ html.ms-brand-theme body {
 }
 
 html.ms-brand-theme .content-wrapper {
-  background:
-    radial-gradient(circle at 100% 0%, rgba(var(--ms-brand-primary-rgb), 0.12), transparent 34rem),
-    radial-gradient(circle at 0% 100%, rgba(var(--ms-brand-dark-rgb), 0.06), transparent 30rem),
-    var(--ms-brand-surface);
+  background: transparent;
+}
+
+html.ms-brand-theme .content-wrapper > .container-xxl.flex-grow-1.container-p-y {
+  background: transparent;
 }
 
 /* ── Dark charcoal sidebar with orange accents ── */
