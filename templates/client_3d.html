@@ -2191,8 +2191,34 @@
                 this.markersPlugin = markersPlugin;
             }
 
+            async waitForAuthSession() {
+                if (!window._supabase || typeof window._supabase.auth.getSession !== 'function') return;
+                const { data } = await window._supabase.auth.getSession();
+                if (!data || !data.session) {
+                    throw new Error('Not authenticated');
+                }
+            }
+
+            getMarkerImageRequestUrl(markerId, useThumb) {
+                const suffix = useThumb ? '?size=thumb' : '';
+                return `/api/public/markers/${encodeURIComponent(String(markerId))}/image${suffix}`;
+            }
+
+            async preloadPhotoMarkerImages() {
+                const jobs = [];
+                this.markerMap.forEach((marker) => {
+                    if (this.normalizeMarkerStyle(marker.marker_style) === PHOTO_MARKER_STYLE && marker.image_filename) {
+                        jobs.push(this.ensureMarkerImage(marker.id, { thumb: true }));
+                    }
+                });
+                if (jobs.length) {
+                    await Promise.all(jobs);
+                }
+            }
+
             async loadMarkers() {
                 try {
+                    await this.waitForAuthSession();
                     const markers = await this.fetchMarkers(this.plotId);
                     this.markerMap.forEach((marker) => this.revokeMarkerImage(marker));
                     this.markerMap.clear();
@@ -2200,6 +2226,7 @@
                         const marker = this.normalizeMarker(row);
                         this.markerMap.set(marker.id, marker);
                     });
+                    await this.preloadPhotoMarkerImages();
                     this.syncViewerMarkers();
                 } catch (error) {
                     showToast('Failed to load markers', 'error');
@@ -2216,7 +2243,9 @@
                     image_filename: row.image_filename || '',
                     voiceover_filename: row.voiceover_filename || '',
                     image_object_url: '',
+                    image_thumb_url: '',
                     image_loading: false,
+                    image_loading_thumb: false,
                     marker_style: this.normalizeMarkerStyle(row.marker_style),
                     marker_icon: this.normalizeMarkerIcon(row.marker_icon),
                     marker_color: this.normalizeMarkerColor(row.marker_color),
@@ -2240,9 +2269,11 @@
 
             buildPhotoMarkerHtml(marker, statusClass) {
                 const hasImage = Boolean(marker.image_filename);
-                const imageSrc = marker.image_object_url || '';
+                const imageSrc = marker.image_thumb_url
+                    || marker.image_object_url
+                    || (hasImage ? this.getMarkerImageRequestUrl(marker.id, true) : '');
                 const imageContent = hasImage
-                    ? `<img class="marker-photo-image"${imageSrc ? ` src="${this.escapeAttr(imageSrc)}"` : ''} data-marker-id="${this.escapeAttr(marker.id)}" alt="${this.escapeAttr(marker.name || 'Marker')}">`
+                    ? `<img class="marker-photo-image"${imageSrc ? ` src="${this.escapeAttr(imageSrc)}"` : ''} data-marker-id="${this.escapeAttr(marker.id)}" alt="${this.escapeAttr(marker.name || 'Marker')}" loading="lazy">`
                     : `<span class="marker-photo-placeholder">${this.escapeHtml((marker.name || 'POI').slice(0, 2).toUpperCase())}</span>`;
                 return `<button class="psv-glass-marker marker-photo ${statusClass}" type="button" data-marker-id="${this.escapeAttr(marker.id)}" aria-label="${this.escapeAttr(marker.name || 'Marker')}"><span class="marker-photo-name">${this.escapeHtml(marker.name || 'Marker')}</span><span class="marker-photo-disc">${imageContent}</span><span class="marker-photo-stem" aria-hidden="true"></span><span class="marker-photo-base" aria-hidden="true"></span></button>`;
             }
@@ -2257,19 +2288,22 @@
                     : (markerStyle === PHOTO_MARKER_STYLE
                         ? this.buildPhotoMarkerHtml(marker, statusClass)
                         : `<button class="psv-glass-marker marker-classic ${statusClass} marker-theme-${this.escapeAttr(markerStyle)}" style="--mk-rgb:${this.escapeAttr(markerRgb)};" type="button" data-marker-id="${this.escapeAttr(marker.id)}" aria-label="${this.escapeAttr(marker.name || 'Marker')}"><span class="marker-halo" aria-hidden="true"></span><span class="marker-core" aria-hidden="true"><span class="marker-dot"></span><span class="marker-icon" aria-hidden="true"><iconify-icon icon="${this.escapeAttr(markerIcon)}"></iconify-icon></span></span><span class="marker-pointer" aria-hidden="true"></span></button>`);
-                return {
+                const config = {
                     id: this.toViewerMarkerId(marker.id),
                     longitude: marker.longitude,
                     latitude: marker.latitude,
                     html: markerHtml,
                     anchor: 'center bottom',
                     style: { zIndex: 120 },
-                    tooltip: marker.name || '',
                     data: {
                         markerType: 'poi',
                         markerId: marker.id
                     }
                 };
+                if (markerStyle !== SUPER_MARKER_STYLE && markerStyle !== PHOTO_MARKER_STYLE && marker.name) {
+                    config.tooltip = marker.name;
+                }
+                return config;
             }
 
             applyMarkerVisualStyle(markerId = null) {
@@ -2336,6 +2370,7 @@
                 });
                 requestAnimationFrame(() => this.applyMarkerVisualStyle());
                 setTimeout(() => this.applyMarkerVisualStyle(), 60);
+                setTimeout(() => this.applyMarkerVisualStyle(), 200);
             }
 
             handleMarkerSelection(marker) {
@@ -2636,9 +2671,15 @@
             }
 
             revokeMarkerImage(marker) {
-                if (!marker || !marker.image_object_url) return;
-                try { URL.revokeObjectURL(marker.image_object_url); } catch (e) {}
-                marker.image_object_url = '';
+                if (!marker) return;
+                if (marker.image_object_url) {
+                    try { URL.revokeObjectURL(marker.image_object_url); } catch (e) {}
+                    marker.image_object_url = '';
+                }
+                if (marker.image_thumb_url) {
+                    try { URL.revokeObjectURL(marker.image_thumb_url); } catch (e) {}
+                    marker.image_thumb_url = '';
+                }
             }
 
             updateMarkerImageState(markerId, filename, file) {
@@ -2649,12 +2690,16 @@
                 if (file) {
                     if (this.previewObjectUrl) {
                         marker.image_object_url = this.previewObjectUrl;
+                        marker.image_thumb_url = this.previewObjectUrl;
                         this.previewObjectUrl = '';
                     } else {
-                        marker.image_object_url = URL.createObjectURL(file);
+                        const objectUrl = URL.createObjectURL(file);
+                        marker.image_object_url = objectUrl;
+                        marker.image_thumb_url = objectUrl;
                     }
                 }
                 marker.image_loading = false;
+                marker.image_loading_thumb = false;
                 this.syncViewerMarkers();
             }
 
@@ -2714,24 +2759,33 @@
                 }
             }
 
-            async ensureMarkerImage(markerId) {
+            async ensureMarkerImage(markerId, opts) {
                 const marker = this.markerMap.get(String(markerId));
                 if (!marker || !marker.image_filename) return '';
-                if (marker.image_object_url) return marker.image_object_url;
-                if (marker.image_loading) return '';
-                marker.image_loading = true;
+                const useThumb = Boolean(opts && opts.thumb);
+                if (useThumb && marker.image_thumb_url) return marker.image_thumb_url;
+                if (!useThumb && marker.image_object_url) return marker.image_object_url;
+                const loadingKey = useThumb ? 'image_loading_thumb' : 'image_loading';
+                if (marker[loadingKey]) {
+                    return useThumb ? (marker.image_thumb_url || '') : (marker.image_object_url || '');
+                }
+                marker[loadingKey] = true;
                 try {
-                    const headers = await (window.getAuthHeaders ? window.getAuthHeaders() : Promise.resolve({}));
-                    const response = await fetch(`/api/markers/${encodeURIComponent(String(markerId))}/image`, { headers });
+                    const response = await fetch(this.getMarkerImageRequestUrl(markerId, useThumb));
                     if (response.ok) {
                         const blob = await response.blob();
-                        marker.image_object_url = URL.createObjectURL(blob);
+                        const objectUrl = URL.createObjectURL(blob);
+                        if (useThumb) {
+                            marker.image_thumb_url = objectUrl;
+                            return marker.image_thumb_url;
+                        }
+                        marker.image_object_url = objectUrl;
                         return marker.image_object_url;
                     }
                 } catch (error) {
                     return '';
                 } finally {
-                    marker.image_loading = false;
+                    marker[loadingKey] = false;
                 }
                 return '';
             }
@@ -2742,11 +2796,15 @@
                     imgEl.removeAttribute('src');
                     return;
                 }
-                if (marker.image_object_url) {
-                    imgEl.src = marker.image_object_url;
+                if (marker.image_thumb_url) {
+                    imgEl.src = marker.image_thumb_url;
                     return;
                 }
-                this.ensureMarkerImage(marker.id)
+                const fallbackSrc = this.getMarkerImageRequestUrl(marker.id, true);
+                if (!imgEl.getAttribute('src')) {
+                    imgEl.src = fallbackSrc;
+                }
+                this.ensureMarkerImage(marker.id, { thumb: true })
                     .then((url) => {
                         if (url) imgEl.src = url;
                     })

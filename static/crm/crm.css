@@ -1339,8 +1339,8 @@
 
 .crm-page thead th,
 .master-table th {
-    height: 42px;
-    padding: 0 14px;
+    height: 34px;
+    padding: 0 10px;
     background: #f7f8fb;
     border-bottom: 1px solid var(--crm-border-soft);
     color: #a0a7b3;
@@ -1352,7 +1352,7 @@
 
 .crm-page tbody td,
 .master-table td {
-    padding: 13px 14px;
+    padding: 8px 10px;
     border-bottom: 1px solid #f0f2f6;
     color: #4f5663;
     font-size: 12px;

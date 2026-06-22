@@ -219,7 +219,7 @@
 }
 
 .team-page .team-table thead th {
-  padding: 0.85rem 1rem;
+  padding: 0.5rem 0.65rem;
   border-top: 0;
   color: var(--team-muted);
   font-size: 0.75rem;
@@ -229,7 +229,7 @@
 }
 
 .team-page .team-table tbody td {
-  padding: 1rem;
+  padding: 0.5rem 0.65rem;
   vertical-align: middle;
 }
 
