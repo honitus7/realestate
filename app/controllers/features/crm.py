@@ -327,7 +327,7 @@ def _crm_load_all_plots(sb, pano_ids, *, crm_cache_get, crm_cache_set, crm_cache
         try:
             panos_r = (
                 sb.table('panoramas')
-                .select('id, name, workspace_id')
+                .select('id, name, workspace_id, is_360')
                 .in_('id', chunk)
                 .execute()
             )
@@ -352,6 +352,7 @@ def _crm_load_all_plots(sb, pano_ids, *, crm_cache_get, crm_cache_set, crm_cache
 
     annotated_panos = annotate_resource_rows_with_client_scope(sb, pano_rows, 'panorama')
     pano_scope = {}
+    ws_ids_needed = set()
     for row in annotated_panos:
         try:
             pano_scope[int(row.get('id'))] = {
@@ -360,6 +361,21 @@ def _crm_load_all_plots(sb, pano_ids, *, crm_cache_get, crm_cache_set, crm_cache
             }
         except Exception:
             continue
+        wsid = row.get('workspace_id')
+        if wsid:
+            ws_ids_needed.add(str(wsid))
+
+    ws_names = {}
+    if ws_ids_needed:
+        ws_list = list(ws_ids_needed)
+        for i in range(0, len(ws_list), 100):
+            chunk = ws_list[i:i + 100]
+            try:
+                wr = sb.table('workspaces').select('id, name').in_('id', chunk).execute()
+                for row in (wr.data or []):
+                    ws_names[str(row.get('id'))] = str(row.get('name') or '')
+            except Exception:
+                pass
 
     for plot in all_plots:
         try:
@@ -368,7 +384,12 @@ def _crm_load_all_plots(sb, pano_ids, *, crm_cache_get, crm_cache_set, crm_cache
             pid = None
         pano = pano_by_id.get(pid) or {}
         scope = pano_scope.get(pid) or {}
+        wsid = pano.get('workspace_id')
         plot['panorama_name'] = pano.get('name') or ('Project #' + str(pid or ''))
+        plot['panorama_id'] = pid
+        plot['is_360'] = bool(pano.get('is_360'))
+        plot['workspace_id'] = str(wsid) if wsid else None
+        plot['workspace_name'] = ws_names.get(str(wsid), '') if wsid else ''
         plot['client_ids'] = scope.get('client_ids') or []
         plot['client_names'] = scope.get('client_names') or []
 
@@ -389,6 +410,7 @@ def register_crm_plot_routes(app, *, crm_panorama_ids, crm_cache_get, crm_cache_
         page, limit, offset = crm_parse_page_args(default_limit=10, max_limit=100)
         q = str(request.args.get('q') or '').strip().lower()
         client_id = str(request.args.get('client_id') or '').strip()
+        workspace_id = str(request.args.get('workspace_id') or '').strip()
         panorama_id = str(request.args.get('panorama_id') or '').strip()
         status = _crm_plot_status_key(request.args.get('status') or '')
 
@@ -411,10 +433,13 @@ def register_crm_plot_routes(app, *, crm_panorama_ids, crm_cache_get, crm_cache_
                     str(p.get('status') or ''),
                     str(p.get('description') or ''),
                     str(p.get('panorama_name') or ''),
+                    str(p.get('workspace_name') or ''),
                 ]).lower()
             ]
         if client_id:
             rows = [p for p in rows if client_id in [str(cid) for cid in (p.get('client_ids') or [])]]
+        if workspace_id:
+            rows = [p for p in rows if str(p.get('workspace_id') or '') == workspace_id]
         if panorama_id:
             rows = [p for p in rows if str(p.get('panorama_id') or '') == panorama_id]
         if status:

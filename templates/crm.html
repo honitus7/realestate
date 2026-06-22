@@ -5,13 +5,15 @@
 {% from 'crm/components/data_table.html' import crm_data_table %}
 {% set sneat_merge_nav_into_crm = true %}
 {% include 'components/sneat_shell_start.html' %}
+<link rel="stylesheet" href="/static/css/share-workspace-modal.css?v=20260622-2">
 <style>
 /* Stabilize Add Project / Add Plot modals */
 #add-normal-project-modal.visible,
 #add-normal-plot-modal.visible,
 #edit-plot-modal.visible,
 #add-interest-modal.visible,
-#contact-modal-backdrop.visible {
+#contact-modal-backdrop.visible,
+#share-workspace-modal.visible {
     display: flex !important;
     align-items: center !important;
     justify-content: center !important;
@@ -31,7 +33,8 @@
 #add-normal-plot-modal .crm-modal,
 #edit-plot-modal .crm-modal,
 #add-interest-modal .crm-modal,
-#contact-modal-backdrop .crm-modal {
+#contact-modal-backdrop .crm-modal,
+#share-workspace-modal .crm-modal {
     width: min(860px, 96vw) !important;
     height: auto !important;
     max-height: 92vh !important;
@@ -57,7 +60,8 @@
 #add-normal-plot-modal .crm-simple-modal-head,
 #edit-plot-modal .crm-simple-modal-head,
 #add-interest-modal .crm-simple-modal-head,
-#contact-modal-backdrop .crm-simple-modal-head {
+#contact-modal-backdrop .crm-simple-modal-head,
+#share-workspace-modal .crm-simple-modal-head {
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -139,7 +143,8 @@
 #add-normal-plot-modal .modal-actions,
 #edit-plot-modal .modal-actions,
 #add-interest-modal .modal-actions,
-#contact-modal-backdrop .modal-actions {
+#contact-modal-backdrop .modal-actions,
+#share-workspace-modal .modal-actions {
     margin-top: 1rem;
     padding-top: 0;
     border-top: 0;
@@ -744,14 +749,15 @@
             <!-- â•â•â•â•â•â•â•â•â•â• PLOTS SECTION â•â•â•â•â•â•â•â•â•â• -->
             <section class="crm-section" id="sec-plots">
                 <div class="crm-filter-bar">
-                    <div class="crm-mode-toggle" id="plots-mode-toggle" aria-label="Plots mode">
+                    <div class="crm-mode-toggle" id="plots-mode-toggle" aria-label="Plots mode" style="display:none;">
                         <button class="btn active" data-mode="visual" type="button" aria-pressed="true">Visual</button>
                         <button class="btn" data-mode="normal" type="button" aria-pressed="false">Normal</button>
                         <span class="crm-mode-toggle-loader" hidden aria-hidden="true"></span>
                     </div>
                     <input class="toolbar-search" id="plot-search" placeholder="Search plots..." autocomplete="off">
                     <select class="toolbar-select" id="plot-client-filter" style="display:none;"><option value="">All Clients</option></select>
-                    <select class="toolbar-select" id="plot-panorama-filter"><option value="">All Panoramas</option></select>
+                    <select class="toolbar-select" id="plot-workspace-filter"><option value="">All Projects</option></select>
+                    <select class="toolbar-select" id="plot-panorama-filter"><option value="">All Sectors</option></select>
                     <select class="toolbar-select" id="plot-status-filter">
                         <option value="">All Status</option>
                         <option value="available">Available</option>
@@ -767,14 +773,10 @@
                 <thead><tr>
                     <th>Plot Number</th>
                     <th>Plot Size (Area)</th>
-                    <th>CRM Type</th>
                     <th>Status</th>
                     <th style="width:44px"></th>
                     <th>Description</th>
-                    <th>Number of Interest</th>
-                    <th>Sales Agent</th>
-                    <th>Broker</th>
-                    <th style="width:80px"></th>
+                    <th style="width:120px"></th>
                 </tr></thead>
                 {% endcall %}
                 <div class="empty" id="plots-empty" style="display:none;">
@@ -1117,6 +1119,7 @@
     </div>
 </div>
 
+{% include 'components/share_workspace_modal.html' %}
 <div class="crm-modal-backdrop" id="contact-modal-backdrop">
     <div class="crm-modal">
         <div class="crm-simple-modal-head">
@@ -1398,6 +1401,7 @@
 })();
 </script>
 <script src="/static/js/sidebar.js?v=20260610-client-admin-2"></script>
+<script src="/static/js/share-workspace-modal.js?v=20260622-3"></script>
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 <script>
 (function () {
@@ -1443,6 +1447,7 @@
     }
     window.getAuthHeaders = getAuthHeaders;
     window.ensureAuthenticated = ensureAuthenticated;
+    window.waitForAuthSession = waitForAuthSession;
 })();
 </script>
 <script src="/static/crm/crm-pager.js"></script>
@@ -1619,7 +1624,7 @@
 
     window.configureBrokerAccount = function configureBrokerAccount(profile, useBrokerHeader) {
         crmBrokerHeaderMode = !!useBrokerHeader;
-        configureSneatShell(profile, useBrokerHeader, false, isClientAdminUser);
+        configureSneatShell(profile, useBrokerHeader, false, !!(profile && profile.is_client_admin));
     };
 
     function bindSneatShellActions() {
@@ -2966,6 +2971,8 @@
 
     // â”€â”€ State â”€â”€
     let userRole = 'user';
+    let isExternalBrokerUser = null;
+    let isClientAdminUser = false;
     let projects = [];
     let projectById = new Map();
     let clientOptions = [];
@@ -2976,8 +2983,6 @@
     let filtered = [];
     let interestGroupMap = new Map();
     let allottedClientsLoaded = false;
-    let isExternalBrokerUser = null;
-    let isClientAdminUser = false;
     let crmMasterConfig = null;
     let crmMasterConfigClientId = '';
     let crmMasterConfigScope = '';
@@ -3742,8 +3747,7 @@
             if(items.length) anyCards = true;
 
             container.innerHTML = items.map(i => {
-                const pj = projectById.get(String(i.panorama_id));
-                const pn = pj&&pj.name?pj.name:'';
+                const pn = panoramaWorkspaceName(i.panorama_id);
                 const plots = Array.isArray(i.plots)?i.plots:[];
                 const plotCount = plots.length;
                 const plotLabel = plotCount === 0 ? '' : plotCount === 1 ? (plots[0].name||'1 plot') : plotCount + ' plots';
@@ -4082,8 +4086,7 @@
             crmMasterConfigScope = '';
             crmMasterConfigLoaded = false;
         }
-        const pj = projectById.get(String(item.panorama_id));
-        const pn = pj&&pj.name?pj.name:('Project #'+item.panorama_id);
+        const pn = panoramaWorkspaceName(item.panorama_id);
         const adv = String(item.status||'').toLowerCase();
         const st = (adv === 'qualified' || adv === 'won' || adv === 'lost') ? adv : (item.is_contacted ? 'contacted' : 'new');
         dTitle.textContent = item.customer_name||'Lead';
@@ -4438,7 +4441,7 @@
             const header = ['Created','Customer','Email','Phone','Category','Project','Status','Notes'];
             let body = '';
             rows.forEach(i => {
-                const pj=projectById.get(String(i.panorama_id)); const pn=(pj&&pj.name)?pj.name:'';
+                const pn = panoramaWorkspaceName(i.panorama_id);
                 body += '<tr><td>'+esc(fmtDate(i.created_at))+'</td><td>'+esc(i.customer_name||'')+'</td><td>'+esc(i.customer_email||'')+'</td><td>'+esc(i.customer_phone||'')+'</td><td>'+esc(i.category||'')+'</td><td>'+esc(pn)+'</td><td>'+esc(toStatusLabel(i.status||''))+'</td><td>'+esc((i.notes||'').slice(0,80))+'</td></tr>';
             });
             reportPrintArea.innerHTML = '<h2>Lead list</h2><div class="report-meta">Generated '+esc(stamp)+' &middot; '+rows.length+' row(s)</div><table><thead><tr>'+header.map(h=>'<th>'+esc(h)+'</th>').join('')+'</tr></thead><tbody>'+(body||'<tr><td colspan="8">No data</td></tr>')+'</tbody></table>';
@@ -4522,8 +4525,7 @@
         const projMap = {};
         const projStatusMap = {};
         rows.forEach(i => {
-            const pj = projectById.get(String(i.panorama_id));
-            const pn = (pj && pj.name) ? pj.name : 'Project #' + i.panorama_id;
+            const pn = panoramaWorkspaceName(i.panorama_id);
             projMap[pn] = (projMap[pn] || 0) + 1;
             if(!projStatusMap[pn]) projStatusMap[pn] = {new:0,contacted:0,qualified:0,won:0,lost:0};
             const st = String(i.status||'new').toLowerCase();
@@ -4587,8 +4589,7 @@
         // â”€â”€ Sheet 2: All Leads (Raw Data) â”€â”€
         const header = ['#','Created At','Days Since','Status','Category','Project','Customer Name','Customer Email','Customer Phone','Plot Count','Plot Names','Plot Status','Notes'];
         const dataRows = rows.map((i, idx) => {
-            const pj = projectById.get(String(i.panorama_id));
-            const pn = (pj && pj.name) ? pj.name : '';
+            const pn = panoramaWorkspaceName(i.panorama_id);
             const plots = Array.isArray(i.plots) ? i.plots : [];
             const plotNames = plots.map(p => (p && p.name) ? p.name : '').filter(Boolean);
             const plotStatuses = plots.map(p => (p && p.status) ? p.status : 'available').join('; ');
@@ -4618,8 +4619,7 @@
                 stageSheetSubHeaders.push(stageSheet.length);
                 stageSheet.push(['Name','Email','Phone','Category','Project','Created','Days in Stage']);
                 stageRows.forEach(i => {
-                    const pj = projectById.get(String(i.panorama_id));
-                    const pn = (pj && pj.name) ? pj.name : '';
+                    const pn = panoramaWorkspaceName(i.panorama_id);
                     let days = '';
                     try { days = Math.floor((Date.now() - new Date(i.created_at).getTime()) / 86400000); } catch(e) {}
                     stageSheet.push([i.customer_name||'', i.customer_email||'', i.customer_phone||'', i.category||'', pn, toExportDateTime(i.created_at||''), days]);
@@ -4690,6 +4690,13 @@
     $('btn-pdf').addEventListener('click', () => { buildReportContent(); window.print(); });
     $('btn-close-report').addEventListener('click', () => { reportCard.style.display='none'; });
 
+    function panoramaWorkspaceName(panoramaId) {
+        const pj = projectById.get(String(panoramaId || ''));
+        if (!pj) return '—';
+        const name = String(pj.workspace_name || '').trim();
+        return name || '—';
+    }
+
     async function loadPanoramaProjects() {
         const r = await api('/api/crm/panoramas');
         if(!r.ok) throw new Error('Failed to load projects');
@@ -4697,6 +4704,7 @@
         projects = Array.isArray(all)?all:[];
         projectById = new Map(projects.map(p=>[String(p.id),p]));
         renderProjectOptions();
+        renderPlotsFilterOptions();
     }
     async function loadInterests() {
         const jobs = await Promise.allSettled([loadInterestsBulk(), loadInterestsTable(true)]);
@@ -4896,6 +4904,7 @@
     let plotsLoaded = false;
     const plotSearch = $('plot-search');
     const plotClientFilter = $('plot-client-filter');
+    const plotWorkspaceFilter = $('plot-workspace-filter');
     const plotPanoFilter = $('plot-panorama-filter');
     const plotStatusFilter = $('plot-status-filter');
 
@@ -4946,20 +4955,52 @@
             console.warn('Plot masters load failed:', e);
         }
     }
-    let plotsPanoOptionsLoaded = false;
-    function renderPlotsPanoOptionsFromRows(rows) {
-        if (plotsPanoOptionsLoaded || !plotPanoFilter) return;
-        const panoSet = new Map();
-        (rows || []).forEach(function (p) {
-            if (p.panorama_id && p.panorama_name) panoSet.set(String(p.panorama_id), p.panorama_name);
+    function renderPlotsWorkspaceOptions() {
+        if (!plotWorkspaceFilter) return;
+        const cur = plotWorkspaceFilter.value;
+        const wsMap = new Map();
+        projects.forEach(function (p) {
+            const wsid = p.workspace_id;
+            const wsname = p.workspace_name;
+            if (wsid && wsname && !wsMap.has(wsid)) wsMap.set(wsid, wsname);
         });
-        plotPanoFilter.innerHTML = '<option value="">All Panoramas</option>' + Array.from(panoSet.entries()).map(function (entry) {
-            return '<option value="' + esc(entry[0]) + '">' + esc(entry[1]) + '</option>';
-        }).join('');
-        plotsPanoOptionsLoaded = true;
+        const sorted = Array.from(wsMap.entries()).sort(function (a, b) { return a[1].localeCompare(b[1]); });
+        plotWorkspaceFilter.innerHTML = '<option value="">All Projects</option>' +
+            sorted.map(function (entry) {
+                return '<option value="' + esc(entry[0]) + '">' + esc(entry[1]) + '</option>';
+            }).join('');
+        if (sorted.some(function (entry) { return entry[0] === cur; })) plotWorkspaceFilter.value = cur;
+        else plotWorkspaceFilter.value = '';
     }
-    async function loadPlotsPanoOptions() {
-        renderPlotsPanoOptionsFromRows(allPlots);
+    function renderPlotsSectorOptions() {
+        if (!plotPanoFilter) return;
+        const cur = plotPanoFilter.value;
+        const wsFilter = plotWorkspaceFilter ? String(plotWorkspaceFilter.value || '').trim() : '';
+        const panoSet = new Map();
+        const source = projects.length ? projects : (allPlots || []).map(function (p) {
+            return {
+                id: p.panorama_id,
+                name: p.panorama_name,
+                workspace_id: p.workspace_id
+            };
+        });
+        source.forEach(function (p) {
+            if (!p || p.id == null) return;
+            if (wsFilter && String(p.workspace_id || '') !== wsFilter) return;
+            const name = String(p.name || p.panorama_name || '').trim();
+            if (name) panoSet.set(String(p.id), name);
+        });
+        const sorted = Array.from(panoSet.entries()).sort(function (a, b) { return a[1].localeCompare(b[1]); });
+        plotPanoFilter.innerHTML = '<option value="">All Sectors</option>' +
+            sorted.map(function (entry) {
+                return '<option value="' + esc(entry[0]) + '">' + esc(entry[1]) + '</option>';
+            }).join('');
+        if (sorted.some(function (entry) { return entry[0] === cur; })) plotPanoFilter.value = cur;
+        else plotPanoFilter.value = '';
+    }
+    function renderPlotsFilterOptions() {
+        renderPlotsWorkspaceOptions();
+        renderPlotsSectorOptions();
     }
     async function loadAllPlots(resetPage) {
         if (plotsMode === 'normal') {
@@ -4977,10 +5018,12 @@
             const params = {};
             const q = String(plotSearch.value || '').trim();
             const clientId = String((plotClientFilter && plotClientFilter.value) || '').trim();
+            const workspace = plotWorkspaceFilter ? String(plotWorkspaceFilter.value || '').trim() : '';
             const pano = String(plotPanoFilter.value || '');
             const status = String(plotStatusFilter.value || '').toLowerCase();
             if (q) params.q = q;
             if (clientId) params.client_id = clientId;
+            if (workspace) params.workspace_id = workspace;
             if (pano) params.panorama_id = pano;
             if (status) params.status = status;
             const r = await api('/api/crm/plots' + CrmPager.buildQuery(plotsPager, params));
@@ -4992,7 +5035,7 @@
             plotsPager.page = page.page;
             plotsPager.size = page.limit;
             plotsLoaded = true;
-            renderPlotsPanoOptionsFromRows(allPlots);
+            renderPlotsFilterOptions();
             renderPlotsTable(page);
         } catch(e) { console.warn(e); }
     }
@@ -5032,6 +5075,43 @@
     function getLockablePlot(plotId) {
         return lockablePlots.find(p => String(p.id) === String(plotId)) || null;
     }
+    function plotClientEditorPath(panoramaId, is360) {
+        const id = String(panoramaId || '').trim();
+        return is360 ? ('/client/3d/' + id) : ('/client/' + id);
+    }
+    async function openPlotInClientViewer(plotId) {
+        const pid = String(plotId || '').trim();
+        const plot = (allPlots || []).find(function (x) { return String(x.id) === pid; });
+        if (!plot) {
+            showToast('Plot not found', 'error');
+            return;
+        }
+        const panoramaId = String(plot.panorama_id || '').trim();
+        if (!panoramaId) {
+            showToast('This plot is not linked to a panorama', 'error');
+            return;
+        }
+        const is360 = plot.is_360 !== false && plot.is_360 !== 0 && plot.is_360 !== '0';
+        const path = plotClientEditorPath(panoramaId, is360);
+        try {
+            const headers = await ensureAuthenticated();
+            const response = await fetch('/api/panoramas/' + encodeURIComponent(panoramaId) + '/page-token', {
+                method: 'POST',
+                headers: Object.assign({ 'Content-Type': 'application/json' }, headers),
+                body: JSON.stringify({ mode: 'client' }),
+            });
+            const data = await response.json().catch(function () { return {}; });
+            if (!response.ok || !data || !data.token) {
+                throw new Error((data && data.error) || 'Access denied');
+            }
+            const qs = '?pt=' + encodeURIComponent(data.token)
+                + '&plot_id=' + encodeURIComponent(pid)
+                + '&edit=1';
+            window.open(path + qs, '_blank', 'noopener');
+        } catch (e) {
+            showToast(e.message || 'Failed to open plot editor', 'error');
+        }
+    }
     function renderPlotsTable(pageMeta) {
         const rows = allPlots;
         const tbody = $('plots-tbody');
@@ -5045,31 +5125,51 @@
             const isNormalRow = crmType === 'normal';
             const sk = getStatusKey(p.status);
             const sc = sk==='sold'?'status-pill--sold':sk==='hold'?'status-pill--hold':'status-pill--available';
-            const relatedInterests = findInterestsForPlot(p);
-            const interestCount = relatedInterests.length;
-            const salesAgents = uniqueUserNames(relatedInterests, 'assigned_to');
-            const brokers = uniqueUserNames(relatedInterests, 'reference_user_id');
             // Plot locking is temporarily hidden from all users.
             // const lockData = getLockablePlot(p.id);
             // const isLocked = !!(lockData && lockData.lock);
+            const workspaceId = String(p.workspace_id || '').trim();
+            const actionCells = isNormalRow
+                ? '<span style="color:var(--muted);font-size:0.75rem;">Broker</span>'
+                : '<button class="btn plot-row-icon-btn" type="button" data-edit-plot="'+esc(p.id)+'" title="Edit plot" aria-label="Edit plot"><i class="icon-base bx bx-edit" aria-hidden="true"></i></button>';
+            const shareBtn = workspaceId
+                ? '<button class="btn plot-row-icon-btn" type="button" data-share-workspace="'+esc(workspaceId)+'" title="Share reference link" aria-label="Share reference link"><i class="icon-base bx bx-share-alt" aria-hidden="true"></i></button>'
+                : '';
+            const panoramaId = String(p.panorama_id || '').trim();
+            const viewPlotBtn = (isClientAdminUser && !isNormalRow && panoramaId)
+                ? '<button class="btn plot-row-icon-btn" type="button" data-view-plot-client="'+esc(p.id)+'" title="View plot in client editor" aria-label="View plot in client editor"><i class="icon-base bx bx-show" aria-hidden="true"></i></button>'
+                : '';
             return '<tr>' +
                 '<td>'+esc(p.name||'—')+'</td>' +
                 '<td>'+esc(p.area||'—')+'</td>' +
-                '<td>'+esc(crmType === 'normal' ? 'Normal' : 'Visual')+'</td>' +
                 '<td>'+esc(p.status || '—')+'</td>' +
                 '<td><span class="plot-status-swatch '+sc+'" aria-label="'+esc(p.status||'available')+'"></span></td>' +
                 '<td>'+esc(p.description||'—')+'</td>' +
-                '<td class="mono">'+esc(interestCount)+'</td>' +
-                '<td>'+esc(salesAgents)+'</td>' +
-                '<td>'+esc(brokers)+'</td>' +
-                '<td><div class="plot-row-actions">'+(isNormalRow ? '<span style="color:var(--muted);font-size:0.75rem;">Broker</span>' : '<button class="btn" data-edit-plot="'+esc(p.id)+'">Edit</button>') +
+                '<td><div class="plot-row-actions">'+actionCells+viewPlotBtn+shareBtn+
                     // Temporarily hidden; keep nearby so the lock feature can be restored later.
                     // '<button class="btn plot-lock-trigger'+(isLocked?' is-locked':'')+'" data-open-plot-lock="'+esc(p.id)+'">'+(isLocked?'Locked':'Lock')+'</button>' +
                 '</div></td>' +
             '</tr>';
         }).join('');
         tbody.querySelectorAll('[data-edit-plot]').forEach(btn => {
-            btn.addEventListener('click', () => openPlotEditModal(btn.getAttribute('data-edit-plot')));
+            btn.addEventListener('click', function (e) {
+                e.stopPropagation();
+                openPlotEditModal(btn.getAttribute('data-edit-plot'));
+            });
+        });
+        tbody.querySelectorAll('[data-share-workspace]').forEach(btn => {
+            btn.addEventListener('click', function (e) {
+                e.stopPropagation();
+                if (typeof showShareWorkspaceModal === 'function') {
+                    showShareWorkspaceModal(btn.getAttribute('data-share-workspace'));
+                }
+            });
+        });
+        tbody.querySelectorAll('[data-view-plot-client]').forEach(btn => {
+            btn.addEventListener('click', function (e) {
+                e.stopPropagation();
+                openPlotInClientViewer(btn.getAttribute('data-view-plot-client'));
+            });
         });
         // Plot locking is temporarily hidden from the CRM Plots table.
         // tbody.querySelectorAll('[data-open-plot-lock]').forEach(btn => {
@@ -5146,8 +5246,22 @@
     }
     plotSearch.addEventListener('input', function () { loadAllPlots(true); });
     if (plotClientFilter) plotClientFilter.addEventListener('change', function () { loadAllPlots(true); });
+    if (plotWorkspaceFilter) {
+        plotWorkspaceFilter.addEventListener('change', function () {
+            renderPlotsSectorOptions();
+            loadAllPlots(true);
+        });
+    }
     plotPanoFilter.addEventListener('change', function () { loadAllPlots(true); });
     plotStatusFilter.addEventListener('change', function () { loadAllPlots(true); });
+
+    if (typeof initShareWorkspaceModal === 'function') {
+        initShareWorkspaceModal({
+            getAuthHeaders: function () { return window.getAuthHeaders(); },
+            showToast: showToast,
+        });
+    }
+
     const projectsModeToggle = $('projects-mode-toggle');
     const plotsModeToggle = $('plots-mode-toggle');
     const addNormalProjectBtn = $('btn-add-normal-project');

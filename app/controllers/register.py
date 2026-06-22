@@ -54,6 +54,7 @@ from app.services.uam_reference_service import (
     _normalize_client_member_role,
     _project_reference_users,
     _validate_project_reference_user,
+    user_is_client_admin,
 )
 from app.core.auth import get_profile, require_auth, require_admin
 from app.core.serializers import (
@@ -394,7 +395,7 @@ def register_routes(app):
             if access_type != 'owner':
                 return None, None, ("Forbidden", 403)
         elif token_mode == 'client':
-            if access_type not in ('owner', 'client'):
+            if access_type not in ('owner', 'client') and not user_is_client_admin(sb, token_user_id):
                 return None, None, ("Forbidden", 403)
         else:
             return None, None, ("Invalid page mode", 400)
@@ -2565,6 +2566,15 @@ def register_routes(app):
                     has_access = bool(acc.data and len(acc.data) > 0)
                 except Exception:
                     pass
+            if not has_access:
+                try:
+                    ref_catalog = _project_reference_users(sb, workspace_id=workspace_id)
+                    has_access = any(
+                        str(row.get('user_id') or '') == str(user_id)
+                        for row in (ref_catalog.get('users') or [])
+                    )
+                except Exception:
+                    has_access = False
             if not has_access:
                 return jsonify({'error': 'Forbidden'}), 403
             row = ws_get_workspace_share_endpoint(sb, workspace_id) or {}

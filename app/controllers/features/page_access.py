@@ -6,6 +6,7 @@ from app.core.auth import require_auth
 from app.core.database import get_supabase
 from app.core.serializers import issue_page_access_token
 from app.services.panorama_service import get_panorama_with_access
+from app.services.uam_reference_service import user_is_client_admin
 
 
 def register_page_access_routes(app):
@@ -29,7 +30,8 @@ def register_page_access_routes(app):
             if access_type != 'owner':
                 return jsonify({'error': 'Only owner can open admin mode'}), 403
         elif access_type not in ('owner', 'client'):
-            return jsonify({'error': 'Only owner or client can open client mode'}), 403
+            if not user_is_client_admin(sb, user_id):
+                return jsonify({'error': 'Only owner or client can open client mode'}), 403
 
         secret_key = app.secret_key or app_config.SECRET_KEY
         token = issue_page_access_token(secret_key, user_id, panorama_id, mode)

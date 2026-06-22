@@ -2521,6 +2521,26 @@ body.deal-dragging .deal-col-cards {
     gap: 0.45rem;
 }
 
+.plot-row-icon-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.6rem;
+    height: 2.6rem;
+    padding: 0;
+    border-radius: 10px;
+}
+
+.plot-row-icon-btn .icon-base,
+.plot-row-icon-btn .icon-base::before {
+    font-size: 1.5rem !important;
+    inline-size: 1.5rem !important;
+    block-size: 1.5rem !important;
+    line-height: 1;
+}
+
+
+
 .plot-lock-trigger.is-locked {
     border-color: rgba(249, 115, 22, 0.26);
     background: rgba(249, 115, 22, 0.1);

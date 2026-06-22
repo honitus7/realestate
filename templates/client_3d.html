@@ -1208,8 +1208,8 @@
             <div class="modal-title" id="plot-form-title">Define Plot</div>
             <div class="modal-body">
             <div class="form-group">
-                <label class="form-label">Plot Name *</label>
-                <input type="text" class="form-input" id="plot-name" placeholder="e.g., Plot A-12">
+                <label class="form-label">Plot Number</label>
+                <input type="text" class="form-input" id="plot-name" placeholder="e.g., Plot A-12" readonly title="Plot number cannot be changed in client mode">
             </div>
             <div class="form-group">
                 <label class="form-label">Area (sq ft)</label>
@@ -1435,6 +1435,46 @@
         // Shared variables and functions (available in both modes)
         let plots = [];
         let isEditMode = false;
+        let deepLinkPlotHandled = false;
+
+        function getDeepLinkPlotId() {
+            try {
+                const params = new URLSearchParams(window.location.search);
+                return String(params.get('plot_id') || '').trim();
+            } catch (e) {
+                return '';
+            }
+        }
+
+        function shouldAutoOpenPlotEditor() {
+            try {
+                const params = new URLSearchParams(window.location.search);
+                return String(params.get('edit') || '').trim() === '1';
+            } catch (e) {
+                return false;
+            }
+        }
+
+        function getPlotNameForSave() {
+            const input = document.getElementById('plot-name');
+            if (!input) return '';
+            if (editingPlotId) {
+                const existing = plots.find(function (item) { return String(item.id) === String(editingPlotId); });
+                if (existing && existing.name) return String(existing.name).trim();
+            }
+            return String(input.value || '').trim();
+        }
+
+        function maybeOpenDeepLinkPlot() {
+            if (deepLinkPlotHandled) return;
+            const plotId = getDeepLinkPlotId();
+            if (!plotId || !shouldAutoOpenPlotEditor()) return;
+            const plot = plots.find(function (item) { return String(item.id) === plotId; });
+            if (!plot) return;
+            deepLinkPlotHandled = true;
+            if (!isEditMode && editToggle) editToggle.click();
+            openEditPlotForm(plot);
+        }
 
         const colorGradients = {
             green: { start: '#22c55e', end: '#16a34a', fill: 'rgba(34, 197, 94, 0.35)' },
@@ -1543,6 +1583,7 @@
                 }
                 renderPlots();
                 updatePlotsList();
+                maybeOpenDeepLinkPlot();
             } catch (error) {
                 console.error('Failed to load plots:', error);
                 plots = [];
@@ -3090,7 +3131,8 @@
             setPlotFormMode(true);
             plotFormModal.classList.add('visible');
             updateFormModalPosition();
-            setTimeout(() => document.getElementById('plot-name').focus(), 100);
+            const areaInput = document.getElementById('plot-area');
+            if (areaInput) setTimeout(function () { areaInput.focus(); }, 100);
         }
 
         function closePlotForm() {
@@ -3117,8 +3159,8 @@
 
         const plotImageFileInput = document.getElementById('plot-image-file');
         document.getElementById('save-plot').addEventListener('click', async () => {
-            const name = document.getElementById('plot-name').value.trim();
-            if (!name) { document.getElementById('plot-name').focus(); return; }
+            const name = getPlotNameForSave();
+            if (!name) { showToast('Plot number is required', 'error'); return; }
 
             const plotData = {
                 name,

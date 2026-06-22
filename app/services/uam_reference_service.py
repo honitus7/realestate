@@ -34,11 +34,13 @@ CLIENT_MEMBER_BROKER_ROLES = (
 )
 
 CLIENT_MEMBER_REFERENCE_ROLES = (
+    CLIENT_MEMBER_ROLE_CLIENT_ADMIN,
     CLIENT_MEMBER_ROLE_CLIENT_USER,
     CLIENT_MEMBER_ROLE_BROKER,
 )
 
 CLIENT_MEMBER_REFERENCE_ROLE_LABELS = {
+    CLIENT_MEMBER_ROLE_CLIENT_ADMIN: 'Client Admin',
     CLIENT_MEMBER_ROLE_CLIENT_USER: 'Sales Agent',
     CLIENT_MEMBER_ROLE_BROKER: 'Broker',
 }
@@ -244,6 +246,7 @@ def _project_reference_users(sb, workspace_id=None, panorama_id=None, client_id=
     out_by_user = {}
     role_priority = {
         CLIENT_MEMBER_ROLE_BROKER: 0,
+        CLIENT_MEMBER_ROLE_CLIENT_ADMIN: 1,
         CLIENT_MEMBER_ROLE_CLIENT_USER: 2,
     }
     for member in eligible_members:

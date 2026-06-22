@@ -2,6 +2,7 @@
 {% block title %}Plotted Development – MarketoState{% endblock %}
 {% block head_css %}
 <link rel="stylesheet" href="/static/css/dashboard.css">
+<link rel="stylesheet" href="/static/css/share-workspace-modal.css?v=20260622-2">
 {% endblock %}
 {% block content %}
 <div class="dashboard-page dashboard-page--booting" id="dashboard-page">
@@ -334,51 +335,7 @@
         </div>
     </div>
 
-    <div class="modal-backdrop" id="share-workspace-modal">
-        <div class="modal" style="max-width: 680px;">
-            <div class="modal-title">Share Customer View</div>
-            <div class="modal-text" style="margin-bottom: 0.6rem;">Default link uses this project folder. Add a custom endpoint to share a cleaner URL.</div>
-            <div class="modal-text" id="workspace-referral-share-note" style="margin-bottom: 1rem; font-size: 0.92rem;">
-                If you are assigned here as a Broker or Sales Agent, use your personal referral link so new interests are mapped to you.
-            </div>
-            <div class="form-group" style="margin-bottom: 0.85rem;">
-                <label class="form-label" for="workspace-default-share-link">Default customer link</label>
-                <div class="share-link-row">
-                    <input type="text" id="workspace-default-share-link" class="form-input share-link-input" readonly>
-                    <button class="btn btn-secondary share-link-copy-btn" type="button" id="copy-default-share-link">Copy</button>
-                </div>
-            </div>
-            <div class="form-group share-owner-only" style="margin-bottom: 0.85rem;">
-                <label class="form-label" for="workspace-custom-endpoint-input">Custom endpoint</label>
-                <div class="share-endpoint-row">
-                    <span class="share-endpoint-prefix">/panoview/</span>
-                    <input type="text" id="workspace-custom-endpoint-input" class="form-input" maxlength="63" placeholder="sunset-valley">
-                    <button class="btn btn-secondary share-check-btn" type="button" id="check-custom-endpoint-btn">Check</button>
-                </div>
-            </div>
-            <div id="workspace-share-status" class="workspace-share-status share-owner-only" style="display:none;"></div>
-            <div class="form-group" style="margin-bottom: 1rem;">
-                <label class="form-label" for="workspace-effective-share-link">Active customer link</label>
-                <div class="share-link-row">
-                    <input type="text" id="workspace-effective-share-link" class="form-input share-link-input" readonly>
-                    <button class="btn btn-secondary share-link-copy-btn" type="button" id="copy-effective-share-link">Copy</button>
-                </div>
-            </div>
-            <div class="form-group" id="workspace-referral-share-group" style="margin-bottom: 1rem; display:none;">
-                <label class="form-label" for="workspace-referral-share-link">Your referral link</label>
-                <div class="share-link-row">
-                    <input type="text" id="workspace-referral-share-link" class="form-input share-link-input" readonly>
-                    <button class="btn btn-secondary share-link-copy-btn" type="button" id="copy-referral-share-link">Copy</button>
-                </div>
-                <div class="modal-text" id="workspace-referral-share-meta" style="margin-top:0.45rem; margin-bottom:0;"></div>
-            </div>
-            <div id="workspace-share-error" class="msg error" style="display:none; margin-bottom: 1rem;"></div>
-            <div class="modal-actions">
-                <button class="btn btn-secondary" id="cancel-share-workspace">Close</button>
-                <button class="btn btn-primary share-owner-only" id="save-share-workspace">Save endpoint</button>
-            </div>
-        </div>
-    </div>
+    {% include 'components/share_workspace_modal.html' %}
 
     <!-- Change Password Modal -->
     <div class="modal-backdrop" id="change-password-modal">
@@ -413,6 +370,7 @@
         window.__SUPABASE_ANON_KEY__ = {{ (supabase_anon_key or '')|tojson }};
     </script>
     <script src="/static/js/sidebar.js?v=20260610-client-admin-2"></script>
+    <script src="/static/js/share-workspace-modal.js?v=20260622-3"></script>
     <script>
         function setDashboardBooting(isBooting) {
             var page = document.getElementById('dashboard-page');
@@ -740,9 +698,6 @@
         let renameTargetId = null;
         let renameProjectTargetId = null;
         let deleteProjectTargetId = null;
-        let shareProjectTargetId = null;
-        let currentProjectShareData = null;
-        let currentProjectReferralShareData = null;
         let draggingPanoramaId = null;
         let projectFeatureReady = true;
         let projectsLoadFailed = false;
@@ -799,21 +754,6 @@
         const projectDeleteError = document.getElementById('workspace-delete-error');
         const cancelDeleteProject = document.getElementById('cancel-delete-workspace');
         const confirmDeleteProject = document.getElementById('confirm-delete-workspace');
-        const shareProjectModal = document.getElementById('share-workspace-modal');
-        const projectDefaultShareLink = document.getElementById('workspace-default-share-link');
-        const projectCustomEndpointInput = document.getElementById('workspace-custom-endpoint-input');
-        const checkCustomEndpointBtn = document.getElementById('check-custom-endpoint-btn');
-        const projectShareStatus = document.getElementById('workspace-share-status');
-        const projectEffectiveShareLink = document.getElementById('workspace-effective-share-link');
-        const projectReferralShareGroup = document.getElementById('workspace-referral-share-group');
-        const projectReferralShareLink = document.getElementById('workspace-referral-share-link');
-        const projectReferralShareMeta = document.getElementById('workspace-referral-share-meta');
-        const projectShareError = document.getElementById('workspace-share-error');
-        const cancelShareProject = document.getElementById('cancel-share-workspace');
-        const saveShareProject = document.getElementById('save-share-workspace');
-        const copyDefaultShareLink = document.getElementById('copy-default-share-link');
-        const copyEffectiveShareLink = document.getElementById('copy-effective-share-link');
-        const copyReferralShareLink = document.getElementById('copy-referral-share-link');
         const toastContainer = document.getElementById('toast-container');
 
         function setCrmNavVisible(visible) {
@@ -975,7 +915,7 @@
                         if (isOwner && isDashboardAdmin) {
                             items += '<button type="button" class="folder-card-btn" onclick="event.stopPropagation(); window.location.href=\'/customer/edit/' + ProjectId + '\'">Set Customer View</button>';
                         }
-                        items += '<button type="button" class="folder-card-btn" onclick="event.stopPropagation(); showProjectShareModal(\'' + ProjectId + '\')">Share Customer Link</button>';
+                        items += '<button type="button" class="folder-card-btn" onclick="event.stopPropagation(); showProjectShareModal(\'' + ProjectId + '\')">Share Reference Link</button>';
                     }
                     if (isOwner && isDashboardAdmin) {
                         items += '<button type="button" class="folder-card-btn" onclick="event.stopPropagation(); window.location.href=\'/workspace/' + ProjectId + '/access\'">Manage access</button>';
@@ -1006,162 +946,6 @@
             if (!projectDeleteError) return;
             projectDeleteError.textContent = message || '';
             projectDeleteError.style.display = message ? 'block' : 'none';
-        }
-
-        function showProjectShareError(message) {
-            if (!projectShareError) return;
-            projectShareError.textContent = message || '';
-            projectShareError.style.display = message ? 'block' : 'none';
-        }
-
-        function showProjectShareStatus(message, type) {
-            if (!projectShareStatus) return;
-            projectShareStatus.textContent = message || '';
-            projectShareStatus.className = 'workspace-share-status ' + (type || '');
-            projectShareStatus.style.display = message ? 'block' : 'none';
-        }
-
-        function normalizeEndpointInput(value) {
-            return String(value || '').trim().toLowerCase().replace(/[^a-z0-9-]+/g, '-').replace(/-+/g, '-').replace(/^-+|-+$/g, '');
-        }
-
-        function setProjectShareData(share) {
-            currentProjectShareData = share || null;
-            if (projectDefaultShareLink) projectDefaultShareLink.value = (share && share.default_url) ? share.default_url : '';
-            if (projectEffectiveShareLink) projectEffectiveShareLink.value = (share && share.effective_url) ? share.effective_url : '';
-            if (projectCustomEndpointInput) projectCustomEndpointInput.value = (share && share.custom_endpoint) ? share.custom_endpoint : '';
-        }
-
-        function setProjectReferralShareData(referral) {
-            currentProjectReferralShareData = referral || null;
-            if (projectReferralShareLink) projectReferralShareLink.value = (referral && referral.url) ? referral.url : '';
-            if (projectReferralShareMeta) projectReferralShareMeta.textContent = (referral && referral.meta) ? referral.meta : '';
-            if (projectReferralShareGroup) projectReferralShareGroup.style.display = (referral && referral.url) ? 'block' : 'none';
-        }
-
-        function buildShareUrlWithReference(baseUrl, referenceUserId) {
-            var urlValue = String(baseUrl || '').trim();
-            var refValue = String(referenceUserId || '').trim();
-            if (!urlValue || !refValue) return '';
-            try {
-                var nextUrl = new URL(urlValue, window.location.origin);
-                nextUrl.searchParams.set('ref_user_id', refValue);
-                return nextUrl.toString();
-            } catch (e) {
-                var joiner = urlValue.indexOf('?') >= 0 ? '&' : '?';
-                return urlValue + joiner + 'ref_user_id=' + encodeURIComponent(refValue);
-            }
-        }
-
-        function getCurrentSessionUserId() {
-            return waitForAuthSession(20, 180).then(function (session) {
-                return session && session.user && session.user.id ? String(session.user.id) : '';
-            }).catch(function () {
-                return '';
-            });
-        }
-
-        async function refreshProjectReferralShareData(ProjectId) {
-            setProjectReferralShareData(null);
-            var baseShareUrl = '';
-            if (currentProjectShareData && currentProjectShareData.effective_url) {
-                baseShareUrl = String(currentProjectShareData.effective_url || '').trim();
-            } else if (currentProjectShareData && currentProjectShareData.default_url) {
-                baseShareUrl = String(currentProjectShareData.default_url || '').trim();
-            }
-            if (!ProjectId || !baseShareUrl) return;
-            try {
-                var sessionUserId = await getCurrentSessionUserId();
-                if (!sessionUserId) return;
-                var response = await fetch('/api/public/workspaces/' + encodeURIComponent(ProjectId) + '/reference-users');
-                var payload = await response.json().catch(function () { return {}; });
-                if (!response.ok) return;
-                var rows = Array.isArray(payload && payload.reference_users) ? payload.reference_users : [];
-                var match = rows.find(function (row) { return row && String(row.user_id || '') === sessionUserId; }) || null;
-                if (!match) return;
-                var roleLabel = String(match.member_role_label || 'Reference').trim();
-                var groupNames = Array.isArray(match.client_group_names)
-                    ? match.client_group_names.map(function (x) { return String(x || '').trim(); }).filter(Boolean)
-                    : [];
-                var meta = roleLabel;
-                if (groupNames.length) meta += ' for ' + groupNames.join(', ');
-                setProjectReferralShareData({
-                    url: buildShareUrlWithReference(baseShareUrl, sessionUserId),
-                    meta: meta + '. Leads from this link will be assigned to you in CRM.',
-                });
-            } catch (e) {
-                setProjectReferralShareData(null);
-            }
-        }
-
-        function closeProjectShareModal() {
-            if (!shareProjectModal) return;
-            shareProjectModal.classList.remove('visible');
-            shareProjectTargetId = null;
-            currentProjectShareData = null;
-            setProjectShareData(null);
-            setProjectReferralShareData(null);
-            showProjectShareError('');
-            showProjectShareStatus('', '');
-            if (saveShareProject) saveShareProject.disabled = false;
-            if (checkCustomEndpointBtn) checkCustomEndpointBtn.disabled = false;
-        }
-
-        async function copyTextValue(text) {
-            var value = String(text || '');
-            if (!value) return false;
-            try {
-                if (navigator.clipboard && navigator.clipboard.writeText) {
-                    await navigator.clipboard.writeText(value);
-                    return true;
-                }
-            } catch (e) { }
-            try {
-                var tmp = document.createElement('textarea');
-                tmp.value = value;
-                tmp.setAttribute('readonly', '');
-                tmp.style.position = 'absolute';
-                tmp.style.left = '-9999px';
-                document.body.appendChild(tmp);
-                tmp.select();
-                var ok = document.execCommand('copy');
-                document.body.removeChild(tmp);
-                return !!ok;
-            } catch (e2) {
-                return false;
-            }
-        }
-
-        async function showProjectShareModal(ProjectId) {
-            shareProjectTargetId = ProjectId;
-            showProjectShareError('');
-            showProjectShareStatus('', '');
-            setProjectShareData(null);
-            // Determine if user is owner of this project
-            var ws = getProjectById(ProjectId);
-            var isWsOwner = ws && String(ws.access_type || 'owner') === 'owner' && (currentUserRole === 'admin' || currentUserRole === 'superadmin');
-            // Fetch link data BEFORE opening modal so it appears instantly
-            try {
-                const headers = await getAuthHeaders();
-                const response = await fetch('/api/workspaces/' + encodeURIComponent(ProjectId) + '/share-endpoint', { headers });
-                if (!response.ok) {
-                    const err = await response.json().catch(function () { return null; });
-                    throw new Error((err && err.error) || 'Failed to load share link');
-                }
-                const data = await response.json();
-                setProjectShareData(data && data.share ? data.share : null);
-                await refreshProjectReferralShareData(ProjectId);
-            } catch (error) {
-                showProjectShareError(error.message || 'Failed to load share link');
-            }
-            // Now open the modal with data already populated
-            if (shareProjectModal) {
-                shareProjectModal.querySelectorAll('.share-owner-only').forEach(function (el) {
-                    el.style.display = isWsOwner ? '' : 'none';
-                });
-                shareProjectModal.classList.add('visible');
-            }
-            if (isWsOwner && projectCustomEndpointInput) projectCustomEndpointInput.focus();
         }
 
         function openCreateProjectModal() {
@@ -2494,7 +2278,6 @@
         }
 
         if (cancelDeleteProject) cancelDeleteProject.addEventListener('click', closeDeleteProjectModal);
-        if (cancelShareProject) cancelShareProject.addEventListener('click', closeProjectShareModal);
         if (confirmDeleteProject) {
             confirmDeleteProject.addEventListener('click', async () => {
                 if (!deleteProjectTargetId) return;
@@ -2521,98 +2304,6 @@
                 } finally {
                     confirmDeleteProject.disabled = false;
                 }
-            });
-        }
-
-        if (checkCustomEndpointBtn) {
-            checkCustomEndpointBtn.addEventListener('click', async () => {
-                if (!shareProjectTargetId) return;
-                var endpoint = normalizeEndpointInput(projectCustomEndpointInput ? projectCustomEndpointInput.value : '');
-                if (projectCustomEndpointInput) projectCustomEndpointInput.value = endpoint;
-                showProjectShareError('');
-                showProjectShareStatus('', '');
-                if (!endpoint) {
-                    showProjectShareStatus('Enter an endpoint to check.', 'warn');
-                    return;
-                }
-                checkCustomEndpointBtn.disabled = true;
-                try {
-                    const headers = await getAuthHeaders();
-                    headers['Content-Type'] = 'application/json';
-                    const response = await fetch('/api/workspaces/share-endpoint/check', {
-                        method: 'POST',
-                        headers,
-                        body: JSON.stringify({ endpoint: endpoint, workspace_id: shareProjectTargetId }),
-                    });
-                    const data = await response.json().catch(function () { return null; });
-                    if (!response.ok) throw new Error((data && data.error) || 'Failed to check endpoint');
-                    if (data && data.available) showProjectShareStatus('Endpoint is available.', 'ok');
-                    else showProjectShareStatus((data && data.error) || 'Endpoint is not available.', 'warn');
-                } catch (error) {
-                    showProjectShareError(error.message || 'Failed to check endpoint');
-                } finally {
-                    checkCustomEndpointBtn.disabled = false;
-                }
-            });
-        }
-
-        if (saveShareProject) {
-            saveShareProject.addEventListener('click', async () => {
-                if (!shareProjectTargetId) return;
-                var endpoint = normalizeEndpointInput(projectCustomEndpointInput ? projectCustomEndpointInput.value : '');
-                if (projectCustomEndpointInput) projectCustomEndpointInput.value = endpoint;
-                showProjectShareError('');
-                showProjectShareStatus('', '');
-                saveShareProject.disabled = true;
-                try {
-                    const headers = await getAuthHeaders();
-                    headers['Content-Type'] = 'application/json';
-                    const response = await fetch('/api/workspaces/' + encodeURIComponent(shareProjectTargetId) + '/share-endpoint', {
-                        method: 'PATCH',
-                        headers,
-                        body: JSON.stringify({ endpoint: endpoint }),
-                    });
-                    const data = await response.json().catch(function () { return null; });
-                    if (!response.ok) throw new Error((data && data.error) || 'Failed to save endpoint');
-                    setProjectShareData(data && data.share ? data.share : null);
-                    await refreshProjectReferralShareData(shareProjectTargetId);
-                    showProjectShareStatus(endpoint ? 'Custom endpoint saved.' : 'Reverted to default link.', 'ok');
-                    showToast('Share link updated', 'success');
-                } catch (error) {
-                    showProjectShareError(error.message || 'Failed to save endpoint');
-                } finally {
-                    saveShareProject.disabled = false;
-                }
-            });
-        }
-
-        if (projectCustomEndpointInput) {
-            projectCustomEndpointInput.addEventListener('keydown', (event) => {
-                if (event.key === 'Enter') {
-                    event.preventDefault();
-                    if (saveShareProject) saveShareProject.click();
-                }
-            });
-        }
-
-        if (copyDefaultShareLink) {
-            copyDefaultShareLink.addEventListener('click', async () => {
-                var ok = await copyTextValue(projectDefaultShareLink ? projectDefaultShareLink.value : '');
-                showToast(ok ? 'Default link copied' : 'Failed to copy link', ok ? 'success' : 'error');
-            });
-        }
-
-        if (copyEffectiveShareLink) {
-            copyEffectiveShareLink.addEventListener('click', async () => {
-                var ok = await copyTextValue(projectEffectiveShareLink ? projectEffectiveShareLink.value : '');
-                showToast(ok ? 'Share link copied' : 'Failed to copy link', ok ? 'success' : 'error');
-            });
-        }
-
-        if (copyReferralShareLink) {
-            copyReferralShareLink.addEventListener('click', async () => {
-                var ok = await copyTextValue(projectReferralShareLink ? projectReferralShareLink.value : '');
-                showToast(ok ? 'Referral link copied' : 'Failed to copy link', ok ? 'success' : 'error');
             });
         }
 
@@ -2727,10 +2418,9 @@
                 if (e.target === deleteProjectModal) closeDeleteProjectModal();
             });
         }
-        if (shareProjectModal) {
-            shareProjectModal.addEventListener('click', (e) => {
-                if (e.target === shareProjectModal) closeProjectShareModal();
-            });
-        }
+        initShareWorkspaceModal({
+            getAuthHeaders: function () { return getAuthHeaders(); },
+            showToast: showToast,
+        });
     </script>
 {% endblock %}
