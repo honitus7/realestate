@@ -5334,6 +5334,7 @@ def register_routes(app):
         crm_cache_get=_crm_cache_get,
         crm_cache_set=_crm_cache_set,
         crm_cache_version=_crm_cache_version,
+        crm_cache_bump=_crm_cache_bump,
     )
     register_crm_record_list_routes(
         app,

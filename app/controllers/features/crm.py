@@ -11,6 +11,7 @@ from app.core.database import get_supabase, is_transient_supabase_error, require
 from app.services.access_policy import _chunks, annotate_resource_rows_with_client_scope, get_client_memberships
 from app.services.email_service import send_email as send_smtp_email
 from app.controllers.features.crm_pagination import crm_page_payload, crm_parse_page_args
+from app.services.plot_service import get_plot_panorama_id, update_plot as plot_update
 from app.services.uam_reference_service import (
     CLIENT_MEMBER_ROLE_BROKER,
     CLIENT_MEMBER_ROLE_CLIENT_ADMIN,
@@ -397,7 +398,7 @@ def _crm_load_all_plots(sb, pano_ids, *, crm_cache_get, crm_cache_set, crm_cache
     return all_plots
 
 
-def register_crm_plot_routes(app, *, crm_panorama_ids, crm_cache_get, crm_cache_set, crm_cache_version):
+def register_crm_plot_routes(app, *, crm_panorama_ids, crm_cache_get, crm_cache_set, crm_cache_version, crm_cache_bump=None):
     @app.route('/api/crm/plots', methods=['GET'])
     @require_auth
     def list_crm_all_plots(user_id, role):
@@ -447,6 +448,55 @@ def register_crm_plot_routes(app, *, crm_panorama_ids, crm_cache_get, crm_cache_
         total = len(rows)
         page_rows = rows[offset:offset + limit]
         return jsonify(crm_page_payload(page_rows, total, page, limit))
+
+    @app.route('/api/crm/plots/<int:plot_id>', methods=['PUT', 'PATCH'])
+    @require_auth
+    def update_crm_plot(user_id, role, plot_id):
+        sb = get_supabase()
+        if not sb:
+            return jsonify({'error': 'Database not configured'}), 503
+        data = request.get_json(silent=True) or {}
+        if not data:
+            return jsonify({'error': 'Body required'}), 400
+
+        panorama_id = get_plot_panorama_id(sb, plot_id)
+        if not panorama_id:
+            return jsonify({'error': 'Plot not found'}), 404
+        try:
+            panorama_id_int = int(panorama_id)
+        except Exception:
+            return jsonify({'error': 'Plot not found'}), 404
+
+        allowed_pano_ids = set(int(pid) for pid in (crm_panorama_ids(sb, user_id, role) or []))
+        if panorama_id_int not in allowed_pano_ids:
+            return jsonify({'error': 'Forbidden'}), 403
+
+        payload = {}
+        for key in ('area', 'status', 'description'):
+            if key in data:
+                payload[key] = data.get(key)
+
+        if not payload:
+            return jsonify({'error': 'No editable fields provided'}), 400
+
+        if 'status' in payload:
+            status_key = _crm_plot_status_key(payload.get('status'))
+            if status_key in ('hold', 'onhold', 'reserved'):
+                payload['status'] = 'on_hold'
+            elif status_key == 'sold':
+                payload['status'] = 'sold'
+            elif status_key == 'available':
+                payload['status'] = 'available'
+            else:
+                payload['status'] = str(payload.get('status') or 'available').strip() or 'available'
+
+        try:
+            plot_update(sb, plot_id, payload)
+            if callable(crm_cache_bump):
+                crm_cache_bump()
+            return jsonify({'success': True})
+        except Exception as e:
+            return jsonify({'error': str(e)}), 500
 
 
 def register_crm_lock_routes(

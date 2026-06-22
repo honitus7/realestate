@@ -1,7 +1,7 @@
 {% set page_title = 'CRM - MarketoState' %}
 {% set active_nav = 'crm' %}
 {% set use_marketostate_brand_theme = true %}
-{% set sneat_extra_css = '/static/crm/crm.css?v=20260622-1' %}
+{% set sneat_extra_css = '/static/crm/crm.css?v=20260622-2' %}
 {% from 'crm/components/data_table.html' import crm_data_table %}
 {% set sneat_merge_nav_into_crm = true %}
 {% include 'components/sneat_shell_start.html' %}
@@ -357,10 +357,6 @@
                     <!-- Toolbar -->
                     <div class="interest-toolbar">
                         <div class="interest-toolbar-left">
-                            <button class="btn btn-primary crm-add-action" id="btn-add-interest" type="button" style="margin-left:10px;">
-                                <i class="icon-base bx bx-plus icon-sm" aria-hidden="true"></i>
-                                <span>Add Interest</span>
-                            </button>
                             <button class="filter-btn" id="btn-open-filters" type="button">
                                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
                                 <span>Filter</span>
@@ -492,15 +488,13 @@
                         <div class="table-wrap">
                             <table class="crm-data-table__table">
                                 <thead><tr>
-                                    <th style="width:12%">Created</th>
-                                    <th style="width:16%">Customer</th>
-                                    <th style="width:13%">Contact</th>
-                                    <th style="width:9%">Category</th>
-                                    <th style="width:14%">Project</th>
-                                    <th style="width:8%">Plots</th>
-                                    <th style="width:11%">Reference</th>
-                                    <th style="width:9%">Assignee</th>
-                                    <th style="width:8%">Contacted</th>
+                                    <th style="width:14%">Created</th>
+                                    <th style="width:18%">Customer</th>
+                                    <th style="width:14%">Contact</th>
+                                    <th style="width:10%">Category</th>
+                                    <th style="width:16%">Project</th>
+                                    <th style="width:10%">Plots</th>
+                                    <th style="width:18%">Reference</th>
                                 </tr></thead>
                                 <tbody id="tbody"></tbody>
                             </table>
@@ -2786,6 +2780,20 @@
         return c;
     }
     function getStatusKey(s) { return String(s||'').toLowerCase().replace(/[^a-z]/g,''); }
+    function plotStatusSwatchClass(status) {
+        const sk = getStatusKey(status);
+        if (sk === 'sold') return 'status-pill--sold';
+        if (sk === 'hold' || sk === 'onhold' || sk === 'reserved') return 'status-pill--hold';
+        return 'status-pill--available';
+    }
+    function plotStatusDisplayLabel(status) {
+        const sk = getStatusKey(status);
+        if (sk === 'sold') return 'SOLD';
+        if (sk === 'hold' || sk === 'onhold' || sk === 'reserved') return 'HOLD';
+        if (sk === 'available') return 'AVAILABLE';
+        const raw = String(status || '').trim();
+        return raw ? raw.toUpperCase() : 'AVAILABLE';
+    }
     function toCsvValue(v) {
         let s = String(v==null?'':v);
         if(/^[=\-+@]/.test(s)) s="'"+s;
@@ -3834,12 +3842,9 @@
             const plCell = plots.length
                 ? '<span class="interest-plots-trigger interest-plots-trigger--table" data-group-id="'+esc(i.__group_id)+'">'+esc(pl)+'</span>'
                 : esc(pl);
-            const contacted = !!(i.is_contacted || String(i.status||'').toLowerCase()==='contacted');
-            const st = contacted ? 'contacted' : 'new';
-            const an = assigneeDisplayName(i.assigned_to);
             const refIds = Array.isArray(i.reference_user_ids) ? i.reference_user_ids : [];
             const refName = refIds.length > 1 ? 'Multiple' : referenceDisplayName(i.reference_user_id || refIds[0] || '');
-            return '<tr data-id="'+esc(i.id)+'"><td class="mono"><div class="interest-primary">'+esc(fmtDate(i.created_at))+'</div><div class="subtle">'+esc(fmtTime(i.created_at))+'</div></td><td><div class="interest-primary">'+esc(i.customer_name||'-')+'</div>'+(i.__grouped?'<div class="subtle">'+esc(i.interest_count)+' interests grouped</div>':'')+'</td><td><div class="interest-secondary">'+esc(i.customer_email||'-')+'</div><div class="subtle mono">'+esc(i.customer_phone||'')+'</div></td><td>'+esc(i.category||'-')+'</td><td><div class="interest-primary">'+esc(pn)+'</div></td><td class="mono">'+plCell+'</td><td>'+esc(refName)+'</td><td>'+esc(an)+'</td><td><span class="pill '+esc(st)+'"><span class="dot"></span><span>'+esc(contacted?'Yes':'No')+'</span></span></td></tr>';
+            return '<tr data-id="'+esc(i.id)+'"><td class="mono"><div class="interest-primary">'+esc(fmtDate(i.created_at))+'</div><div class="subtle">'+esc(fmtTime(i.created_at))+'</div></td><td><div class="interest-primary">'+esc(i.customer_name||'-')+'</div>'+(i.__grouped?'<div class="subtle">'+esc(i.interest_count)+' interests grouped</div>':'')+'</td><td><div class="interest-secondary">'+esc(i.customer_email||'-')+'</div><div class="subtle mono">'+esc(i.customer_phone||'')+'</div></td><td>'+esc(i.category||'-')+'</td><td><div class="interest-primary">'+esc(pn)+'</div></td><td class="mono">'+plCell+'</td><td>'+esc(refName)+'</td></tr>';
         }).join('');
         bindInterestPlotHover(elTbody);
         elTbody.querySelectorAll('tr[data-id]').forEach(tr => {
@@ -3928,8 +3933,8 @@
         }
         interestPlotsModalTbody.innerHTML = plots.length ? plots.map(p => {
             const sk = getStatusKey(p && p.status);
-            const sc = sk === 'sold' ? 'status-pill--sold' : sk === 'hold' ? 'status-pill--hold' : 'status-pill--available';
-            return '<tr><td class="fw-medium">'+esc((p && p.name) || 'Plot')+'</td><td>'+esc((p && p.area) || '-')+'</td><td>'+esc((p && p.price) || '-')+'</td><td><span class="badge bg-label-'+ (sk === 'sold' ? 'danger' : sk === 'hold' ? 'warning' : 'success') +'">'+esc((p && p.status) || 'available')+'</span></td></tr>';
+            const sc = plotStatusSwatchClass(p && p.status);
+            return '<tr><td class="fw-medium">'+esc((p && p.name) || 'Plot')+'</td><td>'+esc((p && p.area) || '-')+'</td><td>'+esc((p && p.price) || '-')+'</td><td><span class="badge bg-label-'+ (sk === 'sold' ? 'danger' : (sk === 'hold' || sk === 'onhold' || sk === 'reserved') ? 'warning' : 'success') +'">'+esc(plotStatusDisplayLabel(p && p.status))+'</span></td></tr>';
         }).join('') : '<tr><td colspan="4" class="text-center text-body-secondary py-4">No plots attached</td></tr>';
         getInterestPlotsBsModal()?.show();
     }
@@ -4151,14 +4156,14 @@
                 '</div>' +
                 plots.map((p, idx) => {
                     const sk = getStatusKey(p.status);
-                    const sc = sk==='sold'?'status-pill--sold':sk==='hold'?'status-pill--hold':'status-pill--available';
+                    const sc = plotStatusSwatchClass(p.status);
                     const pkey = plotIdentityKey(p, idx);
                     return '<label class="drawer-plot-chip drawer-plot-chip--selectable">' +
                         '<input type="checkbox" class="drawer-plot-check" data-plot-key="'+esc(pkey)+'" checked>' +
                         '<span class="drawer-plot-name">'+esc(p.name||'Plot')+'</span>' +
                         (p.area?'<span class="drawer-plot-meta">'+esc(p.area)+'</span>':'') +
                         (p.price?'<span class="drawer-plot-meta">'+esc(p.price)+'</span>':'') +
-                        '<span class="status-pill '+sc+'" style="font-size:0.65rem;padding:0.1rem 0.4rem">'+esc(p.status||'available')+'</span>' +
+                        '<span class="status-pill '+sc+'" style="font-size:0.65rem;padding:0.1rem 0.4rem">'+esc(plotStatusDisplayLabel(p.status))+'</span>' +
                     '</label>';
                 }).join('');
             dPlots.querySelectorAll('.drawer-plot-check').forEach(ch => {
@@ -4873,7 +4878,7 @@
             }
             plotsTbody.innerHTML = markers.map(m => {
                 const sk = getStatusKey(m.status);
-                const statusClass = sk==='sold'?'status-pill--sold':sk==='hold'?'status-pill--hold':'status-pill--available';
+                const statusClass = plotStatusSwatchClass(m.status);
                 return '<tr data-marker-id="'+esc(m.id)+'"><td><input class="inline-edit" value="'+esc(m.name||'')+'" data-field="name" data-id="'+esc(m.id)+'"></td><td><span class="status-pill '+statusClass+'">'+esc(m.status||'available')+'</span></td><td><input class="inline-edit" value="'+esc(m.description||'')+'" data-field="description" data-id="'+esc(m.id)+'"></td><td><button class="btn" data-save-marker="'+esc(m.id)+'">Save</button></td></tr>';
             }).join('');
             markersTbody.innerHTML = markers.map(m => {
@@ -4918,8 +4923,8 @@
     function defaultPlotStatusOptionsHtml(currentValue, forAdmin) {
         const cur = String(currentValue || '').toLowerCase();
         const opts = forAdmin
-            ? [['available', 'Available'], ['on_hold', 'On Hold'], ['sold', 'Sold']]
-            : [['available', 'Available'], ['hold', 'Hold'], ['sold', 'Sold']];
+            ? [['available', 'AVAILABLE'], ['on_hold', 'HOLD'], ['sold', 'SOLD']]
+            : [['available', 'AVAILABLE'], ['hold', 'HOLD'], ['sold', 'SOLD']];
         return opts.map(([val, label]) =>
             '<option value="'+esc(val)+'"'+(getStatusKey(val) === getStatusKey(cur) ? ' selected' : '')+'>'+esc(label)+'</option>'
         ).join('');
@@ -4932,7 +4937,7 @@
         return options.map(v => {
             const label = String(v.value || '').trim();
             const val = plotStatusToken(label, forAdmin);
-            return '<option value="'+esc(val)+'"'+(getStatusKey(val) === getStatusKey(cur) ? ' selected' : '')+'>'+esc(label)+'</option>';
+            return '<option value="'+esc(val)+'"'+(getStatusKey(val) === getStatusKey(cur) ? ' selected' : '')+'>'+esc(plotStatusDisplayLabel(val || label))+'</option>';
         }).join('');
     }
     function populatePlotStatusFilter() {
@@ -5124,7 +5129,7 @@
             const crmType = String(p.crm_mode || (plotsMode === 'normal' ? 'normal' : 'visual'));
             const isNormalRow = crmType === 'normal';
             const sk = getStatusKey(p.status);
-            const sc = sk==='sold'?'status-pill--sold':sk==='hold'?'status-pill--hold':'status-pill--available';
+            const sc = plotStatusSwatchClass(p.status);
             // Plot locking is temporarily hidden from all users.
             // const lockData = getLockablePlot(p.id);
             // const isLocked = !!(lockData && lockData.lock);
@@ -5142,8 +5147,8 @@
             return '<tr>' +
                 '<td>'+esc(p.name||'—')+'</td>' +
                 '<td>'+esc(p.area||'—')+'</td>' +
-                '<td>'+esc(p.status || '—')+'</td>' +
-                '<td><span class="plot-status-swatch '+sc+'" aria-label="'+esc(p.status||'available')+'"></span></td>' +
+                '<td>'+esc(plotStatusDisplayLabel(p.status))+'</td>' +
+                '<td><span class="plot-status-swatch '+sc+'" aria-label="'+esc(plotStatusDisplayLabel(p.status))+'"></span></td>' +
                 '<td>'+esc(p.description||'—')+'</td>' +
                 '<td><div class="plot-row-actions">'+actionCells+viewPlotBtn+shareBtn+
                     // Temporarily hidden; keep nearby so the lock feature can be restored later.
@@ -5226,7 +5231,7 @@
             saveBtn.disabled = true;
             saveBtn.textContent = 'Saving...';
             try {
-                const r = await api('/api/plots/' + encodeURIComponent(pid), { method: 'PUT', body: JSON.stringify(upd) });
+                const r = await api('/api/crm/plots/' + encodeURIComponent(pid), { method: 'PUT', body: JSON.stringify(upd) });
                 if (!r.ok) {
                     const d = await r.json().catch(() => ({}));
                     throw new Error(d.error || 'Failed to save plot');

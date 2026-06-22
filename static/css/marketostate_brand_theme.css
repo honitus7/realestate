@@ -554,21 +554,31 @@ html.ms-brand-theme .crm-page--sneat .crm-tab-action:hover {
   background: rgba(var(--ms-brand-primary-rgb), 0.16) !important;
 }
 
-/* Plot / status pills — swap green available for brand orange */
-html.ms-brand-theme .status-pill--available,
-html.ms-brand-theme .plot-status-swatch.status-pill--available {
+/* Status pills — brand tint for text labels */
+html.ms-brand-theme .status-pill--available {
   background: rgba(var(--ms-brand-primary-rgb), 0.16) !important;
   color: var(--ms-brand-primary-strong) !important;
 }
 
-html.ms-brand-theme .plot-status-swatch.status-pill--available {
-  background: var(--ms-brand-primary) !important;
+html.ms-brand-theme .status-pill--hold {
+  background: rgba(234, 179, 8, 0.14) !important;
+  color: #a16207 !important;
 }
 
-html.ms-brand-theme .status-pill--hold,
+/* Plot status swatches — semantic green / yellow / red */
+html.ms-brand-theme .plot-status-swatch.status-pill--available {
+  background: #22c55e !important;
+  border-color: rgba(22, 163, 74, 0.35) !important;
+}
+
 html.ms-brand-theme .plot-status-swatch.status-pill--hold {
-  background: rgba(var(--ms-brand-primary-rgb), 0.2) !important;
-  color: var(--ms-brand-primary-strong) !important;
+  background: #eab308 !important;
+  border-color: rgba(202, 138, 4, 0.35) !important;
+}
+
+html.ms-brand-theme .plot-status-swatch.status-pill--sold {
+  background: #ef4444 !important;
+  border-color: rgba(220, 38, 38, 0.35) !important;
 }
 
 html.ms-brand-theme .lock-pill--unlocked {
