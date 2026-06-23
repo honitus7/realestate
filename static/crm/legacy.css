@@ -1197,6 +1197,10 @@
     overflow: hidden;
 }
 
+.crm-page .card.crm-data-table {
+    box-shadow: none;
+}
+
 .crm-page .card-header {
     display: flex;
     align-items: flex-start;
@@ -1227,14 +1231,27 @@
     border-top: 1px solid var(--color-border);
 }
 
+.crm-page .crm-data-table .table-wrap,
+.crm-page .card > .table-wrap {
+    border-top: 1px solid var(--color-border);
+    box-shadow: none;
+}
+
 #sec-interests .interest-table-wrap .card {
     border-radius: 6px;
+    border: 1px solid var(--color-border);
     box-shadow: none;
+    margin: 0;
 }
 
 #sec-interests .interest-table-wrap .card-header {
     align-items: center;
-    padding: 0.35rem 0.55rem;
+    padding: 0.3rem 0.5rem;
+    border-bottom: 1px solid var(--color-border);
+}
+
+#sec-interests .interest-table-wrap .table-wrap {
+    border-top: 0;
 }
 
 #sec-interests .interest-table-wrap .card-title {
@@ -2491,9 +2508,13 @@ body.deal-dragging .deal-col-cards {
     align-items: center;
     justify-content: flex-end;
     gap: 0.35rem;
-    padding: 0.4rem 0.65rem;
+    padding: 0.35rem 0.65rem;
     color: var(--color-muted);
     font-size: 0.78rem;
+}
+
+.crm-data-table .crm-pagination {
+    padding: 0.35rem 0.7rem;
 }
 
 .crm-pagination:empty {

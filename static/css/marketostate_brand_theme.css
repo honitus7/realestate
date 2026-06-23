@@ -315,6 +315,91 @@ html.ms-brand-theme .crm-page .crm-section .card {
   border-color: var(--ms-brand-border-warm);
 }
 
+/* ── CRM Masters ── */
+html.ms-brand-theme #sec-masters .crm-add-action,
+html.ms-brand-theme #sec-masters #btn-add-master,
+html.ms-brand-theme #sec-masters .master-value-add .btn,
+html.ms-brand-theme #master-create-modal #master-create-save {
+  background: var(--ms-brand-primary) !important;
+  border-color: var(--ms-brand-primary) !important;
+  color: var(--ms-brand-dark) !important;
+  box-shadow: 0 0.125rem 0.375rem rgba(var(--ms-brand-primary-rgb), 0.32) !important;
+}
+
+html.ms-brand-theme #sec-masters .crm-add-action:hover,
+html.ms-brand-theme #sec-masters #btn-add-master:hover,
+html.ms-brand-theme #sec-masters .master-value-add .btn:hover,
+html.ms-brand-theme #master-create-modal #master-create-save:hover {
+  background: var(--ms-brand-primary-hover) !important;
+  border-color: var(--ms-brand-primary-hover) !important;
+  color: var(--ms-brand-dark) !important;
+}
+
+html.ms-brand-theme #sec-masters .crm-add-action span,
+html.ms-brand-theme #sec-masters .crm-add-action i,
+html.ms-brand-theme #sec-masters .master-value-add .btn span,
+html.ms-brand-theme #sec-masters .master-value-add .btn i,
+html.ms-brand-theme #master-create-modal #master-create-save span,
+html.ms-brand-theme #master-create-modal #master-create-save i {
+  color: var(--ms-brand-dark) !important;
+}
+
+html.ms-brand-theme #sec-masters .crm-master-switch .form-check-input:checked,
+html.ms-brand-theme #sec-masters .master-entity-check .form-check-input:checked,
+html.ms-brand-theme #master-create-modal .form-check-input:checked {
+  background-color: var(--ms-brand-primary) !important;
+  border-color: var(--ms-brand-primary) !important;
+}
+
+html.ms-brand-theme #sec-masters > .card {
+  border-top-color: var(--ms-brand-primary);
+}
+
+html.ms-brand-theme #sec-masters .crm-master-item {
+  background: var(--ms-brand-surface-card);
+  border-color: var(--ms-brand-border-warm);
+}
+
+html.ms-brand-theme #sec-masters .crm-master-title strong,
+html.ms-brand-theme #master-create-modal .crm-modal-header h2 {
+  color: var(--ms-brand-dark);
+}
+
+html.ms-brand-theme #sec-masters .master-value-chip {
+  border-color: rgba(var(--ms-brand-primary-rgb), 0.3);
+  background: rgba(var(--ms-brand-primary-rgb), 0.12);
+  color: var(--ms-brand-ink);
+}
+
+html.ms-brand-theme #sec-masters .crm-master-create-options,
+html.ms-brand-theme #master-create-modal .crm-master-create-options,
+html.ms-brand-theme #sec-masters .master-values-row {
+  background: rgba(var(--ms-brand-primary-rgb), 0.07);
+  border-color: var(--ms-brand-border-warm);
+}
+
+html.ms-brand-theme #sec-masters .master-entity-check .form-check-label {
+  color: var(--ms-brand-ink);
+}
+
+html.ms-brand-theme #sec-masters .btn.btn-secondary,
+html.ms-brand-theme #master-create-modal .btn.btn-secondary {
+  border-color: var(--ms-brand-border-warm);
+  color: var(--ms-brand-dark);
+  background: var(--ms-brand-surface-warm);
+}
+
+html.ms-brand-theme #sec-masters .btn.btn-secondary:hover,
+html.ms-brand-theme #master-create-modal .btn.btn-secondary:hover {
+  background: rgba(var(--ms-brand-primary-rgb), 0.12);
+  border-color: rgba(var(--ms-brand-primary-rgb), 0.35);
+  color: var(--ms-brand-dark);
+}
+
+html.ms-brand-theme .crm-page .master-switch input:checked + span {
+  background: var(--ms-brand-primary);
+}
+
 /* ── Team management ── */
 html.ms-brand-theme .team-page {
   --team-border: var(--ms-brand-border-warm);

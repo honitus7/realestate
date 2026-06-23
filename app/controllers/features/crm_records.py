@@ -18,6 +18,40 @@ def _apply_client_scope(query, *, requested_client_id=None, client_scope_ids=Non
     return query
 
 
+def _attach_reference_user_names(sb, rows):
+    if not rows:
+        return rows
+    ref_ids = []
+    seen = set()
+    for row in rows:
+        ref_uid = str(row.get('reference_user_id') or '').strip()
+        if ref_uid and ref_uid not in seen:
+            seen.add(ref_uid)
+            ref_ids.append(ref_uid)
+    profile_map = {}
+    chunk_size = 100
+    for index in range(0, len(ref_ids), chunk_size):
+        chunk = ref_ids[index:index + chunk_size]
+        try:
+            response = (
+                sb.table('profiles')
+                .select('user_id, display_name, email')
+                .in_('user_id', chunk)
+                .execute()
+            )
+            for profile in (response.data or []):
+                uid = str(profile.get('user_id') or '').strip()
+                if not uid:
+                    continue
+                profile_map[uid] = str(profile.get('display_name') or profile.get('email') or '').strip()
+        except Exception:
+            pass
+    for row in rows:
+        ref_uid = str(row.get('reference_user_id') or '').strip()
+        row['reference_user_name'] = profile_map.get(ref_uid, '')
+    return rows
+
+
 def register_crm_record_list_routes(
     app,
     *,
@@ -183,6 +217,7 @@ def register_crm_record_list_routes(
                     if item.get(key):
                         item[key] = str(item[key])
                 rows.append(item)
+            rows = _attach_reference_user_names(sb, rows)
             payload = crm_page_payload(rows, total, page, limit)
             crm_cache_set(cache_key, payload)
             return jsonify(payload)

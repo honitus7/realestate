@@ -22,11 +22,11 @@
     <link rel="stylesheet" href="/static/sneat/vendor/css/core.css" />
     <link rel="stylesheet" href="/static/sneat/css/demo.css" />
     <link rel="stylesheet" href="/static/sneat/vendor/libs/perfect-scrollbar/perfect-scrollbar.css" />
-    <link rel="stylesheet" href="/static/css/sneat_sidebar_layout.css?v=20260619-6" />
-    <link rel="stylesheet" href="/static/css/components/tables.css?v=20260622-1" />
+    <link rel="stylesheet" href="/static/css/sneat_sidebar_layout.css?v=20260623-2" />
+    <link rel="stylesheet" href="/static/css/components/tables.css?v=20260623-2" />
     {% if sneat_extra_css %}<link rel="stylesheet" href="{{ sneat_extra_css }}" />{% endif %}
     {% if use_marketostate_brand_theme|default(false) %}
-    <link rel="stylesheet" href="/static/css/marketostate_brand_theme.css?v=20260622-1" />
+    <link rel="stylesheet" href="/static/css/marketostate_brand_theme.css?v=20260623-1" />
     <script src="/static/js/marketostate_brand_theme_config.js?v=20260619-3"></script>
     <script src="/static/js/marketostate_brand_theme.js?v=20260619-3"></script>
     {% endif %}
@@ -65,12 +65,31 @@
             window.localStorage.setItem(KEY, '1');
           }
           var collapsed = window.localStorage.getItem(KEY) === '1';
-          if (collapsed && window.innerWidth >= 1200) {
-            document.documentElement.classList.add('layout-menu-collapsed');
+          if (window.innerWidth >= 1200) {
+            if (collapsed) {
+              document.documentElement.classList.add('layout-menu-collapsed');
+              document.documentElement.style.setProperty('--crm-sidebar-offset', '5.25rem');
+            } else {
+              document.documentElement.style.setProperty(
+                '--crm-sidebar-offset',
+                'calc(16.25rem + 1.25rem)'
+              );
+            }
           }
         } catch (e) {}
       })();
     </script>
+    {% if sneat_merge_nav_into_crm %}
+    <style id="crm-layout-critical">
+      @media (min-width: 1200px) {
+        html.layout-menu-fixed .layout-page.layout-page--crm-merged-nav,
+        html.layout-menu-fixed-offcanvas .layout-page.layout-page--crm-merged-nav {
+          box-sizing: border-box;
+          padding-inline-start: var(--crm-sidebar-offset, 5.25rem) !important;
+        }
+      }
+    </style>
+    {% endif %}
   </head>
   <body>
     <div class="layout-wrapper layout-content-navbar">

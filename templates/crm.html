@@ -1,7 +1,7 @@
 {% set page_title = 'CRM - MarketoState' %}
 {% set active_nav = 'crm' %}
 {% set use_marketostate_brand_theme = true %}
-{% set sneat_extra_css = '/static/crm/crm.css?v=20260622-2' %}
+{% set sneat_extra_css = '/static/crm/crm.css?v=20260623-7' %}
 {% from 'crm/components/data_table.html' import crm_data_table %}
 {% set sneat_merge_nav_into_crm = true %}
 {% include 'components/sneat_shell_start.html' %}
@@ -2804,6 +2804,8 @@
         try { const d=new Date(iso); if(isNaN(d.getTime()))return String(iso||''); const p=n=>String(n).padStart(2,'0'); return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())+' '+p(d.getHours())+':'+p(d.getMinutes()); } catch(e){ return String(iso||''); }
     }
     function toStatusLabel(s) { const r=String(s||'').trim().toLowerCase(); return r?r.charAt(0).toUpperCase()+r.slice(1):''; }
+    let crmTeamUsersLoaded = false;
+    let crmTeamUsersLoadPromise = null;
     async function loadCrmTeamUsers() {
         try {
             const r = await api('/api/crm/crm-team-users');
@@ -2811,16 +2813,35 @@
             if (r.ok) crmTeamUsers = Array.isArray(data) ? data : [];
             else crmTeamUsers = [];
         } catch (e) { crmTeamUsers = []; }
+        crmTeamUsersLoaded = true;
+    }
+    async function ensureCrmTeamUsersLoaded(force) {
+        if (crmTeamUsersLoaded && !force) return;
+        if (!crmTeamUsersLoadPromise) {
+            crmTeamUsersLoadPromise = loadCrmTeamUsers().finally(function () {
+                crmTeamUsersLoadPromise = null;
+            });
+        }
+        await crmTeamUsersLoadPromise;
     }
     function assigneeDisplayName(uid) {
         if (!uid) return 'â€”';
         const u = crmTeamUsers.find(x => String(x.user_id) === String(uid));
         return u ? (u.display_name || u.email || 'User') : String(uid).slice(0, 8) + 'â€¦';
     }
-    function referenceDisplayName(uid) {
+    function referenceDisplayName(uid, embeddedName) {
+        const label = String(embeddedName || '').trim();
+        if (label) return label;
         if (!uid) return '-';
         const u = crmTeamUsers.find(x => String(x.user_id) === String(uid));
         return u ? (u.display_name || u.email || 'Reference') : String(uid).slice(0, 8) + '...';
+    }
+    function interestReferenceLabel(item) {
+        if (!item) return '-';
+        const refIds = Array.isArray(item.reference_user_ids) ? item.reference_user_ids : [];
+        if (refIds.length > 1) return 'Multiple';
+        const uid = item.reference_user_id || refIds[0] || '';
+        return referenceDisplayName(uid, item.reference_user_name);
     }
     function initials(name) {
         if(!name) return '?';
@@ -2906,6 +2927,7 @@
                 g.assigned_to = i.assigned_to || g.assigned_to;
                 g.assigned_at = i.assigned_at || g.assigned_at;
                 g.reference_user_id = i.reference_user_id || g.reference_user_id;
+                g.reference_user_name = i.reference_user_name || g.reference_user_name;
             }
             const refUid = String(i.reference_user_id || '').trim();
             if (refUid && g.reference_user_ids.indexOf(refUid) === -1) g.reference_user_ids.push(refUid);
@@ -2986,7 +3008,12 @@
     let clientOptions = [];
     let interests = [];
     let interestsLoaded = false;
-    let interestsLoadPromise = null;
+    let interestsTableLoaded = false;
+    let interestsBulkLoaded = false;
+
+    let interestsTableLoadPromise = null;
+    let interestsBulkLoadPromise = null;
+    const tabDataLoaded = Object.create(null);
     let filteredRaw = [];
     let filtered = [];
     let interestGroupMap = new Map();
@@ -3015,6 +3042,57 @@
     const sections = document.querySelectorAll('.crm-section');
     const tabButtons = document.querySelectorAll('.crm-tab[data-tab]');
     const workspaceTitleEl = $('crm-workspace-title-text');
+    const TAB_LOADER_LABELS = {
+        interests: 'Loading leads...',
+        deals: 'Loading deals...',
+        contacts: 'Loading contacts...',
+        'allotted-clients': 'Loading allotted clients...',
+        projects: 'Loading projects...',
+        panoramas: 'Loading panoramas...',
+        plots: 'Loading plots...',
+        'manage-lock': 'Loading lock access...',
+        masters: 'Loading masters...'
+    };
+
+    function initTabLoaders() {
+        sections.forEach(function (section) {
+            if (!section || section.querySelector('.crm-tab-loader')) return;
+            const tabName = String(section.id || '').replace(/^sec-/, '');
+            const label = TAB_LOADER_LABELS[tabName] || 'Loading...';
+            section.classList.add('crm-section--loadable');
+            const loader = document.createElement('div');
+            loader.className = 'crm-tab-loader';
+            loader.setAttribute('role', 'status');
+            loader.setAttribute('aria-live', 'polite');
+            loader.hidden = true;
+            loader.innerHTML =
+                '<div class="crm-tab-loader__panel">' +
+                    '<span class="crm-spinner" aria-hidden="true"></span>' +
+                    '<span class="crm-tab-loader__text">' + esc(label) + '</span>' +
+                '</div>';
+            section.insertBefore(loader, section.firstChild);
+        });
+    }
+
+    function shouldUseTabLoaderForInterests() {
+        const bootLoader = $('crm-boot-loader');
+        return !(bootLoader && !bootLoader.hidden);
+    }
+
+    function setTabSectionLoading(sectionEl, isLoading, tabName) {
+        if (!sectionEl) return;
+        const loader = sectionEl.querySelector('.crm-tab-loader');
+        const label = TAB_LOADER_LABELS[String(tabName || '').trim()] || 'Loading...';
+        if (loader) {
+            const textEl = loader.querySelector('.crm-tab-loader__text');
+            if (textEl) textEl.textContent = label;
+            loader.hidden = !isLoading;
+        }
+        sectionEl.classList.toggle('is-tab-loading', !!isLoading);
+        sectionEl.setAttribute('aria-busy', isLoading ? 'true' : 'false');
+    }
+
+    initTabLoaders();
 
     function syncWorkspaceTitle(name) {
         if (!workspaceTitleEl) return;
@@ -3030,18 +3108,65 @@
         syncWorkspaceTitle(name);
     }
 
+    async function ensureTabDataLoaded(sec, force) {
+        const name = String(sec || '').trim();
+        if (!name) return;
+        if (tabDataLoaded[name] && !force) return;
+        const sectionEl = document.getElementById('sec-' + name);
+        const showTabLoader = !(name === 'interests' && !shouldUseTabLoaderForInterests());
+        if (sectionEl && showTabLoader) setTabSectionLoading(sectionEl, true, name);
+        try {
+        switch (name) {
+            case 'interests':
+                await ensureInterestsTableLoaded(!!force);
+                break;
+            case 'deals':
+                if (window.crmDealsLoad) await window.crmDealsLoad(!!force);
+                break;
+            case 'contacts':
+                if (window.crmContactsLoad) await window.crmContactsLoad(!!force);
+                break;
+            case 'allotted-clients':
+                await loadAllottedClients(!!force);
+                break;
+            case 'projects':
+                await loadWorkspaceProjects(!!force);
+                break;
+            case 'panoramas':
+                await loadPanoramas(!!force);
+                break;
+            case 'plots':
+                await loadAllPlots(!!force);
+                break;
+            case 'manage-lock':
+                await loadManageLock();
+                break;
+            case 'masters':
+                await loadCrmMasters(!!force);
+                break;
+            default:
+                return;
+        }
+        tabDataLoaded[name] = true;
+        } finally {
+            if (sectionEl && showTabLoader) setTabSectionLoading(sectionEl, false, name);
+        }
+    }
+
     tabButtons.forEach(tab => {
         tab.addEventListener('click', function() {
             const sec = this.getAttribute('data-tab');
             switchSection(sec);
-            if (sec === 'deals') window.crmDealsLoad && window.crmDealsLoad(false);
-            if (sec === 'contacts') window.crmContactsLoad && window.crmContactsLoad(false);
-            if (sec === 'allotted-clients') loadAllottedClients();
-            if (sec === 'projects') loadWorkspaceProjects();
-            if (sec === 'panoramas') loadPanoramas();
-            if (sec === 'plots') loadAllPlots(false);
-            if (sec === 'manage-lock') loadManageLock();
-            if (sec === 'masters') loadCrmMasters(true);
+            const sectionEl = document.getElementById('sec-' + sec);
+            if (sectionEl && !tabDataLoaded[sec]) {
+                const showTabLoader = !(sec === 'interests' && !shouldUseTabLoaderForInterests());
+                if (showTabLoader) setTabSectionLoading(sectionEl, true, sec);
+            }
+            ensureTabDataLoaded(sec, false).catch(function (err) {
+                console.warn('CRM tab load failed:', sec, err);
+                const failedSection = document.getElementById('sec-' + sec);
+                if (failedSection) setTabSectionLoading(failedSection, false, sec);
+            });
         });
     });
     syncWorkspaceTitle('interests');
@@ -3156,6 +3281,14 @@
         $('kanban-board').style.display = v === 'board' ? '' : 'none';
         $('kanban-empty').style.display = 'none';
         $('interest-table-view').style.display = v === 'table' ? '' : 'none';
+        if (v === 'board') {
+            ensureInterestsBulkLoaded(false).then(function () {
+                refreshInterestsUI();
+            }).catch(function (e) {
+                toast(e.message || 'Failed to load board view', 'error');
+            });
+            return;
+        }
         refreshInterestsUI();
     }
 
@@ -3723,7 +3856,7 @@
             }
             if(q) {
                 const pj = projectById.get(String(i.panorama_id));
-                const refText = referenceDisplayName(i.reference_user_id || '');
+                const refText = referenceDisplayName(i.reference_user_id || '', i.reference_user_name);
                 const hay = [i.customer_name,i.customer_email,i.customer_phone,i.category,refText,(pj&&pj.name)||'',(pj&&pj.workspace_name)||'',(Array.isArray(i.plots)?i.plots.map(p=>p&&p.name).join(' '):'')].join(' ').toLowerCase();
                 if(!hay.includes(q)) return false;
             }
@@ -3835,16 +3968,15 @@
         elMeta.textContent = total + (total === 1 ? ' result' : ' results');
         elEmpty.style.display = filtered.length===0?'':'none';
         elTbody.innerHTML = filtered.map(i => {
-            const pj = projectById.get(String(i.panorama_id));
-            const pn = pj&&pj.name?pj.name:('Project #'+i.panorama_id);
+            const pn = panoramaWorkspaceName(i.panorama_id);
+            const pnLabel = pn !== '—' ? pn : (i.panorama_id ? ('Project #' + i.panorama_id) : '—');
             const plots = Array.isArray(i.plots)?i.plots:[];
             const pl = plots.length?(plots.length===1?(plots[0].name||'1 plot'):(plots.length+' plots')):'-';
             const plCell = plots.length
                 ? '<span class="interest-plots-trigger interest-plots-trigger--table" data-group-id="'+esc(i.__group_id)+'">'+esc(pl)+'</span>'
                 : esc(pl);
-            const refIds = Array.isArray(i.reference_user_ids) ? i.reference_user_ids : [];
-            const refName = refIds.length > 1 ? 'Multiple' : referenceDisplayName(i.reference_user_id || refIds[0] || '');
-            return '<tr data-id="'+esc(i.id)+'"><td class="mono"><div class="interest-primary">'+esc(fmtDate(i.created_at))+'</div><div class="subtle">'+esc(fmtTime(i.created_at))+'</div></td><td><div class="interest-primary">'+esc(i.customer_name||'-')+'</div>'+(i.__grouped?'<div class="subtle">'+esc(i.interest_count)+' interests grouped</div>':'')+'</td><td><div class="interest-secondary">'+esc(i.customer_email||'-')+'</div><div class="subtle mono">'+esc(i.customer_phone||'')+'</div></td><td>'+esc(i.category||'-')+'</td><td><div class="interest-primary">'+esc(pn)+'</div></td><td class="mono">'+plCell+'</td><td>'+esc(refName)+'</td></tr>';
+            const refName = interestReferenceLabel(i);
+            return '<tr data-id="'+esc(i.id)+'"><td class="mono"><div class="interest-primary">'+esc(fmtDate(i.created_at))+'</div><div class="subtle">'+esc(fmtTime(i.created_at))+'</div></td><td><div class="interest-primary">'+esc(i.customer_name||'-')+'</div>'+(i.__grouped?'<div class="subtle">'+esc(i.interest_count)+' interests grouped</div>':'')+'</td><td><div class="interest-secondary">'+esc(i.customer_email||'-')+'</div><div class="subtle mono">'+esc(i.customer_phone||'')+'</div></td><td>'+esc(i.category||'-')+'</td><td><div class="interest-primary">'+esc(pnLabel)+'</div></td><td class="mono">'+plCell+'</td><td>'+esc(refName)+'</td></tr>';
         }).join('');
         bindInterestPlotHover(elTbody);
         elTbody.querySelectorAll('tr[data-id]').forEach(tr => {
@@ -4072,7 +4204,7 @@
 
     async function openDrawer(item) {
         selected = item;
-        await loadCrmTeamUsers();
+        await ensureCrmTeamUsersLoaded(false);
         try {
             if (isExternalBrokerUser) {
                 await loadCrmMasterConfig('', false, false, 'broker');
@@ -4140,8 +4272,7 @@
             (item.customer_phone ? '<a class="drawer-action-btn" href="tel:'+esc(item.customer_phone)+'" title="Call"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg></a>' : '');
 
         // Deal info
-        const drawerRefIds = Array.isArray(item.reference_user_ids) ? item.reference_user_ids : [];
-        const drawerRef = drawerRefIds.length > 1 ? 'Multiple' : referenceDisplayName(item.reference_user_id || drawerRefIds[0] || '');
+        const drawerRef = interestReferenceLabel(item);
         dInterest.innerHTML = [kvRow('Category',item.category||'-'),kvRow('Lead Source',item.lead_source||'-'),kvRow('Lead Status',item.lead_status||'-'),kvRow('Project',pn),kvRow('Reference',drawerRef),kvRow('Created',fmtDate(item.created_at)+' '+fmtTime(item.created_at))].join('');
 
         // Plots (all plots for this lead across their interests in this panorama)
@@ -4358,7 +4489,20 @@
 
     // -- Filter modal --
     const filterBackdrop = $('filter-modal-backdrop');
-    function openFilterModal() { filterBackdrop.classList.add('visible'); }
+    function openFilterModal() {
+        filterBackdrop.classList.add('visible');
+        Promise.all([
+            loadPanoramaProjects(),
+            loadClientOptions(),
+            ensureInterestsBulkLoaded(false)
+        ]).then(function () {
+            renderCategoryOptions();
+            renderProjectOptions();
+            renderPlotOptions();
+        }).catch(function (e) {
+            console.warn('CRM filter options preload failed:', e);
+        });
+    }
     function closeFilterModal() { filterBackdrop.classList.remove('visible'); }
     function syncSavedFilterState() {
         document.querySelectorAll('[data-filter-preset]').forEach(btn => {
@@ -4710,19 +4854,60 @@
         projectById = new Map(projects.map(p=>[String(p.id),p]));
         renderProjectOptions();
         renderPlotsFilterOptions();
+        if (interestsTableLoaded && currentView === 'table' && filtered.length) {
+            renderTable();
+        }
     }
+    async function loadInterestsTableOnly(resetPage) {
+        await loadInterestsTable(resetPage !== false);
+        interestsTableLoaded = true;
+        interestsLoaded = true;
+        tabDataLoaded.interests = true;
+    }
+
+    async function loadInterestsBulkOnly() {
+        await loadInterestsBulk();
+        interestsBulkLoaded = true;
+        renderCategoryOptions();
+        renderPlotOptions();
+        renderStats();
+    }
+
+    async function ensureInterestsTableLoaded(force) {
+        if (interestsTableLoaded && !force) return;
+        if (!interestsTableLoadPromise) {
+            interestsTableLoadPromise = loadInterestsTableOnly(true).finally(function () {
+                interestsTableLoadPromise = null;
+            });
+        }
+        await interestsTableLoadPromise;
+    }
+
+    async function ensureInterestsBulkLoaded(force) {
+        if (interestsBulkLoaded && !force) return;
+        if (!interestsBulkLoadPromise) {
+            interestsBulkLoadPromise = loadInterestsBulkOnly().finally(function () {
+                interestsBulkLoadPromise = null;
+            });
+        }
+        await interestsBulkLoadPromise;
+    }
+
     async function loadInterests() {
-        const jobs = await Promise.allSettled([loadInterestsBulk(), loadInterestsTable(true)]);
-        const failed = jobs.find(j => j.status === 'rejected');
+        const jobs = await Promise.allSettled([
+            ensureInterestsTableLoaded(true),
+            ensureInterestsBulkLoaded(true)
+        ]);
+        const failed = jobs.find(function (j) { return j.status === 'rejected'; });
         if (failed && (!filtered || !filtered.length)) {
             throw failed.reason;
         }
         if (currentView === 'board') {
             applyFilters();
             renderKanban();
+        } else {
+            renderStats();
         }
-        renderStats();
-        interestsLoaded = true;
     }
 
     let interestsRefreshInFlight = false;
@@ -4730,10 +4915,17 @@
 
     async function refreshInterestsIfStale(force) {
         if (interestsRefreshInFlight || crmHydrationInFlight) return;
-        if (!force && interestsLoaded && (Date.now() - crmLastHydrationAt < CRM_INTERESTS_STALE_MS)) return;
+        if (!force && interestsTableLoaded && (Date.now() - crmLastHydrationAt < CRM_INTERESTS_STALE_MS)) return;
         interestsRefreshInFlight = true;
         try {
-            await ensureInterestsLoaded(!!force);
+            if (force) {
+                interestsTableLoaded = false;
+                interestsBulkLoaded = false;
+            }
+            await ensureInterestsTableLoaded(!!force);
+            if (currentView === 'board' || interestsBulkLoaded) {
+                await ensureInterestsBulkLoaded(!!force);
+            }
             crmLastHydrationAt = Date.now();
         } catch (err) {
             console.warn('CRM interests refresh failed:', err);
@@ -4742,11 +4934,40 @@
         }
     }
     async function ensureInterestsLoaded(force) {
-        if (interestsLoaded && !force) return;
-        if (!interestsLoadPromise) {
-            interestsLoadPromise = loadInterests().finally(() => { interestsLoadPromise = null; });
+        await ensureInterestsTableLoaded(!!force);
+        if (currentView === 'board' || interestsBulkLoaded) {
+            await ensureInterestsBulkLoaded(!!force);
         }
-        await interestsLoadPromise;
+    }
+
+    function scheduleInterestsBackgroundPreload(force) {
+        const run = function () {
+            preloadInterestsBackground(!!force);
+        };
+        if (typeof window.requestIdleCallback === 'function') {
+            window.requestIdleCallback(run, { timeout: 2500 });
+        } else {
+            window.setTimeout(run, 150);
+        }
+    }
+
+    function refreshInterestsReferenceLabels() {
+        if (interestsTableLoaded && currentView === 'table' && filtered.length) {
+            renderTable();
+        } else if (currentView === 'board') {
+            renderKanban();
+        }
+    }
+
+    async function preloadInterestsBackground(force) {
+        const jobs = [
+            loadPanoramaProjects().catch(function (e) { console.warn('CRM panorama projects preload failed:', e); }),
+            loadClientOptions().catch(function (e) { console.warn('CRM client options preload failed:', e); }),
+            ensureCrmTeamUsersLoaded(!!force).catch(function (e) { console.warn('CRM team users preload failed:', e); })
+        ];
+        await Promise.allSettled(jobs);
+        updateFilterBadge();
+        refreshInterestsReferenceLabels();
     }
 
     let workspaces = [];
@@ -5016,7 +5237,7 @@
             renderPlotsTable();
             return;
         }
-        try { await ensureInterestsLoaded(); } catch(e) { console.warn('Interests load failed for plot counts:', e); }
+
         await ensurePlotMasters();
         if (resetPage) plotsPager.page = 1;
         try {
@@ -5944,32 +6165,34 @@
     let crmLastHydrationAt = 0;
 
     let crmBootLoaderOffsetRaf = 0;
-    function syncCrmBootLoaderOffset() {
+    function syncCrmSidebarLayout() {
         if (crmBootLoaderOffsetRaf) return;
         crmBootLoaderOffsetRaf = window.requestAnimationFrame(function () {
             crmBootLoaderOffsetRaf = 0;
-            const loader = $('crm-boot-loader');
-            if (!loader || loader.hidden) return;
-            if (window.matchMedia && window.matchMedia('(max-width: 991.98px)').matches) {
-                loader.style.left = '0px';
-                return;
-            }
             const crmRoot = document.querySelector('.crm-page');
-            if (crmRoot && crmRoot.classList.contains('crm-page--broker-header-mode')) {
-                loader.style.left = '0px';
-                return;
+            const layoutPage = document.querySelector('.layout-page--crm-merged-nav');
+            const isMobile = window.matchMedia && window.matchMedia('(max-width: 991.98px)').matches;
+            const isBrokerHeader = crmRoot && crmRoot.classList.contains('crm-page--broker-header-mode');
+            let offset = '0px';
+
+            if (!isMobile && !isBrokerHeader) {
+                if (layoutPage) {
+                    const styles = window.getComputedStyle(layoutPage);
+                    offset = styles.paddingLeft || styles.paddingInlineStart || offset;
+                }
+                if (!offset || offset === '0px') {
+                    offset = window.getComputedStyle(document.documentElement).getPropertyValue('--crm-sidebar-offset').trim() || offset;
+                }
             }
-            const sidebars = [
-                document.getElementById('layout-menu'),
-                document.getElementById('dashboard-sidebar')
-            ].filter(Boolean);
-            let width = 0;
-            sidebars.forEach(function (el) {
-                width = Math.max(width, Math.round(el.getBoundingClientRect().width || 0));
-            });
-            loader.style.left = width > 0 ? (width + 'px') : '0px';
+
+            document.documentElement.style.setProperty('--crm-sidebar-visible-width', offset);
+            if (crmRoot) {
+                crmRoot.style.setProperty('--crm-sidebar-visible-width', offset);
+            }
         });
     }
+
+    const syncCrmBootLoaderOffset = syncCrmSidebarLayout;
 
     function setCrmBootLoading(isLoading) {
         const loader = $('crm-boot-loader');
@@ -5984,35 +6207,29 @@
         crmHydrationInFlight = true;
         try {
             await ensureAuthenticated();
-            await loadUserInfo();
             await Promise.all([
-                loadCrmTeamUsers(),
-                loadPanoramaProjects(),
-                loadWorkspaceProjects(),
-                loadClientOptions()
-            ]);
-            await Promise.all([
-                ensureInterestsLoaded(!!force),
-                window.crmPreloadTables ? window.crmPreloadTables(!!force) : Promise.resolve(),
-                loadAllPlots(!!force),
-                isExternalBrokerUser ? loadAllottedClients(!!force) : Promise.resolve(),
+                loadUserInfo(),
+                ensureInterestsTableLoaded(!!force)
             ]);
             updateFilterBadge();
-            renderStats();
+            if ($('filter-total-count')) $('filter-total-count').textContent = interestsTableMeta.total || 0;
+            if ($('stat-total')) $('stat-total').textContent = interestsTableMeta.total || 0;
             crmLastHydrationAt = Date.now();
         } finally {
             crmHydrationInFlight = false;
         }
+        scheduleInterestsBackgroundPreload(!!force);
     }
 
     (async function init() {
         setCrmBootLoading(true);
+        if (window.sidebarReady && typeof window.sidebarReady.then === 'function') {
+            window.sidebarReady.then(syncCrmBootLoaderOffset).catch(function () {});
+        }
         try {
-            if (window.sidebarReady && typeof window.sidebarReady.then === 'function') {
-                await window.sidebarReady;
-            }
             await hydrateCrmData(false);
             setCrmBootLoading(false);
+            syncCrmSidebarLayout();
         } catch(e) {
             setCrmBootLoading(false);
             $('table-empty').style.display = '';
