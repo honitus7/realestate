@@ -1,508 +1,159 @@
-<!doctype html>
-<html
-  lang="en"
-  class="layout-menu-fixed layout-footer-fixed layout-compact"
-  data-assets-path="/static/sneat/"
-  data-template="vertical-menu-template-free">
-  <head>
-    <meta charset="utf-8" />
-    <meta
-      name="viewport"
-      content="width=device-width, initial-scale=1.0, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0" />
+{% set page_title = 'Invites - MarketoState' %}
+{% set active_nav = 'invites' %}
+{% set use_marketostate_brand_theme = true %}
+{% set portal_extra_css = '/static/css/customer_dashboard_portal.css?v=20260623-1' %}
+{% include 'components/portal_shell_start.html' %}
 
-    <title>Invites - MarketoState</title>
+<div class="dashboard-page max-w-7xl mx-auto space-y-6">
+  <div class="dash-card p-5">
+    <h2 class="text-xl font-bold text-ms-primary mb-1">Invites</h2>
+    <p class="text-gray-500 mb-0">Review client invites and join the teams you want to work with.</p>
+  </div>
 
-    <meta name="description" content="" />
+  <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4" id="crm-invite-list"></div>
 
-    <link rel="icon" href="/static/Marketostate/Marketostate%20Favicon.svg" type="image/svg+xml" />
-
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Public+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400;1,500;1,600;1,700&display=swap"
-      rel="stylesheet" />
-
-    <link rel="stylesheet" href="/static/sneat/vendor/fonts/iconify-icons.css" />
-    <link rel="stylesheet" href="/static/sneat/vendor/css/core.css" />
-    <link rel="stylesheet" href="/static/sneat/css/demo.css" />
-    <link rel="stylesheet" href="/static/css/sneat_sidebar_layout.css?v=20260619-6" />
-    <link rel="stylesheet" href="/static/sneat/vendor/libs/perfect-scrollbar/perfect-scrollbar.css" />
-
-    <script src="/static/sneat/vendor/js/helpers.js"></script>
-    <script src="/static/sneat/js/config.js"></script>
-    <style>
-      #layout-menu { position: relative; }
-      #layout-menu .sneat-menu-collapse-toggle.menu-link {
-        position: absolute;
-        bottom: 10px;
-        right: 10px;
-        width: 28px;
-        height: 28px;
-        border: 1px solid rgba(67, 89, 113, 0.25);
-        border-radius: 6px;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        background: #fff;
-      }
-      #layout-menu .sneat-menu-collapse-toggle.menu-link i { font-size: 1rem; }
-    </style>
-    <script>
-      (function () {
-        try {
-          var KEY = 'sneat_layout_menu_collapsed';
-          if (window.localStorage.getItem(KEY) == null) window.localStorage.setItem(KEY, '1');
-          if (window.localStorage.getItem(KEY) === '1' && window.innerWidth >= 1200) {
-            document.documentElement.classList.add('layout-menu-collapsed');
-          }
-        } catch (e) {}
-      })();
-    </script>
-  </head>
-
-  <body>
-    <div class="layout-wrapper layout-content-navbar">
-      <div class="layout-container">
-        <aside id="layout-menu" class="layout-menu menu-vertical menu bg-menu-theme">
-          {% include 'components/sneat_app_brand.html' %}
-
-          <div class="menu-divider mt-0"></div>
-          <div class="menu-inner-shadow"></div>
-
-          <ul class="menu-inner py-1">
-            <li class="menu-item">
-              <a href="/customer-dashboard" class="menu-link">
-                <i class="menu-icon tf-icons bx bx-home-smile"></i>
-                <div class="text-truncate">Dashboard</div>
-              </a>
-            </li>
-
-            <li class="menu-header small text-uppercase">
-              <span class="menu-header-text">Workspace</span>
-            </li>
-
-            <li class="menu-item">
-              <a href="/crm" class="menu-link">
-                <i class="menu-icon tf-icons bx bx-briefcase-alt-2"></i>
-                <div class="text-truncate">CRM</div>
-              </a>
-            </li>
-            <li class="menu-item active">
-              <a href="/broker/invites" class="menu-link">
-                <i class="menu-icon tf-icons bx bx-envelope"></i>
-                <div class="text-truncate">Invites</div>
-              </a>
-            </li>
-            <li class="menu-header small text-uppercase">
-              <span class="menu-header-text">Account</span>
-            </li>
-            <li class="menu-item">
-              <a href="javascript:void(0);" class="menu-link" id="menu-signout">
-                <i class="menu-icon tf-icons bx bx-power-off"></i>
-                <div class="text-truncate">Sign Out</div>
-              </a>
-            </li>
-          </ul>
-          <a href="javascript:void(0);" class="sneat-menu-collapse-toggle menu-link text-large" id="sneat-layout-menu-toggle" aria-label="Toggle menu">
-            <i class="bx bx-chevron-left d-block align-middle"></i>
-          </a>
-        </aside>
-
-        <div class="layout-page">
-          <nav
-            class="layout-navbar container-xxl navbar-detached navbar navbar-expand-xl align-items-center bg-navbar-theme"
-            id="layout-navbar">
-            <div class="layout-menu-toggle navbar-nav align-items-xl-center me-4 me-xl-0 d-xl-none">
-              <a class="nav-item nav-link px-0 me-xl-6" href="javascript:void(0)">
-                <i class="icon-base bx bx-menu icon-md"></i>
-              </a>
-            </div>
-
-            <div class="navbar-nav-right d-flex align-items-center justify-content-end" id="navbar-collapse">
-              <ul class="navbar-nav flex-row align-items-center ms-md-auto">
-                <li class="nav-item navbar-dropdown dropdown-user dropdown">
-                  <a class="nav-link dropdown-toggle hide-arrow p-0" href="javascript:void(0);" data-bs-toggle="dropdown">
-                    <div class="avatar avatar-online">
-                      <span class="avatar-initial rounded-circle bg-label-primary" id="navbar-user-avatar">--</span>
-                    </div>
-                  </a>
-                  <ul class="dropdown-menu dropdown-menu-end">
-                    <li>
-                      <a class="dropdown-item" href="javascript:void(0);">
-                        <div class="d-flex">
-                          <div class="flex-shrink-0 me-3">
-                            <div class="avatar avatar-online">
-                              <span class="avatar-initial rounded-circle bg-label-primary" id="navbar-user-avatar-2">--</span>
-                            </div>
-                          </div>
-                          <div class="flex-grow-1">
-                            <h6 class="mb-0" id="navbar-user-name">Broker</h6>
-                            <small class="text-body-secondary" id="navbar-user-role">Broker</small>
-                          </div>
-                        </div>
-                      </a>
-                    </li>
-                    <li><div class="dropdown-divider my-1"></div></li>
-                    <li>
-                      <a class="dropdown-item" href="/customer-dashboard">
-                        <i class="icon-base bx bx-home-smile icon-md me-3"></i><span>Dashboard</span>
-                      </a>
-                    </li>
-                    <li>
-                      <a class="dropdown-item" href="/broker/invites">
-                        <i class="icon-base bx bx-envelope icon-md me-3"></i><span>Invites</span>
-                      </a>
-                    </li>
-                    <li>
-                      <a class="dropdown-item" href="/crm">
-                        <i class="icon-base bx bx-briefcase-alt-2 icon-md me-3"></i><span>Open CRM</span>
-                      </a>
-                    </li>
-                    <li>
-                      <a class="dropdown-item" href="javascript:void(0);" id="dropdown-change-password">
-                        <i class="icon-base bx bx-lock-alt icon-md me-3"></i><span>Change Password</span>
-                      </a>
-                    </li>
-                    <li><div class="dropdown-divider my-1"></div></li>
-                    <li>
-                      <a class="dropdown-item" href="javascript:void(0);" id="dropdown-signout">
-                        <i class="icon-base bx bx-power-off icon-md me-3"></i><span>Log Out</span>
-                      </a>
-                    </li>
-                  </ul>
-                </li>
-              </ul>
-            </div>
-          </nav>
-
-          <div class="content-wrapper">
-            <div class="container-xxl flex-grow-1 container-p-y">
-              <div class="card mb-6">
-                <div class="card-body">
-                  <h5 class="card-title text-primary mb-1">Invites</h5>
-                  <p class="mb-0 text-body-secondary">Review client invites and join the teams you want to work with.</p>
-                </div>
-              </div>
-
-              <div class="row g-6" id="crm-invite-list"></div>
-
-              <div class="card" id="crm-invite-empty" style="display:none;">
-                <div class="card-body text-center py-6">
-                  <span class="avatar avatar-lg mb-4">
-                    <span class="avatar-initial rounded-circle bg-label-secondary">
-                      <i class="icon-base bx bx-envelope icon-lg"></i>
-                    </span>
-                  </span>
-                  <h6 class="mb-1">No pending invites</h6>
-                  <p class="mb-4 text-body-secondary">When a client invites you, it will show up here.</p>
-                  <a href="/customer-dashboard" class="btn btn-sm btn-outline-primary">Back to Dashboard</a>
-                </div>
-              </div>
-            </div>`r`n
-            <div class="content-backdrop fade"></div>
-          </div>
-        </div>
-      </div>
-
-      <div class="layout-overlay layout-menu-toggle"></div>
+  <div class="dash-card p-8 text-center" id="crm-invite-empty" style="display:none;">
+    <div class="dash-kpi-icon secondary mx-auto mb-4">
+      <svg class="size-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
     </div>
+    <h3 class="font-semibold mb-1">No pending invites</h3>
+    <p class="text-gray-500 mb-4">When a client invites you, it will show up here.</p>
+    <a href="/customer-dashboard" class="py-2 px-3 inline-flex text-sm font-medium rounded-lg border border-ms-primary text-ms-primary hover:bg-orange-50">Back to Dashboard</a>
+  </div>
+</div>
 
-    <div class="modal fade" id="change-password-modal" tabindex="-1" aria-hidden="true">
-      <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content">
-          <div class="modal-header">
-            <h5 class="modal-title">Change Password</h5>
-            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-          </div>
-          <div class="modal-body">
-            <div class="mb-4">
-              <label class="form-label" for="new-password-input">New password</label>
-              <input type="password" class="form-control" id="new-password-input" minlength="6" autocomplete="new-password" placeholder="At least 6 characters" />
-            </div>
-            <div class="mb-4">
-              <label class="form-label" for="confirm-password-input">Confirm new password</label>
-              <input type="password" class="form-control" id="confirm-password-input" minlength="6" autocomplete="new-password" placeholder="Re-enter new password" />
-            </div>
-            <div id="change-password-error" class="alert alert-danger py-2" style="display:none;" role="alert"></div>
-          </div>
-          <div class="modal-footer">
-            <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal" id="cancel-change-password">Cancel</button>
-            <button type="button" class="btn btn-primary" id="confirm-change-password">Update password</button>
-          </div>
-        </div>
-      </div>
-    </div>
+{% include 'components/portal_shell_end.html' %}
+<script>
+  window.__SUPABASE_URL__ = {{ (supabase_url or '')|tojson }};
+  window.__SUPABASE_ANON_KEY__ = {{ (supabase_anon_key or '')|tojson }};
+</script>
+<script>
+(function () {
+  var url = window.__SUPABASE_URL__;
+  var key = window.__SUPABASE_ANON_KEY__;
+  if (!url || !key || !window.supabase) {
+    window.location.replace('/login');
+    return;
+  }
+  if (!window._supabase) {
+    window._supabase = window.supabase.createClient(url, key);
+  }
 
-    <script src="/static/sneat/vendor/libs/jquery/jquery.js"></script>
-    <script src="/static/sneat/vendor/libs/popper/popper.js"></script>
-    <script src="/static/sneat/vendor/js/bootstrap.js"></script>
-    <script src="/static/sneat/vendor/libs/perfect-scrollbar/perfect-scrollbar.js"></script>
-    <script src="/static/sneat/vendor/js/menu.js"></script>
-    <script src="/static/sneat/js/main.js"></script>
+  function waitForAuthSession(maxAttempts, delayMs) {
+    var sb = window._supabase;
+    var remaining = Number(maxAttempts || 0);
+    function step() {
+      return sb.auth.getSession().then(function (r) {
+        var session = (r && r.data && r.data.session) ? r.data.session : null;
+        if (session || remaining <= 0) return session;
+        remaining -= 1;
+        return new Promise(function (resolve) { setTimeout(resolve, Number(delayMs || 220)); }).then(step);
+      });
+    }
+    return step();
+  }
 
-    <script src="/static/js/supabase.min.js"></script>
-    <script>
-      window.__SUPABASE_URL__ = {{ (supabase_url or '')|tojson }};
-      window.__SUPABASE_ANON_KEY__ = {{ (supabase_anon_key or '')|tojson }};
-    </script>
-    <script>
-      (function () {
-        var yearEl = document.getElementById('footer-year');
-        if (yearEl) yearEl.textContent = new Date().getFullYear();
+  function api(path, opts) {
+    return waitForAuthSession(12, 220).then(function (session) {
+      if (!session || !session.access_token) throw new Error('Not authenticated');
+      var headers = { Authorization: 'Bearer ' + session.access_token, 'Content-Type': 'application/json' };
+      var merged = Object.assign({ headers: headers }, opts || {});
+      merged.headers = Object.assign({}, headers, (opts && opts.headers) || {});
+      return fetch(path, merged);
+    });
+  }
 
-        var url = window.__SUPABASE_URL__;
-        var key = window.__SUPABASE_ANON_KEY__;
-        if (!url || !key || !window.supabase) {
-          window.location.replace('/login');
-          return;
-        }
-        if (!window._supabase) {
-          window._supabase = window.supabase.createClient(url, key);
-        }
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
 
-        var passwordModal = null;
+  function initials(name) {
+    var text = String(name || '').trim();
+    if (!text) return '--';
+    var parts = text.split(/\s+/).filter(Boolean);
+    return (((parts[0] || '')[0] || '') + ((parts[1] || '')[0] || (parts[0] || '')[1] || '')).toUpperCase();
+  }
 
-        function waitForAuthSession(maxAttempts, delayMs) {
-          var sb = window._supabase;
-          if (!sb || !sb.auth || typeof sb.auth.getSession !== 'function') return Promise.resolve(null);
-          var remaining = Number(maxAttempts || 0);
-          function readSession() {
-            return sb.auth.getSession().then(function (r) {
-              return (r && r.data && r.data.session) ? r.data.session : null;
-            }).catch(function () { return null; });
-          }
-          function step() {
-            return readSession().then(function (session) {
-              if (session) return session;
-              remaining -= 1;
-              if (remaining <= 0) return null;
-              return new Promise(function (resolve) { setTimeout(resolve, Number(delayMs || 220)); }).then(step);
-            });
-          }
-          return step();
-        }
+  function showToast(message, type) {
+    if (window.showToast) { window.showToast(message, type); return; }
+    if (type === 'error') console.error(message);
+    else console.log(message);
+  }
 
-        function ensureAuthenticated() {
-          return waitForAuthSession(12, 220).then(function (session) {
-            if (!session || !session.access_token) throw new Error('Not authenticated');
-            return { Authorization: 'Bearer ' + session.access_token, 'Content-Type': 'application/json' };
-          });
-        }
-
-        function api(path, opts) {
-          return ensureAuthenticated().then(function (headers) {
-            var merged = Object.assign({ headers: headers }, opts || {});
-            merged.headers = Object.assign({}, headers, (opts && opts.headers) || {});
-            return fetch(path, merged);
-          });
-        }
-
-        function esc(s) {
-          return String(s == null ? '' : s)
-            .replace(/&/g, '&amp;')
-            .replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;')
-            .replace(/"/g, '&quot;')
-            .replace(/'/g, '&#39;');
-        }
-
-        function initials(name) {
-          var text = String(name || '').trim();
-          if (!text) return '--';
-          var parts = text.split(/\s+/).filter(Boolean);
-          return (((parts[0] || '')[0] || '') + ((parts[1] || '')[0] || (parts[0] || '')[1] || '')).toUpperCase();
-        }
-
-        function setText(id, value) {
-          var el = document.getElementById(id);
-          if (el) el.textContent = value;
-        }
-
-        function showToast(message, type) {
-          if (window.showToast) {
-            window.showToast(message, type);
-            return;
-          }
-          if (type === 'error') console.error(message);
-          else console.log(message);
-        }
-
-        function renderProfile(profile) {
-          var displayName = String((profile && (profile.display_name || profile.name || profile.email)) || 'Broker').trim() || 'Broker';
-          var roleLabel = String((profile && profile.role) || 'broker');
-          var letters = initials(displayName);
-          setText('navbar-user-name', displayName);
-          setText('navbar-user-role', roleLabel.charAt(0).toUpperCase() + roleLabel.slice(1));
-          setText('navbar-user-avatar', letters);
-          setText('navbar-user-avatar-2', letters);
-        }
-
-        function renderInvites(items) {
-          var list = document.getElementById('crm-invite-list');
-          var empty = document.getElementById('crm-invite-empty');
-          if (!list || !empty) return;
-          if (!items || !items.length) {
-            list.innerHTML = '';
-            empty.style.display = '';
-            return;
-          }
-          empty.style.display = 'none';
-          list.innerHTML = items.map(function (inv) {
-            var clientName = inv.client_name || 'Client Group';
-            var inviter = inv.inviter_name ? ('Invited by ' + inv.inviter_name) : 'Pending invitation';
-            return '<div class="col-md-6 col-xl-4">' +
-              '<div class="card h-100 broker-invite-card" data-invite-id="' + esc(inv.id) + '" data-token="' + esc(inv.invite_token || '') + '">' +
-                '<div class="card-body">' +
-                  '<div class="d-flex align-items-center mb-4">' +
-                    '<div class="avatar avatar-sm me-3">' +
-                      '<span class="avatar-initial rounded-circle bg-label-primary">' + esc(initials(clientName)) + '</span>' +
-                    '</div>' +
-                    '<div class="flex-grow-1">' +
-                      '<h6 class="mb-0">' + esc(clientName) + '</h6>' +
-                      '<small class="text-body-secondary">' + esc(inviter) + '</small>' +
-                    '</div>' +
-                  '</div>' +
-                  '<span class="badge bg-label-info mb-4">Broker</span>' +
-                  '<div class="d-flex gap-2">' +
-                    '<button class="btn btn-outline-secondary flex-fill" type="button" data-invite-action="reject">Reject</button>' +
-                    '<button class="btn btn-primary flex-fill" type="button" data-invite-action="accept">Accept</button>' +
-                  '</div>' +
-                '</div>' +
-              '</div>' +
-            '</div>';
-          }).join('');
-          list.querySelectorAll('[data-invite-action]').forEach(function (btn) {
-            btn.addEventListener('click', function () {
-              var card = btn.closest('.broker-invite-card');
-              var action = btn.getAttribute('data-invite-action');
-              if (!card || !action) return;
-              var inviteId = card.getAttribute('data-invite-id');
-              var token = card.getAttribute('data-token');
-              btn.disabled = true;
-              var request = action === 'accept'
-                ? api('/api/client-team-invites/accept', { method: 'POST', body: JSON.stringify({ invite_token: token }) })
-                : api('/api/client-team-invites/' + encodeURIComponent(inviteId) + '/reject', { method: 'POST' });
-              request.then(function (response) {
-                return response.json().catch(function () { return {}; }).then(function (data) {
-                  if (!response.ok) throw new Error(data.error || 'Invite update failed');
-                  showToast(action === 'accept' ? 'Invite accepted.' : 'Invite rejected.', 'success');
-                  return loadInvites();
-                });
-              }).catch(function (e) {
-                showToast((e && e.message) ? e.message : 'Invite update failed', 'error');
-              }).finally(function () {
-                btn.disabled = false;
-              });
-            });
-          });
-        }
-
-        function loadInvites() {
-          return api('/api/client-team-invites/mine').then(function (response) {
-            return response.json().catch(function () { return []; }).then(function (data) {
-              if (!response.ok) throw new Error((data && data.error) || 'Failed to load invites');
-              renderInvites(Array.isArray(data) ? data : []);
-            });
-          }).catch(function (e) {
-            renderInvites([]);
-            showToast((e && e.message) ? e.message : 'Failed to load invites', 'error');
-          });
-        }
-
-        function openChangePasswordModal() {
-          var err = document.getElementById('change-password-error');
-          var newInput = document.getElementById('new-password-input');
-          var confirmInput = document.getElementById('confirm-password-input');
-          if (err) { err.textContent = ''; err.style.display = 'none'; }
-          if (newInput) newInput.value = '';
-          if (confirmInput) confirmInput.value = '';
-          if (!passwordModal) {
-            var el = document.getElementById('change-password-modal');
-            if (el && window.bootstrap && window.bootstrap.Modal) {
-              passwordModal = new window.bootstrap.Modal(el);
-            }
-          }
-          if (passwordModal) passwordModal.show();
-        }
-
-        function bindChangePassword() {
-          var confirmBtn = document.getElementById('confirm-change-password');
-          var newInput = document.getElementById('new-password-input');
-          var confirmInput = document.getElementById('confirm-password-input');
-          var errorEl = document.getElementById('change-password-error');
-          var changePwLink = document.getElementById('dropdown-change-password');
-          if (changePwLink) {
-            changePwLink.addEventListener('click', function (e) {
-              e.preventDefault();
-              openChangePasswordModal();
-            });
-          }
-          if (!confirmBtn) return;
-          confirmBtn.addEventListener('click', function () {
-            var sb = window._supabase;
-            var newPw = newInput ? newInput.value : '';
-            var confirmPw = confirmInput ? confirmInput.value : '';
-            if (errorEl) { errorEl.textContent = ''; errorEl.style.display = 'none'; }
-            if (newPw.length < 6) {
-              if (errorEl) { errorEl.textContent = 'Password must be at least 6 characters'; errorEl.style.display = 'block'; }
-              return;
-            }
-            if (newPw !== confirmPw) {
-              if (errorEl) { errorEl.textContent = 'Passwords do not match'; errorEl.style.display = 'block'; }
-              return;
-            }
-            confirmBtn.disabled = true;
-            Promise.resolve(sb.auth.updateUser({ password: newPw })).then(function (res) {
-              if (res && res.error) throw res.error;
-              showToast('Password updated successfully.', 'success');
-              if (passwordModal) passwordModal.hide();
-            }).catch(function (err) {
-              if (errorEl) {
-                errorEl.textContent = (err && err.message) ? err.message : 'Failed to update password';
-                errorEl.style.display = 'block';
-              }
-            }).finally(function () {
-              confirmBtn.disabled = false;
-            });
-          });
-        }
-
-        function bindSignout() {
-          function signOut() {
-            var sb = window._supabase;
-            var finish = function () { window.location.href = '/login'; };
-            if (sb && sb.auth && typeof sb.auth.signOut === 'function') {
-              Promise.resolve(sb.auth.signOut()).catch(function () {}).finally(finish);
-            } else {
-              finish();
-            }
-          }
-          var a = document.getElementById('menu-signout');
-          var b = document.getElementById('dropdown-signout');
-          if (a) a.addEventListener('click', signOut);
-          if (b) b.addEventListener('click', signOut);
-        }
-
-        api('/api/crm/me').then(function (response) {
+  function renderInvites(items) {
+    var list = document.getElementById('crm-invite-list');
+    var empty = document.getElementById('crm-invite-empty');
+    if (!list || !empty) return;
+    if (!items || !items.length) {
+      list.innerHTML = '';
+      empty.style.display = '';
+      return;
+    }
+    empty.style.display = 'none';
+    list.innerHTML = items.map(function (inv) {
+      var clientName = inv.client_name || 'Client Group';
+      var inviter = inv.inviter_name ? ('Invited by ' + inv.inviter_name) : 'Pending invitation';
+      return '<div class="dash-card p-5 broker-invite-card h-full" data-invite-id="' + esc(inv.id) + '" data-token="' + esc(inv.invite_token || '') + '">' +
+        '<div class="flex items-center gap-3 mb-4">' +
+          '<span class="dash-avatar">' + esc(initials(clientName)) + '</span>' +
+          '<div><h4 class="font-semibold">' + esc(clientName) + '</h4><p class="text-sm text-gray-500">' + esc(inviter) + '</p></div>' +
+        '</div>' +
+        '<span class="dash-badge mb-4">Broker</span>' +
+        '<div class="flex gap-2">' +
+          '<button class="flex-1 py-2 px-3 text-sm font-medium rounded-lg border border-gray-200 hover:bg-gray-50" type="button" data-invite-action="reject">Reject</button>' +
+          '<button class="flex-1 py-2 px-3 text-sm font-semibold rounded-lg bg-ms-primary text-white hover:bg-ms-primary-dark" type="button" data-invite-action="accept">Accept</button>' +
+        '</div></div>';
+    }).join('');
+    list.querySelectorAll('[data-invite-action]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var card = btn.closest('.broker-invite-card');
+        var action = btn.getAttribute('data-invite-action');
+        if (!card || !action) return;
+        var inviteId = card.getAttribute('data-invite-id');
+        var token = card.getAttribute('data-token');
+        btn.disabled = true;
+        var request = action === 'accept'
+          ? api('/api/client-team-invites/accept', { method: 'POST', body: JSON.stringify({ invite_token: token }) })
+          : api('/api/client-team-invites/' + encodeURIComponent(inviteId) + '/reject', { method: 'POST' });
+        request.then(function (response) {
           return response.json().catch(function () { return {}; }).then(function (data) {
-            if (!response.ok) throw new Error((data && data.error) || 'Failed to load profile');
-            var isBrokerUser = !!(data && (data.is_broker || String(data.role || '') === 'broker'));
-            try { window.localStorage.setItem('sneat_is_broker', isBrokerUser ? '1' : '0'); } catch (e) {}
-            if (!isBrokerUser) {
-              window.location.replace('/crm');
-              return;
-            }
-            renderProfile(data || {});
-            bindSignout();
-            bindChangePassword();
+            if (!response.ok) throw new Error(data.error || 'Invite update failed');
+            showToast(action === 'accept' ? 'Invite accepted.' : 'Invite rejected.', 'success');
             return loadInvites();
           });
-        }).catch(function () {
-          window.location.replace('/login');
-        });
-      })();
-    </script>
-    <script src="/static/js/sneat_menu_toggle.js?v=20260619"></script>
-  </body>
-</html>
+        }).catch(function (e) {
+          showToast((e && e.message) ? e.message : 'Invite update failed', 'error');
+        }).finally(function () { btn.disabled = false; });
+      });
+    });
+  }
 
+  function loadInvites() {
+    return api('/api/client-team-invites/mine').then(function (response) {
+      return response.json().catch(function () { return []; }).then(function (data) {
+        if (!response.ok) throw new Error((data && data.error) || 'Failed to load invites');
+        renderInvites(Array.isArray(data) ? data : []);
+      });
+    }).catch(function (e) {
+      renderInvites([]);
+      showToast((e && e.message) ? e.message : 'Failed to load invites', 'error');
+    });
+  }
+
+  api('/api/crm/me').then(function (response) {
+    return response.json().catch(function () { return {}; }).then(function (data) {
+      if (!response.ok) throw new Error((data && data.error) || 'Failed to load profile');
+      var isBrokerUser = !!(data && (data.is_broker || String(data.role || '') === 'broker'));
+      try { window.localStorage.setItem('portal_is_broker', isBrokerUser ? '1' : '0'); } catch (e) {}
+      if (!isBrokerUser) {
+        window.location.replace('/crm');
+        return;
+      }
+      if (typeof window.configurePortalShell === 'function') {
+        window.configurePortalShell(data, true, false, false);
+      }
+      return loadInvites();
+    });
+  }).catch(function () { window.location.replace('/login'); });
+})();
+</script>

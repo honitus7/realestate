@@ -19,6 +19,7 @@
             '--ms-brand-primary': c.primary,
             '--ms-brand-primary-hover': c.primaryHover,
             '--ms-brand-primary-strong': c.primaryStrong,
+            '--ms-brand-primary-dark': c.primaryHover,
             '--ms-brand-primary-rgb': c.primaryRgb,
             '--ms-brand-dark': c.dark,
             '--ms-brand-dark-soft': c.darkSoft,

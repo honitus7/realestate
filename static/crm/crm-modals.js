@@ -4,7 +4,7 @@
     var topZ = 1300;
     var panelSelector = [
         '.crm-modal-backdrop > .crm-modal',
-        '.filter-modal'
+        '.entity-filter-modal'
     ].join(',');
     var handleSelector = [
         '.crm-modal-header',
@@ -59,8 +59,15 @@
         panel.style.zIndex = String(++topZ);
     }
 
+    function isInlineFilterPanel(panel) {
+        return !!(panel && (
+            panel.classList.contains('crm-filter-panel') ||
+            panel.closest('.crm-filter-rail')
+        ));
+    }
+
     function makeMovable(panel) {
-        if (!panel || panel.dataset.crmWindowReady === '1') return;
+        if (!panel || panel.dataset.crmWindowReady === '1' || isInlineFilterPanel(panel)) return;
         var handle = panel.querySelector(handleSelector) || panel.firstElementChild;
         if (!handle) return;
 

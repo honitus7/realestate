@@ -1067,7 +1067,7 @@ def register_routes(app):
     # ----- Public routes -----
     @app.route('/')
     def index():
-        return render_template('landing.html')
+        return render_template('landing.html', **auth_ctx())
 
     @app.route('/favicon.ico')
     def favicon():
@@ -4446,6 +4446,27 @@ def register_routes(app):
         if not existing_interest:
             return jsonify({'error': 'Not found or access denied'}), 404
 
+        if 'reference_user_id' in data:
+            pano_id = existing_interest.get('panorama_id')
+            try:
+                pano_id = int(pano_id) if pano_id is not None else None
+            except Exception:
+                pano_id = None
+            raw_ref = data.get('reference_user_id')
+            if raw_ref is None or str(raw_ref).strip() == '':
+                upd['reference_user_id'] = None
+            else:
+                if not pano_id:
+                    return jsonify({'error': 'Interest project is missing'}), 400
+                reference_user_id, _reference_catalog, _reference_row = _validate_project_reference_user(
+                    sb,
+                    reference_user_id=str(raw_ref).strip(),
+                    panorama_id=pano_id,
+                    client_id=existing_interest.get('client_id'),
+                )
+                if not reference_user_id:
+                    return jsonify({'error': 'Invalid reference for this project'}), 400
+                upd['reference_user_id'] = reference_user_id
         if 'assigned_to' in data:
             iq = (
                 sb.table('buy_interests')
@@ -4515,7 +4536,7 @@ def register_routes(app):
                 if key not in ('description', 'customer_address') and len(value) > 100:
                     return jsonify({'error': f'{key} must be 100 characters or less'}), 400
                 upd[key] = value or None
-        dynamic_custom_fields = _extract_custom_fields_payload(data, set(upd.keys()) | {'is_contacted', 'status', 'assigned_to', 'notes'})
+        dynamic_custom_fields = _extract_custom_fields_payload(data, set(upd.keys()) | {'is_contacted', 'status', 'assigned_to', 'reference_user_id', 'notes'})
         if dynamic_custom_fields:
             upd['custom_fields'] = dynamic_custom_fields
         if not upd:

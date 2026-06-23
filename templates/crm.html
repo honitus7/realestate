@@ -1,10 +1,10 @@
 {% set page_title = 'CRM - MarketoState' %}
 {% set active_nav = 'crm' %}
 {% set use_marketostate_brand_theme = true %}
-{% set sneat_extra_css = '/static/crm/crm.css?v=20260623-7' %}
+{% set portal_extra_css = '/static/crm/crm.css?v=20260624-1' %}
 {% from 'crm/components/data_table.html' import crm_data_table %}
-{% set sneat_merge_nav_into_crm = true %}
-{% include 'components/sneat_shell_start.html' %}
+{% set portal_merge_nav_into_crm = true %}
+{% include 'components/portal_shell_start.html' %}
 <link rel="stylesheet" href="/static/css/share-workspace-modal.css?v=20260622-2">
 <style>
 /* Stabilize Add Project / Add Plot modals */
@@ -33,7 +33,6 @@
 #add-normal-plot-modal .crm-modal,
 #edit-plot-modal .crm-modal,
 #add-interest-modal .crm-modal,
-#contact-modal-backdrop .crm-modal,
 #share-workspace-modal .crm-modal {
     width: min(860px, 96vw) !important;
     height: auto !important;
@@ -45,22 +44,21 @@
     box-shadow: 0 18px 48px rgba(20, 28, 45, 0.2);
     padding: 1rem 1rem 0.9rem;
 }
-#deal-modal-backdrop .crm-modal {
-    width: min(860px, 96vw) !important;
+#deal-modal-backdrop .crm-modal,
+#contact-modal-backdrop .crm-modal {
+    width: min(1290px, 96vw) !important;
     height: auto !important;
     max-height: 92vh !important;
-    overflow: auto !important;
+    overflow: hidden !important;
     border: 1px solid var(--bs-border-color, #d9dee3) !important;
     border-radius: 14px !important;
     background: var(--bs-body-bg, #fff);
     box-shadow: 0 18px 48px rgba(20, 28, 45, 0.2);
-    padding: 1rem 1rem 0.9rem;
 }
 #add-normal-project-modal .crm-simple-modal-head,
 #add-normal-plot-modal .crm-simple-modal-head,
 #edit-plot-modal .crm-simple-modal-head,
 #add-interest-modal .crm-simple-modal-head,
-#contact-modal-backdrop .crm-simple-modal-head,
 #share-workspace-modal .crm-simple-modal-head {
     display: flex;
     align-items: center;
@@ -71,8 +69,7 @@
 #add-normal-project-modal .crm-simple-modal-body,
 #add-normal-plot-modal .crm-simple-modal-body,
 #edit-plot-modal .crm-simple-modal-body,
-#add-interest-modal .crm-simple-modal-body,
-#contact-modal-backdrop .crm-simple-modal-body {
+#add-interest-modal .crm-simple-modal-body {
     display: grid;
     gap: 0.72rem;
 }
@@ -88,11 +85,7 @@
 }
 #add-normal-project-modal .dynamic-master-stack,
 #add-normal-plot-modal .dynamic-master-stack,
-#contact-modal-backdrop .dynamic-master-stack,
-#deal-modal-backdrop .dynamic-master-stack {
-    display: grid;
-    gap: 0.72rem;
-}
+
 #add-normal-project-modal .crm-simple-modal-body .form-label,
 #add-normal-plot-modal .crm-simple-modal-body .form-label,
 #edit-plot-modal .crm-simple-modal-body .form-label,
@@ -115,27 +108,7 @@
 #add-interest-modal .crm-simple-modal-body textarea.form-input {
     min-height: 84px;
 }
-#contact-modal-backdrop .crm-simple-modal-body .form-group {
-    display: grid;
-    grid-template-columns: 180px minmax(0, 1fr);
-    align-items: center;
-    gap: 0.65rem;
-    margin: 0.28rem 0;
-}
-#contact-modal-backdrop .crm-simple-modal-body .form-label {
-    margin: 0;
-    font-size: 0.9rem;
-    font-weight: 600;
-    color: var(--bs-body-color, #566a7f);
-}
-#contact-modal-backdrop .crm-simple-modal-body .toolbar-search {
-    width: 100%;
-    min-width: 0;
-    margin: 0;
-}
-#contact-modal-backdrop .crm-simple-modal-body textarea.toolbar-search {
-    min-height: 84px;
-}
+/* Contact modal layout — see crm.css entity modal block */
 #add-normal-plot-modal [style*="grid-template-columns:1fr 1fr"] {
     grid-template-columns: 1fr !important;
 }
@@ -143,7 +116,6 @@
 #add-normal-plot-modal .modal-actions,
 #edit-plot-modal .modal-actions,
 #add-interest-modal .modal-actions,
-#contact-modal-backdrop .modal-actions,
 #share-workspace-modal .modal-actions {
     margin-top: 1rem;
     padding-top: 0;
@@ -157,55 +129,12 @@
     #add-normal-project-modal .crm-simple-modal-body .form-group,
     #add-normal-plot-modal .crm-simple-modal-body .form-group,
     #edit-plot-modal .crm-simple-modal-body .form-group,
-    #add-interest-modal .crm-simple-modal-body .form-group,
-    #contact-modal-backdrop .crm-simple-modal-body .form-group {
+    #add-interest-modal .crm-simple-modal-body .form-group {
         grid-template-columns: 1fr;
         align-items: stretch;
     }
 }
-#deal-modal-backdrop .crm-simple-modal-head {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 0.75rem;
-    margin-bottom: 0.9rem;
-}
-#deal-modal-backdrop .crm-simple-modal-body {
-    display: grid;
-    gap: 0.75rem;
-}
-#deal-modal-backdrop .crm-simple-modal-body .form-group {
-    display: grid;
-    grid-template-columns: 180px minmax(0, 1fr);
-    align-items: center;
-    gap: 0.65rem;
-    margin: 0.28rem 0;
-}
-#deal-modal-backdrop .crm-simple-modal-body .form-label {
-    margin: 0;
-    font-size: 0.9rem;
-    font-weight: 600;
-    color: var(--bs-body-color, #566a7f);
-}
-#deal-modal-backdrop .modal-actions {
-    margin-top: 1rem;
-    padding-top: 0;
-    border-top: 0;
-    background: transparent;
-    display: flex;
-    justify-content: flex-end;
-    gap: 0.6rem;
-}
-#deal-modal-backdrop .crm-simple-modal-body .toolbar-search,
-#deal-modal-backdrop .crm-simple-modal-body .toolbar-select {
-    width: 100%;
-    max-width: 100%;
-}
-#deal-modal-backdrop .crm-simple-modal-body .deal-form-grid-2 {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 0.6rem;
-}
+/* Deal modal layout — see crm.css entity modal block */
 .crm-page--sneat .view-btn.active {
     background: var(--ms-brand-primary, var(--crm-blue, #696cff)) !important;
     border-color: var(--ms-brand-primary, var(--crm-blue, #696cff)) !important;
@@ -239,13 +168,12 @@
 #deals-kanban-board .kanban-card.dk-dragging {
     opacity: 0.55;
 }
-/* Keep Interests filter modal above sidebar/nav layers */
-#sec-interests .filter-modal-backdrop,
-#sec-interests .filter-modal-backdrop.visible {
-    z-index: 1300 !important;
-}
-#sec-interests .filter-modal {
-    z-index: 1301 !important;
+/* Keep Interests filter rail above table layers on mobile overlay */
+@media (max-width: 900px) {
+    #sec-interests .filter-modal-backdrop,
+    #sec-interests .filter-modal-backdrop.visible {
+        z-index: 1300 !important;
+    }
 }
 .entity-filter-modal-backdrop {
     position: fixed;
@@ -314,13 +242,6 @@
     min-height: 320px !important;
 }
 @media (max-width: 768px) {
-    #deal-modal-backdrop .crm-simple-modal-body .deal-form-grid-2 {
-        grid-template-columns: 1fr;
-    }
-    #deal-modal-backdrop .crm-simple-modal-body .form-group {
-        grid-template-columns: 1fr;
-        align-items: stretch;
-    }
     #deals-kanban-board {
         grid-template-columns: repeat(2, minmax(0, 1fr));
     }
@@ -337,15 +258,17 @@
     }
 }
 </style>
-<div class="crm-page crm-page--sneat">
-    <div class="crm-boot-loader" id="crm-boot-loader" role="status" aria-live="polite">
-        <div class="crm-boot-loader__media">
-            <div class="crm-boot-loader__svg-stage" aria-hidden="true">
-                <img class="crm-boot-loader__svg" src="/app/lottiefiles/crmloader-smooth.svg?v=20260620-2" alt="" decoding="async" fetchpriority="high">
-            </div>
-            <div class="crm-boot-loader__caption">Fetching Latest Leads</div>
-        </div>
-    </div>
+<div class="crm-page crm-page--sneat crm-page--booting" id="crm-page">
+{% set loader_id = 'crm-boot-loader' %}
+{% set arc_id = 'crm-loader-arc' %}
+{% set percent_id = 'crm-loader-percent' %}
+{% set steps_id = 'crm-loader-steps' %}
+{% set caption_id = 'crm-loader-caption' %}
+{% set label_id = 'crm-loader-label' %}
+{% set initial_caption = 'Loading CRM' %}
+{% set initial_label = 'Verifying access' %}
+{% set steps = ['auth', 'profile', 'leads'] %}
+{% include 'components/portal_tab_loader.html' %}
     <div class="crm-page-content" id="crm-page-content" aria-busy="true">
     {% include 'crm/components/tab_nav.html' %}
 
@@ -357,7 +280,7 @@
                     <!-- Toolbar -->
                     <div class="interest-toolbar">
                         <div class="interest-toolbar-left">
-                            <button class="filter-btn" id="btn-open-filters" type="button">
+                            <button class="filter-btn" id="btn-open-filters" type="button" aria-expanded="false" aria-controls="filter-modal">
                                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
                                 <span>Filter</span>
                                 <span class="filter-badge" id="filter-badge" style="display:none;">0</span>
@@ -373,15 +296,15 @@
                         </div>
                     </div>
 
-                    <div class="interest-list-layout">
-                        <!-- Filter Rail -->
-                        <aside class="filter-modal-backdrop" id="filter-modal-backdrop">
-                            <div class="filter-modal" id="filter-modal">
-                                <div class="filter-modal-head">
-                                    <h3>Saved Filters <span id="filter-saved-total">0</span></h3>
-                                    <button class="filter-modal-close" id="filter-modal-close" type="button">&times;</button>
+                    <div class="interest-list-layout" id="interest-list-layout">
+                        <!-- Filter Rail (Zoho-style structured panel) -->
+                        <aside class="crm-filter-rail filter-modal-backdrop" id="filter-modal-backdrop" aria-label="Lead filters" aria-hidden="true">
+                            <div class="crm-filter-panel filter-modal" id="filter-modal">
+                                <div class="crm-filter-panel__head filter-modal-head">
+                                    <h3 class="crm-filter-panel__title">Saved Filters <span class="crm-filter-panel__count" id="filter-saved-total">0</span></h3>
+                                    <button class="crm-filter-panel__close filter-modal-close" id="filter-modal-close" type="button" aria-label="Close filters">&times;</button>
                                 </div>
-                                <div class="saved-filter-list" aria-label="Saved filters">
+                                <div class="crm-filter-panel__saved saved-filter-list" aria-label="Saved filters">
                                     <button class="saved-filter active" type="button" data-filter-preset="all">
                                         <span>All Leads</span><strong id="filter-total-count">0</strong>
                                     </button>
@@ -392,43 +315,59 @@
                                         <span>Contacted</span><strong id="filter-contacted-count">0</strong>
                                     </button>
                                 </div>
-                                <div class="filter-modal-body">
-                                    <div class="filter-search-group">
-                                        <label class="filter-group-label" for="q">Filter Leads by</label>
-                                        <input class="toolbar-search" id="q" placeholder="Search" autocomplete="off">
+                                <div class="crm-filter-panel__scroll filter-modal-body">
+                                    <div class="crm-filter-panel__section filter-search-group">
+                                        <label class="crm-filter-panel__label filter-group-label" for="q">Filter Leads by</label>
+                                        <input class="crm-filter-panel__input toolbar-search" id="q" placeholder="Search records" autocomplete="off">
                                     </div>
-                                    <div class="filter-group">
-                                        <label class="filter-group-label">System Defined Filters</label>
-                                        <select class="filter-group-select" id="filter-status">
-                                            <option value="">All Status</option>
-                                            <option value="new">New</option>
-                                            <option value="contacted">Contacted</option>
-                                        </select>
+                                    <div class="crm-filter-accordion is-open" data-filter-accordion>
+                                        <button class="crm-filter-accordion__trigger" type="button" aria-expanded="true">
+                                            <span>System Defined Filters</span>
+                                            <svg class="crm-filter-accordion__chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+                                        </button>
+                                        <div class="crm-filter-accordion__body">
+                                            <div class="filter-group">
+                                                <label class="crm-filter-panel__field-label filter-group-label" for="filter-status">Status</label>
+                                                <select class="crm-filter-panel__select filter-group-select" id="filter-status">
+                                                    <option value="">All Status</option>
+                                                    <option value="new">New</option>
+                                                    <option value="contacted">Contacted</option>
+                                                </select>
+                                            </div>
+                                            <div class="filter-group" id="filter-client-group" style="display:none;">
+                                                <label class="crm-filter-panel__field-label filter-group-label" for="filter-client">Client</label>
+                                                <select class="crm-filter-panel__select filter-group-select" id="filter-client"><option value="">All Clients</option></select>
+                                            </div>
+                                        </div>
                                     </div>
-                                    <div class="filter-group" id="filter-client-group" style="display:none;">
-                                        <label class="filter-group-label">Client</label>
-                                        <select class="filter-group-select" id="filter-client"><option value="">All Clients</option></select>
-                                    </div>
-                                    <div class="filter-group">
-                                        <label class="filter-group-label">Category</label>
-                                        <select class="filter-group-select" id="filter-category"><option value="">All Categories</option></select>
-                                    </div>
-                                    <div class="filter-group">
-                                        <label class="filter-group-label">Project</label>
-                                        <select class="filter-group-select" id="filter-workspace"><option value="">All Projects</option></select>
-                                    </div>
-                                    <div class="filter-group">
-                                        <label class="filter-group-label">Panorama</label>
-                                        <select class="filter-group-select" id="filter-project"><option value="">All Panoramas</option></select>
-                                    </div>
-                                    <div class="filter-group">
-                                        <label class="filter-group-label">Plot</label>
-                                        <select class="filter-group-select" id="filter-plot"><option value="">All Plots</option></select>
+                                    <div class="crm-filter-accordion is-open" data-filter-accordion>
+                                        <button class="crm-filter-accordion__trigger" type="button" aria-expanded="true">
+                                            <span>Filter By Fields</span>
+                                            <svg class="crm-filter-accordion__chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+                                        </button>
+                                        <div class="crm-filter-accordion__body">
+                                            <div class="filter-group">
+                                                <label class="crm-filter-panel__field-label filter-group-label" for="filter-category">Category</label>
+                                                <select class="crm-filter-panel__select filter-group-select" id="filter-category"><option value="">All Categories</option></select>
+                                            </div>
+                                            <div class="filter-group">
+                                                <label class="crm-filter-panel__field-label filter-group-label" for="filter-workspace">Project</label>
+                                                <select class="crm-filter-panel__select filter-group-select" id="filter-workspace"><option value="">All Projects</option></select>
+                                            </div>
+                                            <div class="filter-group">
+                                                <label class="crm-filter-panel__field-label filter-group-label" for="filter-project">Panorama</label>
+                                                <select class="crm-filter-panel__select filter-group-select" id="filter-project"><option value="">All Panoramas</option></select>
+                                            </div>
+                                            <div class="filter-group">
+                                                <label class="crm-filter-panel__field-label filter-group-label" for="filter-plot">Plot</label>
+                                                <select class="crm-filter-panel__select filter-group-select" id="filter-plot"><option value="">All Plots</option></select>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
-                                <div class="filter-modal-foot">
+                                <div class="crm-filter-panel__foot filter-modal-foot">
                                     <button class="btn" id="btn-clear" type="button">Clear</button>
-                                    <button class="btn primary" id="btn-apply-filters" type="button">Apply</button>
+                                    <button class="btn btn-primary crm-add-action" id="btn-apply-filters" type="button">Apply</button>
                                 </div>
                             </div>
                         </aside>
@@ -886,7 +825,7 @@
                     </button>
                 </div>
                 <div class="card">
-                    <div class="card-header"><div class="card-title"><strong>Lead Attributes</strong><span id="master-meta"></span></div></div>
+                    <div class="card-header"><div class="card-title"><strong>Lead Attributes</strong></div></div>
                     <div class="master-grid" id="master-grid"></div>
                     <div class="empty" id="master-empty" style="display:none;">
                         <strong>No master data</strong><div>Master values will appear once a client is available.</div>
@@ -910,28 +849,6 @@
                 <div class="form-group">
                     <label class="form-label" for="master-create-key">Key</label>
                     <input class="form-control" id="master-create-key" type="text" maxlength="48" placeholder="budget_range">
-                </div>
-                <div class="crm-master-create-options">
-                    <label class="form-check form-check-inline master-entity-check">
-                        <input class="form-check-input master-create-entity" type="checkbox" value="interests" checked>
-                        <span class="form-check-label">Interests</span>
-                    </label>
-                    <label class="form-check form-check-inline master-entity-check">
-                        <input class="form-check-input master-create-entity" type="checkbox" value="deals">
-                        <span class="form-check-label">Deals</span>
-                    </label>
-                    <label class="form-check form-check-inline master-entity-check">
-                        <input class="form-check-input master-create-entity" type="checkbox" value="contacts">
-                        <span class="form-check-label">Contacts</span>
-                    </label>
-                    <label class="form-check form-check-inline master-entity-check">
-                        <input class="form-check-input master-create-entity" type="checkbox" value="plots">
-                        <span class="form-check-label">Plots</span>
-                    </label>
-                    <label class="form-check form-check-inline master-entity-check">
-                        <input class="form-check-input master-create-entity" type="checkbox" value="projects">
-                        <span class="form-check-label">Projects</span>
-                    </label>
                 </div>
                 <div class="form-check form-switch crm-master-switch">
                     <input class="form-check-input" id="master-create-required" type="checkbox" role="switch">
@@ -970,9 +887,7 @@
                         </tr></thead>
                         <tbody id="modal-plots-tbody"></tbody>
                     </table>
-                    <div class="crm-loading" id="modal-plots-loading" style="display:none;">
-                        <div class="crm-spinner"></div> Loading...
-                    </div>
+                    <div class="crm-loading portal-section-loader portal-section-loader--inline" id="modal-plots-loading" hidden></div>
                 </div>
                 <div class="crm-modal-panel" id="modal-markers">
                     <table>
@@ -985,9 +900,7 @@
                         </tr></thead>
                         <tbody id="modal-markers-tbody"></tbody>
                     </table>
-                    <div class="crm-loading" id="modal-markers-loading" style="display:none;">
-                        <div class="crm-spinner"></div> Loading...
-                    </div>
+                    <div class="crm-loading portal-section-loader portal-section-loader--inline" id="modal-markers-loading" hidden></div>
                 </div>
             </div>
         </div>
@@ -1027,13 +940,14 @@
         </div>
     </div>
 
-    <div class="offcanvas offcanvas-end crm-interest-offcanvas" tabindex="-1" id="drawer" aria-labelledby="d-title" data-bs-scroll="true" data-bs-backdrop="true">
+    <div class="drawer-backdrop" id="interest-drawer-backdrop" aria-hidden="true"></div>
+    <div class="offcanvas offcanvas-end crm-interest-offcanvas" tabindex="-1" id="drawer" aria-labelledby="d-title">
         <div class="offcanvas-header border-bottom drawer-head">
             <div class="me-2" style="min-width:0;">
                 <h5 class="offcanvas-title mb-1" id="d-title">Lead</h5>
                 <div class="text-body-secondary small" id="d-subtitle"></div>
             </div>
-            <button type="button" class="btn-close text-reset drawer-close" id="drawer-close" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+            <button type="button" class="btn-close text-reset drawer-close" id="drawer-close" aria-label="Close"></button>
         </div>
         <div class="offcanvas-body drawer-body">
             <div class="card mb-3 drawer-section">
@@ -1061,9 +975,9 @@
                 <div class="card-body">
                     <h6 class="card-title mb-3 text-uppercase text-body-secondary small">Update</h6>
                     <div class="mb-3">
-                        <label class="form-label drawer-field-label" for="d-assignee">Assigned to</label>
-                        <select class="form-select" id="d-assignee">
-                            <option value="">- Unassigned -</option>
+                        <label class="form-label drawer-field-label" for="d-reference">Reference</label>
+                        <select class="form-select" id="d-reference">
+                            <option value="">No reference</option>
                         </select>
                     </div>
                     <div class="mb-3">
@@ -1092,23 +1006,33 @@
         </div>
     </div>
 
-<div class="modal fade" id="interest-plots-modal" tabindex="-1" aria-labelledby="interest-plots-modal-title" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered modal-lg">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="interest-plots-modal-title">Interested Plots</h5>
-                <button type="button" class="btn-close" id="interest-plots-modal-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body p-0">
-                <div class="table-responsive">
-                    <table class="table table-hover mb-0">
-                        <thead class="table-light">
-                            <tr><th>Plot</th><th>Area</th><th>Price</th><th>Status</th></tr>
-                        </thead>
-                        <tbody id="interest-plots-modal-tbody"></tbody>
-                    </table>
+<div class="crm-modal-backdrop interest-plots-modal-backdrop" id="interest-plots-modal" aria-hidden="true">
+    <div class="crm-modal interest-plots-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="interest-plots-modal-title">
+        <div class="interest-plots-modal-head">
+            <div class="interest-plots-modal-head-main">
+                <div class="interest-plots-modal-icon" aria-hidden="true">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+                </div>
+                <div class="interest-plots-modal-head-text">
+                    <h3 id="interest-plots-modal-title">Interested Plots</h3>
+                    <p class="interest-plots-modal-subtitle" id="interest-plots-modal-subtitle"></p>
                 </div>
             </div>
+            <button type="button" class="interest-plots-modal-close" id="interest-plots-modal-close" aria-label="Close">&times;</button>
+        </div>
+        <div class="interest-plots-modal-body">
+            <div class="interest-plots-modal-summary" id="interest-plots-modal-summary"></div>
+            <div class="interest-plots-modal-table-wrap">
+                <table class="interest-plots-modal-table">
+                    <thead>
+                        <tr><th>Plot</th><th>Area</th><th>Price</th><th>Status</th></tr>
+                    </thead>
+                    <tbody id="interest-plots-modal-tbody"></tbody>
+                </table>
+            </div>
+        </div>
+        <div class="interest-plots-modal-foot">
+            <button type="button" class="interest-plots-modal-done" id="interest-plots-modal-done">Close</button>
         </div>
     </div>
 </div>
@@ -1140,7 +1064,7 @@
             <div id="contact-master-fields"></div>
             <div class="msg" id="contact-msg" style="display:none;"></div>
         </div>
-        <div class="modal-actions" style="margin-top:1rem;">
+        <div class="modal-actions">
             <button class="btn btn-secondary" id="contact-cancel" type="button">Cancel</button>
             <button class="btn btn-primary crm-add-action" id="contact-save" type="button">Save Contact</button>
         </div>
@@ -1272,17 +1196,17 @@
                 <textarea class="toolbar-search" id="deal-edit-notes" rows="4" style="height:auto;resize:vertical;" placeholder="Notes"></textarea>
             </div>
             <div id="deal-master-fields"></div>
-            <div class="deal-quotes-block" style="border-top:1px solid var(--color-border);padding-top:0.75rem;margin-top:0.35rem;">
-                <label class="drawer-field-label">Quotations on this deal</label>
-                <div id="deal-quotes-list" style="font-size:0.82rem;color:var(--color-text-soft);max-height:140px;overflow:auto;margin-bottom:0.55rem;"></div>
-                <div style="display:flex;flex-wrap:wrap;gap:0.5rem;">
+            <div class="deal-quotes-block">
+                <label class="drawer-field-label" for="deal-quotes-list">Quotations on this deal</label>
+                <div id="deal-quotes-list" role="region" aria-label="Deal quotations"></div>
+                <div class="deal-quotes-actions">
                     <button type="button" class="btn" id="deal-btn-quotation">Quotation</button>
                     <button type="button" class="btn" id="deal-btn-send-quote">Send last quote email</button>
                 </div>
             </div>
             <div class="msg" id="deal-edit-msg" style="display:none;"></div>
         </div>
-        <div class="modal-actions" style="margin-top:1rem;">
+        <div class="modal-actions">
             <button class="btn btn-secondary" id="deal-modal-cancel" type="button">Cancel</button>
             <button class="btn btn-primary crm-add-action" id="deal-modal-save" type="button">Save Deal</button>
         </div>
@@ -1383,7 +1307,7 @@
     </div><!-- .crm-page-content -->
 </div>
 <div id="toast-container" style="position:fixed;top:1rem;right:1rem;z-index:10900;display:flex;flex-direction:column;gap:0.5rem;pointer-events:none;"></div>
-{% include 'components/sneat_shell_end.html' %}
+{% include 'components/portal_shell_end.html' %}
 <script>
     window.__SUPABASE_URL__ = {{ (supabase_url or '')|tojson }};
     window.__SUPABASE_ANON_KEY__ = {{ (supabase_anon_key or '')|tojson }};
@@ -1395,6 +1319,7 @@
 })();
 </script>
 <script src="/static/js/sidebar.js?v=20260610-client-admin-2"></script>
+<script src="/static/js/portal_tab_loader.js?v=20260623-3"></script>
 <script src="/static/js/share-workspace-modal.js?v=20260622-3"></script>
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 <script>
@@ -1496,6 +1421,8 @@
     const contactDynamicFilters = {};
     let dealFilterMasterFields = [];
     let contactFilterMasterFields = [];
+    const dealMasterConfigCache = new Map();
+    const dealMasterConfigInflight = new Map();
 
     async function api(path, opts) {
         const headers = await window.ensureAuthenticated();
@@ -1563,138 +1490,42 @@
         return ((parts[0] || '')[0] || '') + ((parts[1] || '')[0] || (parts[0] || '')[1] || '');
     }
 
-    let sneatPasswordModal = null;
-
-    function setSneatText(id, value) {
-        const el = document.getElementById(id);
-        if (el) el.textContent = value;
-    }
-
-    window.configureSneatShell = function configureSneatShell(profile, isBroker, isAdmin, isClientAdmin) {
-        const displayName = String((profile && (profile.display_name || profile.name || profile.email)) || 'User').trim() || 'User';
-        const roleLabel = String((profile && profile.role) || 'user');
-        const letters = initials(displayName);
-        setSneatText('navbar-user-name', displayName);
-        setSneatText('navbar-user-role', roleLabel.charAt(0).toUpperCase() + roleLabel.slice(1));
-        setSneatText('navbar-user-avatar', letters);
-        setSneatText('navbar-user-avatar-2', letters);
-        const home = isAdmin ? '/dashboard' : '/customer-dashboard';
-        ['sneat-home-link', 'sneat-menu-dashboard', 'sneat-dropdown-dashboard'].forEach(function (id) {
-            const el = document.getElementById(id);
-            if (el) el.setAttribute('href', home);
-        });
-        const showInvites = !!isBroker;
-        ['sneat-nav-invites', 'sneat-dropdown-invites-wrap'].forEach(function (id) {
-            const el = document.getElementById(id);
-            if (el) el.style.display = showInvites ? '' : 'none';
-        });
-        ['sneat-nav-team', 'sneat-dropdown-team-wrap'].forEach(function (id) {
-            const el = document.getElementById(id);
-            if (el) el.style.display = isClientAdmin ? '' : 'none';
-        });
-    };
-
-    function primeSneatNavFromCache() {
+    function primePortalNavFromCache() {
+        if (typeof window.configurePortalShell === 'function') return;
         try {
             const raw = window.sessionStorage.getItem('sidebar_cache_v2_client_admin');
             if (!raw) return;
             const cached = JSON.parse(raw);
             if (!cached) return;
             if (cached.isBroker) {
-                ['sneat-nav-invites', 'sneat-dropdown-invites-wrap'].forEach(function (id) {
+                ['portal-nav-invites', 'portal-dropdown-invites-wrap'].forEach(function (id) {
                     const el = document.getElementById(id);
                     if (el) el.style.display = '';
                 });
             }
             if (cached.isClientAdmin) {
-                ['sneat-nav-team', 'sneat-dropdown-team-wrap'].forEach(function (id) {
+                document.documentElement.classList.add('portal-client-admin-cached');
+                ['portal-nav-team', 'portal-dropdown-team-wrap'].forEach(function (id) {
                     const el = document.getElementById(id);
                     if (el) el.style.display = '';
                 });
             }
         } catch (e) {}
     }
-    primeSneatNavFromCache();
+    primePortalNavFromCache();
 
     window.configureBrokerAccount = function configureBrokerAccount(profile, useBrokerHeader) {
         crmBrokerHeaderMode = !!useBrokerHeader;
-        configureSneatShell(profile, useBrokerHeader, false, !!(profile && profile.is_client_admin));
+        const crmRoot = document.querySelector('.crm-page');
+        if (crmRoot) crmRoot.classList.toggle('crm-page--broker-header-mode', !!useBrokerHeader);
+        document.documentElement.classList.toggle('crm-broker-header-active', !!useBrokerHeader);
+        if (typeof window.configurePortalShell === 'function') {
+            window.configurePortalShell(profile, useBrokerHeader, false, !!(profile && profile.is_client_admin));
+        }
+        if (typeof window.syncCrmSidebarLayout === 'function') window.syncCrmSidebarLayout();
     };
 
-    function bindSneatShellActions() {
-        function signOut() {
-            const sb = window._supabase;
-            const finish = function () { window.location.href = '/login'; };
-            if (sb && sb.auth && typeof sb.auth.signOut === 'function') {
-                Promise.resolve(sb.auth.signOut()).catch(function () {}).finally(finish);
-            } else {
-                finish();
-            }
-        }
-        const menuOut = $('menu-signout');
-        const dropOut = $('dropdown-signout');
-        if (menuOut) menuOut.addEventListener('click', signOut);
-        if (dropOut) dropOut.addEventListener('click', signOut);
-
-        const changePwModalEl = $('change-password-modal');
-        const changePwClose = $('change-password-close');
-        const cancelChangePw = $('cancel-change-password');
-        const confirmChangePw = $('confirm-change-password');
-        const newPwInput = $('new-password-input');
-        const confirmPwInput = $('confirm-password-input');
-        const changePwError = $('change-password-error');
-        const dropChangePw = $('dropdown-change-password');
-
-        function showChangePwError(msg) {
-            if (!changePwError) return;
-            changePwError.textContent = msg || '';
-            changePwError.style.display = msg ? 'block' : 'none';
-        }
-
-        function openChangePwModal() {
-            showChangePwError('');
-            if (newPwInput) newPwInput.value = '';
-            if (confirmPwInput) confirmPwInput.value = '';
-            if (!sneatPasswordModal && changePwModalEl && window.bootstrap && window.bootstrap.Modal) {
-                sneatPasswordModal = new window.bootstrap.Modal(changePwModalEl);
-            }
-            if (sneatPasswordModal) sneatPasswordModal.show();
-            else if (changePwModalEl) changePwModalEl.classList.add('show');
-            if (newPwInput) newPwInput.focus();
-        }
-
-        function closeChangePwModal() {
-            if (sneatPasswordModal) sneatPasswordModal.hide();
-            showChangePwError('');
-        }
-
-        if (dropChangePw) dropChangePw.addEventListener('click', function (e) {
-            e.preventDefault();
-            openChangePwModal();
-        });
-        if (changePwClose) changePwClose.addEventListener('click', closeChangePwModal);
-        if (cancelChangePw) cancelChangePw.addEventListener('click', closeChangePwModal);
-        if (confirmChangePw && newPwInput && confirmPwInput) {
-            confirmChangePw.addEventListener('click', function () {
-                const newPw = newPwInput.value;
-                const confirmPw = confirmPwInput.value;
-                showChangePwError('');
-                if (newPw.length < 6) { showChangePwError('Password must be at least 6 characters'); return; }
-                if (newPw !== confirmPw) { showChangePwError('Passwords do not match'); return; }
-                confirmChangePw.disabled = true;
-                window._supabase.auth.updateUser({ password: newPw }).then(function (res) {
-                    if (res.error) { showChangePwError(res.error.message || 'Failed to update password'); return; }
-                    toast('Password updated successfully.', 'success');
-                    closeChangePwModal();
-                }).catch(function (err) {
-                    showChangePwError((err && err.message) ? err.message : 'Failed to update password');
-                }).finally(function () {
-                    confirmChangePw.disabled = false;
-                });
-            });
-        }
-    }
-    bindSneatShellActions();
+    /* Sign out + change password handled by portal_shell.js */
 
     function getContactName(contactId) {
         const c = contacts.find(x => String(x.id) === String(contactId));
@@ -2068,51 +1899,77 @@
             return keys.every((k) => String(custom[k] || '').trim() === String(applied[k] || '').trim());
         });
     }
-    async function openDealsFilterModal() {
-        const syncOptions = (toEl, fromEl) => {
-            if (!toEl || !fromEl) return;
-            toEl.innerHTML = fromEl.innerHTML;
-            toEl.value = fromEl.value || '';
-        };
-        if ($('dfm-q') && $('deal-q')) $('dfm-q').value = $('deal-q').value || '';
-        syncOptions($('dfm-stage'), dealStageFilterEl);
-        syncOptions($('dfm-client'), dealClientFilterEl);
-        syncOptions($('dfm-project'), dealProjectFilterEl);
-        syncOptions($('dfm-contact'), dealContactFilterEl);
-        if ($('dfm-client-wrap')) $('dfm-client-wrap').style.display = dealClientFilterEl && dealClientFilterEl.style.display === 'none' ? 'none' : '';
+    function syncFilterSelectOptions(toEl, fromEl) {
+        if (!toEl || !fromEl) return;
+        toEl.innerHTML = fromEl.innerHTML;
+        toEl.value = fromEl.value || '';
+    }
+    function masterConfigCacheKey(clientId) {
+        if (window.__crmIsExternalBroker) return 'broker';
+        const id = String(clientId || '').trim();
+        return id ? ('client:' + id) : 'default';
+    }
+    function setDealFilterMasterFieldsFromConfig(cfg) {
+        dealFilterMasterFields = (cfg && Array.isArray(cfg.fields)) ? cfg.fields.filter((f) => {
+            const applies = Array.isArray(f && f.applies_to) ? f.applies_to.map((x) => String(x || '').toLowerCase()) : [];
+            return applies.includes('deals');
+        }) : [];
+    }
+    function setContactFilterMasterFieldsFromConfig(cfg) {
+        contactFilterMasterFields = (cfg && Array.isArray(cfg.fields)) ? cfg.fields.filter((f) => {
+            const applies = Array.isArray(f && f.applies_to) ? f.applies_to.map((x) => String(x || '').toLowerCase()) : [];
+            return applies.includes('contacts');
+        }) : [];
+    }
+    function prefetchCrmMasterConfigForEntity(entity) {
+        const clientId = entity === 'contacts'
+            ? String((contactClientFilterEl && contactClientFilterEl.value) || '').trim()
+            : String((dealClientFilterEl && dealClientFilterEl.value) || '').trim();
+        return fetchDealMasterConfigForModal(clientId).then((cfg) => {
+            if (entity === 'contacts') setContactFilterMasterFieldsFromConfig(cfg);
+            else setDealFilterMasterFieldsFromConfig(cfg);
+            return cfg;
+        }).catch(() => null);
+    }
+    async function refreshDealsFilterMasterFields() {
         try {
             const cfg = await fetchDealMasterConfigForModal(String((dealClientFilterEl && dealClientFilterEl.value) || '').trim());
-            dealFilterMasterFields = (cfg && Array.isArray(cfg.fields)) ? cfg.fields.filter((f) => {
-                const applies = Array.isArray(f && f.applies_to) ? f.applies_to.map((x) => String(x || '').toLowerCase()) : [];
-                return applies.includes('deals');
-            }) : [];
+            setDealFilterMasterFieldsFromConfig(cfg);
         } catch (e) {
             dealFilterMasterFields = [];
         }
         renderDynamicFilterControls('deals', dealsDynamicFilterRootEl, deals, dealDynamicFilters);
-        if (dealsFilterBackdropEl) dealsFilterBackdropEl.classList.add('visible');
     }
-    function closeDealsFilterModal() {
-        if (dealsFilterBackdropEl) dealsFilterBackdropEl.classList.remove('visible');
-    }
-    async function openContactsFilterModal() {
-        if ($('cfm-q') && $('contact-q')) $('cfm-q').value = $('contact-q').value || '';
-        if ($('cfm-client') && contactClientFilterEl) {
-            $('cfm-client').innerHTML = contactClientFilterEl.innerHTML;
-            $('cfm-client').value = contactClientFilterEl.value || '';
-        }
-        if ($('cfm-client-wrap')) $('cfm-client-wrap').style.display = contactClientFilterEl && contactClientFilterEl.style.display === 'none' ? 'none' : '';
+    async function refreshContactsFilterMasterFields() {
         try {
             const cfg = await fetchDealMasterConfigForModal(String((contactClientFilterEl && contactClientFilterEl.value) || '').trim());
-            contactFilterMasterFields = (cfg && Array.isArray(cfg.fields)) ? cfg.fields.filter((f) => {
-                const applies = Array.isArray(f && f.applies_to) ? f.applies_to.map((x) => String(x || '').toLowerCase()) : [];
-                return applies.includes('contacts');
-            }) : [];
+            setContactFilterMasterFieldsFromConfig(cfg);
         } catch (e) {
             contactFilterMasterFields = [];
         }
         renderDynamicFilterControls('contacts', contactsDynamicFilterRootEl, contacts, contactDynamicFilters);
+    }
+    function openDealsFilterModal() {
+        if ($('dfm-q') && $('deal-q')) $('dfm-q').value = $('deal-q').value || '';
+        syncFilterSelectOptions($('dfm-stage'), dealStageFilterEl);
+        syncFilterSelectOptions($('dfm-client'), dealClientFilterEl);
+        syncFilterSelectOptions($('dfm-project'), dealProjectFilterEl);
+        syncFilterSelectOptions($('dfm-contact'), dealContactFilterEl);
+        if ($('dfm-client-wrap')) $('dfm-client-wrap').style.display = dealClientFilterEl && dealClientFilterEl.style.display === 'none' ? 'none' : '';
+        renderDynamicFilterControls('deals', dealsDynamicFilterRootEl, deals, dealDynamicFilters);
+        if (dealsFilterBackdropEl) dealsFilterBackdropEl.classList.add('visible');
+        void refreshDealsFilterMasterFields();
+    }
+    function closeDealsFilterModal() {
+        if (dealsFilterBackdropEl) dealsFilterBackdropEl.classList.remove('visible');
+    }
+    function openContactsFilterModal() {
+        if ($('cfm-q') && $('contact-q')) $('cfm-q').value = $('contact-q').value || '';
+        syncFilterSelectOptions($('cfm-client'), contactClientFilterEl);
+        if ($('cfm-client-wrap')) $('cfm-client-wrap').style.display = contactClientFilterEl && contactClientFilterEl.style.display === 'none' ? 'none' : '';
+        renderDynamicFilterControls('contacts', contactsDynamicFilterRootEl, contacts, contactDynamicFilters);
         if (contactsFilterBackdropEl) contactsFilterBackdropEl.classList.add('visible');
+        void refreshContactsFilterMasterFields();
     }
     function closeContactsFilterModal() {
         if (contactsFilterBackdropEl) contactsFilterBackdropEl.classList.remove('visible');
@@ -2134,15 +1991,32 @@
         dealEditMsgEl.className = 'msg' + (isError ? ' error' : '');
         dealEditMsgEl.style.display = text ? '' : 'none';
     }
-    async function fetchDealMasterConfigForModal(clientId) {
-        const isBroker = !!window.__crmIsExternalBroker;
-        const qs = new URLSearchParams();
-        if (isBroker) qs.set('scope', 'broker');
-        else if (clientId) qs.set('client_id', String(clientId));
-        const r = await api('/api/crm/master-config' + (qs.toString() ? ('?' + qs.toString()) : ''));
-        const data = await r.json().catch(() => ({}));
-        if (!r.ok) throw new Error(data.error || 'Failed to load CRM masters');
-        return data;
+    async function fetchDealMasterConfigForModal(clientId, opts) {
+        const force = !!(opts && opts.force);
+        const key = masterConfigCacheKey(clientId);
+        if (!force && dealMasterConfigCache.has(key)) {
+            return dealMasterConfigCache.get(key);
+        }
+        if (!force && dealMasterConfigInflight.has(key)) {
+            return dealMasterConfigInflight.get(key);
+        }
+        const promise = (async () => {
+            const isBroker = !!window.__crmIsExternalBroker;
+            const qs = new URLSearchParams();
+            if (isBroker) qs.set('scope', 'broker');
+            else if (clientId) qs.set('client_id', String(clientId));
+            const r = await api('/api/crm/master-config' + (qs.toString() ? ('?' + qs.toString()) : ''));
+            const data = await r.json().catch(() => ({}));
+            if (!r.ok) throw new Error(data.error || 'Failed to load CRM masters');
+            dealMasterConfigCache.set(key, data);
+            return data;
+        })();
+        dealMasterConfigInflight.set(key, promise);
+        try {
+            return await promise;
+        } finally {
+            dealMasterConfigInflight.delete(key);
+        }
     }
     function extractDealStageOptionsFromConfig(config) {
         const fields = (config && Array.isArray(config.fields)) ? config.fields : [];
@@ -2273,7 +2147,22 @@
         return { ok: true, custom_fields: out };
     }
 
-    async function openDealModal(dealId) {
+    async function hydrateDealModalMasters(deal) {
+        if (!deal || String(editingDealId) !== String(deal.id)) return;
+        let stageApplied = false;
+        let cfg = null;
+        try {
+            cfg = await fetchDealMasterConfigForModal(deal.client_id || '');
+            stageApplied = populateDealStageSelectFromMasters(extractDealStageOptionsFromConfig(cfg), deal.stage);
+        } catch (e) {
+            console.warn('CRM master config for deal failed:', e);
+        }
+        if (String(editingDealId) !== String(deal.id)) return;
+        renderDealDynamicMasterFields(cfg, deal);
+        if (!stageApplied) populateDealStageSelectLocal(deal.stage);
+        if (dealEditStageEl) dealEditStageEl.value = String(deal.stage || 'new');
+    }
+    function openDealModal(dealId) {
         const deal = deals.find(d => String(d.id) === String(dealId));
         if (!deal || !dealModalBackdrop) return;
         editingDealId = String(deal.id);
@@ -2293,18 +2182,10 @@
                 };
             })
         };
-        let stageApplied = false;
-        let cfg = null;
-        try {
-            cfg = await fetchDealMasterConfigForModal(deal.client_id || '');
-            stageApplied = populateDealStageSelectFromMasters(extractDealStageOptionsFromConfig(cfg), deal.stage);
-        } catch (e) {
-            console.warn('CRM master config for deal failed:', e);
-        }
-        renderDealDynamicMasterFields(cfg, deal);
+        if (dealMasterFieldsEl) dealMasterFieldsEl.innerHTML = '';
         renderDealModalContactOptions(deal.contact_id);
         if (dealEditTitleEl) dealEditTitleEl.value = deal.title || '';
-        if (!stageApplied) populateDealStageSelectLocal(deal.stage);
+        populateDealStageSelectLocal(deal.stage);
         if (dealEditStageEl) dealEditStageEl.value = String(deal.stage || 'new');
         if (dealEditworkspaceEl) dealEditworkspaceEl.value = deal.project_name || '';
         if (dealEditAmountEl) dealEditAmountEl.value = deal.amount || '';
@@ -2312,6 +2193,7 @@
         showDealEditMsg('');
         dealModalBackdrop.classList.add('visible');
         loadDealQuotationsList(editingDealId);
+        void hydrateDealModalMasters(deal);
     }
 
     function closeDealModal() {
@@ -2371,8 +2253,20 @@
         }
     }
 
-    async function openContactModal(contactId) {
-        editingContactId = contactId || null;
+    async function hydrateContactModalMasters(contact, expectedContactId) {
+        const targetClient = String((contact && contact.client_id) || (contactClientFilterEl && contactClientFilterEl.value) || '').trim();
+        let cfg = null;
+        try {
+            cfg = await fetchDealMasterConfigForModal(targetClient);
+        } catch (e) {
+            console.warn('CRM master config for contact failed:', e);
+        }
+        if (String(editingContactId || '') !== String(expectedContactId || '')) return;
+        renderContactDynamicMasterFields(cfg, contact || {});
+    }
+    function openContactModal(contactId) {
+        const expectedContactId = contactId || null;
+        editingContactId = expectedContactId;
         const modal = $('contact-modal-backdrop');
         const msg = $('contact-msg');
         if (msg) msg.style.display = 'none';
@@ -2389,15 +2283,9 @@
             $('contact-phone').value = '';
             $('contact-notes').value = '';
         }
-        let cfg = null;
-        try {
-            const targetClient = String((c && c.client_id) || (contactClientFilterEl && contactClientFilterEl.value) || '').trim();
-            cfg = await fetchDealMasterConfigForModal(targetClient);
-        } catch (e) {
-            console.warn('CRM master config for contact failed:', e);
-        }
-        renderContactDynamicMasterFields(cfg, c);
+        if (contactMasterFieldsEl) contactMasterFieldsEl.innerHTML = '';
         if (modal) modal.classList.add('visible');
+        void hydrateContactModalMasters(c, expectedContactId);
     }
 
     function closeContactModal() {
@@ -2638,6 +2526,7 @@
     if ($('deal-q')) $('deal-q').addEventListener('input', () => { loadDeals(true); });
     if (dealStageFilterEl) dealStageFilterEl.addEventListener('change', () => { loadDeals(true); });
     if (dealClientFilterEl) dealClientFilterEl.addEventListener('change', function() {
+        void prefetchCrmMasterConfigForEntity('deals');
         loadDeals(true);
     });
     if (dealProjectFilterEl) dealProjectFilterEl.addEventListener('change', () => { loadDeals(true); });
@@ -2671,6 +2560,7 @@
         await loadContacts(undefined, true);
     });
     if (contactClientFilterEl) contactClientFilterEl.addEventListener('change', function() {
+        void prefetchCrmMasterConfigForEntity('contacts');
         loadContacts(undefined, true);
     });
     if ($('btn-add-contact')) $('btn-add-contact').addEventListener('click', () => openContactModal(null));
@@ -2788,11 +2678,12 @@
     }
     function plotStatusDisplayLabel(status) {
         const sk = getStatusKey(status);
-        if (sk === 'sold') return 'SOLD';
-        if (sk === 'hold' || sk === 'onhold' || sk === 'reserved') return 'HOLD';
-        if (sk === 'available') return 'AVAILABLE';
+        if (sk === 'sold') return 'Sold';
+        if (sk === 'hold' || sk === 'onhold' || sk === 'reserved') return 'Hold';
+        if (sk === 'available') return 'Available';
         const raw = String(status || '').trim();
-        return raw ? raw.toUpperCase() : 'AVAILABLE';
+        if (!raw) return 'Available';
+        return raw.charAt(0).toUpperCase() + raw.slice(1).toLowerCase();
     }
     function toCsvValue(v) {
         let s = String(v==null?'':v);
@@ -2835,6 +2726,62 @@
         if (!uid) return '-';
         const u = crmTeamUsers.find(x => String(x.user_id) === String(uid));
         return u ? (u.display_name || u.email || 'Reference') : String(uid).slice(0, 8) + '...';
+    }
+    const interestReferenceUsersCache = Object.create(null);
+    const interestReferenceUsersPromises = Object.create(null);
+    function buildReferenceUserLabel(referenceUser) {
+        if (!referenceUser || typeof referenceUser !== 'object') return 'Reference';
+        const name = String(referenceUser.display_name || referenceUser.email || 'Reference').trim();
+        const roleLabel = String(referenceUser.member_role_label || '').trim();
+        const groupNames = Array.isArray(referenceUser.client_group_names)
+            ? referenceUser.client_group_names.map(function (x) { return String(x || '').trim(); }).filter(Boolean)
+            : [];
+        const meta = [];
+        if (roleLabel) meta.push(roleLabel);
+        if (groupNames.length) meta.push(groupNames.join(', '));
+        return meta.length ? (name + ' (' + meta.join(' · ') + ')') : name;
+    }
+    function filterReferenceUsersForInterest(users, item) {
+        const rows = Array.isArray(users) ? users.slice() : [];
+        const clientId = String(item && item.client_id || '').trim();
+        if (!clientId) return rows;
+        return rows.filter(function (row) {
+            const ids = Array.isArray(row && row.client_ids) ? row.client_ids.map(String) : [];
+            return ids.includes(clientId);
+        });
+    }
+    async function loadInterestReferenceUsers(panoramaId, item, force) {
+        const pid = String(panoramaId || '').trim();
+        if (!pid) return [];
+        const clientId = String(item && item.client_id || '').trim();
+        const cacheKey = pid + ':' + clientId;
+        if (!force && interestReferenceUsersCache[cacheKey]) {
+            return interestReferenceUsersCache[cacheKey];
+        }
+        if (!force && interestReferenceUsersPromises[cacheKey]) {
+            return interestReferenceUsersPromises[cacheKey];
+        }
+        const job = api('/api/public/panoramas/' + encodeURIComponent(pid) + '/reference-users').then(function (r) {
+            return r.json().catch(function () { return {}; }).then(function (data) {
+                if (!r.ok) throw new Error((data && data.error) || ('Failed (' + r.status + ')'));
+                const users = filterReferenceUsersForInterest(data.reference_users, item);
+                interestReferenceUsersCache[cacheKey] = users;
+                return users;
+            });
+        }).catch(function (e) {
+            console.warn('CRM interest reference users load failed:', e);
+            interestReferenceUsersCache[cacheKey] = [];
+            return [];
+        }).finally(function () {
+            delete interestReferenceUsersPromises[cacheKey];
+        });
+        interestReferenceUsersPromises[cacheKey] = job;
+        return job;
+    }
+    function normalizeDrawerFieldLabel(label) {
+        const text = String(label || '').trim();
+        if (/^assignee$/i.test(text) || /^assigned to$/i.test(text)) return 'Reference';
+        return text;
     }
     function interestReferenceLabel(item) {
         if (!item) return '-';
@@ -3010,9 +2957,11 @@
     let interestsLoaded = false;
     let interestsTableLoaded = false;
     let interestsBulkLoaded = false;
+    let panoramaProjectsLoaded = false;
 
     let interestsTableLoadPromise = null;
     let interestsBulkLoadPromise = null;
+    let panoramaProjectsLoadPromise = null;
     const tabDataLoaded = Object.create(null);
     let filteredRaw = [];
     let filtered = [];
@@ -3041,7 +2990,6 @@
     // â”€â”€ Tab-based section switching â”€â”€
     const sections = document.querySelectorAll('.crm-section');
     const tabButtons = document.querySelectorAll('.crm-tab[data-tab]');
-    const workspaceTitleEl = $('crm-workspace-title-text');
     const TAB_LOADER_LABELS = {
         interests: 'Loading leads...',
         deals: 'Loading deals...',
@@ -3055,22 +3003,20 @@
     };
 
     function initTabLoaders() {
+        if (!window.PortalTabLoader || typeof window.PortalTabLoader.sectionMarkup !== 'function') return;
         sections.forEach(function (section) {
-            if (!section || section.querySelector('.crm-tab-loader')) return;
+            if (!section || section.querySelector('.portal-section-loader')) return;
             const tabName = String(section.id || '').replace(/^sec-/, '');
             const label = TAB_LOADER_LABELS[tabName] || 'Loading...';
             section.classList.add('crm-section--loadable');
             const loader = document.createElement('div');
-            loader.className = 'crm-tab-loader';
+            loader.className = 'crm-tab-loader portal-section-loader';
             loader.setAttribute('role', 'status');
             loader.setAttribute('aria-live', 'polite');
             loader.hidden = true;
-            loader.innerHTML =
-                '<div class="crm-tab-loader__panel">' +
-                    '<span class="crm-spinner" aria-hidden="true"></span>' +
-                    '<span class="crm-tab-loader__text">' + esc(label) + '</span>' +
-                '</div>';
+            loader.innerHTML = window.PortalTabLoader.sectionMarkup(label);
             section.insertBefore(loader, section.firstChild);
+            window.PortalTabLoader.bindSectionLoader(loader);
         });
     }
 
@@ -3081,31 +3027,41 @@
 
     function setTabSectionLoading(sectionEl, isLoading, tabName) {
         if (!sectionEl) return;
-        const loader = sectionEl.querySelector('.crm-tab-loader');
+        const loader = sectionEl.querySelector('.portal-section-loader');
         const label = TAB_LOADER_LABELS[String(tabName || '').trim()] || 'Loading...';
-        if (loader) {
-            const textEl = loader.querySelector('.crm-tab-loader__text');
-            if (textEl) textEl.textContent = label;
+        const controller = loader
+            ? (loader._portalSectionLoader || (window.PortalTabLoader && window.PortalTabLoader.bindSectionLoader(loader)))
+            : null;
+        if (controller) {
+            controller.setLoading(!!isLoading, label);
+        } else if (loader) {
             loader.hidden = !isLoading;
+            sectionEl.classList.toggle('is-tab-loading', !!isLoading);
+        } else {
+            sectionEl.classList.toggle('is-tab-loading', !!isLoading);
         }
-        sectionEl.classList.toggle('is-tab-loading', !!isLoading);
         sectionEl.setAttribute('aria-busy', isLoading ? 'true' : 'false');
     }
 
     initTabLoaders();
 
-    function syncWorkspaceTitle(name) {
-        if (!workspaceTitleEl) return;
-        const activeTab = Array.from(tabButtons).find(function (t) {
-            return t.getAttribute('data-tab') === name;
+    function initInlineSectionLoaders() {
+        if (!window.PortalTabLoader || typeof window.PortalTabLoader.sectionMarkup !== 'function') return;
+        [
+            ['modal-plots-loading', 'Loading plots...'],
+            ['modal-markers-loading', 'Loading markers...']
+        ].forEach(function (pair) {
+            const el = $(pair[0]);
+            if (!el || el.querySelector('.portal-tab-loader')) return;
+            el.innerHTML = window.PortalTabLoader.sectionMarkup(pair[1]);
+            window.PortalTabLoader.bindSectionLoader(el);
         });
-        workspaceTitleEl.textContent = activeTab ? String(activeTab.textContent || '').trim() : 'CRM';
     }
+    initInlineSectionLoaders();
 
     function switchSection(name) {
         sections.forEach(s => s.classList.toggle('active', s.id === 'sec-'+name));
         tabButtons.forEach(t => t.classList.toggle('active', t.getAttribute('data-tab') === name));
-        syncWorkspaceTitle(name);
     }
 
     async function ensureTabDataLoaded(sec, force) {
@@ -3122,9 +3078,11 @@
                 break;
             case 'deals':
                 if (window.crmDealsLoad) await window.crmDealsLoad(!!force);
+                void prefetchCrmMasterConfigForEntity('deals');
                 break;
             case 'contacts':
                 if (window.crmContactsLoad) await window.crmContactsLoad(!!force);
+                void prefetchCrmMasterConfigForEntity('contacts');
                 break;
             case 'allotted-clients':
                 await loadAllottedClients(!!force);
@@ -3169,7 +3127,7 @@
             });
         });
     });
-    syncWorkspaceTitle('interests');
+
 
     // â”€â”€ Load user info and set role â”€â”€
     async function loadUserInfo() {
@@ -3181,15 +3139,16 @@
                 userRole = d.role || 'user';
                 const isAdminRole = userRole === 'admin' || userRole === 'superadmin';
                 const isExternalBroker = !!d.is_broker || userRole === 'broker';
-                try { window.localStorage.setItem('sneat_is_broker', isExternalBroker ? '1' : '0'); } catch (e) {}
+                try { window.localStorage.setItem('portal_is_broker', isExternalBroker ? '1' : '0'); } catch (e) {}
                 const useBrokerHeader = isExternalBroker;
                 isClientAdminUser = !!d.is_client_admin;
                 isExternalBrokerUser = !!isExternalBroker;
                 window.__crmIsExternalBroker = !!isExternalBroker;
                 window.__crmUserRole = userRole;
-                configureSneatShell(d, isExternalBroker, isAdminRole, isClientAdminUser);
+                if (typeof window.configurePortalShell === 'function') {
+                    window.configurePortalShell(d, isExternalBroker, isAdminRole, isClientAdminUser);
+                }
                 configureBrokerAccount(d, useBrokerHeader);
-                if ($('tab-projects')) $('tab-projects').style.display = '';
                 // Show admin-only CRM tabs
                 if (isAdminRole) {
                     $('tab-panoramas').style.display = '';
@@ -3433,14 +3392,6 @@
         builder_name: ['Sun Builders', 'Skyline Developers', 'Greenfield Realty']
     };
     const masterFieldOrder = ['lead_source','lead_category','lead_status','campaign_type','campaign_status','deal_stage','plot_status','builder_name','title','state','country'];
-    const masterEntityOptions = [
-        { id: 'interests', label: 'Interests' },
-        { id: 'deals', label: 'Deals' },
-        { id: 'contacts', label: 'Contacts' },
-        { id: 'plots', label: 'Plots' },
-        { id: 'projects', label: 'Projects' }
-    ];
-
     function masterFields() {
         return (crmMasterConfig && Array.isArray(crmMasterConfig.fields)) ? crmMasterConfig.fields : [];
     }
@@ -3461,15 +3412,6 @@
         const field = masterField(key);
         if (!field || field.is_enabled === false) return false;
         return masterAppliesList(field).includes(String(entity || '').toLowerCase());
-    }
-    function renderMasterEntityChecks(field) {
-        const applies = masterAppliesList(field);
-        const checks = masterEntityOptions.map(ent =>
-            '<label class="form-check form-check-inline master-entity-check">' +
-            '<input type="checkbox" class="form-check-input master-entity-cb" value="'+esc(ent.id)+'" '+(applies.includes(ent.id) ? 'checked' : '')+'>' +
-            '<span class="form-check-label">'+esc(ent.label)+'</span></label>'
-        ).join('');
-        return '<div class="master-entity-checks">'+checks+'</div>';
     }
     function masterOptions(key) {
         const field = masterField(key);
@@ -3512,8 +3454,6 @@
     async function loadCrmMasters(force) {
         const grid = $('master-grid');
         const empty = $('master-empty');
-        const meta = $('master-meta');
-        const desc = $('master-section-desc');
         if (!grid || !empty) return;
         grid.innerHTML = '';
         empty.style.display = 'none';
@@ -3521,14 +3461,6 @@
             const loadScope = isExternalBrokerUser ? 'broker' : 'client';
             const config = await loadCrmMasterConfig('', true, !!force, loadScope);
             const fields = Array.isArray(config.fields) ? config.fields.slice() : [];
-            if (meta) {
-                meta.textContent = config.scope === 'broker' ? 'Your broker masters' : ('Client ' + String(config.client_id || '').slice(0, 8));
-            }
-            if (desc) {
-                desc.textContent = config.scope === 'broker'
-                    ? 'Your own dropdown lists for leads (independent from client masters)'
-                    : 'Client-controlled lead and campaign dropdowns';
-            }
             if (!fields.length) { empty.style.display = ''; return; }
             grid.innerHTML = renderMasterTable(fields);
             bindMasterActions(grid);
@@ -3575,7 +3507,7 @@
             const switchId = 'master-enabled-' + key.replace(/[^a-z0-9_-]/gi, '-');
             return '<div class="crm-master-item">' +
                 '<div class="master-row crm-master-item-main" data-field-key="'+esc(key)+'">' +
-                '<div class="crm-master-title"><strong>'+esc(label)+'</strong><span>'+esc(key)+'</span></div>' +
+                '<div class="crm-master-title"><strong>'+esc(label)+'</strong></div>' +
                 '<div class="crm-master-controls">' +
                 '<div class="form-check form-switch crm-master-switch">' +
                     '<input type="checkbox" class="form-check-input master-enabled" role="switch" id="'+esc(switchId)+'" '+(field.is_enabled!==false?'checked':'')+'>' +
@@ -3585,7 +3517,6 @@
                     '<option value="required" '+(mode==='required'?'selected':'')+'>Required</option>' +
                     '<option value="optional" '+(mode==='optional'?'selected':'')+'>Optional</option>' +
                 '</select>' +
-                '<div class="master-entities-cell">'+renderMasterEntityChecks(field)+'</div>' +
                 '</div></div>' + renderMasterValuesEditor(field) + '</div>';
         }).join('');
         return '<div class="crm-master-list">'+rows+'</div>';
@@ -3595,19 +3526,12 @@
             const fieldKey = row.getAttribute('data-field-key');
             const saveAttr = async () => {
                 const mode = row.querySelector('.master-mode-select').value;
-                const appliesTo = [];
-                row.querySelectorAll('.master-entity-cb').forEach(cb => {
-                    if (cb.checked) appliesTo.push(cb.value);
-                });
-                if (!appliesTo.length) {
-                    showToast('Select at least one: Interests, Deals, Contacts, or Plots', 'error');
-                    return;
-                }
+                const field = masterField(fieldKey);
                 const body = Object.assign({}, masterManageBody(), {
                     is_required: mode === 'required',
                     is_optional: mode !== 'required',
                     is_enabled: !!row.querySelector('.master-enabled').checked,
-                    applies_to: appliesTo
+                    applies_to: masterAppliesList(field)
                 });
                 const r = await api('/api/crm/master-attributes/' + encodeURIComponent(fieldKey), { method:'PATCH', body: JSON.stringify(body) });
                 const data = await r.json().catch(() => ({}));
@@ -3615,7 +3539,7 @@
                 crmMasterConfigLoaded = false;
                 showToast('Master saved');
             };
-            row.querySelectorAll('.master-mode-select,.master-enabled,.master-entity-cb').forEach(input => {
+            row.querySelectorAll('.master-mode-select,.master-enabled').forEach(input => {
                 input.addEventListener('change', () => saveAttr().catch(e => showToast(e.message || 'Failed to save master', 'error')));
             });
         });
@@ -3683,9 +3607,6 @@
         if (masterCreateLabel) masterCreateLabel.value = '';
         if (masterCreateKey) masterCreateKey.value = '';
         if (masterCreateRequired) masterCreateRequired.checked = false;
-        document.querySelectorAll('.master-create-entity').forEach(cb => {
-            cb.checked = cb.value === 'interests';
-        });
         if (masterCreateMsg) masterCreateMsg.style.display = 'none';
         if (masterCreateModal) masterCreateModal.classList.add('visible');
         setTimeout(() => { if (masterCreateLabel) masterCreateLabel.focus(); }, 30);
@@ -3694,13 +3615,9 @@
     async function saveNewMaster() {
         const label = String((masterCreateLabel && masterCreateLabel.value) || '').trim();
         const fieldKey = normalizeMasterKey((masterCreateKey && masterCreateKey.value) || label);
-        const applies = [];
-        document.querySelectorAll('.master-create-entity').forEach(cb => {
-            if (cb.checked) applies.push(cb.value);
-        });
-        if (!label || !fieldKey || !applies.length) {
+        if (!label || !fieldKey) {
             if (masterCreateMsg) {
-                masterCreateMsg.textContent = !applies.length ? 'Select at least one section.' : 'Label and key are required.';
+                masterCreateMsg.textContent = 'Label and key are required.';
                 masterCreateMsg.style.display = '';
             }
             return;
@@ -3708,7 +3625,7 @@
         const body = Object.assign({}, masterManageBody(), {
             label: label,
             field_key: fieldKey,
-            applies_to: applies,
+            applies_to: ['interests'],
             is_required: !!(masterCreateRequired && masterCreateRequired.checked)
         });
         if (masterCreateSave) masterCreateSave.disabled = true;
@@ -4011,8 +3928,7 @@
 
     // -- Drawer --
     const drawer = $('drawer');
-    let interestDrawerOffcanvas = null;
-    let interestPlotsBsModal = null;
+
     const dTitle = $('d-title');
     const dSubtitle = $('d-subtitle');
     const dContact = $('d-contact');
@@ -4034,41 +3950,99 @@
     const interestPlotsModalTitle = $('interest-plots-modal-title');
     const interestPlotsModalTbody = $('interest-plots-modal-tbody');
     const interestPlotsModalClose = $('interest-plots-modal-close');
+    const interestPlotsModalDone = $('interest-plots-modal-done');
+    const interestPlotsModalSubtitle = $('interest-plots-modal-subtitle');
+    const interestPlotsModalSummary = $('interest-plots-modal-summary');
+
+    const interestDrawerBackdrop = $('interest-drawer-backdrop');
+
+    function showInterestDrawer() {
+        if (drawer) drawer.classList.add('show');
+        if (interestDrawerBackdrop) {
+            interestDrawerBackdrop.classList.add('visible');
+            interestDrawerBackdrop.setAttribute('aria-hidden', 'false');
+        }
+    }
+
+    function hideInterestDrawer() {
+        if (drawer) drawer.classList.remove('show');
+        if (interestDrawerBackdrop) {
+            interestDrawerBackdrop.classList.remove('visible');
+            interestDrawerBackdrop.setAttribute('aria-hidden', 'true');
+        }
+    }
 
     function getInterestDrawerOffcanvas() {
-        if (!drawer || !window.bootstrap || !window.bootstrap.Offcanvas) return null;
-        if (!interestDrawerOffcanvas) {
-            interestDrawerOffcanvas = window.bootstrap.Offcanvas.getOrCreateInstance(drawer);
-            drawer.addEventListener('hidden.bs.offcanvas', function () { selected = null; });
-        }
-        return interestDrawerOffcanvas;
+        return { show: showInterestDrawer, hide: hideInterestDrawer };
     }
-    function getInterestPlotsBsModal() {
-        if (!interestPlotsModal || !window.bootstrap || !window.bootstrap.Modal) return null;
-        if (!interestPlotsBsModal) {
-            interestPlotsBsModal = window.bootstrap.Modal.getOrCreateInstance(interestPlotsModal);
-        }
-        return interestPlotsBsModal;
-    }
+
     function closeInterestPlotsModal() {
-        const inst = getInterestPlotsBsModal();
-        if (inst) inst.hide();
+        if (!interestPlotsModal) return;
+        interestPlotsModal.classList.remove('visible');
+        interestPlotsModal.setAttribute('aria-hidden', 'true');
+        document.body.classList.remove('interest-plots-modal-open');
     }
+
+    function plotStatusPillClass(status) {
+        const sk = getStatusKey(status);
+        if (sk === 'sold') return 'sold';
+        if (sk === 'hold' || sk === 'onhold' || sk === 'reserved') return 'hold';
+        return 'available';
+    }
+
     function openInterestPlotsModal(groupId) {
         if (!interestPlotsModal || !interestPlotsModalTbody) return;
         const item = interestGroupMap.get(String(groupId || ''));
         if (!item) return;
         const plots = Array.isArray(item.plots) ? item.plots : [];
+        const customerName = String(item.customer_name || 'Lead').trim() || 'Lead';
+        const plotCount = plots.length;
         if (interestPlotsModalTitle) {
-            const label = plots.length === 1 ? '1 Plot' : (plots.length + ' Plots');
-            interestPlotsModalTitle.textContent = 'Interested ' + label;
+            interestPlotsModalTitle.textContent = plotCount === 1 ? '1 Interested Plot' : (plotCount + ' Interested Plots');
         }
-        interestPlotsModalTbody.innerHTML = plots.length ? plots.map(p => {
-            const sk = getStatusKey(p && p.status);
-            const sc = plotStatusSwatchClass(p && p.status);
-            return '<tr><td class="fw-medium">'+esc((p && p.name) || 'Plot')+'</td><td>'+esc((p && p.area) || '-')+'</td><td>'+esc((p && p.price) || '-')+'</td><td><span class="badge bg-label-'+ (sk === 'sold' ? 'danger' : (sk === 'hold' || sk === 'onhold' || sk === 'reserved') ? 'warning' : 'success') +'">'+esc(plotStatusDisplayLabel(p && p.status))+'</span></td></tr>';
-        }).join('') : '<tr><td colspan="4" class="text-center text-body-secondary py-4">No plots attached</td></tr>';
-        getInterestPlotsBsModal()?.show();
+        if (interestPlotsModalSubtitle) {
+            const projectLabel = (item.panorama && item.panorama.name) || (item.project && item.project.name) || '';
+            interestPlotsModalSubtitle.textContent = projectLabel
+                ? (customerName + ' · ' + projectLabel)
+                : customerName;
+        }
+        if (interestPlotsModalSummary) {
+            interestPlotsModalSummary.innerHTML = plotCount
+                ? '<span class="interest-plots-modal-count">' + plotCount + '</span><span class="interest-plots-modal-count-label">plot' + (plotCount === 1 ? '' : 's') + ' linked to this interest</span>'
+                : '<span class="interest-plots-modal-count-label">No plots linked yet</span>';
+        }
+        interestPlotsModalTbody.innerHTML = plots.length ? plots.map(function (p) {
+            const pillClass = plotStatusPillClass(p && p.status);
+            return '<tr>' +
+                '<td><span class="interest-plots-modal-plot-name">' + esc((p && p.name) || 'Plot') + '</span></td>' +
+                '<td>' + esc((p && p.area) || '—') + '</td>' +
+                '<td class="interest-plots-modal-price">' + esc((p && p.price) || '—') + '</td>' +
+                '<td><span class="interest-plots-status-pill interest-plots-status-pill--' + esc(pillClass) + '">' + esc(plotStatusDisplayLabel(p && p.status)) + '</span></td>' +
+            '</tr>';
+        }).join('') : '<tr><td colspan="4" class="interest-plots-modal-empty">No plots attached to this interest.</td></tr>';
+        interestPlotsModal.classList.add('visible');
+        interestPlotsModal.setAttribute('aria-hidden', 'false');
+        document.body.classList.add('interest-plots-modal-open');
+        window.setTimeout(function () {
+            if (interestPlotsModalClose) interestPlotsModalClose.focus();
+        }, 80);
+    }
+
+    function onInterestPlotsModalKeydown(e) {
+        if (!interestPlotsModal || !interestPlotsModal.classList.contains('visible')) return;
+        if (e.key === 'Escape') closeInterestPlotsModal();
+    }
+
+    if (interestPlotsModalClose) interestPlotsModalClose.addEventListener('click', closeInterestPlotsModal);
+    if (interestPlotsModalDone) interestPlotsModalDone.addEventListener('click', closeInterestPlotsModal);
+    if (interestPlotsModal) {
+        interestPlotsModal.addEventListener('click', function (e) {
+            if (e.target === interestPlotsModal) closeInterestPlotsModal();
+        });
+    }
+    document.addEventListener('keydown', onInterestPlotsModalKeydown);
+    if (interestDrawerBackdrop) {
+        interestDrawerBackdrop.addEventListener('click', closeDrawer);
     }
     function bindInterestPlotHover(rootEl) {
         if (!rootEl) return;
@@ -4092,7 +4066,7 @@
         const field = masterField(key);
         if (!masterAppliesToKey(key, 'interests')) return '';
         if (!field || field.is_enabled === false) return '';
-        const label = (field && field.label) || masterFieldLabels[key] || key;
+        const label = normalizeDrawerFieldLabel((field && field.label) || masterFieldLabels[key] || key);
         const current = String(item && item[key] || '').trim();
         const required = field ? !!field.is_required : false;
         const lockLeadSource = key === 'lead_source'
@@ -4205,6 +4179,13 @@
     async function openDrawer(item) {
         selected = item;
         await ensureCrmTeamUsersLoaded(false);
+        let referenceUsers = [];
+        try {
+            referenceUsers = await loadInterestReferenceUsers(item.panorama_id, item, false);
+        } catch (e) {
+            console.warn('CRM reference users failed:', e);
+            referenceUsers = [];
+        }
         try {
             if (isExternalBrokerUser) {
                 await loadCrmMasterConfig('', false, false, 'broker');
@@ -4228,25 +4209,31 @@
         const st = (adv === 'qualified' || adv === 'won' || adv === 'lost') ? adv : (item.is_contacted ? 'contacted' : 'new');
         dTitle.textContent = item.customer_name||'Lead';
         dSubtitle.innerHTML = '<span class="pill '+esc(st)+'" style="margin-right:0.5rem"><span class="dot"></span><span>'+esc(toStatusLabel(st))+'</span></span> '+esc(pn)+' &middot; '+esc(fmtDate(item.created_at));
-        const das = $('d-assignee');
-        if (das) {
-            const cur = String(item.assigned_to || '');
-            das.innerHTML = '<option value="">- Unassigned -</option>' + crmTeamUsers.map(function(u) {
-                const uid = String(u.user_id || '').trim();
-                if (!uid) return '';
-                return '<option value="'+esc(uid)+'">'+esc(u.display_name || u.email || 'User')+'</option>';
-            }).join('');
-            das.value = '';
-            if (cur) {
+        const dref = $('d-reference');
+        if (dref) {
+            const cur = String(item.reference_user_id || '').trim();
+            const refIds = Array.isArray(item.reference_user_ids) ? item.reference_user_ids.map(String).filter(Boolean) : [];
+            const lockedReference = refIds.length > 1;
+            dref.innerHTML = '<option value="">' + (referenceUsers.length ? 'No reference' : 'No reference available') + '</option>' +
+                referenceUsers.map(function (u) {
+                    const uid = String(u.user_id || '').trim();
+                    if (!uid) return '';
+                    return '<option value="'+esc(uid)+'">'+esc(buildReferenceUserLabel(u))+'</option>';
+                }).join('');
+            dref.value = '';
+            dref.disabled = lockedReference;
+            if (lockedReference) {
+                dref.title = 'Multiple references on grouped interests';
+            } else if (cur) {
                 let ok = false;
-                for (let oi = 0; oi < das.options.length; oi++) { if (das.options[oi].value === cur) { ok = true; break; } }
-                if (ok) das.value = cur;
+                for (let oi = 0; oi < dref.options.length; oi++) { if (dref.options[oi].value === cur) { ok = true; break; } }
+                if (ok) dref.value = cur;
                 else {
                     const opt = document.createElement('option');
                     opt.value = cur;
-                    opt.textContent = 'User ' + cur.slice(0, 8) + '...';
-                    das.appendChild(opt);
-                    das.value = cur;
+                    opt.textContent = interestReferenceLabel(item);
+                    dref.appendChild(opt);
+                    dref.value = cur;
                 }
             }
         }
@@ -4340,9 +4327,12 @@
             selected.status = partial.is_contacted ? 'contacted' : 'new';
         }
         if('notes' in partial) selected.notes = partial.notes;
-        if('assigned_to' in partial) selected.assigned_to = partial.assigned_to || null;
+        if ('reference_user_id' in partial) {
+            selected.reference_user_id = partial.reference_user_id || null;
+            if (!partial.reference_user_id) selected.reference_user_name = '';
+        }
         Object.keys(partial || {}).forEach(k => {
-            if (!['is_contacted','status','notes','assigned_to'].includes(k)) selected[k] = partial[k];
+            if (!['is_contacted', 'status', 'notes', 'reference_user_id'].includes(k)) selected[k] = partial[k];
         });
         refreshInterestsUI();
         await openDrawer(selected);
@@ -4350,6 +4340,22 @@
             const r = await api('/api/buy-interests/'+encodeURIComponent(String(selected.id)),{method:'PATCH',body:JSON.stringify(partial||{})});
             const data = await r.json().catch(()=>({}));
             if(!r.ok) throw new Error((data&&data.error)?data.error:('Update failed ('+r.status+')'));
+            if ('reference_user_id' in (partial || {})) {
+                const refUid = String(partial.reference_user_id || '').trim();
+                if (!refUid) {
+                    selected.reference_user_name = '';
+                } else {
+                    const drefEl = $('d-reference');
+                    const opt = drefEl && drefEl.selectedIndex >= 0 ? drefEl.options[drefEl.selectedIndex] : null;
+                    selected.reference_user_name = opt ? String(opt.textContent || '').trim() : selected.reference_user_name;
+                }
+                const idx = interests.findIndex(function (x) { return String(x.id) === String(selected.id); });
+                if (idx >= 0) {
+                    interests[idx].reference_user_id = selected.reference_user_id;
+                    interests[idx].reference_user_name = selected.reference_user_name;
+                }
+                refreshInterestsReferenceLabels();
+            }
             showDrawerMsg('Saved.');
             showToast('Changes saved');
         } catch(e) {
@@ -4395,11 +4401,11 @@
     btnSave.addEventListener('click', function() {
         if (!selected) return;
         const adv = String(selected.status || '').toLowerCase();
-        const das = $('d-assignee');
-        const assignRaw = das && das.value ? das.value : '';
+        const dref = $('d-reference');
+        const refRaw = dref && !dref.disabled && dref.value ? dref.value : '';
         const masterPatch = collectDrawerMasterPatch();
         if (!masterPatch.ok) { showDrawerMsg(masterPatch.error, 'error'); return; }
-        const patch = Object.assign({ notes: dNotes.value, assigned_to: assignRaw || null }, masterPatch.patch);
+        const patch = Object.assign({ notes: dNotes.value, reference_user_id: refRaw || null }, masterPatch.patch);
         if (adv !== 'qualified' && adv !== 'won' && adv !== 'lost') {
             patch.is_contacted = dStatus.value === 'contacted';
         }
@@ -4487,11 +4493,34 @@
     });
     if(btnDeleteInterest) btnDeleteInterest.addEventListener('click', deleteSelectedInterest);
 
-    // -- Filter modal --
+    // -- Filter panel (inline rail, Zoho-style) --
     const filterBackdrop = $('filter-modal-backdrop');
-    function openFilterModal() {
-        filterBackdrop.classList.add('visible');
-        Promise.all([
+    const interestListLayout = $('interest-list-layout');
+    let filterSidebarWasExpanded = false;
+
+    function sanitizeInlineFilterPanel() {
+        const panel = $('filter-modal');
+        if (!panel) return;
+        panel.classList.remove('crm-window', 'is-dragging', 'is-collapsed');
+        delete panel.dataset.crmWindowReady;
+        delete panel.dataset.crmDragged;
+        panel.style.left = '';
+        panel.style.top = '';
+        panel.style.width = '';
+        panel.style.right = '';
+        panel.style.bottom = '';
+        panel.style.zIndex = '';
+        const head = panel.querySelector('.crm-filter-panel__head');
+        if (head) {
+            head.classList.remove('crm-window-handle');
+            const tools = head.querySelector('.crm-window-tools');
+            if (tools) tools.remove();
+        }
+    }
+    sanitizeInlineFilterPanel();
+
+    function preloadFilterOptions() {
+        return Promise.all([
             loadPanoramaProjects(),
             loadClientOptions(),
             ensureInterestsBulkLoaded(false)
@@ -4503,7 +4532,60 @@
             console.warn('CRM filter options preload failed:', e);
         });
     }
-    function closeFilterModal() { filterBackdrop.classList.remove('visible'); }
+
+    function collapseNavSidebarForFilters() {
+        if (window.innerWidth < 1024 || typeof window.applyPortalSidebarCollapse !== 'function') return;
+        filterSidebarWasExpanded = document.documentElement.classList.contains('portal-sidebar-expanded');
+        if (filterSidebarWasExpanded) {
+            window.applyPortalSidebarCollapse(true);
+        }
+    }
+
+    function restoreNavSidebarAfterFilters() {
+        if (filterSidebarWasExpanded && typeof window.applyPortalSidebarCollapse === 'function') {
+            window.applyPortalSidebarCollapse(false);
+        }
+        filterSidebarWasExpanded = false;
+    }
+
+    function setFilterPanelOpen(open) {
+        if (!filterBackdrop || !interestListLayout) return;
+        filterBackdrop.classList.toggle('visible', open);
+        interestListLayout.classList.toggle('filters-open', open);
+        filterBackdrop.setAttribute('aria-hidden', open ? 'false' : 'true');
+        const btn = $('btn-open-filters');
+        if (btn) {
+            btn.classList.toggle('filter-btn--panel-open', open);
+            btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+        }
+        if (open) {
+            collapseNavSidebarForFilters();
+            preloadFilterOptions();
+        } else {
+            restoreNavSidebarAfterFilters();
+        }
+    }
+
+    function openFilterModal() { setFilterPanelOpen(true); }
+    function closeFilterModal() { setFilterPanelOpen(false); }
+    function toggleFilterModal() {
+        const isOpen = interestListLayout && interestListLayout.classList.contains('filters-open');
+        setFilterPanelOpen(!isOpen);
+    }
+
+    function initInterestsFilterPanelDefault() {
+        if (!window.matchMedia('(min-width: 901px)').matches) return;
+        setFilterPanelOpen(true);
+    }
+
+    document.querySelectorAll('#sec-interests [data-filter-accordion]').forEach(function (section) {
+        const trigger = section.querySelector('.crm-filter-accordion__trigger');
+        if (!trigger) return;
+        trigger.addEventListener('click', function () {
+            const open = section.classList.toggle('is-open');
+            trigger.setAttribute('aria-expanded', open ? 'true' : 'false');
+        });
+    });
     function syncSavedFilterState() {
         document.querySelectorAll('[data-filter-preset]').forEach(btn => {
             const preset = btn.getAttribute('data-filter-preset');
@@ -4524,14 +4606,16 @@
         if(plotEl.value) count++;
         const badge = $('filter-badge');
         const btn = $('btn-open-filters');
-        if(count > 0) { badge.textContent = count; badge.style.display = ''; btn.classList.add('filter-btn--active'); }
-        else { badge.style.display = 'none'; btn.classList.remove('filter-btn--active'); }
+        if(count > 0) { badge.textContent = count; badge.style.display = ''; btn.classList.add('filter-btn--has-filters'); }
+        else { badge.style.display = 'none'; btn.classList.remove('filter-btn--has-filters'); }
         syncSavedFilterState();
     }
 
-    $('btn-open-filters').addEventListener('click', openFilterModal);
+    $('btn-open-filters').addEventListener('click', toggleFilterModal);
     $('filter-modal-close').addEventListener('click', closeFilterModal);
-    filterBackdrop.addEventListener('click', e => { if(e.target === filterBackdrop) closeFilterModal(); });
+    if (window.matchMedia('(max-width: 900px)').matches) {
+        filterBackdrop.addEventListener('click', e => { if(e.target === filterBackdrop) closeFilterModal(); });
+    }
     document.querySelectorAll('[data-filter-preset]').forEach(btn => {
         btn.addEventListener('click', () => {
             const preset = btn.getAttribute('data-filter-preset');
@@ -4545,7 +4629,6 @@
             renderProjectOptions();
             updateFilterBadge();
             refreshInterestsUI(true);
-            closeFilterModal();
         });
     });
 
@@ -4558,10 +4641,10 @@
     });
 
     // Apply filters button
-    $('btn-apply-filters').addEventListener('click', () => { closeFilterModal(); updateFilterBadge(); refreshInterestsUI(true); });
+    $('btn-apply-filters').addEventListener('click', () => { updateFilterBadge(); refreshInterestsUI(true); });
 
     // Clear all
-    $('btn-clear').addEventListener('click', () => { qEl.value=''; statusEl.value=''; if(clientEl) clientEl.value=''; categoryEl.value=''; workspaceEl.value=''; projectEl.value=''; plotEl.value=''; renderProjectOptions(); updateFilterBadge(); refreshInterestsUI(true); closeFilterModal(); });
+    $('btn-clear').addEventListener('click', () => { qEl.value=''; statusEl.value=''; if(clientEl) clientEl.value=''; categoryEl.value=''; workspaceEl.value=''; projectEl.value=''; plotEl.value=''; renderProjectOptions(); updateFilterBadge(); refreshInterestsUI(true); });
 
     // Filters are live in the left rail.
     qEl.addEventListener('input', () => { updateFilterBadge(); refreshInterestsUI(true); });
@@ -4854,9 +4937,22 @@
         projectById = new Map(projects.map(p=>[String(p.id),p]));
         renderProjectOptions();
         renderPlotsFilterOptions();
-        if (interestsTableLoaded && currentView === 'table' && filtered.length) {
-            renderTable();
+        refreshInterestsReferenceLabels();
+    }
+
+    async function ensurePanoramaProjectsLoaded(force) {
+        if (panoramaProjectsLoaded && !force) return;
+        if (!panoramaProjectsLoadPromise) {
+            panoramaProjectsLoadPromise = loadPanoramaProjects().then(function () {
+                panoramaProjectsLoaded = true;
+            }).catch(function (e) {
+                panoramaProjectsLoaded = false;
+                console.warn('CRM panorama projects load failed:', e);
+            }).finally(function () {
+                panoramaProjectsLoadPromise = null;
+            });
         }
+        await panoramaProjectsLoadPromise;
     }
     async function loadInterestsTableOnly(resetPage) {
         await loadInterestsTable(resetPage !== false);
@@ -4874,9 +4970,23 @@
     }
 
     async function ensureInterestsTableLoaded(force) {
-        if (interestsTableLoaded && !force) return;
+        if (interestsTableLoaded && panoramaProjectsLoaded && !force) return;
         if (!interestsTableLoadPromise) {
-            interestsTableLoadPromise = loadInterestsTableOnly(true).finally(function () {
+            interestsTableLoadPromise = (async function () {
+                const jobs = [];
+                if (!interestsTableLoaded || force) {
+                    jobs.push(loadInterestsTableOnly(true));
+                }
+                if (!panoramaProjectsLoaded || force) {
+                    jobs.push(ensurePanoramaProjectsLoaded(!!force));
+                }
+                if (jobs.length) {
+                    await Promise.allSettled(jobs);
+                    if (interestsTableLoaded && filtered.length) {
+                        refreshInterestsReferenceLabels();
+                    }
+                }
+            })().finally(function () {
                 interestsTableLoadPromise = null;
             });
         }
@@ -4921,6 +5031,7 @@
             if (force) {
                 interestsTableLoaded = false;
                 interestsBulkLoaded = false;
+                panoramaProjectsLoaded = false;
             }
             await ensureInterestsTableLoaded(!!force);
             if (currentView === 'board' || interestsBulkLoaded) {
@@ -4961,7 +5072,7 @@
 
     async function preloadInterestsBackground(force) {
         const jobs = [
-            loadPanoramaProjects().catch(function (e) { console.warn('CRM panorama projects preload failed:', e); }),
+            ensurePanoramaProjectsLoaded(!!force).catch(function (e) { console.warn('CRM panorama projects preload failed:', e); }),
             loadClientOptions().catch(function (e) { console.warn('CRM client options preload failed:', e); }),
             ensureCrmTeamUsersLoaded(!!force).catch(function (e) { console.warn('CRM team users preload failed:', e); })
         ];
@@ -5087,11 +5198,13 @@
         const plotsLoading = $('modal-plots-loading');
         const markersLoading = $('modal-markers-loading');
         plotsTbody.innerHTML=''; markersTbody.innerHTML='';
-        plotsLoading.style.display=''; markersLoading.style.display='';
+        if (plotsLoading && plotsLoading._portalSectionLoader) plotsLoading._portalSectionLoader.setLoading(true, 'Loading plots...');
+        if (markersLoading && markersLoading._portalSectionLoader) markersLoading._portalSectionLoader.setLoading(true, 'Loading markers...');
         try {
             const r = await api('/api/crm/panoramas/'+encodeURIComponent(panoramaId)+'/markers');
             const markers = await r.json();
-            plotsLoading.style.display='none'; markersLoading.style.display='none';
+            if (plotsLoading && plotsLoading._portalSectionLoader) plotsLoading._portalSectionLoader.setLoading(false);
+            if (markersLoading && markersLoading._portalSectionLoader) markersLoading._portalSectionLoader.setLoading(false);
             if(!Array.isArray(markers)||!markers.length) {
                 plotsTbody.innerHTML='<tr><td colspan="4" class="empty">No plots/markers found</td></tr>';
                 markersTbody.innerHTML='<tr><td colspan="5" class="empty">No markers found</td></tr>';
@@ -6170,14 +6283,15 @@
         crmBootLoaderOffsetRaf = window.requestAnimationFrame(function () {
             crmBootLoaderOffsetRaf = 0;
             const crmRoot = document.querySelector('.crm-page');
-            const layoutPage = document.querySelector('.layout-page--crm-merged-nav');
-            const isMobile = window.matchMedia && window.matchMedia('(max-width: 991.98px)').matches;
-            const isBrokerHeader = crmRoot && crmRoot.classList.contains('crm-page--broker-header-mode');
+            const portalMain = document.getElementById('portal-main');
+            const isMobile = window.matchMedia && window.matchMedia('(max-width: 1023px)').matches;
+            const isBrokerHeader = document.documentElement.classList.contains('crm-broker-header-active')
+                || (crmRoot && crmRoot.classList.contains('crm-page--broker-header-mode'));
             let offset = '0px';
 
             if (!isMobile && !isBrokerHeader) {
-                if (layoutPage) {
-                    const styles = window.getComputedStyle(layoutPage);
+                if (portalMain) {
+                    const styles = window.getComputedStyle(portalMain);
                     offset = styles.paddingLeft || styles.paddingInlineStart || offset;
                 }
                 if (!offset || offset === '0px') {
@@ -6191,26 +6305,70 @@
             }
         });
     }
+    window.syncCrmSidebarLayout = syncCrmSidebarLayout;
 
     const syncCrmBootLoaderOffset = syncCrmSidebarLayout;
 
+    const crmBootLoader = window.PortalTabLoader ? new window.PortalTabLoader({
+        shellId: 'crm-page',
+        loaderId: 'crm-boot-loader',
+        shellLoadingClass: 'crm-page--booting',
+        stepOrder: ['auth', 'profile', 'leads'],
+        finalStep: 'leads',
+        ids: {
+            percent: 'crm-loader-percent',
+            steps: 'crm-loader-steps',
+            caption: 'crm-loader-caption',
+            label: 'crm-loader-label',
+            arc: 'crm-loader-arc'
+        }
+    }) : null;
+
+    if (crmBootLoader) {
+        crmBootLoader.boot('auth', 'Loading CRM', 16, 'Verifying access');
+    }
+
     function setCrmBootLoading(isLoading) {
-        const loader = $('crm-boot-loader');
         const content = $('crm-page-content');
         syncCrmBootLoaderOffset();
         if (content) content.setAttribute('aria-busy', isLoading ? 'true' : 'false');
-        if (loader) loader.hidden = !isLoading;
+        if (!crmBootLoader) {
+            const loader = $('crm-boot-loader');
+            if (loader) loader.hidden = !isLoading;
+            const page = $('crm-page');
+            if (page) page.classList.toggle('crm-page--booting', !!isLoading);
+            return;
+        }
+        if (isLoading) {
+            crmBootLoader.setLoading(true);
+            crmBootLoader.setStep('auth', 'Authenticating session', 22, 'Verifying access');
+            return;
+        }
+        crmBootLoader.setLoading(false, {
+            finalCaption: 'CRM ready',
+            finalLabel: 'Fetching latest leads'
+        });
     }
 
     async function hydrateCrmData(force) {
         if (crmHydrationInFlight) return;
         crmHydrationInFlight = true;
         try {
+            if (crmBootLoader) {
+                crmBootLoader.setStep('auth', 'Authenticating session', 28, 'Verifying access');
+            }
             await ensureAuthenticated();
-            await Promise.all([
-                loadUserInfo(),
-                ensureInterestsTableLoaded(!!force)
-            ]);
+            if (crmBootLoader) {
+                crmBootLoader.setStep('profile', 'Loading workspace profile', 48, 'Loading workspace');
+            }
+            await loadUserInfo();
+            if (crmBootLoader) {
+                crmBootLoader.setStep('leads', 'Fetching latest leads', 68, 'Syncing leads');
+            }
+            await ensureInterestsTableLoaded(!!force);
+            if (crmBootLoader) {
+                crmBootLoader.setStep('leads', 'Finalizing CRM', 92, 'Loading project names');
+            }
             updateFilterBadge();
             if ($('filter-total-count')) $('filter-total-count').textContent = interestsTableMeta.total || 0;
             if ($('stat-total')) $('stat-total').textContent = interestsTableMeta.total || 0;
@@ -6223,6 +6381,7 @@
 
     (async function init() {
         setCrmBootLoading(true);
+        if (typeof window.mountCrmHeaderTabs === 'function') window.mountCrmHeaderTabs();
         if (window.sidebarReady && typeof window.sidebarReady.then === 'function') {
             window.sidebarReady.then(syncCrmBootLoaderOffset).catch(function () {});
         }
@@ -6230,6 +6389,7 @@
             await hydrateCrmData(false);
             setCrmBootLoading(false);
             syncCrmSidebarLayout();
+            initInterestsFilterPanelDefault();
         } catch(e) {
             setCrmBootLoading(false);
             $('table-empty').style.display = '';
@@ -6246,17 +6406,12 @@
     });
     window.addEventListener('resize', syncCrmBootLoaderOffset);
     window.addEventListener('load', syncCrmBootLoaderOffset);
-    const menuToggle = document.getElementById('sneat-layout-menu-toggle');
-    if (menuToggle) {
-        menuToggle.addEventListener('click', function () {
+    const portalSidebarToggle = document.getElementById('portal-sidebar-collapse-btn');
+    if (portalSidebarToggle) {
+        portalSidebarToggle.addEventListener('click', function () {
             window.setTimeout(syncCrmBootLoaderOffset, 20);
-            window.setTimeout(syncCrmBootLoaderOffset, 220);
+            window.setTimeout(syncCrmBootLoaderOffset, 320);
         });
-    }
-    const layoutMenu = document.getElementById('layout-menu');
-    if (layoutMenu && typeof MutationObserver !== 'undefined') {
-        new MutationObserver(function () { syncCrmBootLoaderOffset(); })
-            .observe(layoutMenu, { attributes: true, attributeFilter: ['class', 'style'] });
     }
     if (document.documentElement && typeof MutationObserver !== 'undefined') {
         new MutationObserver(function () { syncCrmBootLoaderOffset(); })

@@ -1,0 +1,222 @@
+/* Public landing — aligned with customer dashboard portal UI */
+
+html.portal-public-page #portal-main {
+  padding-inline-start: 0 !important;
+  background: var(--ms-brand-surface, #f7f0e4);
+}
+
+html.portal-public-page .portal-navbar--public {
+  grid-template-columns: auto 1fr auto;
+}
+
+.portal-public-nav-links {
+  align-items: center;
+  justify-content: center;
+  gap: 1.75rem;
+}
+
+.portal-public-nav-links a {
+  color: var(--ms-brand-on-dark-muted, rgba(248, 244, 236, 0.72));
+  font-size: 0.875rem;
+  font-weight: 500;
+  text-decoration: none;
+  transition: color 0.15s ease;
+}
+
+.portal-public-nav-links a:hover {
+  color: var(--ms-brand-on-dark, #f8f4ec);
+}
+
+.portal-public-nav-actions {
+  gap: 0.5rem;
+}
+
+.portal-public-nav-actions .dashboard-open-crm-btn--outline {
+  border-color: rgba(255, 255, 255, 0.72);
+  color: #fff;
+}
+
+.portal-public-nav-actions .dashboard-open-crm-btn--outline:hover {
+  background: var(--ms-brand-primary, #ffa300);
+  border-color: var(--ms-brand-primary, #ffa300);
+  color: var(--ms-brand-dark, #333333);
+}
+
+.portal-public-mobile-nav {
+  position: fixed;
+  top: var(--portal-unified-header-height, 3.5rem);
+  inset-inline: 0;
+  z-index: 65;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.75rem;
+  background: var(--ms-brand-dark, #333333);
+  border-bottom: 2px solid var(--ms-brand-primary, #ffa300);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.18);
+}
+
+.portal-public-mobile-nav[hidden] {
+  display: none !important;
+}
+
+.portal-public-mobile-nav a {
+  padding: 0.65rem 0.75rem;
+  border-radius: 0.5rem;
+  color: var(--ms-brand-on-dark, #f8f4ec);
+  font-size: 0.875rem;
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.portal-public-mobile-nav a:hover {
+  background: rgba(var(--ms-brand-primary-rgb, 255, 163, 0), 0.12);
+  color: var(--ms-brand-primary, #ffa300);
+}
+
+.landing-page .landing-hero-card {
+  background: linear-gradient(
+    135deg,
+    var(--ms-brand-dark, #333333) 0%,
+    var(--ms-brand-dark-deep, #2a2a2a) 55%,
+    rgba(var(--ms-brand-primary-rgb, 255, 163, 0), 0.92) 100%
+  );
+  border: none;
+  color: var(--ms-brand-on-dark, #f8f4ec);
+}
+
+.landing-page .landing-hero-card h1 {
+  font-size: clamp(1.5rem, 3vw, 2rem);
+  font-weight: 700;
+  line-height: 1.2;
+  margin-bottom: 0.75rem;
+}
+
+.landing-page .landing-hero-card h1 .text-ms-primary {
+  color: var(--ms-brand-primary, #ffa300);
+}
+
+.landing-page .landing-hero-card .landing-hero-sub {
+  color: var(--ms-brand-on-dark-muted, rgba(248, 244, 236, 0.72));
+  max-width: 36rem;
+}
+
+.landing-page .landing-hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 1.25rem;
+}
+
+.landing-page .landing-hero-actions .dashboard-open-crm-btn--outline {
+  border-color: rgba(255, 255, 255, 0.72);
+  color: #fff;
+}
+
+.landing-page .landing-hero-actions .dashboard-open-crm-btn--outline:hover {
+  background: var(--ms-brand-primary, #ffa300);
+  border-color: var(--ms-brand-primary, #ffa300);
+  color: var(--ms-brand-dark, #333333);
+}
+
+.landing-page .landing-section-title {
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: #1f2937;
+  margin-bottom: 0.25rem;
+}
+
+.landing-page .landing-section-sub {
+  font-size: 0.875rem;
+  color: #6b7280;
+  margin-bottom: 1rem;
+}
+
+.landing-page .landing-feature-card h3 {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: #1f2937;
+  margin-bottom: 0.35rem;
+}
+
+.landing-page .landing-feature-card p {
+  font-size: 0.8125rem;
+  color: #6b7280;
+  line-height: 1.5;
+}
+
+.landing-page .landing-step-num {
+  width: 2rem;
+  height: 2rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  background: rgba(var(--ms-brand-primary-rgb, 255, 163, 0), 0.15);
+  color: var(--ms-brand-primary-strong, #cc8200);
+  font-size: 0.8125rem;
+  font-weight: 700;
+  margin-bottom: 0.75rem;
+}
+
+.landing-page .landing-step-card h3 {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: #1f2937;
+  margin-bottom: 0.35rem;
+}
+
+.landing-page .landing-step-card p {
+  font-size: 0.8125rem;
+  color: #6b7280;
+  line-height: 1.5;
+}
+
+.landing-page .landing-cta-card {
+  text-align: center;
+}
+
+.landing-page .landing-cta-card h2 {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #1f2937;
+  margin-bottom: 0.5rem;
+}
+
+.landing-page .landing-cta-card p {
+  font-size: 0.875rem;
+  color: #6b7280;
+  margin-bottom: 1rem;
+}
+
+.landing-page .landing-footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 1rem 1.25rem;
+  font-size: 0.8125rem;
+  color: #6b7280;
+}
+
+.landing-page .landing-footer-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.landing-page .landing-footer-links a {
+  color: #6b7280;
+  text-decoration: none;
+}
+
+.landing-page .landing-footer-links a:hover {
+  color: var(--ms-brand-primary, #ffa300);
+}
+
+@media (max-width: 639px) {
+  .portal-public-nav-actions .dashboard-open-crm-btn--outline {
+    display: none;
+  }
+}

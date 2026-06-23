@@ -17,24 +17,81 @@ html.ms-brand-theme .content-wrapper > .container-xxl.flex-grow-1.container-p-y 
   background: transparent;
 }
 
-/* ── Dark charcoal sidebar with orange accents ── */
+/* ── Light sidebar; logo-dark header strip only (#333333) ── */
+html.ms-brand-theme #portal-sidebar {
+  background: linear-gradient(180deg, var(--ms-brand-surface-card) 0%, var(--ms-brand-surface) 100%) !important;
+  border-right: 1px solid var(--ms-brand-border-warm) !important;
+  box-shadow: 2px 0 18px rgba(var(--ms-brand-dark-rgb), 0.06) !important;
+}
+
+html.ms-brand-theme .portal-unified-header {
+  background: var(--ms-brand-dark) !important;
+  border-bottom-color: var(--ms-brand-primary) !important;
+}
+
+html.ms-brand-theme .portal-unified-header__brand .portal-brand-header {
+  background: transparent !important;
+  border-bottom: none !important;
+}
+
+html.ms-brand-theme #portal-sidebar .portal-nav-link {
+  color: var(--ms-brand-ink) !important;
+}
+
+html.ms-brand-theme #portal-sidebar .portal-nav-link.active {
+  background: rgba(var(--ms-brand-primary-rgb), 0.16) !important;
+  color: var(--ms-brand-primary) !important;
+  box-shadow: inset 3px 0 0 var(--ms-brand-primary) !important;
+}
+
+html.ms-brand-theme #portal-sidebar .portal-nav-link:hover {
+  background: rgba(var(--ms-brand-primary-rgb), 0.1) !important;
+  color: var(--ms-brand-primary) !important;
+}
+
+html.ms-brand-theme #portal-sidebar .portal-nav-link:hover svg,
+html.ms-brand-theme #portal-sidebar .portal-nav-link.active svg {
+  color: var(--ms-brand-primary) !important;
+}
+
+html.ms-brand-theme #portal-sidebar .portal-nav-section {
+  color: rgba(var(--ms-brand-dark-rgb), 0.52) !important;
+}
+
+html.ms-brand-theme #portal-sidebar-collapse-btn {
+  background: var(--ms-brand-surface-card) !important;
+  border-color: var(--ms-brand-border-warm) !important;
+  color: var(--ms-brand-ink) !important;
+}
+
+html.ms-brand-theme #portal-sidebar-collapse-btn:hover {
+  background: rgba(var(--ms-brand-primary-rgb), 0.12) !important;
+  color: var(--ms-brand-primary) !important;
+}
+
+html.ms-brand-theme .portal-unified-header__page .portal-navbar {
+  background: transparent !important;
+  color: var(--ms-brand-on-dark) !important;
+}
+
+/* ── Sneat layout menu (legacy pages) — light warm with orange accents ── */
 html.ms-brand-theme #layout-menu.layout-menu,
 html.ms-brand-theme .layout-menu.bg-menu-theme {
-  background: linear-gradient(180deg, var(--ms-brand-dark) 0%, var(--ms-brand-dark-deep) 100%) !important;
-  border-right: 1px solid rgba(var(--ms-brand-primary-rgb), 0.22);
-  box-shadow: 4px 0 24px rgba(var(--ms-brand-dark-rgb), 0.18);
+  background: linear-gradient(180deg, var(--ms-brand-surface-card) 0%, var(--ms-brand-surface) 100%) !important;
+  border-right: 1px solid var(--ms-brand-border-warm);
+  box-shadow: 2px 0 18px rgba(var(--ms-brand-dark-rgb), 0.06);
 }
 
 html.ms-brand-theme .layout-menu .app-brand-text,
 html.ms-brand-theme .layout-menu .menu-link,
 html.ms-brand-theme .layout-menu .menu-icon,
 html.ms-brand-theme .layout-menu .menu-link .menu-icon {
-  color: var(--ms-brand-on-dark) !important;
+  color: var(--ms-brand-ink) !important;
 }
 
 html.ms-brand-theme .layout-menu .menu-header-text {
-  color: rgba(var(--ms-brand-primary-rgb), 0.82) !important;
-  letter-spacing: 0.08em;
+  color: rgba(var(--ms-brand-dark-rgb), 0.52) !important;
+  letter-spacing: 0.06em;
 }
 
 html.ms-brand-theme .layout-menu .menu-divider,
@@ -44,40 +101,41 @@ html.ms-brand-theme .layout-menu .menu-inner-shadow {
 
 html.ms-brand-theme .layout-menu .menu-item.active > .menu-link,
 html.ms-brand-theme .layout-menu .menu-item.active > .menu-link .menu-icon {
-  color: var(--ms-brand-primary) !important;
+  color: var(--ms-brand-primary-strong) !important;
 }
 
 html.ms-brand-theme .layout-menu .menu-item.active > .menu-link:not(.menu-toggle) {
-  background: rgba(var(--ms-brand-primary-rgb), 0.18) !important;
+  background: rgba(var(--ms-brand-primary-rgb), 0.16) !important;
 }
 
 html.ms-brand-theme .layout-menu .menu-inner > .menu-item.active::before {
-  background: var(--ms-brand-primary);
+  background: var(--ms-brand-primary-strong);
   box-shadow: 0 0 10px rgba(var(--ms-brand-primary-rgb), 0.45);
 }
 
 html.ms-brand-theme .layout-menu .menu-link:hover {
   background: rgba(var(--ms-brand-primary-rgb), 0.1) !important;
-  color: var(--ms-brand-primary) !important;
+  color: var(--ms-brand-primary-strong) !important;
 }
 
 html.ms-brand-theme #layout-menu .sneat-menu-collapse-toggle.menu-link {
-  background: rgba(var(--ms-brand-primary-rgb), 0.12);
-  border-color: rgba(var(--ms-brand-primary-rgb), 0.28);
-  color: var(--ms-brand-on-dark);
+  background: var(--ms-brand-surface-card);
+  border-color: var(--ms-brand-border-warm);
+  color: var(--ms-brand-ink);
 }
 
 html.ms-brand-theme #layout-menu .sneat-menu-collapse-toggle.menu-link:hover {
-  color: var(--ms-brand-primary);
-  border-color: rgba(var(--ms-brand-primary-rgb), 0.45);
-  background: rgba(var(--ms-brand-primary-rgb), 0.2);
+  color: var(--ms-brand-primary-strong);
+  border-color: rgba(var(--ms-brand-primary-rgb), 0.38);
+  background: rgba(var(--ms-brand-primary-rgb), 0.12);
 }
 
 /* ── Top navbar (dashboard / team pages) ── */
 html.ms-brand-theme .layout-navbar.bg-navbar-theme {
-  background: linear-gradient(90deg, var(--ms-brand-surface-card) 0%, var(--ms-brand-surface-warm) 100%) !important;
+  background: var(--ms-brand-dark) !important;
+  color: var(--ms-brand-on-dark) !important;
   border-bottom: 2px solid var(--ms-brand-primary);
-  box-shadow: 0 4px 18px rgba(var(--ms-brand-primary-rgb), 0.12);
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.18);
 }
 
 .dashboard-plot-search-wrap {
@@ -203,44 +261,59 @@ html.ms-brand-theme .crm-page {
 
 html.ms-brand-theme .crm-page--sneat .crm-tabs {
   background: linear-gradient(180deg, var(--ms-brand-dark) 0%, var(--ms-brand-dark-deep) 100%);
-  border-bottom: 3px solid var(--ms-brand-primary);
+  border-bottom: 2px solid var(--ms-brand-primary);
   box-shadow: 0 6px 22px rgba(var(--ms-brand-dark-rgb), 0.22);
 }
 
-html.ms-brand-theme .crm-page--sneat .crm-tabs-bottom {
-  border-top: none;
+html.ms-brand-theme #portal-page-header .crm-tabs {
+  background: transparent !important;
+  border-bottom: none !important;
+  box-shadow: none !important;
 }
 
-html.ms-brand-theme .crm-page--sneat .crm-workspace-title {
+html.ms-brand-theme .crm-page--sneat .crm-tabs-top-center,
+html.ms-brand-theme #portal-page-header .crm-tabs-top-center {
+  border-inline-start-color: var(--ms-brand-border-warm);
+}
+
+html.ms-brand-theme .crm-page--sneat .crm-workspace-title,
+html.ms-brand-theme #portal-page-header .crm-workspace-title {
   color: var(--ms-brand-on-dark);
 }
 
-html.ms-brand-theme .crm-page--sneat .crm-workspace-add {
-  background: var(--ms-brand-primary);
-  color: var(--ms-brand-dark);
+html.ms-brand-theme .crm-page--sneat .crm-workspace-add,
+html.ms-brand-theme #portal-page-header .crm-workspace-add {
+  border: 1px solid rgba(var(--ms-brand-primary-rgb), 0.42);
+  background: rgba(var(--ms-brand-primary-rgb), 0.14);
+  color: var(--ms-brand-primary-strong);
 }
 
-html.ms-brand-theme .crm-page--sneat .crm-tab {
+html.ms-brand-theme .crm-page--sneat .crm-tab,
+html.ms-brand-theme #portal-page-header .crm-tab {
   color: var(--ms-brand-on-dark-muted);
 }
 
-html.ms-brand-theme .crm-page--sneat .crm-tab.active {
+html.ms-brand-theme .crm-page--sneat .crm-tab.active,
+html.ms-brand-theme #portal-page-header .crm-tab.active {
   color: var(--ms-brand-dark) !important;
   border-color: var(--ms-brand-primary) !important;
   background: var(--ms-brand-primary) !important;
   box-shadow: none !important;
 }
 
-html.ms-brand-theme .crm-page--sneat .crm-tab:hover {
+html.ms-brand-theme .crm-page--sneat .crm-tab:hover,
+html.ms-brand-theme #portal-page-header .crm-tab:hover {
   color: var(--ms-brand-primary);
   background: rgba(var(--ms-brand-primary-rgb), 0.14);
 }
 
-html.ms-brand-theme .crm-page--sneat .crm-tab-action {
+html.ms-brand-theme .crm-page--sneat .crm-tab-action,
+html.ms-brand-theme #portal-page-header .crm-tab-action {
   color: var(--ms-brand-on-dark-muted);
 }
 
-html.ms-brand-theme .crm-page--sneat .crm-tab-action:hover {
+html.ms-brand-theme .crm-page--sneat .crm-tab-action:hover,
+html.ms-brand-theme #portal-page-header .crm-tab-action:hover {
   background: rgba(var(--ms-brand-primary-rgb), 0.16);
   color: var(--ms-brand-primary);
 }
@@ -407,14 +480,67 @@ html.ms-brand-theme .team-page {
 }
 
 html.ms-brand-theme .team-page .team-kpi-card {
-  background: linear-gradient(145deg, var(--ms-brand-surface-card), var(--ms-brand-surface-warm));
-  border-top: 3px solid var(--ms-brand-primary);
+  background: linear-gradient(165deg, var(--ms-brand-surface-card) 0%, var(--ms-brand-surface-warm) 100%);
+  border-color: var(--ms-brand-border-warm);
 }
 
-html.ms-brand-theme .team-page .team-toolbar.card,
-html.ms-brand-theme .team-page .team-group-card {
+html.ms-brand-theme .team-page .team-kpi-card__accent {
+  background: linear-gradient(90deg, var(--ms-brand-primary), rgba(var(--ms-brand-primary-rgb), 0.55));
+}
+
+html.ms-brand-theme .team-page .team-kpi-card__icon {
+  color: var(--ms-brand-primary-strong);
+  background: rgba(var(--ms-brand-primary-rgb), 0.16);
+  box-shadow: inset 0 0 0 1px rgba(var(--ms-brand-primary-rgb), 0.2);
+}
+
+html.ms-brand-theme .team-page .team-kpi-card:hover {
+  border-color: rgba(var(--ms-brand-primary-rgb), 0.35);
+  box-shadow: 0 10px 24px rgba(var(--ms-brand-primary-rgb), 0.14);
+}
+
+html.ms-brand-theme .team-page .team-kpi-card__value {
+  color: var(--ms-brand-dark, #1e293b);
+}
+
+/* ── CRM filter panels ── */
+html.ms-brand-theme .crm-filter-panel,
+html.ms-brand-theme .entity-filter-modal.filter-modal {
+  border-color: var(--ms-brand-border-warm);
+  background: var(--ms-brand-surface-warm);
+}
+
+html.ms-brand-theme .crm-filter-panel__head,
+html.ms-brand-theme .entity-filter-modal .filter-modal-head,
+html.ms-brand-theme .crm-filter-panel__foot,
+html.ms-brand-theme .entity-filter-modal .filter-modal-foot {
   background: var(--ms-brand-surface-card);
   border-color: var(--ms-brand-border-warm);
+}
+
+html.ms-brand-theme .crm-page--sneat .filter-btn--panel-open {
+  background: rgba(var(--ms-brand-primary-rgb), 0.14) !important;
+  color: var(--ms-brand-primary-strong) !important;
+  border-color: rgba(var(--ms-brand-primary-rgb), 0.42) !important;
+}
+
+html.ms-brand-theme .crm-page--sneat .filter-btn--has-filters .filter-badge {
+  background: var(--ms-brand-primary);
+  color: var(--ms-brand-dark);
+}
+
+html.ms-brand-theme .team-page .team-filter-card,
+html.ms-brand-theme .team-page .team-group-card {
+  background: linear-gradient(165deg, var(--ms-brand-surface-card) 0%, var(--ms-brand-surface-warm) 100%);
+  border-color: var(--ms-brand-border-warm);
+}
+
+html.ms-brand-theme .team-page .team-filter-card__accent {
+  background: linear-gradient(90deg, var(--ms-brand-primary), rgba(var(--ms-brand-primary-rgb), 0.55));
+}
+
+html.ms-brand-theme .team-page .team-filter-search__icon {
+  color: var(--ms-brand-primary-strong);
 }
 
 html.ms-brand-theme .team-page .team-group-header {
@@ -429,8 +555,8 @@ html.ms-brand-theme .team-page .member-role-label {
 
 html.ms-brand-theme .team-page .group-subtab.active,
 html.ms-brand-theme .team-page .group-subtab:hover {
-  color: var(--ms-brand-primary);
-  border-bottom-color: var(--ms-brand-primary);
+  color: var(--ms-brand-dark);
+  border-bottom-color: var(--ms-brand-dark);
 }
 
 html.ms-brand-theme .team-page .icon-action-btn:hover {
@@ -526,9 +652,25 @@ html.ms-brand-theme .avatar .avatar-initial.bg-label-primary {
   font-weight: 700;
 }
 
-/* Navbar / CRM header user avatar — solid brand primary (not washed-out label tint) */
-html.ms-brand-theme #navbar-user-avatar,
-html.ms-brand-theme #navbar-user-avatar-2 {
+/* Navbar / CRM header user avatar — fill the circular trigger, not a nested square */
+html.ms-brand-theme .portal-user-avatar {
+  background: var(--ms-brand-primary) !important;
+  color: var(--ms-brand-dark) !important;
+  border: none !important;
+  font-weight: 700;
+}
+
+html.ms-brand-theme .portal-user-avatar .portal-user-avatar__initial,
+html.ms-brand-theme .portal-user-avatar #navbar-user-avatar,
+html.ms-brand-theme .portal-user-avatar #navbar-user-avatar-2 {
+  background: transparent !important;
+  color: inherit !important;
+  border: none !important;
+}
+
+/* Sneat / legacy dropdown header avatars (not portal-user-avatar trigger) */
+html.ms-brand-theme .avatar-initial#navbar-user-avatar,
+html.ms-brand-theme .avatar-initial#navbar-user-avatar-2 {
   background: var(--ms-brand-primary) !important;
   color: var(--ms-brand-dark) !important;
   border: none !important;
@@ -695,8 +837,8 @@ html.ms-brand-theme .team-page .member-role-label--admin {
 
 html.ms-brand-theme .team-page .group-subtab.active,
 html.ms-brand-theme .team-page .group-subtab:hover {
-  color: var(--ms-brand-primary) !important;
-  border-bottom-color: var(--ms-brand-primary) !important;
+  color: var(--ms-brand-dark) !important;
+  border-bottom-color: var(--ms-brand-dark) !important;
 }
 
 html.ms-brand-theme .team-page .icon-action-btn:hover {

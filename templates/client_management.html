@@ -1,101 +1,89 @@
-{% set page_title = 'My Team - MarketoState' %}
+{% set page_title = 'Team Management - MarketoState' %}
 {% set active_nav = 'team' %}
 {% set use_marketostate_brand_theme = true %}
-{% set sneat_extra_css = '/static/css/client_management_sneat.css?v=20260620-1' %}
-{% include 'components/sneat_shell_start.html' %}
+{% set portal_extra_css = '/static/css/client_management_portal.css?v=20260623-19' %}
+{% include 'components/portal_shell_start.html' %}
 
-<div class="team-page" id="client-mgmt-page">
+<div class="team-page-shell team-page-shell--loading" id="team-page-shell">
+{% set loader_id = 'team-tab-loader' %}
+{% set arc_id = 'team-loader-arc' %}
+{% set percent_id = 'team-loader-percent' %}
+{% set steps_id = 'team-loader-steps' %}
+{% set caption_id = 'team-loader-caption' %}
+{% set label_id = 'team-loader-label' %}
+{% set initial_caption = 'Loading your teams' %}
+{% set initial_label = 'Syncing teams' %}
+{% set steps = ['teams', 'members', 'roster'] %}
+{% include 'components/portal_tab_loader.html' %}
+
+<div class="team-page portal-page-shell__content" id="client-mgmt-page">
     <div class="team-heading">
         <div>
             <div class="d-flex align-items-center gap-2 mb-2">
                 <span class="badge bg-label-primary">Team Management</span>
                 <span class="text-body-secondary small" id="team-group-count">Loading teams...</span>
             </div>
-            <h4>My Team</h4>
             <p class="text-body-secondary mb-0">Manage members, roles, and project access across your client teams.</p>
         </div>
     </div>
 
     <div class="alert alert-danger" id="banner" style="display:none;" role="alert"></div>
 
-    <div class="row g-4 mb-4">
-        <div class="col-sm-6 col-xl-3">
-            <div class="card team-kpi-card h-100">
-                <div class="card-body">
-                    <div class="d-flex align-items-start justify-content-between">
-                        <span class="team-kpi-icon bg-label-primary"><i class="bx bx-group"></i></span>
-                        <span class="badge bg-label-primary">All teams</span>
-                    </div>
-                    <h3 class="mt-3 mb-1" id="team-total-members">0</h3>
-                    <span class="text-body-secondary">Total members</span>
+    <div class="team-kpi-grid">
+        <article class="team-kpi-card team-kpi-card--members">
+            <div class="team-kpi-card__accent" aria-hidden="true"></div>
+            <div class="team-kpi-card__body">
+                <div class="team-kpi-card__top">
+                    <span class="team-kpi-card__label">Total members</span>
+                    <span class="team-kpi-card__icon" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                    </span>
                 </div>
+                <div class="team-kpi-card__value" id="team-total-members">0</div>
+                <span class="team-kpi-card__meta">Active across all teams</span>
             </div>
-        </div>
-        <div class="col-sm-6 col-xl-3">
-            <div class="card team-kpi-card h-100">
-                <div class="card-body">
-                    <div class="d-flex align-items-start justify-content-between">
-                        <span class="team-kpi-icon bg-label-primary"><i class="bx bx-user-check"></i></span>
-                        <span class="badge bg-label-primary">Active</span>
-                    </div>
-                    <h3 class="mt-3 mb-1" id="team-sales-agents">0</h3>
-                    <span class="text-body-secondary">Sales agents</span>
+        </article>
+        <article class="team-kpi-card team-kpi-card--agents">
+            <div class="team-kpi-card__accent" aria-hidden="true"></div>
+            <div class="team-kpi-card__body">
+                <div class="team-kpi-card__top">
+                    <span class="team-kpi-card__label">Sales agents</span>
+                    <span class="team-kpi-card__icon" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM6 21v-2a4 4 0 014-4h4a4 4 0 014 4v2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                    </span>
                 </div>
+                <div class="team-kpi-card__value" id="team-sales-agents">0</div>
+                <span class="team-kpi-card__meta">Client user role</span>
             </div>
-        </div>
-        <div class="col-sm-6 col-xl-3">
-            <div class="card team-kpi-card h-100">
-                <div class="card-body">
-                    <div class="d-flex align-items-start justify-content-between">
-                        <span class="team-kpi-icon bg-label-secondary"><i class="bx bx-briefcase-alt-2"></i></span>
-                        <span class="badge bg-label-secondary">Partners</span>
-                    </div>
-                    <h3 class="mt-3 mb-1" id="team-brokers">0</h3>
-                    <span class="text-body-secondary">Brokers</span>
+        </article>
+        <article class="team-kpi-card team-kpi-card--brokers">
+            <div class="team-kpi-card__accent" aria-hidden="true"></div>
+            <div class="team-kpi-card__body">
+                <div class="team-kpi-card__top">
+                    <span class="team-kpi-card__label">Brokers</span>
+                    <span class="team-kpi-card__icon" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M20 7h-9M14 3v4M6 17H4a2 2 0 01-2-2V5a2 2 0 012-2h3.9a2 2 0 011.69.9L12 6h8a2 2 0 012 2v7a2 2 0 01-2 2h-2" stroke-linecap="round" stroke-linejoin="round"/><path d="M6 17v4h12v-4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                    </span>
                 </div>
+                <div class="team-kpi-card__value" id="team-brokers">0</div>
+                <span class="team-kpi-card__meta">Partner brokers</span>
             </div>
-        </div>
-        <div class="col-sm-6 col-xl-3">
-            <div class="card team-kpi-card h-100">
-                <div class="card-body">
-                    <div class="d-flex align-items-start justify-content-between">
-                        <span class="team-kpi-icon bg-label-warning"><i class="bx bx-envelope"></i></span>
-                        <span class="badge bg-label-warning">Awaiting</span>
-                    </div>
-                    <h3 class="mt-3 mb-1" id="team-pending-invites">0</h3>
-                    <span class="text-body-secondary">Inactive (pending)</span>
+        </article>
+        <article class="team-kpi-card team-kpi-card--pending">
+            <div class="team-kpi-card__accent" aria-hidden="true"></div>
+            <div class="team-kpi-card__body">
+                <div class="team-kpi-card__top">
+                    <span class="team-kpi-card__label">Pending invites</span>
+                    <span class="team-kpi-card__icon" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M4 4h16v16H4z" stroke-linecap="round" stroke-linejoin="round"/><path d="m22 7-8.97 5.7a1.94 1.94 0 01-2.06 0L2 7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                    </span>
                 </div>
+                <div class="team-kpi-card__value" id="team-pending-invites">0</div>
+                <span class="team-kpi-card__meta">Awaiting acceptance</span>
             </div>
-        </div>
+        </article>
     </div>
 
-    <div class="card mb-4">
-        <div class="card-body team-toolbar">
-            <div>
-                <h5 class="mb-1">Team Directory</h5>
-                <span class="text-body-secondary small">Search members or filter the directory by role.</span>
-            </div>
-            <div class="team-toolbar-controls">
-                <div class="input-group input-group-merge team-search">
-                    <span class="input-group-text"><i class="bx bx-search"></i></span>
-                    <input class="form-control" id="team-search-input" type="search" placeholder="Search name or email" aria-label="Search team members">
-                </div>
-                <select class="form-select team-role-filter" id="team-role-filter" aria-label="Filter by role">
-                    <option value="">All roles</option>
-                    <option value="client_admin">Admin</option>
-                    <option value="client_user">Sales Agent</option>
-                    <option value="broker">Broker</option>
-                </select>
-            </div>
-        </div>
-    </div>
-
-    <div class="card team-loading" id="groups-loading">
-        <div class="text-center">
-            <div class="spinner-border text-primary mb-3" role="status"><span class="visually-hidden">Loading</span></div>
-            <div>Loading your teams...</div>
-        </div>
-    </div>
     <div class="card team-empty" id="groups-empty" style="display:none;">
         <div>
             <span class="team-kpi-icon bg-label-secondary mb-3"><i class="bx bx-group"></i></span>
@@ -104,6 +92,7 @@
         </div>
     </div>
     <div id="groups-container"></div>
+</div>
 </div>
 
 <div class="team-modal-backdrop" id="modal-invite-member">
@@ -243,18 +232,60 @@
     </div>
 </div>
 
-{% include 'components/sneat_shell_end.html' %}
+{% include 'components/portal_shell_end.html' %}
 <script>
     window.__SUPABASE_URL__      = {{ (supabase_url or '') | tojson }};
     window.__SUPABASE_ANON_KEY__ = {{ (supabase_anon_key or '') | tojson }};
 </script>
 <script src="/static/js/sidebar.js?v=20260610-client-admin-2"></script>
+<script src="/static/js/portal_tab_loader.js?v=20260623-3"></script>
 <script>
 (function () {
     'use strict';
 
     var supabase = window._supabase;
     if (!supabase) return;
+
+    var teamLoader = window.PortalTabLoader ? new window.PortalTabLoader({
+        shellId: 'team-page-shell',
+        loaderId: 'team-tab-loader',
+        shellLoadingClass: 'team-page-shell--loading',
+        stepOrder: ['teams', 'members', 'roster'],
+        finalStep: 'roster',
+        ids: {
+            percent: 'team-loader-percent',
+            steps: 'team-loader-steps',
+            caption: 'team-loader-caption',
+            label: 'team-loader-label',
+            arc: 'team-loader-arc'
+        }
+    }) : null;
+
+    if (teamLoader) {
+        teamLoader.boot('teams', 'Loading your teams', 18, 'Syncing teams');
+    }
+
+    function teamSectionLoaderMarkup(label) {
+        if (window.PortalTabLoader && typeof window.PortalTabLoader.sectionMarkup === 'function') {
+            return window.PortalTabLoader.sectionMarkup(label);
+        }
+        return '<div class="team-panel-loading__content"><span>Loading team roster...</span></div>';
+    }
+
+    function setTeamPanelLoading(loadingEl, isLoading, label) {
+        if (!loadingEl) return;
+        if (!loadingEl._portalSectionLoader && window.PortalTabLoader) {
+            if (!loadingEl.querySelector('.portal-tab-loader')) {
+                loadingEl.innerHTML = teamSectionLoaderMarkup(label || 'Loading team roster...');
+            }
+            window.PortalTabLoader.bindSectionLoader(loadingEl);
+        }
+        if (loadingEl._portalSectionLoader) {
+            loadingEl._portalSectionLoader.setLoading(!!isLoading, label || 'Loading team roster...');
+            return;
+        }
+        loadingEl.style.display = isLoading ? '' : 'none';
+    }
 
     var roleLabels = {
         client_admin: 'Admin',
@@ -281,6 +312,9 @@
         groupAccess: { workspaces: [], panoramas: [] },
         memberAccess: { workspaces: [], panoramas: [] }
     };
+    var rosterPagerByGroup = {};
+    var ROSTER_PAGE_SIZE_DEFAULT = 10;
+    var ROSTER_PAGE_SIZE_OPTIONS = [10, 25, 50];
 
     function getAuthHeaders() {
         var base = { 'Content-Type': 'application/json' };
@@ -434,12 +468,108 @@
             return em && !memberEmails[em];
         });
     }
-    function applyMemberFilters() {
+    function getRosterPager(groupId) {
+        var key = String(groupId || '');
+        if (!rosterPagerByGroup[key]) {
+            rosterPagerByGroup[key] = { page: 1, size: ROSTER_PAGE_SIZE_DEFAULT };
+        }
+        return rosterPagerByGroup[key];
+    }
+
+    function renderRosterPagination(groupId, meta) {
+        var key = String(groupId || '');
+        var el = document.getElementById('members-pagination-' + key);
+        if (!el) return;
+        var pager = getRosterPager(key);
+        var total = parseInt(meta && meta.total, 10) || 0;
+        var limit = Math.max(1, parseInt(pager.size, 10) || ROSTER_PAGE_SIZE_DEFAULT);
+        var pages = Math.max(1, parseInt(meta && meta.pages, 10) || Math.ceil(total / limit) || 1);
+        pager.page = Math.min(Math.max(1, parseInt(pager.page, 10) || 1), pages);
+        pager.size = limit;
+
+        if (!total) {
+            el.innerHTML = '';
+            el.style.display = 'none';
+            return;
+        }
+
+        var start = ((pager.page - 1) * limit) + 1;
+        var end = Math.min(total, pager.page * limit);
+        el.style.display = 'flex';
+        el.innerHTML =
+            '<span class="team-pagination__meta">' + escapeHtml(start) + '-' + escapeHtml(end) + ' of ' + escapeHtml(total) + '</span>' +
+            '<select class="team-pagination__size" data-page-size>' +
+                ROSTER_PAGE_SIZE_OPTIONS.map(function (size) {
+                    return '<option value="' + size + '"' + (size === limit ? ' selected' : '') + '>' + size + ' / page</option>';
+                }).join('') +
+            '</select>' +
+            '<button class="team-pagination__btn" type="button" data-page-prev' + (pager.page <= 1 ? ' disabled' : '') + '>Prev</button>' +
+            '<span class="team-pagination__meta">Page ' + escapeHtml(pager.page) + ' / ' + escapeHtml(pages) + '</span>' +
+            '<button class="team-pagination__btn" type="button" data-page-next' + (pager.page >= pages ? ' disabled' : '') + '>Next</button>';
+
+        var sizeEl = el.querySelector('[data-page-size]');
+        if (sizeEl) {
+            sizeEl.addEventListener('change', function () {
+                pager.size = parseInt(sizeEl.value, 10) || ROSTER_PAGE_SIZE_DEFAULT;
+                pager.page = 1;
+                applyMemberPagination(key);
+            });
+        }
+        var prevBtn = el.querySelector('[data-page-prev]');
+        if (prevBtn) {
+            prevBtn.addEventListener('click', function () {
+                pager.page = Math.max(1, pager.page - 1);
+                applyMemberPagination(key);
+            });
+        }
+        var nextBtn = el.querySelector('[data-page-next]');
+        if (nextBtn) {
+            nextBtn.addEventListener('click', function () {
+                pager.page = Math.min(pages, pager.page + 1);
+                applyMemberPagination(key);
+            });
+        }
+    }
+
+    function applyMemberPagination(groupId) {
+        var key = String(groupId || '');
+        var card = getGroupCard(key);
+        if (!card) return;
+        var pager = getRosterPager(key);
+        var rows = Array.prototype.slice.call(card.querySelectorAll('.team-roster-row')).filter(function (row) {
+            return !row.classList.contains('team-row-hidden');
+        });
+        var total = rows.length;
+        var limit = Math.max(1, parseInt(pager.size, 10) || ROSTER_PAGE_SIZE_DEFAULT);
+        var pages = Math.max(1, Math.ceil(total / limit) || 1);
+        pager.page = Math.min(Math.max(1, parseInt(pager.page, 10) || 1), pages);
+        var start = (pager.page - 1) * limit;
+        var end = start + limit;
+
+        card.querySelectorAll('.team-roster-row').forEach(function (row) {
+            row.classList.remove('team-row-paged-out');
+        });
+        rows.forEach(function (row, index) {
+            if (index < start || index >= end) {
+                row.classList.add('team-row-paged-out');
+            }
+        });
+
+        var paginationEl = document.getElementById('members-pagination-' + key);
+        var listWrapEl = card.querySelector('#members-list-wrap-' + key);
+        if (paginationEl && listWrapEl) {
+            paginationEl.style.display = total && listWrapEl.style.display !== 'none' ? 'flex' : 'none';
+        }
+        renderRosterPagination(key, { total: total, pages: pages });
+    }
+
+    function applyMemberFilters(resetPages) {
         var searchEl = document.getElementById('team-search-input');
         var roleEl = document.getElementById('team-role-filter');
         var search = String(searchEl ? searchEl.value : '').trim().toLowerCase();
         var role = String(roleEl ? roleEl.value : '').trim().toLowerCase();
         document.querySelectorAll('.team-group-card').forEach(function (card) {
+            var groupId = String(card.getAttribute('data-group-id') || '');
             var visibleCount = 0;
             card.querySelectorAll('.team-roster-row').forEach(function (row) {
                 var matchesSearch = !search || String(row.getAttribute('data-search') || '').indexOf(search) !== -1;
@@ -451,6 +581,8 @@
             var filteredEmpty = card.querySelector('.members-filter-empty');
             var hasRows = card.querySelectorAll('.team-roster-row').length > 0;
             if (filteredEmpty) filteredEmpty.style.display = hasRows && !visibleCount ? 'block' : 'none';
+            if (resetPages) getRosterPager(groupId).page = 1;
+            applyMemberPagination(groupId);
         });
     }
     function formatDate(dateStr) {
@@ -779,6 +911,21 @@
         }
     }
 
+    function getGroupCard(groupId) {
+        var key = String(groupId || '');
+        if (!key) return null;
+        return document.querySelector('.team-group-card[data-group-id="' + key + '"]');
+    }
+
+    function removeDuplicateGroupPanels(groupId) {
+        var key = String(groupId || '');
+        if (!key) return;
+        var panels = document.querySelectorAll('#group-panel-members-' + key);
+        for (var i = 1; i < panels.length; i += 1) {
+            panels[i].remove();
+        }
+    }
+
     function renderTeamRoster(groupId, membersOverride) {
         var key = String(groupId || '');
         if (membersOverride !== undefined) {
@@ -789,19 +936,26 @@
         var pendingInvites = pendingInvitesForRoster(members, invites);
         updateTeamSummary();
         syncGroupCapacityUi(groupId);
+        removeDuplicateGroupPanels(key);
 
-        var listEl = document.getElementById('members-list-' + key);
-        var listWrapEl = document.getElementById('members-list-wrap-' + key);
-        var emptyEl = document.getElementById('members-empty-' + key);
-        var loadingEl = document.getElementById('members-loading-' + key);
-        if (loadingEl) loadingEl.style.display = 'none';
+        var cardEl = getGroupCard(key);
+        var listEl = cardEl ? cardEl.querySelector('#members-list-' + key) : document.getElementById('members-list-' + key);
+        var listWrapEl = cardEl ? cardEl.querySelector('#members-list-wrap-' + key) : document.getElementById('members-list-wrap-' + key);
+        var emptyEl = cardEl ? cardEl.querySelector('#members-empty-' + key) : document.getElementById('members-empty-' + key);
+        var loadingEl = cardEl ? cardEl.querySelector('#members-loading-' + key) : document.getElementById('members-loading-' + key);
+        if (loadingEl) setTeamPanelLoading(loadingEl, false);
         if (emptyEl) emptyEl.style.display = 'none';
         if (listWrapEl) listWrapEl.style.display = 'none';
 
         var hasRows = members.length || pendingInvites.length;
         if (!hasRows) {
             if (emptyEl) emptyEl.style.display = 'block';
-            applyMemberFilters();
+            var paginationEl = document.getElementById('members-pagination-' + key);
+            if (paginationEl) {
+                paginationEl.innerHTML = '';
+                paginationEl.style.display = 'none';
+            }
+            applyMemberFilters(true);
             return;
         }
         if (listWrapEl) listWrapEl.style.display = '';
@@ -827,17 +981,17 @@
                 (canManageProjectAccess ? '<button class="icon-action-btn member-access-btn" title="Manage access" aria-label="Manage access" type="button" data-group="' + escapeHtml(key) + '" data-uid="' + escapeHtml(uid) + '" data-name="' + escapeHtml(displayName) + '" data-role="' + escapeHtml(normalizedRole) + '">' + actionIcon('access') + '</button>' : '') +
                 '<button class="icon-action-btn icon-action-btn--danger member-delete-btn" title="Remove member" aria-label="Remove member" type="button" data-group="' + escapeHtml(key) + '" data-uid="' + escapeHtml(uid) + '" data-name="' + escapeHtml(displayName) + '">' + actionIcon('delete') + '</button>';
             return '<tr class="team-roster-row" data-kind="active" data-group="' + escapeHtml(key) + '" data-uid="' + escapeHtml(uid) + '" data-role="' + escapeHtml(normalizedRole) + '" data-search="' + escapeHtml(searchValue) + '">' +
-                '<td>' +
+                '<td class="team-table-col team-table-col--member">' +
                     '<div class="member-name-cell">' +
                         '<span class="member-avatar bg-label-primary">' + initials + '</span>' +
                         '<div><div class="member-name-cell__title">' + escapeHtml(m.display_name || '-') + '</div><span class="text-body-secondary small">Team member</span></div>' +
                     '</div>' +
                 '</td>' +
-                '<td><span class="member-email-text">' + escapeHtml(m.email || '-') + '</span></td>' +
-                '<td>' + roleCellHtml + '</td>' +
-                '<td title="' + createdAtFull + '">' + createdAt + '</td>' +
-                '<td><span class="member-status-pill member-status-pill--active">Active</span></td>' +
-                '<td><div class="actions-cell actions-cell--icons">' + actionButtons + '</div></td>' +
+                '<td class="team-table-col team-table-col--email"><span class="member-email-text">' + escapeHtml(m.email || '-') + '</span></td>' +
+                '<td class="team-table-col team-table-col--role">' + roleCellHtml + '</td>' +
+                '<td class="team-table-col team-table-col--date" title="' + createdAtFull + '">' + createdAt + '</td>' +
+                '<td class="team-table-col team-table-col--status"><span class="member-status-pill member-status-pill--active">Active</span></td>' +
+                '<td class="team-table-col team-table-col--actions"><div class="actions-cell actions-cell--icons">' + actionButtons + '</div></td>' +
                 '</tr>';
         }).join('');
 
@@ -860,22 +1014,23 @@
                     ? '<button class="icon-action-btn invite-copy-btn" title="Share link" aria-label="Share link" data-link="' + escapeHtml(inviteLink) + '" type="button">' + actionIcon('share') + '</button>'
                     : '');
             return '<tr class="team-roster-row" data-kind="inactive" data-group="' + escapeHtml(key) + '" data-invite-id="' + escapeHtml(inviteId) + '" data-role="' + escapeHtml(normalizedRole) + '" data-search="' + escapeHtml(searchValue) + '">' +
-                '<td>' +
+                '<td class="team-table-col team-table-col--member">' +
                     '<div class="member-name-cell">' +
                         '<span class="member-avatar bg-label-warning">' + initials + '</span>' +
-                        '<div><div class="member-name-cell__title">' + escapeHtml(inv.display_name || '-') + '</div><span class="text-body-secondary small">Awaiting acceptance</span></div>' +
+                        '<div><div class="member-name-cell__title">' + escapeHtml(inv.display_name || '-') + '</div></div>' +
                     '</div>' +
                 '</td>' +
-                '<td><span class="member-email-text">' + escapeHtml(inv.email || '-') + '</span></td>' +
-                '<td><span class="member-role-label' + roleTone + '">' + roleLabel + '</span></td>' +
-                '<td title="' + invitedAtFull + '">' + invitedAt + '</td>' +
-                '<td><span class="member-status-pill member-status-pill--inactive">Inactive</span></td>' +
-                '<td><div class="actions-cell actions-cell--icons">' + actionButtons + '</div></td>' +
+                '<td class="team-table-col team-table-col--email"><span class="member-email-text">' + escapeHtml(inv.email || '-') + '</span></td>' +
+                '<td class="team-table-col team-table-col--role"><span class="member-role-label' + roleTone + '">' + roleLabel + '</span></td>' +
+                '<td class="team-table-col team-table-col--date" title="' + invitedAtFull + '">' + invitedAt + '</td>' +
+                '<td class="team-table-col team-table-col--status"><span class="member-status-pill member-status-pill--inactive">Inactive</span></td>' +
+                '<td class="team-table-col team-table-col--actions"><div class="actions-cell actions-cell--icons">' + actionButtons + '</div></td>' +
                 '</tr>';
         }).join('');
 
         listEl.innerHTML = rowsHtml;
-        applyMemberFilters();
+        getRosterPager(key).page = 1;
+        applyMemberFilters(true);
 
         listEl.querySelectorAll('.member-edit-btn').forEach(function (btn) {
             btn.addEventListener('click', function () {
@@ -993,33 +1148,61 @@
     }
 
     // -- Render group cards then fetch all members in parallel --
+    var teamLoaderFinished = false;
+    function finishTeamLoader() {
+        if (!teamLoader || teamLoaderFinished) return;
+        teamLoaderFinished = true;
+        teamLoader.setStep('roster', 'Team roster ready', 96, 'Almost ready');
+        window.setTimeout(function () {
+            teamLoader.setLoading(false, {
+                finalCaption: 'Team roster ready',
+                finalLabel: 'All set'
+            });
+        }, 260);
+    }
+
     function renderGroups(groups, headers) {
-        var loadingEl = document.getElementById('groups-loading');
         var emptyEl   = document.getElementById('groups-empty');
         var container = document.getElementById('groups-container');
-        if (loadingEl) loadingEl.style.display = 'none';
 
-        if (!groups.length) {
+        var seenGroupIds = {};
+        var uniqueGroups = (groups || []).filter(function (group) {
+            var gid = String(group && group.id || '').trim();
+            if (!gid || seenGroupIds[gid]) return false;
+            seenGroupIds[gid] = true;
+            return true;
+        });
+
+        if (!uniqueGroups.length) {
             if (emptyEl) emptyEl.style.display = 'block';
-            return;
+            if (container) container.innerHTML = '';
+            finishTeamLoader();
+            return Promise.resolve();
+        }
+        if (teamLoader) {
+            teamLoader.setStep('members', 'Loading team rosters', 62, 'Fetching members');
         }
         var groupCountEl = document.getElementById('team-group-count');
         if (groupCountEl) {
-            groupCountEl.textContent = groups.length + ' client team' + (groups.length === 1 ? '' : 's');
+            groupCountEl.textContent = uniqueGroups.length + ' client team' + (uniqueGroups.length === 1 ? '' : 's');
         }
         groupsById = {};
-        groups.forEach(function (group) {
+        uniqueGroups.forEach(function (group) {
             groupsById[String(group.id || '')] = group;
         });
 
         // Build all group cards first (instant paint)
-        container.innerHTML = groups.map(function (group) {
+        if (!container) {
+            finishTeamLoader();
+            return Promise.resolve();
+        }
+        container.innerHTML = uniqueGroups.map(function (group) {
             var gid = escapeHtml(group.id);
             var groupName = escapeHtml(group.name || 'Client Team');
             var groupInitials = escapeHtml(getInitials(group.name, 'Team'));
             var capacity = groupCapacityState(group.id);
             var limitMessage = capacity.atCapacity ? groupLimitMessage(group.id) : '';
-            return '<section class="card team-group-card">' +
+            return '<section class="card team-group-card" data-group-id="' + gid + '">' +
                 '<div class="team-group-header">' +
                     '<div class="d-flex align-items-center gap-3">' +
                         '<span class="team-group-avatar bg-label-primary">' + groupInitials + '</span>' +
@@ -1037,20 +1220,21 @@
                     '</div>' +
                 '</div>' +
                 '<div id="group-panel-members-' + gid + '" class="team-group-panel">' +
-                    '<div id="members-loading-' + gid + '" class="team-panel-loading"><span class="spinner-border spinner-border-sm text-primary me-2"></span>Loading team roster...</div>' +
+                    '<div id="members-loading-' + gid + '" class="team-panel-loading portal-section-loader">' + teamSectionLoaderMarkup('Loading team roster...') + '</div>' +
                     '<div class="team-table-wrap" id="members-list-wrap-' + gid + '" style="display:none;">' +
                         '<table class="table team-table">' +
                             '<thead><tr>' +
-                                '<th>Member</th>' +
-                                '<th>Email</th>' +
-                                '<th>Role</th>' +
-                                '<th>Joined / Invited</th>' +
-                                '<th>Status</th>' +
-                                '<th>Actions</th>' +
+                                '<th class="team-table-col team-table-col--member">Member</th>' +
+                                '<th class="team-table-col team-table-col--email">Email</th>' +
+                                '<th class="team-table-col team-table-col--role">Role</th>' +
+                                '<th class="team-table-col team-table-col--date">Joined / Invited</th>' +
+                                '<th class="team-table-col team-table-col--status">Status</th>' +
+                                '<th class="team-table-col team-table-col--actions">Actions</th>' +
                             '</tr></thead>' +
                             '<tbody id="members-list-' + gid + '"></tbody>' +
                         '</table>' +
                     '</div>' +
+                    '<div class="team-pagination" id="members-pagination-' + gid + '" style="display:none;"></div>' +
                     '<div class="team-panel-empty" id="members-empty-' + gid + '" style="display:none;"><i class="bx bx-user-x"></i><span>No members in this team yet.</span></div>' +
                     '<div class="team-panel-empty members-filter-empty" style="display:none;"><i class="bx bx-search-alt"></i><span>No members match your filters.</span></div>' +
                 '</div>' +
@@ -1062,9 +1246,14 @@
                 openInviteMemberModal(btn.getAttribute('data-group-id'), btn.getAttribute('data-group-name'));
             });
         });
+        container.querySelectorAll('[id^="members-loading-"]').forEach(function (loadingEl) {
+            if (!window.PortalTabLoader) return;
+            var ctrl = window.PortalTabLoader.bindSectionLoader(loadingEl);
+            if (ctrl) ctrl.setLoading(true, 'Loading team roster...');
+        });
 
         // Fetch all groups' roster data in parallel
-        Promise.all(groups.map(function (group) {
+        return Promise.all(uniqueGroups.map(function (group) {
             return Promise.all([
                 fetchJson('/api/clients/' + encodeURIComponent(group.id) + '/members', { headers: headers }),
                 fetchJson('/api/clients/' + encodeURIComponent(group.id) + '/invites', { headers: headers })
@@ -1081,9 +1270,14 @@
                 renderTeamRoster(group.id);
             }).catch(function () {
                 var el = document.getElementById('members-loading-' + group.id);
-                if (el) el.style.display = 'none';
+                if (el) setTeamPanelLoading(el, false);
             });
-        }));
+        })).then(function () {
+            if (teamLoader) {
+                teamLoader.setStep('roster', 'Building team roster', 88, 'Finalizing roster');
+            }
+            finishTeamLoader();
+        });
     }
 
     window.sidebarReady.then(function (ctx) {
@@ -1102,12 +1296,13 @@
         var closeEditRoleBtn = document.getElementById('close-edit-member-role-modal');
         var cancelEditRoleBtn = document.getElementById('cancel-edit-member-role');
         var confirmEditRoleBtn = document.getElementById('confirm-edit-member-role');
-        var searchInput = document.getElementById('team-search-input');
-        var roleFilter = document.getElementById('team-role-filter');
         var menuSignout = document.getElementById('menu-signout');
         var dropdownSignout = document.getElementById('dropdown-signout');
 
         var profile = ctx.profile || {};
+        if (typeof window.configurePortalShell === 'function') {
+            window.configurePortalShell(profile, !!ctx.isBroker, !!(ctx.role === 'admin' || ctx.role === 'superadmin'), !!ctx.isClientAdmin);
+        }
         var profileName = profile.name || profile.display_name || profile.email || 'User';
         var profileRole = ctx.isClientAdmin ? 'Admin' : (roleLabels[normalizeMemberRole(ctx.role)] || ctx.role || 'Member');
         var profileInitials = getInitials(profileName, profile.email);
@@ -1145,8 +1340,6 @@
         if (cancelEditRoleBtn) cancelEditRoleBtn.addEventListener('click', function () { closeModal(modalEditMemberRole); });
         if (confirmEditRoleBtn) confirmEditRoleBtn.addEventListener('click', doEditMemberRole);
         if (modalEditMemberRole) modalEditMemberRole.addEventListener('click', function (e) { if (e.target === modalEditMemberRole) closeModal(modalEditMemberRole); });
-        if (searchInput) searchInput.addEventListener('input', applyMemberFilters);
-        if (roleFilter) roleFilter.addEventListener('change', applyMemberFilters);
         if (menuSignout) menuSignout.addEventListener('click', signOutFromTeamPage);
         if (dropdownSignout) dropdownSignout.addEventListener('click', signOutFromTeamPage);
         document.addEventListener('keydown', function (event) {
@@ -1162,24 +1355,28 @@
         }
         try { if (window.applyOrgTheme) window.applyOrgTheme(); } catch (e) {}
 
+        if (teamLoader) {
+            teamLoader.setStep('teams', 'Fetching client teams', 34, 'Loading teams');
+        }
         loadTeamData().then(function (results) {
             var groupsRes = results[0];
             var headers   = results[1];
             if (!groupsRes.ok || !Array.isArray(groupsRes.data) || !groupsRes.data.length) {
                 showBanner(groupsRes.ok ? '' : 'Unable to load your client teams.');
-                var el = document.getElementById('groups-loading');
-                if (el) el.style.display = 'none';
                 var emptyEl = document.getElementById('groups-empty');
                 if (emptyEl) emptyEl.style.display = '';
                 var groupCountEl = document.getElementById('team-group-count');
                 if (groupCountEl) groupCountEl.textContent = 'No client teams';
+                finishTeamLoader();
                 return;
             }
-            renderGroups(groupsRes.data, headers);
+            if (teamLoader) {
+                teamLoader.setStep('teams', 'Teams loaded', 52, 'Loading roster');
+            }
+            return renderGroups(groupsRes.data, headers);
         }).catch(function () {
             showBanner('Failed to load groups.');
-            var el = document.getElementById('groups-loading');
-            if (el) el.style.display = 'none';
+            finishTeamLoader();
         });
     });
 })();
