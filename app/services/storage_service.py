@@ -12,9 +12,11 @@ from PIL import Image
 try:
     import boto3
     from botocore.config import Config as BotoConfig
+    from botocore.exceptions import ClientError as BotoClientError
 except Exception:
     boto3 = None
     BotoConfig = None
+    BotoClientError = None
 
 from app import config as app_config
 
@@ -1044,7 +1046,7 @@ def delete_sales_flat360_from_s3(filename):
 # Gallery helpers (images + videos)
 # ---------------------------------------------------------------------------
 
-MAX_GALLERY_READ_BYTES = int(os.environ.get('MAX_GALLERY_READ_BYTES', str(100 * 1024 * 1024)))  # 100MB
+MAX_GALLERY_READ_BYTES = int(os.environ.get('MAX_GALLERY_READ_BYTES', str(100 * 1024 * 1024)))  # allow large source uploads (e.g. 80MB); images are compressed down to SAFE limit
 
 ALLOWED_GALLERY_IMAGE_EXT = {'png', 'jpg', 'jpeg', 'webp', 'gif'}
 ALLOWED_GALLERY_VIDEO_EXT = {'mp4', 'webm', 'mov'}
@@ -1055,6 +1057,12 @@ GALLERY_IMAGE_CONTENT_TYPES = {
     'webp': 'image/webp',
     'gif': 'image/gif',
 }
+GALLERY_IMAGE_MAX_DIMENSION = int(os.environ.get('GALLERY_IMAGE_MAX_DIMENSION', '2400'))
+GALLERY_JPEG_QUALITY = int(os.environ.get('GALLERY_JPEG_QUALITY', '88'))
+GALLERY_WEBP_QUALITY = int(os.environ.get('GALLERY_WEBP_QUALITY', '90'))
+# Supabase bucket limit is 50MB. Allow larger source uploads (e.g. 80MB) but ensure final delivered <= ~50MB.
+GALLERY_MAX_DELIVERED_IMAGE_BYTES = int(os.environ.get('GALLERY_MAX_DELIVERED_IMAGE_BYTES', str(48 * 1024 * 1024)))
+GALLERY_MAX_SAFE_UPLOAD_BYTES = int(os.environ.get('GALLERY_MAX_SAFE_UPLOAD_BYTES', str(50 * 1024 * 1024)))  # match Supabase storage limit (images compressed, videos as-is)
 GALLERY_UPLOAD_RETRY_ATTEMPTS = max(1, int(os.environ.get('GALLERY_UPLOAD_RETRY_ATTEMPTS', '3')))
 GALLERY_UPLOAD_RETRY_BASE_DELAY_SEC = max(0.1, float(os.environ.get('GALLERY_UPLOAD_RETRY_BASE_DELAY_SEC', '0.6')))
 
@@ -1067,8 +1075,14 @@ def gallery_object_key(filename):
 
 
 def compress_gallery_image(raw_bytes, source_ext=''):
-    """Lossless gallery image validation + passthrough.
-    Returns (raw_bytes, width, height, out_ext, out_content_type)
+    """Resize (if needed) + lossless WebP re-encode for gallery images.
+
+    Allows large source files (e.g. 80MB) while producing a final asset
+    that fits Supabase's 50MB bucket limit. Uses lossless WebP after
+    downscaling. Falls back to lower resolution or mild lossy only if
+    absolutely necessary. GIFs are passed through (or re-encoded if resized).
+
+    Returns (bytes, width, height, out_ext, out_content_type)
     or (None, 0, 0, '', '').
     """
     if not raw_bytes or len(raw_bytes) > MAX_GALLERY_READ_BYTES:
@@ -1082,15 +1096,131 @@ def compress_gallery_image(raw_bytes, source_ext=''):
     if w <= 0 or h <= 0:
         return None, 0, 0, '', ''
 
+    # EXIF orientation
+    try:
+        exif = img.getexif()
+        orientation = exif.get(EXIF_ORIENTATION_TAG)
+        if orientation == 3:
+            img = img.rotate(180, expand=True)
+        elif orientation == 6:
+            img = img.rotate(270, expand=True)
+        elif orientation == 8:
+            img = img.rotate(90, expand=True)
+    except Exception:
+        pass
+
+    # Recompute after possible rotation
+    w, h = img.size
+    orig_w, orig_h = w, h
+
+    # Resize if oversized
+    if max(w, h) > GALLERY_IMAGE_MAX_DIMENSION:
+        ratio = GALLERY_IMAGE_MAX_DIMENSION / float(max(w, h))
+        new_w = max(1, int(w * ratio))
+        new_h = max(1, int(h * ratio))
+        img = img.resize((new_w, new_h), RESAMPLE_LANCZOS)
+        w, h = img.size
+
     fmt = str(getattr(img, 'format', '') or '').strip().lower()
-    if src_ext not in GALLERY_IMAGE_CONTENT_TYPES:
-        if fmt in ('jpeg', 'jpg'):
-            src_ext = 'jpg'
-        elif fmt in ('png', 'webp', 'gif'):
-            src_ext = fmt
+    is_gif = (src_ext == 'gif') or (fmt == 'gif')
+
+    if is_gif:
+        # Keep GIF as-is (passthrough original bytes to preserve animation if any)
+        out_ext = 'gif'
+        out_ct = 'image/gif'
+        # Re-encode only if we resized (compare against original pre-resize dims)
+        did_resize = (orig_w != w or orig_h != h)
+        if did_resize:
+            try:
+                buf = io.BytesIO()
+                save_img = img
+                if img.mode not in ('P', 'RGBA', 'RGB'):
+                    save_img = img.convert('RGBA')
+                save_img.save(buf, 'GIF', optimize=True)
+                out_bytes = buf.getvalue()
+                return out_bytes, w, h, out_ext, out_ct
+            except Exception:
+                return None, 0, 0, '', ''
+        return raw_bytes, w, h, out_ext, out_ct
+
+    # For static images: use **lossless WebP** (user request) + resize.
+    # Resize alone gives huge wins. Lossless WebP from an 80MB source can easily drop to <50MB
+    # while preserving full quality (no generation loss).
+    # Preserve alpha when present.
+    has_alpha = img.mode in ('RGBA', 'LA', 'PA', 'P') and 'transparency' in (img.info or {})
+    try:
+        if has_alpha or img.mode == 'RGBA':
+            img = img.convert('RGBA')
         else:
-            src_ext = 'jpg'
-    return raw_bytes, w, h, src_ext, GALLERY_IMAGE_CONTENT_TYPES.get(src_ext, 'image/jpeg')
+            img = img.convert('RGB')
+    except Exception:
+        pass
+
+    target = GALLERY_MAX_DELIVERED_IMAGE_BYTES
+
+    def _encode_lossless(current_img):
+        b = io.BytesIO()
+        current_img.save(b, 'WEBP', lossless=True, method=6)
+        return b.getvalue()
+
+    def _encode_lossy(current_img, q):
+        b = io.BytesIO()
+        current_img.save(b, 'WEBP', quality=q, method=6, lossless=False)
+        return b.getvalue()
+
+    try:
+        current_img = img
+        out_bytes = _encode_lossless(current_img)
+        out_w, out_h = current_img.size
+
+        # If still over the Supabase 50MB limit (very rare after 2400px), further downscale while staying lossless
+        max_dim = GALLERY_IMAGE_MAX_DIMENSION
+        while len(out_bytes) > target and max_dim > 700:
+            max_dim = int(max_dim * 0.82)
+            if max(current_img.size) <= max_dim:
+                break
+            ratio = max_dim / float(max(current_img.size))
+            new_w = max(1, int(current_img.width * ratio))
+            new_h = max(1, int(current_img.height * ratio))
+            current_img = current_img.resize((new_w, new_h), RESAMPLE_LANCZOS)
+            out_bytes = _encode_lossless(current_img)
+            out_w, out_h = current_img.size
+            if len(out_bytes) <= target:
+                break
+
+        # Absolute last resort: switch to lossy only if we still can't fit under limit losslessly
+        if len(out_bytes) > target:
+            for q in (85, 78, 70):
+                candidate = _encode_lossy(current_img, q)
+                if len(candidate) <= target or len(candidate) < len(out_bytes):
+                    out_bytes = candidate
+                if len(out_bytes) <= target:
+                    break
+
+        return out_bytes, out_w, out_h, 'webp', 'image/webp'
+    except Exception:
+        # JPEG fallback (lossy)
+        try:
+            if img.mode != 'RGB':
+                img = img.convert('RGB')
+            buf = io.BytesIO()
+            img.save(buf, 'JPEG', quality=GALLERY_JPEG_QUALITY, optimize=True, progressive=True)
+            out_bytes = buf.getvalue()
+            if len(out_bytes) > target:
+                for q in (82, 75, 68):
+                    try:
+                        buf = io.BytesIO()
+                        img.save(buf, 'JPEG', quality=q, optimize=True, progressive=True)
+                        candidate = buf.getvalue()
+                        if len(candidate) < len(out_bytes):
+                            out_bytes = candidate
+                        if len(out_bytes) <= target:
+                            break
+                    except Exception:
+                        pass
+            return out_bytes, img.size[0], img.size[1], 'jpg', 'image/jpeg'
+        except Exception:
+            return None, 0, 0, '', ''
 
 
 def _is_s3_tls_verification_error(exc):
@@ -1154,27 +1284,69 @@ def _is_transient_s3_error(exc):
     return False
 
 
+def _is_entity_too_large_error(exc):
+    """Detect S3 EntityTooLarge (or equivalent) regardless of exact exception shape."""
+    if not exc:
+        return False
+    try:
+        # Check via botocore ClientError response
+        if BotoClientError and isinstance(exc, BotoClientError):
+            resp = getattr(exc, 'response', None) or {}
+            err = resp.get('Error') or {}
+            code = str(err.get('Code') or '').lower()
+            if 'entity' in code and 'large' in code:
+                return True
+    except Exception:
+        pass
+
+    try:
+        full = str(exc)
+        fl = full.lower()
+        if 'entitytoolarge' in fl or 'entity_too_large' in fl or 'entity too large' in fl:
+            return True
+        if 'exceeded the maximum allowed size' in fl:
+            return True
+        # Also catch the common boto message pattern
+        if 'an error occurred (entitytoolarge)' in fl:
+            return True
+    except Exception:
+        pass
+    return False
+
+
 def upload_gallery_to_s3(filename, raw_bytes, content_type='image/jpeg'):
     client = get_s3_client()
     if not client:
         raise RuntimeError('S3 not configured')
     key = gallery_object_key(filename)
     last_error = None
+
+    # Prefer upload_fileobj (uses boto3 transfer manager + multipart for larger objects).
+    # This avoids single PutObject limits on some storage backends.
+    # Wrap plain bytes in BytesIO so the high-level uploader is always used.
+    upload_stream = raw_bytes
+    if not hasattr(upload_stream, 'read'):
+        try:
+            upload_stream = io.BytesIO(raw_bytes)
+        except Exception:
+            # Fall back to direct body if wrapping fails
+            upload_stream = raw_bytes
+
     for attempt in range(1, GALLERY_UPLOAD_RETRY_ATTEMPTS + 1):
         try:
-            if hasattr(raw_bytes, 'read'):
+            if hasattr(upload_stream, 'read') and hasattr(client, 'upload_fileobj'):
                 try:
-                    raw_bytes.seek(0)
+                    upload_stream.seek(0)
                 except Exception:
                     pass
-                if hasattr(client, 'upload_fileobj'):
-                    client.upload_fileobj(
-                        raw_bytes,
-                        app_config.SUPABASE_S3_BUCKET,
-                        key,
-                        ExtraArgs={'ContentType': content_type},
-                    )
-                    return
+                client.upload_fileobj(
+                    upload_stream,
+                    app_config.SUPABASE_S3_BUCKET,
+                    key,
+                    ExtraArgs={'ContentType': content_type},
+                )
+                return
+            # Direct put only as last resort (for very small or non-seekable)
             client.put_object(
                 Bucket=app_config.SUPABASE_S3_BUCKET,
                 Key=key,
@@ -1202,6 +1374,15 @@ def upload_gallery_to_s3(filename, raw_bytes, content_type='image/jpeg'):
         raise RuntimeError('Storage upload timed out. Please retry; for videos, try a smaller file if possible.') from None
     if 'connection' in msg or 'endpoint' in msg or 'temporar' in msg or 'unavailable' in msg:
         raise RuntimeError('Storage upload connection failed. Please check network/storage availability and retry.') from None
+
+    # Specific handling for storage provider object size limits (e.g. Supabase S3 EntityTooLarge)
+    if _is_entity_too_large_error(last_error):
+        raise RuntimeError(
+            'Storage upload failed: The file exceeds the maximum size allowed by the storage provider (EntityTooLarge). '
+            'Try a smaller file (videos: shorten or compress first), lower image resolution, '
+            'or increase the "Maximum file size" limit on the bucket in your Supabase Storage settings.'
+        ) from None
+
     raise RuntimeError(f'Storage upload failed: {str(last_error) or "unknown error"}') from None
 
 

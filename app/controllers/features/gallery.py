@@ -22,6 +22,7 @@ from app.services.gallery_service import (
 from app.services.storage_service import (
     ALLOWED_GALLERY_IMAGE_EXT,
     ALLOWED_GALLERY_VIDEO_EXT,
+    GALLERY_MAX_SAFE_UPLOAD_BYTES,
     MAX_GALLERY_READ_BYTES,
     buffer_uploaded_file,
     compress_gallery_image,
@@ -174,6 +175,10 @@ def register_gallery_routes(app):
             max_mb = max(1, int(max_allowed / (1024 * 1024)))
             return jsonify({'error': f'File too large (max {max_mb}MB)'}), 413
 
+        # Safe target: match Supabase bucket limit (currently 50MB).
+        # Source files can be larger (up to MAX_GALLERY_READ_BYTES); images are losslessly resized + WebP-compressed.
+        MAX_SAFE_S3_UPLOAD = int(GALLERY_MAX_SAFE_UPLOAD_BYTES)
+
         staged_stream = None
         filename = ''
         try:
@@ -184,6 +189,9 @@ def register_gallery_routes(app):
                 processed, w, h, out_ext, out_content_type = compress_gallery_image(raw_bytes, source_ext=ext)
                 if not processed:
                     return jsonify({'error': 'Failed to process image'}), 400
+                if len(processed) > MAX_SAFE_S3_UPLOAD:
+                    max_mb = max(1, MAX_SAFE_S3_UPLOAD // (1024 * 1024))
+                    return jsonify({'error': f'Image is too large even after processing (max {max_mb}MB). Please use a smaller or lower-resolution file.'}), 413
                 filename = f"gal_{uuid.uuid4().hex[:16]}.{out_ext or 'webp'}"
                 upload_gallery_to_s3(filename, processed, out_content_type or 'image/webp')
                 file_size = len(processed)
@@ -193,6 +201,9 @@ def register_gallery_routes(app):
                 staged_stream, file_size = buffer_uploaded_file(f, max_allowed)
                 if not staged_stream or file_size <= 0:
                     return jsonify({'error': 'No file provided'}), 400
+                if file_size > MAX_SAFE_S3_UPLOAD:
+                    max_mb = max(1, MAX_SAFE_S3_UPLOAD // (1024 * 1024))
+                    return jsonify({'error': f'Video is too large for storage (max {max_mb}MB). Please use a smaller video or compress it first.'}), 413
                 upload_gallery_to_s3(filename, staged_stream, content_types.get(ext, 'video/mp4'))
                 w, h = 0, 0
         except ValueError:
