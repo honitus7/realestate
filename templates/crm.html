@@ -627,7 +627,7 @@
 
             <!-- â•â•â•â•â•â•â•â•â•â• EDIT PROJECT DETAILS MODAL â•â•â•â•â•â•â•â•â•â• -->
             <div class="crm-modal-backdrop" id="edit-project-modal">
-                <div class="crm-modal" style="max-width:640px;max-height:90vh;overflow-y:auto;">
+                <div class="crm-modal" style="max-width: min(800px, 95vw); max-height: 90vh; overflow-y: auto; width: 100%;">
                     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;">
                         <div class="modal-title" style="margin:0;">Edit Project Details</div>
                         <button type="button" class="modal-close" id="edit-project-modal-close" aria-label="Close">&times;</button>
@@ -3128,6 +3128,38 @@
         });
     });
 
+    // Ensure the Projects tab (for platform admins) also gets click handling in case it was unhidden later
+    (function ensureProjectsTabListener() {
+        const ptab = document.getElementById('tab-projects');
+        if (ptab && !ptab._crmProjectsListener) {
+            ptab._crmProjectsListener = true;
+            ptab.addEventListener('click', function() {
+                const sec = 'projects';
+                switchSection(sec);
+                const sectionEl = document.getElementById('sec-' + sec);
+                if (sectionEl && !tabDataLoaded[sec]) {
+                    setTabSectionLoading(sectionEl, true, sec);
+                }
+                ensureTabDataLoaded(sec, false).catch(function (err) {
+                    console.warn('CRM tab load failed:', sec, err);
+                    const failedSection = document.getElementById('sec-' + sec);
+                    if (failedSection) setTabSectionLoading(failedSection, false, sec);
+                });
+            });
+        }
+    })();
+
+    // Final defensive unhide for platform admins (in case role loads after initial paint)
+    setTimeout(function() {
+        try {
+            const r = (window.__crmUserRole || '').toLowerCase();
+            if (r === 'admin' || r === 'superadmin') {
+                const p = document.getElementById('tab-projects');
+                if (p) p.style.display = '';
+            }
+        } catch(e){}
+    }, 800);
+
 
     // â”€â”€ Load user info and set role â”€â”€
     async function loadUserInfo() {
@@ -3149,10 +3181,12 @@
                     window.configurePortalShell(d, isExternalBroker, isAdminRole, isClientAdminUser);
                 }
                 configureBrokerAccount(d, useBrokerHeader);
-                // Show admin-only CRM tabs
+                // Show admin-only CRM tabs (only for platform admins, not client admins)
                 if (isAdminRole) {
-                    $('tab-panoramas').style.display = '';
-                    $('tab-manage-lock').style.display = '';
+                    const show = function(id) { const el = document.getElementById(id) || $(id); if (el) el.style.display = ''; };
+                    show('tab-panoramas');
+                    show('tab-manage-lock');
+                    show('tab-projects');
                 } else {
                     if (isExternalBroker) {
                         if ($('tab-allotted-clients')) $('tab-allotted-clients').style.display = '';
@@ -3162,6 +3196,14 @@
                 }
             }
         } catch(e) { console.warn('Failed to load user info', e); }
+        // Defensive: ensure Projects tab is visible for platform admins (role check after fetch)
+        try {
+            const r = (window.__crmUserRole || '').toLowerCase();
+            if (r === 'admin' || r === 'superadmin') {
+                const ptab = document.getElementById('tab-projects');
+                if (ptab) ptab.style.display = '';
+            }
+        } catch (e) {}
     }
 
     async function loadAllottedClients(force) {

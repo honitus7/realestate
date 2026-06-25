@@ -156,6 +156,28 @@ def register_resource_filters_routes(app):
                     else:
                         by_id[str(wid)] = serialize_workspace_row(row, access_type)
             out = annotate_resource_rows_with_client_scope(sb, list(by_id.values()), 'workspace')
+
+            # Platform admins (not client admins) get to see all projects in CRM Project tab
+            # so they can centrally edit details and publish/make-live.
+            if str(role or '').strip().lower() in ('admin', 'superadmin'):
+                try:
+                    admin_all = sb.table('workspaces').select('*' if not lightweight else 'id, user_id, org_id, name, created_at, updated_at, main_panorama_id').execute()
+                    for row in (admin_all.data or []):
+                        wid = str(row.get('id'))
+                        if wid not in by_id:
+                            acc = 'admin'
+                            if lightweight:
+                                by_id[wid] = {
+                                    'id': wid,
+                                    'name': row.get('name') or f'Project #{wid}',
+                                    'access_type': acc,
+                                }
+                            else:
+                                by_id[wid] = serialize_workspace_row(row, acc)
+                except Exception:
+                    pass
+                out = annotate_resource_rows_with_client_scope(sb, list(by_id.values()), 'workspace')
+
             return jsonify(out)
         except Exception as e:
             if is_workspace_schema_missing(e):

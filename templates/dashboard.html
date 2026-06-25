@@ -211,7 +211,7 @@
 
     <!-- Create Project Modal -->
     <div class="modal-backdrop" id="create-workspace-modal">
-        <div class="modal" style="max-width: 640px; max-height: 90vh; overflow-y: auto;">
+        <div class="modal" style="max-width: min(800px, 95vw); max-height: 90vh; overflow-y: auto; width: 100%;">
             <div class="modal-title">Create Project</div>
             <div class="modal-text" style="margin-bottom: 1rem;">Create a new project to organize panoramas. Add optional details for the Customer Portal.</div>
             <div class="form-group" style="margin-bottom: 1rem;">
@@ -294,6 +294,12 @@
                     <div class="form-group">
                         <label class="form-label">Amenities (comma-separated)</label>
                         <input type="text" class="form-input" id="ws-amenities" placeholder="e.g. Pool, Gym, Clubhouse" maxlength="500">
+                    </div>
+                    <div class="form-group">
+                        <label style="display:flex; align-items:center; gap:0.4rem; font-size:0.85rem; cursor:pointer;">
+                            <input type="checkbox" id="ws-is-published" style="width:auto; margin:0;"> 
+                            <span>Published on Customer Portal (make live)</span>
+                        </label>
                     </div>
                 </div>
             </details>
@@ -614,6 +620,8 @@
                     payload.location_lng = coords.lng;
                 }
             }
+            var pubEl = document.getElementById('ws-is-published');
+            if (pubEl) payload.is_published = !!pubEl.checked;
             return payload;
         }
 
@@ -623,6 +631,8 @@
                 var el = document.getElementById(id);
                 if (el) { el.value = ''; if (id === 'ws-project-type') el.value = 'residential'; }
             });
+            var pubEl = document.getElementById('ws-is-published');
+            if (pubEl) pubEl.checked = false;
             var status = document.getElementById('ws-maps-status');
             if (status) status.textContent = '';
         }
@@ -698,6 +708,7 @@
         let renameTargetId = null;
         let renameProjectTargetId = null;
         let deleteProjectTargetId = null;
+        let editWorkspaceTargetId = null;
         let draggingPanoramaId = null;
         let projectFeatureReady = true;
         let projectsLoadFailed = false;
@@ -919,6 +930,7 @@
                     }
                     if (isOwner && isDashboardAdmin) {
                         items += '<button type="button" class="folder-card-btn" onclick="event.stopPropagation(); window.location.href=\'/workspace/' + ProjectId + '/access\'">Manage access</button>';
+                        items += '<button type="button" class="folder-card-btn" onclick="event.stopPropagation(); openEditWorkspaceModal(\'' + ProjectId + '\')">Edit</button>';
                         items += '<button type="button" class="folder-card-btn" onclick="event.stopPropagation(); showRenameProjectModal(\'' + ProjectId + '\')">Rename</button>';
                         items += '<button type="button" class="folder-card-btn folder-card-btn--danger" onclick="event.stopPropagation(); showDeleteProjectModal(\'' + ProjectId + '\')">Delete</button>';
                     }
@@ -950,9 +962,15 @@
 
         function openCreateProjectModal() {
             if (!createProjectModal) return;
+            editWorkspaceTargetId = null; // ensure not edit mode
             if (projectNameInput) projectNameInput.value = '';
             clearCreateProjectOptionalFields();
             showProjectCreateError('');
+            var titleEl = createProjectModal.querySelector('.modal-title');
+            if (titleEl) titleEl.textContent = 'Create Project';
+            var textEl = createProjectModal.querySelector('.modal-text');
+            if (textEl) textEl.textContent = 'Create a new project to organize panoramas. Add optional details for the Customer Portal.';
+            if (confirmCreateProject) confirmCreateProject.textContent = 'Create';
             createProjectModal.classList.add('visible');
             if (projectNameInput) projectNameInput.focus();
         }
@@ -961,6 +979,14 @@
             if (!createProjectModal) return;
             createProjectModal.classList.remove('visible');
             showProjectCreateError('');
+            // reset edit state and UI texts
+            editWorkspaceTargetId = null;
+            var titleEl = createProjectModal.querySelector('.modal-title');
+            if (titleEl) titleEl.textContent = 'Create Project';
+            var textEl = createProjectModal.querySelector('.modal-text');
+            if (textEl) textEl.textContent = 'Create a new project to organize panoramas. Add optional details for the Customer Portal.';
+            if (confirmCreateProject) confirmCreateProject.textContent = 'Create';
+            clearCreateProjectOptionalFields();
         }
 
         function showRenameProjectModal(ProjectId) {
@@ -994,6 +1020,55 @@
             deleteProjectModal.classList.remove('visible');
             deleteProjectTargetId = null;
             showProjectDeleteError('');
+        }
+
+        function openEditWorkspaceModal(ProjectId) {
+            if (!createProjectModal || !projectNameInput) return;
+            editWorkspaceTargetId = ProjectId;
+            var ws = getProjectById(ProjectId) || {};
+            // prefill
+            projectNameInput.value = ws.name || '';
+            setWorkspaceField('ws-builder-name', ws.builder_name);
+            setWorkspaceField('ws-project-type', ws.project_type || 'residential');
+            setWorkspaceField('ws-location-address', ws.location_address);
+            setWorkspaceField('ws-location-city', ws.location_city);
+            setWorkspaceField('ws-location-state', ws.location_state);
+            setWorkspaceField('ws-google-maps-link', ws.google_maps_link);
+            setWorkspaceField('ws-rera', ws.rera_registration);
+            setWorkspaceField('ws-total-area', ws.total_area);
+            setWorkspaceField('ws-launch-date', ws.launch_date);
+            setWorkspaceField('ws-possession-date', ws.possession_date);
+            setWorkspaceField('ws-description', ws.description);
+            setWorkspaceField('ws-contact-phone', ws.contact_phone);
+            setWorkspaceField('ws-contact-email', ws.contact_email);
+            var am = document.getElementById('ws-amenities');
+            if (am) {
+                am.value = Array.isArray(ws.amenities) ? ws.amenities.join(', ') : (ws.amenities || '');
+            }
+            var pubEl = document.getElementById('ws-is-published');
+            if (pubEl) pubEl.checked = !!ws.is_published;
+            var status = document.getElementById('ws-maps-status');
+            if (status) status.textContent = '';
+            showProjectCreateError('');
+            // repurpose UI for edit
+            var titleEl = createProjectModal.querySelector('.modal-title');
+            if (titleEl) titleEl.textContent = 'Edit Project';
+            var textEl = createProjectModal.querySelector('.modal-text');
+            if (textEl) textEl.textContent = 'Update the project details below. Changes will be reflected in the customer portal if published.';
+            if (confirmCreateProject) confirmCreateProject.textContent = 'Save Changes';
+            createProjectModal.classList.add('visible');
+            if (projectNameInput) projectNameInput.focus();
+            // trigger maps status update
+            var mapsInput = document.getElementById('ws-google-maps-link');
+            if (mapsInput) mapsInput.dispatchEvent(new Event('input'));
+            // expand details for edit
+            var details = createProjectModal.querySelector('details');
+            if (details) details.open = true;
+        }
+
+        function setWorkspaceField(id, val) {
+            var el = document.getElementById(id);
+            if (el) el.value = (val != null ? val : '');
         }
 
         async function loadWorkspaces() {
@@ -2219,22 +2294,31 @@
                 try {
                     const headers = await getAuthHeaders();
                     headers['Content-Type'] = 'application/json';
-                    const response = await fetch('/api/workspaces', {
-                        method: 'POST',
-                        headers,
-                        body: JSON.stringify(payload),
-                    });
+                    let response;
+                    if (editWorkspaceTargetId) {
+                        response = await fetch('/api/workspaces/' + encodeURIComponent(editWorkspaceTargetId), {
+                            method: 'PATCH',
+                            headers,
+                            body: JSON.stringify(payload),
+                        });
+                    } else {
+                        response = await fetch('/api/workspaces', {
+                            method: 'POST',
+                            headers,
+                            body: JSON.stringify(payload),
+                        });
+                    }
                     if (!response.ok) {
                         const err = await response.json().catch(() => null);
-                        throw new Error((err && err.error) || 'Failed to create project');
+                        throw new Error((err && err.error) || (editWorkspaceTargetId ? 'Failed to save project' : 'Failed to create project'));
                     }
                     closeCreateProjectModal();
-                    showToast('Project created', 'success');
+                    showToast(editWorkspaceTargetId ? 'Project updated' : 'Project created', 'success');
                     await loadWorkspaces();
                     renderWorkspaces();
                     renderProjects();
                 } catch (error) {
-                    showProjectCreateError(error.message || 'Failed to create project');
+                    showProjectCreateError(error.message || (editWorkspaceTargetId ? 'Failed to save project' : 'Failed to create project'));
                 } finally {
                     confirmCreateProject.disabled = false;
                 }

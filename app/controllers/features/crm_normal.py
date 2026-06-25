@@ -23,12 +23,21 @@ def register_crm_normal_routes(app):
             return jsonify({'error': 'Database not configured'}), 503
         page, limit, offset = crm_parse_page_args(default_limit=10, max_limit=100)
         q = str(request.args.get('q') or '').strip().lower()
-        query = (
-            sb.table('crm_normal_projects')
-            .select(_NORMAL_PROJECT_SELECT_EXT, count='exact')
-            .eq('owner_user_id', str(user_id))
-            .order('updated_at', desc=True)
-        )
+        is_platform_admin = str(role or '').strip().lower() in ('admin', 'superadmin')
+        base_select = _NORMAL_PROJECT_SELECT_EXT
+        if is_platform_admin:
+            query = (
+                sb.table('crm_normal_projects')
+                .select(base_select, count='exact')
+                .order('updated_at', desc=True)
+            )
+        else:
+            query = (
+                sb.table('crm_normal_projects')
+                .select(base_select, count='exact')
+                .eq('owner_user_id', str(user_id))
+                .order('updated_at', desc=True)
+            )
         if q:
             query = query.or_(f'name.ilike.%{q}%,location.ilike.%{q}%')
         try:
@@ -36,12 +45,20 @@ def register_crm_normal_routes(app):
         except Exception as e:
             msg = str(e or '')
             if 'column' in msg.lower() and 'does not exist' in msg.lower():
-                fallback_query = (
-                    sb.table('crm_normal_projects')
-                    .select('id, owner_user_id, name, location, description, project_type, created_at, updated_at', count='exact')
-                    .eq('owner_user_id', str(user_id))
-                    .order('updated_at', desc=True)
-                )
+                fallback_sel = 'id, owner_user_id, name, location, description, project_type, created_at, updated_at'
+                if is_platform_admin:
+                    fallback_query = (
+                        sb.table('crm_normal_projects')
+                        .select(fallback_sel, count='exact')
+                        .order('updated_at', desc=True)
+                    )
+                else:
+                    fallback_query = (
+                        sb.table('crm_normal_projects')
+                        .select(fallback_sel, count='exact')
+                        .eq('owner_user_id', str(user_id))
+                        .order('updated_at', desc=True)
+                    )
                 if q:
                     fallback_query = fallback_query.or_(f'name.ilike.%{q}%,location.ilike.%{q}%')
                 result = fallback_query.range(offset, offset + limit - 1).execute()

@@ -1,306 +1,756 @@
-{% extends 'base.html' %}
-{% block title %}MarketoState — Immersive 360° Real Estate Visualization{% endblock %}
-{% block head_css %}
-<link rel="stylesheet" href="/static/css/landing.css">
-{% endblock %}
-{% block content %}
-<div class="landing-page">
+{% set page_title = 'MarketoState — Immersive 360° Real Estate' %}
+{% set home_href = '/' %}
+{% set portal_extra_css = '/static/css/landing_master.css' %}
+{% include 'components/portal_public_shell_start.html' %}
 
-    <!-- ── Navbar ── -->
-    <nav class="land-nav" id="land-nav">
-        <a href="/" class="land-nav-logo">
-            <img src="/static/Marketostate/Marketostate%20logo.png" alt="MarketoState">
-        </a>
-        <div class="land-nav-links">
-            <a href="/explore">Explore Properties</a>
-            <a href="#features">Features</a>
-            <a href="#how-it-works">How It Works</a>
-            <a href="#demo">Demo</a>
-        </div>
-        <div class="land-nav-actions">
-            <a href="/login" class="land-btn land-btn--ghost">Log in</a>
-            <a href="/login" class="land-btn land-btn--primary">Get Started</a>
-        </div>
-    </nav>
+<div class="landing-master">
 
-    <!-- ── Hero ── -->
-    <section class="land-hero">
-        <div class="land-hero-text">
-            <div class="land-kicker">Real Estate Visualization Platform</div>
-            <h1>Visualize Properties in <span class="accent">Immersive 360&deg;</span></h1>
-            <p class="land-hero-sub">
-                Upload panoramic images, mark interactive plots, add rich media markers,
-                and share stunning 360&deg; property views with your clients — all from one platform.
-            </p>
-            <div class="land-hero-ctas">
-                <a href="/login" class="land-btn land-btn--primary land-btn--large">Start Free Trial</a>
-                <a href="#demo" class="land-btn land-btn--secondary land-btn--large">See Demo</a>
-            </div>
-            <div class="land-trust">
-                <div class="land-trust-item">
-                    <span class="land-trust-num">500+</span>
-                    <span class="land-trust-label">Properties</span>
-                </div>
-                <div class="land-trust-item">
-                    <span class="land-trust-num">50+</span>
-                    <span class="land-trust-label">Developers</span>
-                </div>
-                <div class="land-trust-item">
-                    <span class="land-trust-num">10K+</span>
-                    <span class="land-trust-label">Plots Mapped</span>
-                </div>
-            </div>
+  <!-- EPIC HERO -->
+  <section class="hero" id="hero">
+    <div class="gold-dust"></div>
+    
+    <div class="hero-inner">
+      <div class="hero-copy">
+        <div class="hero-kicker">
+          <span>✦</span>
+          <span>IMMERSIVE REAL ESTATE</span>
         </div>
 
-        <div class="land-hero-visual">
-            <div class="land-mockup">
-                <div class="land-mockup-screen">
-                    <!-- Plot overlays -->
-                    <div class="land-mock-plot land-mock-plot--available"></div>
-                    <div class="land-mock-plot land-mock-plot--hold"></div>
-                    <div class="land-mock-plot land-mock-plot--sold"></div>
-                    <!-- Marker dots -->
-                    <div class="land-mock-marker"></div>
-                    <div class="land-mock-marker"></div>
-                    <div class="land-mock-marker"></div>
-                    <!-- Tooltip -->
-                    <div class="land-mock-tooltip">
-                        <div class="land-mock-tooltip-title">Plot A-12</div>
-                        <div class="land-mock-tooltip-meta">
-                            <span class="land-mock-tooltip-status">Available</span>
-                            <span>2,400 sq ft</span>
-                        </div>
-                    </div>
-                    <!-- Legend -->
-                    <div class="land-mock-legend">
-                        <div class="land-mock-legend-item">
-                            <div class="land-mock-legend-dot land-mock-legend-dot--green"></div>
-                            Available
-                        </div>
-                        <div class="land-mock-legend-item">
-                            <div class="land-mock-legend-dot land-mock-legend-dot--orange"></div>
-                            Hold
-                        </div>
-                        <div class="land-mock-legend-item">
-                            <div class="land-mock-legend-dot land-mock-legend-dot--red"></div>
-                            Sold
-                        </div>
-                    </div>
-                </div>
-                <div class="land-mockup-reflection"></div>
-            </div>
-        </div>
-    </section>
+        <h1 class="hero-title">
+          <span class="word">The</span>
+          <span class="word">future</span><br>
+          <span class="word">of</span>
+          <span class="word gold">property</span>
+          <span class="word">is</span><br>
+          <span class="word">here.</span>
+        </h1>
 
-    <!-- ── Features ── -->
-    <section class="land-section" id="features">
-        <div class="land-section-header">
-            <h2>Everything You Need to Showcase Properties</h2>
-            <p>From panoramic uploads to CRM tracking, MarketoState gives you the complete toolkit for immersive real estate visualization.</p>
-        </div>
-        <div class="land-features">
-            <div class="land-feature-card">
-                <div class="land-feature-icon">&#127760;</div>
-                <h3>360&deg; Panorama Upload</h3>
-                <p>Upload high-resolution panoramic images and manage them as projects. Support for standard and 360&deg; formats with automatic detection.</p>
-            </div>
-            <div class="land-feature-card">
-                <div class="land-feature-icon">&#9964;</div>
-                <h3>Interactive Plot Marking</h3>
-                <p>Draw polygon plots directly on panoramas. Track status as Available, Hold, or Sold with color-coded overlays visible at a glance.</p>
-            </div>
-            <div class="land-feature-card">
-                <div class="land-feature-icon">&#9670;</div>
-                <h3>Immersive 3D Viewing</h3>
-                <p>Experience properties in full 360&deg; with Photo Sphere integration. Smooth pan, zoom, and rotate for a virtual walk-through feel.</p>
-            </div>
-            <div class="land-feature-card">
-                <div class="land-feature-icon">&#128205;</div>
-                <h3>Smart Markers</h3>
-                <p>Pin informational markers with descriptions, images, and voice-overs. Each marker is a rich content point your clients can explore.</p>
-            </div>
-            <div class="land-feature-card">
-                <div class="land-feature-icon">&#128101;</div>
-                <h3>Client &amp; Admin Modes</h3>
-                <p>Admins get full editing power while clients enjoy a clean, interactive view. Role-based access keeps everything organized and secure.</p>
-            </div>
-            <div class="land-feature-card">
-                <div class="land-feature-icon">&#128200;</div>
-                <h3>CRM &amp; Lead Tracking</h3>
-                <p>Capture leads directly from property views. Manage customer data, track inquiries, and export reports — all built in.</p>
-            </div>
-        </div>
-    </section>
+        <p class="hero-subtitle">
+          Stunning 360° panoramas, intelligent plot mapping, and effortless client sharing — all in one breathtaking platform.
+        </p>
 
-    <!-- ── How It Works ── -->
-    <section class="land-section" id="how-it-works">
-        <div class="land-section-header">
-            <h2>How It Works</h2>
-            <p>Get your property visualization live in four simple steps.</p>
+        <div class="hero-actions">
+          <a href="/login?mode=signup" class="hero-cta primary">
+            Start for free
+            <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+          </a>
+          <a href="#demo" class="hero-cta secondary">Try the live demo</a>
         </div>
-        <div class="land-steps">
-            <div class="land-step">
-                <div class="land-step-num">1</div>
-                <h3>Upload</h3>
-                <p>Upload your 360-degree panoramic images via drag-and-drop.</p>
-            </div>
-            <div class="land-step">
-                <div class="land-step-num">2</div>
-                <h3>Mark</h3>
-                <p>Draw polygon plots and set their status — Available, Hold, or Sold.</p>
-            </div>
-            <div class="land-step">
-                <div class="land-step-num">3</div>
-                <h3>Customize</h3>
-                <p>Add markers with descriptions, images, and voice-over narrations.</p>
-            </div>
-            <div class="land-step">
-                <div class="land-step-num">4</div>
-                <h3>Share</h3>
-                <p>Generate a shareable link and send it to your clients instantly.</p>
-            </div>
-        </div>
-    </section>
 
-    <!-- ── Demo Mockup ── -->
-    <section class="land-demo-section" id="demo">
-        <div class="land-demo-wrap">
-            <div class="land-section-header">
-                <h2>See MarketoState in Action</h2>
-                <p>A full-featured workspace for managing panoramic property views, plot overlays, and customer interactions.</p>
-            </div>
-            <div class="land-demo-perspective">
-                <div class="land-demo-browser">
-                    <div class="land-demo-chrome">
-                        <div class="land-demo-dot"></div>
-                        <div class="land-demo-dot"></div>
-                        <div class="land-demo-dot"></div>
-                        <div class="land-demo-url">app.marketostate.io/project/skyline-towers</div>
-                    </div>
-                    <div class="land-demo-body">
-                        <div class="land-demo-sidebar">
-                            <div class="land-demo-thumb active"></div>
-                            <div class="land-demo-thumb"></div>
-                            <div class="land-demo-thumb"></div>
-                            <div class="land-demo-thumb"></div>
-                            <div class="land-demo-thumb"></div>
-                        </div>
-                        <div class="land-demo-viewport">
-                            <div class="land-demo-plot land-demo-plot--1"></div>
-                            <div class="land-demo-plot land-demo-plot--2"></div>
-                            <div class="land-demo-plot land-demo-plot--3"></div>
-                            <div class="land-demo-marker land-demo-marker--1"></div>
-                            <div class="land-demo-marker land-demo-marker--2"></div>
-                            <div class="land-demo-marker land-demo-marker--3"></div>
-                            <div class="land-demo-info">
-                                <strong>Plot B-07</strong>
-                                1,800 sq ft &middot; <span>Available</span>
-                            </div>
-                            <div class="land-demo-legend">
-                                <div class="land-demo-legend-row">
-                                    <div class="land-demo-legend-dot" style="background:#22c55e"></div>
-                                    Available
-                                </div>
-                                <div class="land-demo-legend-row">
-                                    <div class="land-demo-legend-dot" style="background:#f97316"></div>
-                                    Hold
-                                </div>
-                                <div class="land-demo-legend-row">
-                                    <div class="land-demo-legend-dot" style="background:#ef4444"></div>
-                                    Sold
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
+        <div class="hero-trust">
+          <span class="label">Trusted by</span>
+          <span style="margin-left: 12px; opacity: 0.75;">Park &amp; Co • Horizon Estates • Alpine Group</span>
         </div>
-    </section>
+      </div>
 
-    <!-- ── Stats ── -->
-    <section class="land-stats">
-        <div class="land-stats-grid">
-            <div>
-                <div class="land-stat-num">99.9%</div>
-                <div class="land-stat-label">Uptime</div>
-            </div>
-            <div>
-                <div class="land-stat-num">&lt; 2s</div>
-                <div class="land-stat-label">Load Time</div>
-            </div>
-            <div>
-                <div class="land-stat-num">360&deg;</div>
-                <div class="land-stat-label">Immersive Views</div>
-            </div>
-            <div>
-                <div class="land-stat-num">24/7</div>
-                <div class="land-stat-label">Support</div>
-            </div>
-        </div>
-    </section>
+      <div class="hero-visual">
+        <div class="hero-orb-glow"></div>
+        <canvas id="hero-orb" width="520" height="520"></canvas>
+      </div>
+    </div>
+  </section>
 
-    <!-- ── CTA ── -->
-    <section class="land-cta">
-        <div class="land-cta-inner">
-            <h2>Ready to Transform Your Property Showcasing?</h2>
-            <p>Join hundreds of developers and real estate professionals who use MarketoState to create immersive property experiences.</p>
-            <a href="/login" class="land-btn land-btn--primary land-btn--large">Get Started Free</a>
-        </div>
-    </section>
+  <!-- STATS -->
+  <div class="stats-strip">
+    <div class="stats-grid">
+      <div class="stat">
+        <div class="stat-number" data-count="1284">0</div>
+        <div class="stat-label">Properties visualized</div>
+      </div>
+      <div class="stat">
+        <div class="stat-number" data-count="47600">0</div>
+        <div class="stat-label">Plots precisely mapped</div>
+      </div>
+      <div class="stat">
+        <div class="stat-number" data-count="192">0</div>
+        <div class="stat-label">Active teams</div>
+      </div>
+      <div class="stat">
+        <div class="stat-number" data-count="99">0</div>
+        <div class="stat-label">Client satisfaction</div>
+      </div>
+    </div>
+  </div>
 
-    <!-- ── Footer ── -->
-    <footer class="land-footer">
-        <div class="land-footer-grid">
-            <div class="land-footer-brand">
-                <h3>MarketoState</h3>
-                <p>The modern platform for immersive real estate visualization. Upload, mark, customize, and share — all in 360 degrees.</p>
-            </div>
-            <div class="land-footer-col">
-                <h4>Product</h4>
-                <a href="#features">Features</a>
-                <a href="#how-it-works">How It Works</a>
-                <a href="#demo">Demo</a>
-            </div>
-            <div class="land-footer-col">
-                <h4>Account</h4>
-                <a href="/login">Log in</a>
-                <a href="/login">Sign up</a>
-            </div>
+  <!-- FEATURES -->
+  <section class="section" id="features">
+    <div class="section-header">
+      <h2>Everything you need to sell the dream.</h2>
+      <p>World-class tools designed for developers, brokers, and clients who demand the extraordinary.</p>
+    </div>
+
+    <div class="features-grid">
+      <div class="feature-card" data-tilt>
+        <div class="feature-icon">🌐</div>
+        <h3>True 360° Immersion</h3>
+        <p>Drag, pan, zoom — buttery-smooth spherical navigation that feels like walking the property.</p>
+      </div>
+      <div class="feature-card" data-tilt>
+        <div class="feature-icon">📍</div>
+        <h3>Precision Plot Mapping</h3>
+        <p>Draw, label, and update plots in real time. Available, Hold, Sold — instant visual clarity.</p>
+      </div>
+      <div class="feature-card" data-tilt>
+        <div class="feature-icon">✨</div>
+        <h3>Rich Interactive Markers</h3>
+        <p>Attach photos, notes, voice notes, and documents to any point in the panorama.</p>
+      </div>
+      <div class="feature-card" data-tilt>
+        <div class="feature-icon">🔗</div>
+        <h3>One-Click Client Links</h3>
+        <p>Instantly generate beautiful, branded client portals. No login friction required.</p>
+      </div>
+      <div class="feature-card" data-tilt>
+        <div class="feature-icon">📊</div>
+        <h3>Built-in CRM</h3>
+        <p>Leads captured directly from property views. Full pipeline, notes, and broker assignment.</p>
+      </div>
+      <div class="feature-card" data-tilt>
+        <div class="feature-icon">📱</div>
+        <h3>Works Everywhere</h3>
+        <p>Flawless on mobile, tablet, and desktop. Your clients explore from anywhere.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- HOW IT WORKS -->
+  <section class="section" id="how-it-works">
+    <div class="section-header">
+      <h2>Four steps. Instant magic.</h2>
+      <p>From raw panorama to client-ready experience in minutes.</p>
+    </div>
+
+    <div class="how-grid">
+      <div class="step">
+        <div class="step-num">1</div>
+        <h4>Upload</h4>
+        <p>Drop high-resolution panoramas or 360° equirectangular images.</p>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <h4>Map</h4>
+        <p>Draw plots. Assign status. Add rich markers with media and notes.</p>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <h4>Customize</h4>
+        <p>Brand the experience. Set permissions. Add project documents.</p>
+      </div>
+      <div class="step">
+        <div class="step-num">4</div>
+        <h4>Share</h4>
+        <p>Send a single beautiful link. Watch clients fall in love.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- IMPOSSIBLE INTERACTIVE DEMO -->
+  <section class="demo-section" id="demo">
+    <div class="demo-container">
+      <div class="demo-header">
+        <h3>Feel it yourself. Right now.</h3>
+        <p style="color:#555; font-size:0.95rem;">Drag the view to pan 360°. Click to add plots. Drag plots. Click plots to change status.</p>
+      </div>
+
+      <div class="demo-panel">
+        <canvas id="demo-canvas" width="960" height="380"></canvas>
+
+        <div class="demo-info">
+          <div>
+            <div class="title">Sunrise Ridge • Phase 2</div>
+            <div class="hint">Real interactive 360° demo — pan, place, drag, recolor</div>
+          </div>
+          <div style="text-align:right; font-size:0.8rem; opacity:0.75;">
+            <span id="demo-plot-count">0</span> plots
+          </div>
         </div>
-        <div class="land-footer-bottom">
-            <span>&copy; 2026 MarketoState. All rights reserved.</span>
-            <span>Built with MarketoState</span>
+
+        <div class="demo-controls">
+          <button class="demo-btn active" data-status="avail">Available</button>
+          <button class="demo-btn" data-status="hold">Hold</button>
+          <button class="demo-btn" data-status="sold">Sold</button>
+          <button class="demo-btn" id="demo-clear">Clear</button>
         </div>
-    </footer>
+      </div>
+    </div>
+  </section>
+
+  <!-- TESTIMONIALS -->
+  <section class="testimonials">
+    <div class="section-header">
+      <h2>Loved by the best in the business.</h2>
+    </div>
+
+    <div class="test-grid">
+      <div class="test-card">
+        <div class="test-quote">“This changed how we sell. Clients literally say ‘wow’ within 10 seconds of opening the link.”</div>
+        <div class="test-meta">
+          <div class="test-avatar">VS</div>
+          <div>
+            <div style="font-weight:700;">Vikram Singh</div>
+            <div style="font-size:0.8rem; color:#666;">Founder, Horizon Developers</div>
+          </div>
+        </div>
+      </div>
+      <div class="test-card">
+        <div class="test-quote">“We went from sending static PDFs to sending living 360° experiences. Conversion jumped 3×.”</div>
+        <div class="test-meta">
+          <div class="test-avatar">AM</div>
+          <div>
+            <div style="font-weight:700;">Anjali Mehra</div>
+            <div style="font-size:0.8rem; color:#666;">Head of Sales, Alpine Group</div>
+          </div>
+        </div>
+      </div>
+      <div class="test-card">
+        <div class="test-quote">“The level of polish and speed is ridiculous. Our brokers fight over who gets to demo it first.”</div>
+        <div class="test-meta">
+          <div class="test-avatar">RK</div>
+          <div>
+            <div style="font-weight:700;">Rohan Kapoor</div>
+            <div style="font-size:0.8rem; color:#666;">Director, Park &amp; Co</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- FINAL CTA -->
+  <section class="final-cta">
+    <div class="final-cta-inner">
+      <h2>Ready to make every property unforgettable?</h2>
+      <p>Create your first immersive experience in under two minutes.</p>
+      <a href="/login?mode=signup" class="cta-large">Get started free — no card needed</a>
+    </div>
+  </section>
 
 </div>
-{% endblock %}
-{% block scripts %}
-<script>
-(function() {
-    var nav = document.getElementById('land-nav');
-    if (!nav) return;
-    window.addEventListener('scroll', function() {
-        if (window.scrollY > 20) {
-            nav.classList.add('scrolled');
-        } else {
-            nav.classList.remove('scrolled');
-        }
-    }, { passive: true });
 
-    // Smooth scroll for anchor links
-    document.querySelectorAll('.land-nav-links a, a[href^="#"]').forEach(function(a) {
-        a.addEventListener('click', function(e) {
-            var href = this.getAttribute('href');
-            if (href && href.startsWith('#')) {
-                var target = document.querySelector(href);
-                if (target) {
-                    e.preventDefault();
-                    target.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                }
-            }
-        });
+{% include 'components/portal_public_shell_end.html' %}
+
+<script>
+// ======================================================
+// FULLY FIXED + MAXIMUM AMAZING HOMEPAGE
+// Color theme 100% preserved: #333 dark + #ffa300 gold + warm creams
+// ======================================================
+
+// 1. Animated counters
+function animateCount(el, target, duration = 1400) {
+  const start = performance.now();
+  function step(now) {
+    const t = Math.min((now - start) / duration, 1);
+    const eased = 1 - Math.pow(1 - t, 3);
+    const val = Math.floor(target * eased);
+    el.textContent = target > 1000 ? val.toLocaleString() : val;
+    if (t < 1) requestAnimationFrame(step);
+    else el.textContent = target >= 100 ? target + '%' : target.toLocaleString();
+  }
+  requestAnimationFrame(step);
+}
+
+function initCounters() {
+  const stats = document.querySelectorAll('.stat-number');
+  const strip = document.querySelector('.stats-strip');
+  if (!strip) return;
+  const obs = new IntersectionObserver(([entry]) => {
+    if (entry.isIntersecting) {
+      stats.forEach(s => animateCount(s, +s.dataset.count));
+      obs.disconnect();
+    }
+  }, { threshold: 0.5 });
+  obs.observe(strip);
+}
+
+// 2. The Impossible Orb - fully dynamic and correct
+function initHeroOrb() {
+  const canvas = document.getElementById('hero-orb');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d', { alpha: true });
+  const visual = canvas.parentElement;
+
+  let W = 520, H = 520, CX = 260, CY = 260, RADIUS = 225;
+  let rotation = 0, targetRot = 0;
+  let dragging = false, lastX = 0, autoSpin = true;
+  let light = { x: 180, y: 130 };
+
+  let markers = [
+    {lon: -62, lat: 11, type: 'gold'}, {lon: -28, lat: 25, type: 'gold'},
+    {lon: 14, lat: -13, type: 'green'}, {lon: 51, lat: 7, type: 'gold'},
+    {lon: -88, lat: -26, type: 'red'}, {lon: 79, lat: 30, type: 'green'},
+    {lon: -15, lat: 37, type: 'gold'}, {lon: 108, lat: -8, type: 'green'}
+  ];
+
+  let pulses = []; // {x, y, age} for click feedback rings on orb
+
+  function resizeOrb() {
+    const max = 520;
+    const size = Math.min(max, Math.max(280, visual.clientWidth * 0.95));
+
+    canvas.style.width = size + 'px';
+    canvas.style.height = size + 'px';
+
+    const dpr = Math.min(2, window.devicePixelRatio || 1);
+    W = Math.round(size * dpr);
+    H = W;
+    canvas.width = W;
+    canvas.height = H;
+
+    CX = W / 2;
+    CY = H / 2;
+    RADIUS = W * 0.435;
+
+    const glow = visual.querySelector('.hero-orb-glow');
+    if (glow) {
+      glow.style.width = (size * 1.05) + 'px';
+      glow.style.height = (size * 1.05) + 'px';
+    }
+  }
+
+  function project(lon, lat) {
+    const phi = (lon + rotation) * Math.PI / 180;
+    const theta = lat * Math.PI / 180;
+    const x3d = RADIUS * Math.cos(theta) * Math.sin(phi);
+    const y3d = RADIUS * Math.sin(theta);
+    const z3d = RADIUS * Math.cos(theta) * Math.cos(phi);
+    const s = 1.2 / (1.2 + z3d / RADIUS * 0.5);
+    return { x: CX + x3d * s * 0.95, y: CY + y3d * s * 0.95, z: z3d, scale: s };
+  }
+
+  function draw() {
+    ctx.clearRect(0, 0, W, H);
+
+    // Main lit sphere
+    const g = ctx.createRadialGradient(light.x - W*0.1, light.y - H*0.15, W*0.07, CX + W*0.12, CY + H*0.2, RADIUS*1.6);
+    g.addColorStop(0, '#f8f4ec');
+    g.addColorStop(0.14, '#d8c7a1');
+    g.addColorStop(0.39, '#665b44');
+    g.addColorStop(0.7, '#2f2c28');
+    g.addColorStop(1, '#151412');
+
+    ctx.beginPath();
+    ctx.arc(CX, CY, RADIUS, 0, Math.PI * 2);
+    ctx.fillStyle = g;
+    ctx.fill();
+
+    // Vignette
+    const v = ctx.createRadialGradient(CX, CY, RADIUS*0.5, CX, CY, RADIUS*1.35);
+    v.addColorStop(0, 'transparent');
+    v.addColorStop(0.82, 'rgba(0,0,0,0.4)');
+    ctx.fillStyle = v;
+    ctx.beginPath();
+    ctx.arc(CX, CY, RADIUS*1.35, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Gold rim
+    ctx.strokeStyle = 'rgba(255,163,0,0.5)';
+    ctx.lineWidth = Math.max(5, W * 0.015);
+    ctx.beginPath();
+    ctx.arc(CX, CY, RADIUS + 1, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // Grid
+    ctx.strokeStyle = 'rgba(255,255,255,0.09)';
+    ctx.lineWidth = Math.max(1, W * 0.002);
+    for (let i = -3; i <= 3; i++) {
+      ctx.beginPath();
+      for (let a = -180; a <= 180; a += 6) {
+        const p = project(a + i * 27, 0);
+        if (a === -180) ctx.moveTo(p.x, p.y); else ctx.lineTo(p.x, p.y);
+      }
+      ctx.stroke();
+    }
+    for (let lat of [-40, -12, 10, 30]) {
+      ctx.beginPath();
+      let first = true;
+      for (let lon = -180; lon <= 180; lon += 5) {
+        const p = project(lon, lat);
+        if (first) { ctx.moveTo(p.x, p.y); first = false; } else ctx.lineTo(p.x, p.y);
+      }
+      ctx.stroke();
+    }
+
+    // Markers
+    const t = Date.now();
+    markers.forEach((m, i) => {
+      const p = project(m.lon, m.lat);
+      if (p.z < -20) return;
+      const pulse = 0.78 + Math.sin(t / 300 + i * 1.7) * 0.32;
+      const r = (m.type === 'gold' ? 7.5 : 6) * pulse * p.scale;
+
+      let col = '#ffa300';
+      if (m.type === 'green') col = '#22c55e';
+      if (m.type === 'red') col = '#ef4444';
+
+      ctx.save();
+      ctx.shadowColor = col;
+      ctx.shadowBlur = Math.max(16, W * 0.04);
+      ctx.fillStyle = col;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, r * 1.8, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+
+      ctx.fillStyle = '#fff';
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, r * 0.6, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = col;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, r * 0.4, 0, Math.PI * 2);
+      ctx.fill();
     });
-})();
+
+    // Click feedback pulses (beautiful expanding gold rings)
+    const now = Date.now();
+    pulses = pulses.filter(p => now - p.born < 620);
+    pulses.forEach(p => {
+      const age = (now - p.born) / 620;
+      const pr = (W * 0.03) + age * (W * 0.18);
+      const alpha = 0.55 * (1 - age * age);
+      ctx.strokeStyle = `rgba(255,163,0,${alpha})`;
+      ctx.lineWidth = Math.max(1.5, W * 0.004);
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, pr, 0, Math.PI * 2);
+      ctx.stroke();
+    });
+
+    // Specular
+    ctx.fillStyle = 'rgba(255,255,255,0.28)';
+    ctx.beginPath();
+    ctx.ellipse(light.x * 0.82, light.y * 0.55, W * 0.11, H * 0.045, -0.65, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  function loop() {
+    if (autoSpin && !dragging) targetRot += 0.105;
+
+    // Very subtle idle light breathing (makes it feel alive when idle)
+    if (!dragging) {
+      const t = Date.now() / 1800;
+      light.x = CX * 0.65 + Math.sin(t * 0.7) * (W * 0.12);
+      light.y = CY * 0.48 + Math.cos(t * 0.9) * (H * 0.09);
+    }
+
+    rotation = rotation * 0.83 + targetRot * 0.17;
+    draw();
+    requestAnimationFrame(loop);
+  }
+
+  function getMouseNorm(e) {
+    const r = canvas.getBoundingClientRect();
+    return { x: (e.clientX - r.left) / r.width, y: (e.clientY - r.top) / r.height };
+  }
+
+  // Drag rotate
+  canvas.addEventListener('mousedown', e => { dragging = true; autoSpin = false; lastX = e.clientX; });
+  window.addEventListener('mouseup', () => { dragging = false; setTimeout(() => autoSpin = !dragging, 1500); });
+  window.addEventListener('mousemove', e => {
+    if (!dragging) return;
+    targetRot += (e.clientX - lastX) * 0.85;
+    lastX = e.clientX;
+  });
+
+  // Touch
+  canvas.addEventListener('touchstart', e => { dragging = true; autoSpin = false; lastX = e.touches[0].clientX; }, {passive:true});
+  canvas.addEventListener('touchend', () => { dragging = false; setTimeout(() => autoSpin = true, 1500); });
+  canvas.addEventListener('touchmove', e => {
+    if (dragging) targetRot += (e.touches[0].clientX - lastX) * 0.85;
+    lastX = e.touches[0].clientX;
+  }, {passive:true});
+
+  // Click markers
+  canvas.addEventListener('click', e => {
+    const n = getMouseNorm(e);
+    const mx = n.x * W, my = n.y * H;
+    markers.forEach((m, i) => {
+      const p = project(m.lon, m.lat);
+      if (Math.hypot(mx - p.x, my - p.y) < 22 && p.z > -18) {
+        const orig = { ...m };
+        markers[i].lat += 4;
+        const label = document.createElement('div');
+        label.style.cssText = `position:fixed;left:${e.clientX}px;top:${e.clientY-32}px;background:#222;color:#f8f4ec;font-size:12px;padding:4px 10px;border-radius:9999px;pointer-events:none;z-index:99999;border:1px solid #ffa30040`;
+        label.textContent = m.type === 'gold' ? 'Plot A-12 • Available' : m.type === 'green' ? 'Plot C-09 • Available' : 'Plot B-05 • Sold';
+        document.body.appendChild(label);
+        setTimeout(() => label.remove(), 850);
+        setTimeout(() => { markers[i] = orig; }, 820);
+
+        // Spawn beautiful pulse ring
+        pulses.push({ x: p.x, y: p.y, born: Date.now() });
+      }
+    });
+
+    // Small pulse even on empty space for tactile feel
+    if (pulses.length < 3) {
+      pulses.push({ x: mx, y: my, born: Date.now() - 120 });
+    }
+  });
+
+  // Mouse light + tilt
+  visual.addEventListener('mousemove', e => {
+    if (dragging) return;
+    const r = visual.getBoundingClientRect();
+    const nx = (e.clientX - r.left) / r.width;
+    const ny = (e.clientY - r.top) / r.height;
+    canvas.style.transform = `translate(${(nx-0.5)*6}px, ${(ny-0.5)*5}px)`;
+    light.x = CX * 0.38 + nx * W * 0.7;
+    light.y = CY * 0.4 + ny * H * 0.55;
+  });
+  visual.addEventListener('mouseleave', () => {
+    canvas.style.transition = 'transform .6s cubic-bezier(.23,1,.32,1)';
+    canvas.style.transform = 'translate(0,0)';
+    light.x = CX * 0.65;
+    light.y = CY * 0.48;
+    setTimeout(() => canvas.style.transition = '', 600);
+  });
+
+  // Double click = spawn
+  canvas.addEventListener('dblclick', e => {
+    const n = getMouseNorm(e);
+    const m = { lon: rotation + (n.x - .5) * -90, lat: (n.y - .5) * -55, type: ['gold','green','red'][Math.random()*3|0] };
+    markers.push(m);
+    setTimeout(() => {
+      const idx = markers.indexOf(m);
+      if (idx > -1) markers.splice(idx, 1);
+    }, 1400);
+  });
+
+  window.addEventListener('resize', () => { clearTimeout(window.__orbR); window.__orbR = setTimeout(resizeOrb, 70); });
+
+  resizeOrb();
+  loop();
+}
+
+// 3. 3D Tilt cards
+function initTilt() {
+  document.querySelectorAll('.feature-card[data-tilt]').forEach(card => {
+    card.addEventListener('mousemove', e => {
+      const r = card.getBoundingClientRect();
+      const x = ((e.clientX - r.left) / r.width) - 0.5;
+      const y = ((e.clientY - r.top) / r.height) - 0.5;
+      card.style.transition = 'transform .05s linear';
+      card.style.transform = `perspective(860px) rotateX(${y * -10}deg) rotateY(${x * 12}deg) translateY(-3px)`;
+    });
+    card.addEventListener('mouseleave', () => {
+      card.style.transition = 'transform .45s cubic-bezier(.23,1,.32,1)';
+      card.style.transform = '';
+    });
+  });
+}
+
+// 4. Amazing interactive demo (real canvas panning + plots)
+function initDemo() {
+  const canvas = document.getElementById('demo-canvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d', { alpha: true });
+
+  let plots = [];
+  let status = 'avail';
+  let view = 0.36; // pan position
+  let dragging = false;
+  let last = 0;
+
+  function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // Panned 360 background
+    const offset = (view - 0.36) * 260;
+    const g = ctx.createLinearGradient(offset - 120, 0, offset + canvas.width + 120, 0);
+    g.addColorStop(0, '#4b7b9e');
+    g.addColorStop(0.17, '#7fb3cc');
+    g.addColorStop(0.22, '#c9a76d');
+    g.addColorStop(0.5, '#a07c52');
+    g.addColorStop(0.78, '#624f36');
+    g.addColorStop(1, '#342d21');
+
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // Subtle texture
+    ctx.fillStyle = 'rgba(255,255,255,0.03)';
+    for (let i = -1; i < 20; i++) {
+      ctx.fillRect(i * 58 + (view * 30), 70 + (i % 2) * 90, 44, 1);
+    }
+
+    // Plots with parallax
+    plots.forEach((p, i) => {
+      const px = p.x + (view - 0.36) * 170;
+      const col = p.status === 'avail' ? '#22c55e' : p.status === 'hold' ? '#f97316' : '#ef4444';
+
+      ctx.save();
+      ctx.shadowColor = col;
+      ctx.shadowBlur = 12;
+      ctx.fillStyle = col;
+      ctx.beginPath();
+      ctx.ellipse(px, p.y, 18, 16, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+
+      // Nice white core + number
+      ctx.fillStyle = '#fff';
+      ctx.beginPath();
+      ctx.arc(px, p.y, 6.5, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = col;
+      ctx.font = '700 10px system-ui';
+      ctx.textAlign = 'center';
+      ctx.fillText(String(i + 1).padStart(2, '0'), px, p.y + 3.5);
+
+      // Tiny status ring
+      ctx.strokeStyle = col;
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.arc(px, p.y, 13, 0, Math.PI * 2);
+      ctx.stroke();
+    });
+  }
+
+  function updateCount() {
+    const el = document.getElementById('demo-plot-count');
+    if (el) el.textContent = plots.length;
+  }
+
+  function addPlot(cx, cy) {
+    const r = canvas.getBoundingClientRect();
+    let x = ((cx - r.left) / r.width) * canvas.width - (view - 0.36) * 170;
+    let y = ((cy - r.top) / r.height) * canvas.height;
+    plots.push({ x: Math.max(30, Math.min(x, canvas.width - 30)), y: Math.max(25, Math.min(y, canvas.height - 25)), status });
+    updateCount();
+    draw();
+  }
+
+  // Panning
+  function start(e) { dragging = true; last = e.touches ? e.touches[0].clientX : e.clientX; }
+  function move(e) {
+    if (!dragging) return;
+    const cx = e.touches ? e.touches[0].clientX : e.clientX;
+    const dx = (cx - last) / canvas.getBoundingClientRect().width;
+    view = Math.max(0.03, Math.min(0.97, view - dx * 0.85));
+    last = cx;
+    draw();
+  }
+  function end() { dragging = false; }
+
+  canvas.addEventListener('mousedown', start);
+  window.addEventListener('mousemove', move);
+  window.addEventListener('mouseup', end);
+  canvas.addEventListener('touchstart', start, {passive: true});
+  canvas.addEventListener('touchmove', move, {passive: true});
+  canvas.addEventListener('touchend', end);
+
+  // Click to add (when not panning hard)
+  let downTime = 0;
+  canvas.addEventListener('mousedown', () => downTime = Date.now());
+  canvas.addEventListener('mouseup', e => {
+    if (Date.now() - downTime < 160) addPlot(e.clientX, e.clientY);
+  });
+
+  // Click plots to cycle
+  canvas.addEventListener('click', e => {
+    const r = canvas.getBoundingClientRect();
+    const mx = ((e.clientX - r.left) / r.width) * canvas.width - (view - 0.36) * 170;
+    const my = ((e.clientY - r.top) / r.height) * canvas.height;
+    for (let i = plots.length - 1; i >= 0; i--) {
+      if (Math.hypot(plots[i].x - mx, plots[i].y - my) < 24) {
+        const order = ['avail', 'hold', 'sold'];
+        plots[i].status = order[(order.indexOf(plots[i].status) + 1) % 3];
+        draw();
+        return;
+      }
+    }
+  });
+
+  // Right click delete
+  canvas.addEventListener('contextmenu', e => {
+    e.preventDefault();
+    const r = canvas.getBoundingClientRect();
+    const mx = ((e.clientX - r.left) / r.width) * canvas.width - (view - 0.36) * 170;
+    const my = ((e.clientY - r.top) / r.height) * canvas.height;
+    for (let i = plots.length - 1; i >= 0; i--) {
+      if (Math.hypot(plots[i].x - mx, plots[i].y - my) < 26) {
+        plots.splice(i, 1);
+        updateCount();
+        draw();
+        break;
+      }
+    }
+  });
+
+  // Status buttons
+  document.querySelectorAll('.demo-controls .demo-btn[data-status]').forEach(b => {
+    b.addEventListener('click', () => {
+      document.querySelectorAll('.demo-controls .demo-btn').forEach(x => x.classList.remove('active'));
+      b.classList.add('active');
+      status = b.dataset.status;
+    });
+  });
+
+  document.getElementById('demo-clear').addEventListener('click', () => {
+    plots = [];
+    view = 0.36;
+    updateCount();
+    draw();
+  });
+
+  // Seed + resize
+  function fit() {
+    const w = Math.min(960, canvas.parentElement.clientWidth - 6);
+    canvas.width = w;
+    canvas.height = Math.round(w * 0.4);
+    draw();
+  }
+  window.addEventListener('resize', () => { clearTimeout(window.__dR); window.__dR = setTimeout(fit, 80); });
+
+  setTimeout(() => {
+    const s = [[210,105,'avail'],[330,158,'avail'],[470,92,'hold'],[610,185,'avail'],[305,252,'sold'],[490,278,'avail'],[155,205,'avail'],[680,135,'hold']];
+    s.forEach(([x,y,st]) => plots.push({x, y, status: st}));
+    updateCount();
+    draw();
+  }, 200);
+
+  fit();
+}
+
+// Scroll reveals
+function initReveals() {
+  const items = document.querySelectorAll('.feature-card, .step, .test-card');
+  const io = new IntersectionObserver(ents => {
+    ents.forEach((en, i) => {
+      if (en.isIntersecting) {
+        en.target.style.transitionDelay = (i * 45) + 'ms';
+        en.target.style.opacity = '1';
+        en.target.style.transform = 'translateY(0)';
+        io.unobserve(en.target);
+      }
+    });
+  }, { threshold: 0.1 });
+  items.forEach(el => {
+    el.style.opacity = '0';
+    el.style.transform = 'translateY(18px)';
+    el.style.transition = 'all .65s cubic-bezier(.23,1,.32,1)';
+    io.observe(el);
+  });
+}
+
+function boot() {
+  initCounters();
+  initHeroOrb();
+  initTilt();
+  initDemo();
+  initReveals();
+
+  // Keyboard easter egg
+  document.addEventListener('keydown', e => {
+    if (e.key.toLowerCase() === 'm') {
+      const o = document.getElementById('hero-orb');
+      if (o) {
+        const old = o.style.boxShadow;
+        o.style.boxShadow = '0 0 110px 28px rgba(255,163,0,0.6)';
+        setTimeout(() => o.style.boxShadow = old, 700);
+      }
+    }
+  });
+}
+
+window.addEventListener('DOMContentLoaded', boot);
 </script>
-{% endblock %}

@@ -2383,12 +2383,16 @@ def register_routes(app):
             return jsonify({'error': str(e)}), 500
         if not workspace:
             return jsonify({'error': 'Project not found'}), 404
+        is_platform_admin = str(role or '').strip().lower() in ('admin', 'superadmin')
         access = 'owner' if str(workspace.get('user_id') or '') == str(user_id) else None
         if access is None:
-            shared = sb.table('workspace_access').select('access_type').eq('workspace_id', workspace_id).eq('user_id', user_id).limit(1).execute()
-            if not (shared.data and len(shared.data) > 0):
-                return jsonify({'error': 'Project not found'}), 404
-            access = (shared.data[0].get('access_type') or 'viewer')
+            if is_platform_admin:
+                access = 'admin'
+            else:
+                shared = sb.table('workspace_access').select('access_type').eq('workspace_id', workspace_id).eq('user_id', user_id).limit(1).execute()
+                if not (shared.data and len(shared.data) > 0):
+                    return jsonify({'error': 'Project not found'}), 404
+                access = (shared.data[0].get('access_type') or 'viewer')
         ws = serialize_workspace_row(workspace, access)
         return jsonify(ws)
 
@@ -2419,10 +2423,12 @@ def register_routes(app):
             return jsonify({'error': str(e)}), 500
         if not workspace:
             return jsonify({'error': 'Project not found'}), 404
-        if str(workspace.get('user_id') or '') != str(user_id):
+        is_owner = str(workspace.get('user_id') or '') == str(user_id)
+        is_platform_admin = str(role or '').strip().lower() in ('admin', 'superadmin')
+        if not is_owner and not is_platform_admin:
             return jsonify({'error': 'Only Project owner can update'}), 403
         try:
-            ws = ws_update_workspace(sb, workspace_id, user_id, name=name, main_panorama_id=main_panorama_id, **project_fields)
+            ws = ws_update_workspace(sb, workspace_id, user_id, name=name, main_panorama_id=main_panorama_id, allow_admin_override=is_platform_admin, **project_fields)
             return jsonify({'success': True, 'workspace': ws})
         except ValueError as ve:
             err = str(ve)
@@ -2453,10 +2459,12 @@ def register_routes(app):
             return jsonify({'error': str(e)}), 500
         if not workspace:
             return jsonify({'error': 'Project not found'}), 404
-        if str(workspace.get('user_id') or '') != str(user_id):
+        is_owner = str(workspace.get('user_id') or '') == str(user_id)
+        is_platform_admin = str(role or '').strip().lower() in ('admin', 'superadmin')
+        if not is_owner and not is_platform_admin:
             return jsonify({'error': 'Only Project owner can delete'}), 403
         try:
-            ok = ws_delete_workspace(sb, workspace_id, user_id)
+            ok = ws_delete_workspace(sb, workspace_id, user_id, allow_admin_override=is_platform_admin)
             if ok:
                 return jsonify({'success': True})
             return jsonify({'error': 'Delete failed'}), 500

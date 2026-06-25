@@ -51,6 +51,31 @@ html.portal-public-page #portal-main {
   animation: heroLightSweep 18s ease-in-out infinite;
 }
 
+/* Extra cinematic light sweep across the entire hero */
+.hero::after {
+  content: '';
+  position: absolute;
+  top: 0; bottom: 0;
+  left: -30%;
+  width: 20%;
+  background: linear-gradient(
+    105deg,
+    transparent 20%,
+    rgba(255,163,0,0.07) 45%,
+    rgba(255,163,0,0.12) 55%,
+    transparent 80%
+  );
+  animation: heroSweep 22s linear infinite;
+  pointer-events: none;
+  z-index: 1;
+}
+
+@keyframes heroSweep {
+  0% { transform: translateX(-20%); }
+  50% { transform: translateX(420%); }
+  100% { transform: translateX(420%); }
+}
+
 @keyframes heroLightSweep {
   0%, 100% { opacity: 0.75; transform: translateX(-4%) translateY(-1%); }
   50% { opacity: 1; transform: translateX(3%) translateY(1%); }
@@ -593,6 +618,15 @@ html.portal-public-page #portal-main {
   background: #222;
   box-shadow: 0 40px 110px -20px rgba(0,0,0,0.45);
   border: 1px solid rgba(255,163,0,0.25);
+}
+
+.demo-canvas {
+  display: block;
+  width: 100%;
+  height: auto;
+  cursor: crosshair;
+  touch-action: none;
+  background: #222;
 }
 
 .demo-panorama {

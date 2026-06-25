@@ -251,11 +251,12 @@ def create_workspace(sb, user_id, name, **project_fields):
     return serialize_workspace_row(created or row, 'owner')
 
 
-def update_workspace(sb, workspace_id, user_id, name=None, main_panorama_id=None, **project_fields):
+def update_workspace(sb, workspace_id, user_id, name=None, main_panorama_id=None, allow_admin_override=False, **project_fields):
     workspace = get_workspace_by_id(sb, workspace_id)
     if not workspace:
         return None
-    if str(workspace.get('user_id') or '') != str(user_id):
+    is_owner = str(workspace.get('user_id') or '') == str(user_id)
+    if not is_owner and not allow_admin_override:
         return None
     update_fields = {'updated_at': datetime.utcnow().isoformat()}
     if name is not None:
@@ -285,9 +286,12 @@ def update_workspace(sb, workspace_id, user_id, name=None, main_panorama_id=None
     return serialize_workspace_row(merged, 'owner')
 
 
-def delete_workspace(sb, workspace_id, user_id):
+def delete_workspace(sb, workspace_id, user_id, allow_admin_override=False):
     workspace = get_workspace_by_id(sb, workspace_id)
-    if not workspace or str(workspace.get('user_id') or '') != str(user_id):
+    if not workspace:
+        return False
+    is_owner = str(workspace.get('user_id') or '') == str(user_id)
+    if not is_owner and not allow_admin_override:
         return False
     sb.table('workspaces').delete().eq('id', workspace_id).execute()
     return True
