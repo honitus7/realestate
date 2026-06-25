@@ -7,12 +7,11 @@
 {% include 'components/portal_shell_start.html' %}
 <link rel="stylesheet" href="/static/css/share-workspace-modal.css?v=20260622-2">
 <style>
-/* Stabilize Add Project / Add Plot modals */
+/* Stabilize Add Project / Add Plot modals (centered) */
 #add-normal-project-modal.visible,
 #add-normal-plot-modal.visible,
 #edit-plot-modal.visible,
 #add-interest-modal.visible,
-#contact-modal-backdrop.visible,
 #share-workspace-modal.visible {
     display: flex !important;
     align-items: center !important;
@@ -21,11 +20,29 @@
     background: rgba(34, 48, 62, 0.45) !important;
     backdrop-filter: blur(2px);
 }
-#deal-modal-backdrop.visible {
+
+/* Edit Project modal - shifted a little down */
+#edit-project-modal.visible {
     display: flex !important;
-    align-items: center !important;
+    align-items: flex-start !important;
     justify-content: center !important;
-    padding: 16px !important;
+    padding-top: 70px !important;
+    padding-left: 16px !important;
+    padding-right: 16px !important;
+    padding-bottom: 16px !important;
+    background: rgba(34, 48, 62, 0.45) !important;
+    backdrop-filter: blur(2px);
+}
+
+#deal-modal-backdrop.visible,
+#contact-modal-backdrop.visible {
+    display: flex !important;
+    align-items: flex-start !important;
+    justify-content: center !important;
+    padding-top: 70px !important;
+    padding-left: 16px !important;
+    padding-right: 16px !important;
+    padding-bottom: 16px !important;
     background: rgba(34, 48, 62, 0.45) !important;
     backdrop-filter: blur(2px);
 }
@@ -33,16 +50,22 @@
 #add-normal-plot-modal .crm-modal,
 #edit-plot-modal .crm-modal,
 #add-interest-modal .crm-modal,
-#share-workspace-modal .crm-modal {
-    width: min(860px, 96vw) !important;
+#share-workspace-modal .crm-modal,
+#edit-project-modal .crm-modal {
+    width: min(720px, 94vw) !important;
     height: auto !important;
     max-height: 92vh !important;
     overflow: auto !important;
     border: 1px solid var(--bs-border-color, #d9dee3) !important;
-    border-radius: 14px !important;
+    border-radius: 12px !important;
     background: var(--bs-body-bg, #fff);
-    box-shadow: 0 18px 48px rgba(20, 28, 45, 0.2);
-    padding: 1rem 1rem 0.9rem;
+    box-shadow: 0 18px 48px rgba(20, 28, 45, 0.18);
+    padding: 0.85rem 0.95rem 0.75rem;
+}
+#edit-project-modal .crm-simple-modal-head {
+    margin-bottom: 0.85rem;
+    padding-bottom: 0.4rem;
+    border-bottom: 1px solid #f1f5f9;
 }
 #deal-modal-backdrop .crm-modal,
 #contact-modal-backdrop .crm-modal {
@@ -59,29 +82,46 @@
 #add-normal-plot-modal .crm-simple-modal-head,
 #edit-plot-modal .crm-simple-modal-head,
 #add-interest-modal .crm-simple-modal-head,
-#share-workspace-modal .crm-simple-modal-head {
+#share-workspace-modal .crm-simple-modal-head,
+#edit-project-modal .crm-simple-modal-head {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 0.75rem;
-    margin-bottom: 0.9rem;
+    gap: 0.6rem;
+    margin-bottom: 0.55rem;
+    padding-bottom: 0.35rem;
+    border-bottom: 1px solid #f1f5f9;
 }
 #add-normal-project-modal .crm-simple-modal-body,
 #add-normal-plot-modal .crm-simple-modal-body,
 #edit-plot-modal .crm-simple-modal-body,
-#add-interest-modal .crm-simple-modal-body {
+#add-interest-modal .crm-simple-modal-body,
+#edit-project-modal .crm-simple-modal-body {
     display: grid;
-    gap: 0.72rem;
+    gap: 0.55rem;
 }
 #add-normal-project-modal .crm-simple-modal-body .form-group,
 #add-normal-plot-modal .crm-simple-modal-body .form-group,
 #edit-plot-modal .crm-simple-modal-body .form-group,
-#add-interest-modal .crm-simple-modal-body .form-group {
+#add-interest-modal .crm-simple-modal-body .form-group,
+#edit-project-modal .crm-simple-modal-body .form-group {
     display: grid;
-    grid-template-columns: 180px minmax(0, 1fr);
+    grid-template-columns: 155px minmax(0, 1fr);
     align-items: center;
-    gap: 0.65rem;
-    margin: 0.28rem 0;
+    gap: 0.55rem;
+    margin: 0;
+}
+#edit-project-modal .crm-simple-modal-body .form-group.ep-full {
+    grid-template-columns: 1fr;
+    align-items: start;
+}
+#edit-project-modal .crm-simple-modal-body .form-group.ep-full .form-label {
+    display: block;
+    margin-bottom: 0.22rem;
+}
+#edit-project-modal .crm-simple-modal-body .form-group.ep-published {
+    padding-top: 0.25rem;
+    border-top: 1px solid #f1f5f9;
 }
 #add-normal-project-modal .dynamic-master-stack,
 #add-normal-plot-modal .dynamic-master-stack,
@@ -89,24 +129,33 @@
 #add-normal-project-modal .crm-simple-modal-body .form-label,
 #add-normal-plot-modal .crm-simple-modal-body .form-label,
 #edit-plot-modal .crm-simple-modal-body .form-label,
-#add-interest-modal .crm-simple-modal-body .form-label {
+#add-interest-modal .crm-simple-modal-body .form-label,
+#edit-project-modal .crm-simple-modal-body .form-label {
     margin: 0;
-    font-size: 0.9rem;
+    font-size: 0.82rem;
     font-weight: 600;
-    color: var(--bs-body-color, #566a7f);
+    color: #566a7f;
 }
 #add-normal-project-modal .crm-simple-modal-body .form-input,
 #add-normal-plot-modal .crm-simple-modal-body .form-input,
 #edit-plot-modal .crm-simple-modal-body .form-input,
-#add-interest-modal .crm-simple-modal-body .form-input {
+#add-interest-modal .crm-simple-modal-body .form-input,
+#edit-project-modal .crm-simple-modal-body .form-input {
     width: 100%;
     min-width: 0;
+    height: 34px;
+    font-size: 0.86rem;
+    padding: 0.32rem 0.55rem;
 }
 #add-normal-project-modal .crm-simple-modal-body textarea.form-input,
 #add-normal-plot-modal .crm-simple-modal-body textarea.form-input,
 #edit-plot-modal .crm-simple-modal-body textarea.form-input,
-#add-interest-modal .crm-simple-modal-body textarea.form-input {
-    min-height: 84px;
+#add-interest-modal .crm-simple-modal-body textarea.form-input,
+#edit-project-modal .crm-simple-modal-body textarea.form-input {
+    min-height: 58px;
+    height: auto;
+    padding-top: 0.4rem;
+    padding-bottom: 0.4rem;
 }
 /* Contact modal layout — see crm.css entity modal block */
 #add-normal-plot-modal [style*="grid-template-columns:1fr 1fr"] {
@@ -116,22 +165,27 @@
 #add-normal-plot-modal .modal-actions,
 #edit-plot-modal .modal-actions,
 #add-interest-modal .modal-actions,
-#share-workspace-modal .modal-actions {
-    margin-top: 1rem;
-    padding-top: 0;
-    border-top: 0;
+#share-workspace-modal .modal-actions,
+#edit-project-modal .modal-actions {
+    margin-top: 0.85rem;
+    padding-top: 0.45rem;
+    border-top: 1px solid #f1f5f9;
     background: transparent;
     display: flex;
     justify-content: flex-end;
-    gap: 0.6rem;
+    gap: 0.55rem;
 }
 @media (max-width: 768px) {
     #add-normal-project-modal .crm-simple-modal-body .form-group,
     #add-normal-plot-modal .crm-simple-modal-body .form-group,
     #edit-plot-modal .crm-simple-modal-body .form-group,
-    #add-interest-modal .crm-simple-modal-body .form-group {
+    #add-interest-modal .crm-simple-modal-body .form-group,
+    #edit-project-modal .crm-simple-modal-body .form-group {
         grid-template-columns: 1fr;
         align-items: stretch;
+    }
+    #edit-project-modal .crm-simple-modal-body .form-group.ep-full {
+        grid-template-columns: 1fr;
     }
 }
 /* Deal modal layout — see crm.css entity modal block */
@@ -627,52 +681,55 @@
 
             <!-- â•â•â•â•â•â•â•â•â•â• EDIT PROJECT DETAILS MODAL â•â•â•â•â•â•â•â•â•â• -->
             <div class="crm-modal-backdrop" id="edit-project-modal">
-                <div class="crm-modal" style="max-width: min(800px, 95vw); max-height: 90vh; overflow-y: auto; width: 100%;">
-                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;">
+                <div class="crm-modal" style="width: min(720px, 94vw) !important; max-width: 720px !important; min-width: 560px; max-height: 92vh; overflow-y: auto;">
+                    <div class="crm-simple-modal-head">
                         <div class="modal-title" style="margin:0;">Edit Project Details</div>
                         <button type="button" class="modal-close" id="edit-project-modal-close" aria-label="Close">&times;</button>
                     </div>
-                    <div style="font-size:0.75rem;color:var(--muted);margin-bottom:1rem;">These details appear on the Customer Portal. Save after editing.</div>
-                    <div id="edit-project-error" class="msg error" style="display:none;margin-bottom:1rem;"></div>
-                    <div style="display:grid;gap:0.75rem;">
-                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;">
+                    <div id="edit-project-error" class="msg error" style="display:none;margin-bottom:0.6rem;"></div>
+                    <div class="crm-simple-modal-body">
                         <div class="form-group"><label class="form-label">Builder Name</label><select class="form-input" id="ep-builder-name"><option value="">Select builder</option></select></div>
-                            <div class="form-group"><label class="form-label">Project Type</label>
-                                <select class="form-input" id="ep-project-type">
-                                    <option value="residential">Residential</option><option value="commercial">Commercial</option>
-                                    <option value="plotted">Plotted</option><option value="villa">Villa</option>
-                                    <option value="mixed">Mixed Use</option><option value="farmland">Farm Land</option>
-                                </select>
-                            </div>
+                        <div class="form-group"><label class="form-label">Project Type</label>
+                            <select class="form-input" id="ep-project-type">
+                                <option value="residential">Residential</option><option value="commercial">Commercial</option>
+                                <option value="plotted">Plotted</option><option value="villa">Villa</option>
+                                <option value="mixed">Mixed Use</option><option value="farmland">Farm Land</option>
+                            </select>
                         </div>
-                        <div class="form-group"><label class="form-label">Location Address</label><input type="text" class="form-input" id="ep-location-address"></div>
-                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;">
-                            <div class="form-group"><label class="form-label">City</label><input type="text" class="form-input" id="ep-location-city"></div>
-                            <div class="form-group"><label class="form-label">State</label><input type="text" class="form-input" id="ep-location-state"></div>
+
+                        <div class="form-group ep-full"><label class="form-label">Location Address</label><input type="text" class="form-input" id="ep-location-address" placeholder="Street, locality, landmark"></div>
+
+                        <div class="form-group"><label class="form-label">City</label><input type="text" class="form-input" id="ep-location-city"></div>
+                        <div class="form-group"><label class="form-label">State</label><input type="text" class="form-input" id="ep-location-state"></div>
+
+                        <div class="form-group ep-full"><label class="form-label">Google Maps Link</label>
+                            <input type="url" class="form-input" id="ep-google-maps-link" placeholder="Paste link — coordinates auto-extracted">
+                            <div id="ep-maps-status" style="font-size:0.65rem;color:#64748b;margin-top:0.15rem;"></div>
                         </div>
-                        <div class="form-group"><label class="form-label">Google Maps Link</label><input type="url" class="form-input" id="ep-google-maps-link" placeholder="Paste link â€” coordinates auto-extracted"><div id="ep-maps-status" style="font-size:0.68rem;color:var(--muted);margin-top:0.2rem;"></div></div>
-                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;">
-                            <div class="form-group"><label class="form-label">RERA Registration</label><input type="text" class="form-input" id="ep-rera"></div>
-                            <div class="form-group"><label class="form-label">Total Area</label><input type="text" class="form-input" id="ep-total-area"></div>
+
+                        <div class="form-group"><label class="form-label">RERA Registration</label><input type="text" class="form-input" id="ep-rera"></div>
+                        <div class="form-group"><label class="form-label">Total Area</label><input type="text" class="form-input" id="ep-total-area" placeholder="e.g. 5 acres"></div>
+
+                        <div class="form-group"><label class="form-label">Launch Date</label><input type="date" class="form-input" id="ep-launch-date"></div>
+                        <div class="form-group"><label class="form-label">Possession Date</label><input type="text" class="form-input" id="ep-possession-date" placeholder="e.g. Dec 2027"></div>
+
+                        <div class="form-group ep-full"><label class="form-label">Description</label>
+                            <textarea class="form-input" id="ep-description" rows="2" style="resize:vertical; min-height:58px;"></textarea>
                         </div>
-                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;">
-                            <div class="form-group"><label class="form-label">Launch Date</label><input type="date" class="form-input" id="ep-launch-date"></div>
-                            <div class="form-group"><label class="form-label">Possession Date</label><input type="text" class="form-input" id="ep-possession-date"></div>
-                        </div>
-                        <div class="form-group"><label class="form-label">Description</label><textarea class="form-input" id="ep-description" rows="2" style="resize:vertical;"></textarea></div>
-                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;">
-                            <div class="form-group"><label class="form-label">Contact Phone</label><input type="tel" class="form-input" id="ep-contact-phone"></div>
-                            <div class="form-group"><label class="form-label">Contact Email</label><input type="email" class="form-input" id="ep-contact-email"></div>
-                        </div>
-                        <div class="form-group"><label class="form-label">Amenities (comma-separated)</label><input type="text" class="form-input" id="ep-amenities"></div>
-                        <div class="form-group">
-                            <label style="display:flex;align-items:center;gap:0.5rem;cursor:pointer;">
-                                <input type="checkbox" id="ep-is-published" style="width:auto;cursor:pointer;">
-                                <span style="font-size:0.85rem;">Published on Customer Portal</span>
+
+                        <div class="form-group"><label class="form-label">Contact Phone</label><input type="tel" class="form-input" id="ep-contact-phone"></div>
+                        <div class="form-group"><label class="form-label">Contact Email</label><input type="email" class="form-input" id="ep-contact-email"></div>
+
+                        <div class="form-group ep-full"><label class="form-label">Amenities (comma-separated)</label><input type="text" class="form-input" id="ep-amenities" placeholder="Pool, Gym, Clubhouse"></div>
+
+                        <div class="form-group ep-full ep-published">
+                            <label style="display:flex; align-items:center; gap:0.45rem; cursor:pointer; font-size:0.88rem; margin:0;">
+                                <input type="checkbox" id="ep-is-published" style="width:15px;height:15px;cursor:pointer;">
+                                <span>Published on Customer Portal (make live)</span>
                             </label>
                         </div>
                     </div>
-                    <div class="modal-actions" style="margin-top:1rem;">
+                    <div class="modal-actions" style="margin-top:0.85rem;">
                         <button class="btn btn-secondary" id="ep-cancel">Cancel</button>
                         <button class="btn btn-primary" id="ep-save">Save Details</button>
                     </div>
@@ -6965,11 +7022,26 @@
             document.getElementById('ep-amenities').value = Array.isArray(amenities) ? amenities.join(', ') : '';
             document.getElementById('ep-is-published').checked = !!p.is_published;
             if (mapsStatus) { mapsStatus.textContent = ''; if (mapsInput) mapsInput.dispatchEvent(new Event('input')); }
-            if (modal) modal.classList.add('visible');
+            if (modal) {
+                modal.classList.add('visible');
+                // Force wide width for the edit project modal (counters crm-window JS and old styles)
+                var panel = modal.querySelector('.crm-modal');
+                if (panel) {
+                    panel.style.setProperty('width', '720px', 'important');
+                    panel.style.setProperty('max-width', '720px', 'important');
+                }
+            }
         }).catch(function(err) {
             console.error(err);
             if (errorEl) { errorEl.textContent = 'Failed to load project'; errorEl.style.display = 'block'; }
-            if (modal) modal.classList.add('visible');
+            if (modal) {
+                modal.classList.add('visible');
+                var panel = modal.querySelector('.crm-modal');
+                if (panel) {
+                    panel.style.setProperty('width', '720px', 'important');
+                    panel.style.setProperty('max-width', '720px', 'important');
+                }
+            }
         });
     };
 

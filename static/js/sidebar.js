@@ -156,6 +156,12 @@
         return Math.min(1400, (base * Math.pow(1.8, attempt)) + jitter);
     }
 
+    function _pmAccessTokenFromFallbacks() {
+        if (window.__ACCESS_TOKEN__) return String(window.__ACCESS_TOKEN__);
+        var cached = _pmReadCachedAuthSession();
+        return cached && cached.access_token ? String(cached.access_token) : '';
+    }
+
     async function _pmBuildHeaders(existingHeaders, opts) {
         var headers = Object.assign({}, existingHeaders || {});
         var hasAuth = !!(headers.Authorization || headers.authorization);
@@ -164,8 +170,9 @@
             opts && opts.waitAttempts != null ? opts.waitAttempts : 14,
             opts && opts.waitDelayMs != null ? opts.waitDelayMs : 140
         );
-        if (session && session.access_token) {
-            headers.Authorization = 'Bearer ' + session.access_token;
+        var token = session && session.access_token ? String(session.access_token) : _pmAccessTokenFromFallbacks();
+        if (token) {
+            headers.Authorization = 'Bearer ' + token;
         }
         return headers;
     }
@@ -304,6 +311,21 @@
         show('sidebar-upload-wrap', state.isAdmin);
         show('dropdown-client-mgmt', !state.isAdmin && !!state.isClientAdmin);
         show('nav-crm', state.showCrm);
+
+        // For admin users, ensure "home"/dashboard links point to normal /dashboard (not customer-dashboard)
+        if (state.isAdmin) {
+            var adminDashLinks = document.querySelectorAll(
+                '#portal-menu-dashboard, #portal-dropdown-dashboard, ' +
+                '#sneat-menu-dashboard, #sneat-dropdown-dashboard, ' +
+                'a[href="/customer-dashboard"][id*="dashboard"], a[href="/customer-dashboard"].portal-nav-link, ' +
+                'a[href="/customer-dashboard"].cd-topbar-title, a[href="/customer-dashboard"]'
+            );
+            adminDashLinks.forEach(function (link) {
+                if (link && link.getAttribute('href') === '/customer-dashboard') {
+                    link.setAttribute('href', '/dashboard');
+                }
+            });
+        }
     }
 
     // ---- Restore cached sidebar immediately (no flash) ----

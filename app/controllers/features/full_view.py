@@ -2,7 +2,7 @@ import os
 import uuid
 from urllib.parse import urlsplit
 
-from flask import current_app, jsonify, render_template, request
+from flask import current_app, jsonify, make_response, render_template, request
 from werkzeug.utils import secure_filename
 
 from app.core.auth import get_profile, require_admin
@@ -38,7 +38,7 @@ from app.services.storage_service import (
     upload_panorama_to_s3,
     use_s3,
 )
-from app.services.workspace_service import get_workspace_by_id
+from app.services.workspace_service import get_workspace_by_id, get_workspace_id_by_share_endpoint
 
 from .shared import auth_ctx, is_truthy, json_payload
 
@@ -72,6 +72,53 @@ def _normalize_link_tab_payload(data):
     normalized_content['url'] = _normalize_embedded_link_url(content_data.get('url'))
     payload['content_data'] = normalized_content
     return payload
+
+
+def _render_fv_customer_shell(
+    workspace_id,
+    *,
+    shell_base_path=None,
+    is_editor=False,
+    editor_preview_mode='',
+    extra_template_ctx=None,
+):
+    sb = get_supabase()
+    if not sb:
+        return "Database not configured", 503
+    ws = get_workspace_by_id(sb, workspace_id)
+    if not ws:
+        return "Project not found", 404
+    fv_config = fv_get_config_with_tabs(sb, workspace_id) if not is_editor else None
+    if is_editor:
+        config = fv_get_config(sb, workspace_id)
+        tabs = fv_list_tabs(sb, config['id']) if config else []
+        fv_config = dict(config or {})
+        fv_config['tabs'] = tabs
+    init_type = request.args.get('type', '').strip() or None
+    init_ref = request.args.get('ref', '').strip() or None
+    fv_style = {}
+    if fv_config and isinstance(fv_config.get('style'), dict):
+        fv_style = fv_config.get('style')
+    if not shell_base_path and not is_editor:
+        shell_base_path = f"/customer/full-view/{workspace_id}"
+    elif not shell_base_path and is_editor:
+        shell_base_path = f"/customer/full-view/edit/{workspace_id}"
+    template_ctx = {
+        'workspace_id': workspace_id,
+        'workspace_name': ws.get('name', ''),
+        'fv_config': fv_config,
+        'fv_style': fv_style,
+        'is_editor': is_editor,
+        'editor_preview_mode': editor_preview_mode,
+        'init_type': init_type,
+        'init_ref': init_ref,
+        'shell_base_path': shell_base_path,
+    }
+    if is_editor:
+        template_ctx.update(auth_ctx())
+    if extra_template_ctx:
+        template_ctx.update(extra_template_ctx)
+    return render_template('customer_fullview.html', **template_ctx)
 
 
 def register_full_view_routes(app):
@@ -380,60 +427,40 @@ def register_full_view_routes(app):
         tabs = result.pop('tabs', [])
         return jsonify({'config': result, 'tabs': tabs})
 
-    @app.route('/customer/full-view/<workspace_id>')
-    def fv_customer_shell(workspace_id):
+    @app.route('/fullview/<endpoint>')
+    def fv_customer_share_view(endpoint):
         sb = get_supabase()
         if not sb:
             return "Database not configured", 503
-        ws = get_workspace_by_id(sb, workspace_id)
-        if not ws:
+        workspace_id = get_workspace_id_by_share_endpoint(sb, endpoint)
+        if not workspace_id:
             return "Project not found", 404
-        fv_config = fv_get_config_with_tabs(sb, workspace_id)
-        init_type = request.args.get('type', '').strip() or None
-        init_ref = request.args.get('ref', '').strip() or None
-        fv_style = {}
-        if fv_config and isinstance(fv_config.get('style'), dict):
-            fv_style = fv_config.get('style')
-        return render_template(
-            'customer_fullview.html',
-            workspace_id=workspace_id,
-            workspace_name=ws.get('name', ''),
-            fv_config=fv_config,
-            fv_style=fv_style,
-            is_editor=False,
-            editor_preview_mode='',
-            init_type=init_type,
-            init_ref=init_ref,
+        fv_config = fv_get_config(sb, workspace_id)
+        if fv_config and not fv_config.get('is_active'):
+            return "Full View is not available", 404
+        shell_base_path = (request.path or f'/fullview/{endpoint}').rstrip('/') or f'/fullview/{endpoint}'
+        rendered = _render_fv_customer_shell(
+            workspace_id,
+            shell_base_path=shell_base_path,
         )
+        if isinstance(rendered, tuple):
+            return rendered
+        response = make_response(rendered)
+        response.headers['Cache-Control'] = 'no-store, max-age=0'
+        response.headers['Pragma'] = 'no-cache'
+        return response
+
+    @app.route('/customer/full-view/<workspace_id>')
+    def fv_customer_shell(workspace_id):
+        return _render_fv_customer_shell(workspace_id)
 
     @app.route('/customer/full-view/edit/<workspace_id>')
     def fv_customer_shell_editor(workspace_id):
-        sb = get_supabase()
-        if not sb:
-            return "Database not configured", 503
-        ws = get_workspace_by_id(sb, workspace_id)
-        if not ws:
-            return "Project not found", 404
-
-        config = fv_get_config(sb, workspace_id)
-        tabs = fv_list_tabs(sb, config['id']) if config else []
-        fv_config = dict(config or {})
-        fv_config['tabs'] = tabs
-        fv_style = fv_config.get('style') if isinstance(fv_config.get('style'), dict) else {}
-        init_type = request.args.get('type', '').strip() or None
-        init_ref = request.args.get('ref', '').strip() or None
         editor_preview_mode = request.args.get('preview', '').strip().lower() or ''
-        return render_template(
-            'customer_fullview.html',
-            workspace_id=workspace_id,
-            workspace_name=ws.get('name', ''),
-            fv_config=fv_config,
-            fv_style=fv_style,
+        return _render_fv_customer_shell(
+            workspace_id,
             is_editor=True,
-            init_type=init_type,
-            init_ref=init_ref,
             editor_preview_mode=editor_preview_mode,
-            **auth_ctx(),
         )
 
     @app.route('/customer/full-view/floor-plan/<catalogue_id>')

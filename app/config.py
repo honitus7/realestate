@@ -36,6 +36,10 @@ SUPABASE_ANON_KEY = os.environ.get('SUPABASE_ANON_KEY', '')
 SUPABASE_SERVICE_ROLE_KEY = os.environ.get('SUPABASE_SERVICE_ROLE_KEY', '')
 SUPABASE_JWT_SECRET = os.environ.get('SUPABASE_JWT_SECRET', '')
 
+# Clerk (for authenticating requests from Clerk-powered frontend)
+CLERK_ISSUER = os.environ.get('CLERK_ISSUER', '').strip()
+CLERK_JWKS_URL = os.environ.get('CLERK_JWKS_URL', '').strip()
+
 # Supabase S3
 SUPABASE_S3_ENDPOINT = os.environ.get(
     'SUPABASE_S3_ENDPOINT',

@@ -33,7 +33,7 @@ html.portal-public-page #portal-main {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 6rem 2rem 4rem;
+  padding: 4.75rem 1.5rem 3.5rem;
   background: linear-gradient(180deg, #2a2a2a 0%, #333333 40%, #2a2a2a 100%);
   color: #f8f4ec;
   overflow: hidden;

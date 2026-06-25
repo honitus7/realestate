@@ -1140,7 +1140,10 @@
     var styleState = null;
     var shellAutoplayAvailable = false;
     var shellAutoplayPaused = false;
-    var SHELL_BASE_PATH = (IS_EDITOR ? '/customer/full-view/edit/' : '/customer/full-view/') + encodeURIComponent(WS_ID || '');
+    var SHELL_BASE_PATH = {{ (shell_base_path or '') | tojson }};
+    if (!SHELL_BASE_PATH) {
+        SHELL_BASE_PATH = (IS_EDITOR ? '/customer/full-view/edit/' : '/customer/full-view/') + encodeURIComponent(WS_ID || '');
+    }
     var PREFETCH_STATE_KEY = 'fv_shell_prefetch_v3::' + String(WS_ID || '');
     var PREVIEW_MODE_STORAGE_KEY = 'fv_shell_editor_preview_mode::' + String(WS_ID || '');
     var PREFETCH_TTL_MS = 15 * 60 * 1000;

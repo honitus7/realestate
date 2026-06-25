@@ -211,100 +211,107 @@
 
     <!-- Create Project Modal -->
     <div class="modal-backdrop" id="create-workspace-modal">
-        <div class="modal" style="max-width: min(800px, 95vw); max-height: 90vh; overflow-y: auto; width: 100%;">
+        <div class="modal" style="max-width: min(680px, 94vw); max-height: 90vh; overflow-y: auto; width: 100%;">
             <div class="modal-title">Create Project</div>
             <div class="modal-text" style="margin-bottom: 1rem;">Create a new project to organize panoramas. Add optional details for the Customer Portal.</div>
-            <div class="form-group" style="margin-bottom: 1rem;">
-                <label class="form-label" for="workspace-name-input">Project name</label>
-                <input type="text" id="workspace-name-input" class="form-input" maxlength="120" placeholder="e.g. Sunset Valley Estate">
+            <div class="form-group" style="margin-bottom: 0.5rem;">
+                <label class="form-label" for="workspace-name-input">Project name *</label>
+                <input type="text" id="workspace-name-input" class="form-input" maxlength="120" placeholder="e.g. Sunset Valley Estate" style="height:34px;font-size:0.95rem;">
             </div>
-            <details class="upload-details-section" style="margin-bottom: 1rem;">
-                <summary style="font-size: 0.82rem; font-weight: 600; cursor: pointer; padding: 0.5rem 0;">Project details (optional)</summary>
-                <div style="display: grid; gap: 0.75rem; margin-top: 0.75rem;">
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
-                        <div class="form-group">
-                            <label class="form-label">Builder name</label>
-                            <input type="text" class="form-input" id="ws-builder-name" maxlength="200">
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label">Project type</label>
-                            <select class="form-input" id="ws-project-type">
-                                <option value="residential">Residential</option>
-                                <option value="commercial">Commercial</option>
-                                <option value="plotted">Plotted</option>
-                                <option value="villa">Villa</option>
-                                <option value="mixed">Mixed Use</option>
-                                <option value="farmland">Farm Land</option>
-                            </select>
-                        </div>
+            <details class="upload-details-section" style="margin-bottom: 0.75rem;">
+                <summary style="font-size: 0.81rem; font-weight: 600; cursor: pointer; padding: 0.35rem 0; color:#475569;">Project details (optional)</summary>
+                <div class="ws-compact-form" style="margin-top:0.4rem; display:grid; gap:0.5rem;">
+                    <div class="form-group" style="margin-bottom:0;">
+                        <label class="form-label">Builder name</label>
+                        <input type="text" class="form-input" id="ws-builder-name" maxlength="200" style="height:33px;font-size:0.9rem;">
                     </div>
-                    <div class="form-group">
+                    <div class="form-group" style="margin-bottom:0;">
+                        <label class="form-label">Project type</label>
+                        <select class="form-input" id="ws-project-type" style="height:33px;font-size:0.9rem;">
+                            <option value="residential">Residential</option>
+                            <option value="commercial">Commercial</option>
+                            <option value="plotted">Plotted</option>
+                            <option value="villa">Villa</option>
+                            <option value="mixed">Mixed Use</option>
+                            <option value="farmland">Farm Land</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group" style="margin-bottom:0;">
                         <label class="form-label">Location address</label>
-                        <input type="text" class="form-input" id="ws-location-address" maxlength="500">
+                        <input type="text" class="form-input" id="ws-location-address" maxlength="500" style="height:33px;font-size:0.9rem;">
                     </div>
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
-                        <div class="form-group">
+
+                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.5rem;">
+                        <div class="form-group" style="margin-bottom:0;">
                             <label class="form-label">City</label>
-                            <input type="text" class="form-input" id="ws-location-city" maxlength="120">
+                            <input type="text" class="form-input" id="ws-location-city" maxlength="120" style="height:33px;font-size:0.9rem;">
                         </div>
-                        <div class="form-group">
+                        <div class="form-group" style="margin-bottom:0;">
                             <label class="form-label">State</label>
-                            <input type="text" class="form-input" id="ws-location-state" maxlength="120">
+                            <input type="text" class="form-input" id="ws-location-state" maxlength="120" style="height:33px;font-size:0.9rem;">
                         </div>
                     </div>
-                    <div class="form-group">
+
+                    <div class="form-group" style="margin-bottom:0;">
                         <label class="form-label">Google Maps link</label>
-                        <input type="url" class="form-input" id="ws-google-maps-link" placeholder="Paste link — coordinates auto-extracted">
-                        <div style="font-size: 0.68rem; color: var(--color-muted); margin-top: 0.2rem;" id="ws-maps-status"></div>
+                        <input type="url" class="form-input" id="ws-google-maps-link" placeholder="Paste link" style="height:33px;font-size:0.9rem;">
+                        <div style="font-size:0.65rem;color:var(--color-muted);margin-top:0.12rem;" id="ws-maps-status"></div>
                     </div>
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
-                        <div class="form-group">
+
+                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.5rem;">
+                        <div class="form-group" style="margin-bottom:0;">
                             <label class="form-label">RERA registration</label>
-                            <input type="text" class="form-input" id="ws-rera" maxlength="100">
+                            <input type="text" class="form-input" id="ws-rera" maxlength="100" style="height:33px;font-size:0.9rem;">
                         </div>
-                        <div class="form-group">
+                        <div class="form-group" style="margin-bottom:0;">
                             <label class="form-label">Total area</label>
-                            <input type="text" class="form-input" id="ws-total-area" maxlength="100">
+                            <input type="text" class="form-input" id="ws-total-area" maxlength="100" style="height:33px;font-size:0.9rem;">
                         </div>
                     </div>
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
-                        <div class="form-group">
+
+                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.5rem;">
+                        <div class="form-group" style="margin-bottom:0;">
                             <label class="form-label">Launch date</label>
-                            <input type="date" class="form-input" id="ws-launch-date">
+                            <input type="date" class="form-input" id="ws-launch-date" style="height:33px;font-size:0.9rem;">
                         </div>
-                        <div class="form-group">
+                        <div class="form-group" style="margin-bottom:0;">
                             <label class="form-label">Possession date</label>
-                            <input type="text" class="form-input" id="ws-possession-date" maxlength="80">
+                            <input type="text" class="form-input" id="ws-possession-date" maxlength="80" placeholder="e.g. 2027 Q4" style="height:33px;font-size:0.9rem;">
                         </div>
                     </div>
-                    <div class="form-group">
+
+                    <div class="form-group" style="margin-bottom:0;">
                         <label class="form-label">Description</label>
-                        <textarea class="form-input" id="ws-description" rows="2" style="resize: vertical;" maxlength="5000"></textarea>
+                        <textarea class="form-input" id="ws-description" rows="2" style="resize:vertical; min-height:52px; font-size:0.9rem;" maxlength="5000"></textarea>
                     </div>
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
-                        <div class="form-group">
+
+                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.5rem;">
+                        <div class="form-group" style="margin-bottom:0;">
                             <label class="form-label">Contact phone</label>
-                            <input type="tel" class="form-input" id="ws-contact-phone" maxlength="50">
+                            <input type="tel" class="form-input" id="ws-contact-phone" maxlength="50" style="height:33px;font-size:0.9rem;">
                         </div>
-                        <div class="form-group">
+                        <div class="form-group" style="margin-bottom:0;">
                             <label class="form-label">Contact email</label>
-                            <input type="email" class="form-input" id="ws-contact-email" maxlength="200">
+                            <input type="email" class="form-input" id="ws-contact-email" maxlength="200" style="height:33px;font-size:0.9rem;">
                         </div>
                     </div>
-                    <div class="form-group">
+
+                    <div class="form-group" style="margin-bottom:0;">
                         <label class="form-label">Amenities (comma-separated)</label>
-                        <input type="text" class="form-input" id="ws-amenities" placeholder="e.g. Pool, Gym, Clubhouse" maxlength="500">
+                        <input type="text" class="form-input" id="ws-amenities" placeholder="Pool, Gym, Clubhouse" maxlength="500" style="height:33px;font-size:0.9rem;">
                     </div>
-                    <div class="form-group">
-                        <label style="display:flex; align-items:center; gap:0.4rem; font-size:0.85rem; cursor:pointer;">
-                            <input type="checkbox" id="ws-is-published" style="width:auto; margin:0;"> 
+
+                    <div class="form-group" style="margin:0.15rem 0 0;">
+                        <label style="display:flex; align-items:center; gap:0.4rem; font-size:0.82rem; cursor:pointer; margin:0;">
+                            <input type="checkbox" id="ws-is-published" style="width:14px;height:14px;cursor:pointer;"> 
                             <span>Published on Customer Portal (make live)</span>
                         </label>
                     </div>
                 </div>
             </details>
-            <div id="workspace-create-error" class="msg error" style="display:none; margin-bottom: 1rem;"></div>
-            <div class="modal-actions">
+            <div id="workspace-create-error" class="msg error" style="display:none; margin-bottom: 0.75rem;"></div>
+            <div class="modal-actions" style="margin-top:0.85rem; padding-top:0.55rem; border-top:1px solid #e2e8f0;">
                 <button class="btn btn-secondary" id="cancel-create-workspace">Cancel</button>
                 <button class="btn btn-primary" id="confirm-create-workspace">Create</button>
             </div>
@@ -606,11 +613,15 @@
             ];
             pairs.forEach(function(p) {
                 var el = document.getElementById(p[1]);
-                if (el && el.value && String(el.value).trim()) payload[p[0]] = String(el.value).trim();
+                if (el) {
+                    var v = String(el.value || '').trim();
+                    payload[p[0]] = v;  // include even if empty, for proper edit clears
+                }
             });
             var amenitiesEl = document.getElementById('ws-amenities');
-            if (amenitiesEl && amenitiesEl.value && String(amenitiesEl.value).trim()) {
-                payload.amenities = String(amenitiesEl.value).trim().split(',').map(function(s) { return s.trim(); }).filter(Boolean);
+            if (amenitiesEl) {
+                var aVal = String(amenitiesEl.value || '').trim();
+                payload.amenities = aVal ? aVal.split(',').map(function(s) { return s.trim(); }).filter(Boolean) : [];
             }
             var mapsLink = (document.getElementById('ws-google-maps-link') || {}).value || '';
             if (mapsLink.trim()) {
@@ -771,6 +782,18 @@
             var el = document.getElementById('nav-crm');
             if (!el) return;
             el.style.display = visible ? '' : 'none';
+            if (visible) {
+                el.setAttribute('target', '_blank');
+                el.setAttribute('rel', 'noopener noreferrer');
+                if (!el._crmTabHandler) {
+                    el._crmTabHandler = true;
+                    el.addEventListener('click', function(e) {
+                        // Force new tab as extra safety (some tooltip/sidebar JS may interfere)
+                        e.preventDefault();
+                        window.open(el.getAttribute('href') || '/crm', '_blank', 'noopener');
+                    });
+                }
+            }
         }
 
         function updateCrmNavVisibility() {
@@ -1025,45 +1048,57 @@
         function openEditWorkspaceModal(ProjectId) {
             if (!createProjectModal || !projectNameInput) return;
             editWorkspaceTargetId = ProjectId;
-            var ws = getProjectById(ProjectId) || {};
-            // prefill
-            projectNameInput.value = ws.name || '';
-            setWorkspaceField('ws-builder-name', ws.builder_name);
-            setWorkspaceField('ws-project-type', ws.project_type || 'residential');
-            setWorkspaceField('ws-location-address', ws.location_address);
-            setWorkspaceField('ws-location-city', ws.location_city);
-            setWorkspaceField('ws-location-state', ws.location_state);
-            setWorkspaceField('ws-google-maps-link', ws.google_maps_link);
-            setWorkspaceField('ws-rera', ws.rera_registration);
-            setWorkspaceField('ws-total-area', ws.total_area);
-            setWorkspaceField('ws-launch-date', ws.launch_date);
-            setWorkspaceField('ws-possession-date', ws.possession_date);
-            setWorkspaceField('ws-description', ws.description);
-            setWorkspaceField('ws-contact-phone', ws.contact_phone);
-            setWorkspaceField('ws-contact-email', ws.contact_email);
-            var am = document.getElementById('ws-amenities');
-            if (am) {
-                am.value = Array.isArray(ws.amenities) ? ws.amenities.join(', ') : (ws.amenities || '');
-            }
-            var pubEl = document.getElementById('ws-is-published');
-            if (pubEl) pubEl.checked = !!ws.is_published;
-            var status = document.getElementById('ws-maps-status');
-            if (status) status.textContent = '';
-            showProjectCreateError('');
-            // repurpose UI for edit
-            var titleEl = createProjectModal.querySelector('.modal-title');
-            if (titleEl) titleEl.textContent = 'Edit Project';
-            var textEl = createProjectModal.querySelector('.modal-text');
-            if (textEl) textEl.textContent = 'Update the project details below. Changes will be reflected in the customer portal if published.';
-            if (confirmCreateProject) confirmCreateProject.textContent = 'Save Changes';
-            createProjectModal.classList.add('visible');
-            if (projectNameInput) projectNameInput.focus();
-            // trigger maps status update
-            var mapsInput = document.getElementById('ws-google-maps-link');
-            if (mapsInput) mapsInput.dispatchEvent(new Event('input'));
-            // expand details for edit
-            var details = createProjectModal.querySelector('details');
-            if (details) details.open = true;
+            showProjectCreateError('Loading project details...');
+            // Always fetch fresh to ensure all detail columns (builder etc) are present for prefill
+            getAuthHeaders().then(function(headers) {
+                return fetch('/api/workspaces/' + encodeURIComponent(ProjectId), { headers: headers });
+            }).then(function(r) {
+                if (!r.ok) throw new Error('Failed to load project for edit');
+                return r.json();
+            }).then(function(p) {
+                showProjectCreateError('');
+                // prefill from fresh p
+                projectNameInput.value = p.name || '';
+                setWorkspaceField('ws-builder-name', p.builder_name);
+                setWorkspaceField('ws-project-type', p.project_type || 'residential');
+                setWorkspaceField('ws-location-address', p.location_address);
+                setWorkspaceField('ws-location-city', p.location_city);
+                setWorkspaceField('ws-location-state', p.location_state);
+                setWorkspaceField('ws-google-maps-link', p.google_maps_link);
+                setWorkspaceField('ws-rera', p.rera_registration);
+                setWorkspaceField('ws-total-area', p.total_area);
+                setWorkspaceField('ws-launch-date', p.launch_date);
+                setWorkspaceField('ws-possession-date', p.possession_date);
+                setWorkspaceField('ws-description', p.description);
+                setWorkspaceField('ws-contact-phone', p.contact_phone);
+                setWorkspaceField('ws-contact-email', p.contact_email);
+                var am = document.getElementById('ws-amenities');
+                if (am) {
+                    am.value = Array.isArray(p.amenities) ? p.amenities.join(', ') : (p.amenities || '');
+                }
+                var pubEl = document.getElementById('ws-is-published');
+                if (pubEl) pubEl.checked = !!p.is_published;
+                var status = document.getElementById('ws-maps-status');
+                if (status) status.textContent = '';
+                // repurpose UI for edit
+                var titleEl = createProjectModal.querySelector('.modal-title');
+                if (titleEl) titleEl.textContent = 'Edit Project';
+                var textEl = createProjectModal.querySelector('.modal-text');
+                if (textEl) textEl.textContent = 'Update the project details below. Changes will be reflected in the customer portal if published.';
+                if (confirmCreateProject) confirmCreateProject.textContent = 'Save Changes';
+                createProjectModal.classList.add('visible');
+                if (projectNameInput) projectNameInput.focus();
+                // trigger maps status update
+                var mapsInput = document.getElementById('ws-google-maps-link');
+                if (mapsInput) mapsInput.dispatchEvent(new Event('input'));
+                // expand details for edit
+                var details = createProjectModal.querySelector('details');
+                if (details) details.open = true;
+            }).catch(function(err) {
+                showProjectCreateError(err.message || 'Failed to load project');
+                // still show the modal with whatever partial data
+                createProjectModal.classList.add('visible');
+            });
         }
 
         function setWorkspaceField(id, val) {
@@ -2312,8 +2347,9 @@
                         const err = await response.json().catch(() => null);
                         throw new Error((err && err.error) || (editWorkspaceTargetId ? 'Failed to save project' : 'Failed to create project'));
                     }
+                    const wasEdit = !!editWorkspaceTargetId;
                     closeCreateProjectModal();
-                    showToast(editWorkspaceTargetId ? 'Project updated' : 'Project created', 'success');
+                    showToast(wasEdit ? 'Project updated' : 'Project created', 'success');
                     await loadWorkspaces();
                     renderWorkspaces();
                     renderProjects();
@@ -2399,6 +2435,19 @@
                 }
             });
         }
+
+        // Also support Enter in the optional details inputs for edit/create
+        ['ws-builder-name', 'ws-location-address', 'ws-amenities'].forEach(function(id) {
+            var el = document.getElementById(id);
+            if (el) {
+                el.addEventListener('keydown', function(ev) {
+                    if (ev.key === 'Enter') {
+                        ev.preventDefault();
+                        if (confirmCreateProject) confirmCreateProject.click();
+                    }
+                });
+            }
+        });
 
         if (projectRenameInput) {
             projectRenameInput.addEventListener('keydown', (event) => {

@@ -333,15 +333,20 @@ def _ws_error_response():
 def _workspace_share_payload(workspace_id, custom_endpoint=None):
     base = (request.url_root or '').rstrip('/')
     default_url = f"{base}/customer/project/{workspace_id}"
+    full_view_default_url = f"{base}/customer/full-view/{workspace_id}"
     normalized = ws_normalize_workspace_share_endpoint(custom_endpoint)
     custom = normalized or None
     custom_url = f"{base}/panoview/{custom}" if custom else None
+    full_view_custom_url = f"{base}/fullview/{custom}" if custom else None
     return {
         'workspace_id': str(workspace_id),
         'default_url': default_url,
         'custom_endpoint': custom,
         'custom_url': custom_url,
         'effective_url': custom_url or default_url,
+        'full_view_default_url': full_view_default_url,
+        'full_view_custom_url': full_view_custom_url,
+        'full_view_effective_url': full_view_custom_url or full_view_default_url,
     }
 
 

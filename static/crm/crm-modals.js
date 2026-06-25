@@ -86,7 +86,10 @@
             activatePanel(panel);
             panel.classList.add('is-dragging');
             panel.dataset.crmDragged = '1';
-            panel.style.width = rect.width + 'px';
+            // Do not force width on the edit-project-modal (controlled by CSS)
+            if (!panel.closest('#edit-project-modal')) {
+                panel.style.width = rect.width + 'px';
+            }
             panel.style.left = rect.left + 'px';
             panel.style.top = rect.top + 'px';
             panel.style.right = 'auto';

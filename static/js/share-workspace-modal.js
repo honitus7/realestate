@@ -1,10 +1,27 @@
 (function (root) {
     'use strict';
 
+    function defaultGetAuthHeaders() {
+        if (root.pmApi && typeof root.pmApi.getAuthHeaders === 'function') {
+            return root.pmApi.getAuthHeaders({
+                waitAttempts: 24,
+                waitDelayMs: 180
+            });
+        }
+        if (root.__ACCESS_TOKEN__) {
+            return Promise.resolve({ Authorization: 'Bearer ' + root.__ACCESS_TOKEN__ });
+        }
+        return Promise.resolve({});
+    }
+
     var config = {
-        getAuthHeaders: function () { return Promise.resolve({}); },
+        getAuthHeaders: defaultGetAuthHeaders,
         showToast: function () {},
         getSessionUserId: null,
+        pickShareBaseUrl: function (share) {
+            var payload = share || {};
+            return payload.effective_url || payload.default_url || '';
+        },
     };
 
     function extractSessionUserId(session) {
@@ -115,14 +132,25 @@
         if (!sessionUserId) {
             throw new Error('Could not determine your user session');
         }
-        var headers = await config.getAuthHeaders();
-        var response = await fetch('/api/workspaces/' + encodeURIComponent(workspaceId) + '/share-endpoint', { headers: headers });
-        var data = await response.json().catch(function () { return {}; });
-        if (!response.ok) {
-            throw new Error((data && data.error) || 'Failed to load share link');
+        var url = '/api/workspaces/' + encodeURIComponent(workspaceId) + '/share-endpoint';
+        var data = null;
+        if (root.pmApi && typeof root.pmApi.fetchJsonWithRetry === 'function') {
+            data = await root.pmApi.fetchJsonWithRetry(url, {}, {
+                retries: 2,
+                baseDelayMs: 220,
+                waitAttempts: 24,
+                waitDelayMs: 180
+            });
+        } else {
+            var headers = await config.getAuthHeaders();
+            var response = await fetch(url, { headers: headers, credentials: 'same-origin' });
+            data = await response.json().catch(function () { return {}; });
+            if (!response.ok) {
+                throw new Error((data && data.error) || 'Failed to load share link');
+            }
         }
         var share = data && data.share ? data.share : null;
-        var baseUrl = share && (share.effective_url || share.default_url) ? (share.effective_url || share.default_url) : '';
+        var baseUrl = share ? String(config.pickShareBaseUrl(share) || '').trim() : '';
         if (!baseUrl) {
             throw new Error('Share link is not available for this project');
         }

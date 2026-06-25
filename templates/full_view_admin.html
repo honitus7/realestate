@@ -3,6 +3,7 @@
 {% block head_css %}
 <link rel="stylesheet" href="/static/css/dashboard.css">
 <link rel="stylesheet" href="/static/css/full_view_admin.css">
+<link rel="stylesheet" href="/static/css/share-workspace-modal.css?v=20260625-create-link">
 <script src="https://code.iconify.design/iconify-icon/1.0.8/iconify-icon.min.js"></script>
 {% endblock %}
 {% block content %}
@@ -67,6 +68,14 @@
                         <iconify-icon icon="ph:link"></iconify-icon>
                         Copy Link
                     </button>
+                    <button class="btn btn-secondary btn-sm" id="fv-create-link-btn" title="Create a custom Full View share link with your own URL suffix">
+                        <iconify-icon icon="ph:link-simple"></iconify-icon>
+                        Create Link
+                    </button>
+                    <button class="btn btn-secondary btn-sm" id="fv-share-ref-btn" title="Create customised reference link (for CRM mapping, same as dashboard)">
+                        <iconify-icon icon="ph:users-three"></iconify-icon>
+                        Share Reference Link
+                    </button>
                     <button class="btn btn-secondary btn-sm" id="fv-edit-screen-btn">
                         <iconify-icon icon="ph:paint-brush-household"></iconify-icon>
                         Edit Screen
@@ -82,11 +91,17 @@
             <div class="fv-share-bar" id="fv-share-bar" style="display:none;">
                 <iconify-icon icon="ph:link-simple" class="fv-share-bar-icon"></iconify-icon>
                 <input class="fv-share-bar-input" id="fv-share-bar-url" type="text" readonly>
-                <button class="fv-share-bar-copy" id="fv-share-bar-copy" title="Copy URL">
-                    <iconify-icon icon="ph:copy"></iconify-icon>
+                <button type="button" class="fv-share-bar-action fv-share-bar-action--primary" id="fv-share-bar-create-link" title="Create a custom Full View share link">
+                    <iconify-icon icon="ph:link-simple"></iconify-icon>
+                    Create Link
                 </button>
-                <a class="fv-share-bar-open" id="fv-share-bar-open" href="#" target="_blank" rel="noopener" title="Open in new tab">
+                <button type="button" class="fv-share-bar-action" id="fv-share-bar-copy" title="Copy URL">
+                    <iconify-icon icon="ph:copy"></iconify-icon>
+                    Copy
+                </button>
+                <a class="fv-share-bar-action" id="fv-share-bar-open" href="#" target="_blank" rel="noopener" title="Open in new tab">
                     <iconify-icon icon="ph:arrow-square-out"></iconify-icon>
+                    Open
                 </a>
             </div>
 
@@ -316,6 +331,12 @@
     </div>
 </div>
 
+<!-- Share Workspace / Reference Link Modal (same as dashboard) -->
+{% include 'components/share_workspace_modal.html' %}
+
+<!-- Create custom Full View share link modal -->
+{% include 'components/create_share_link_modal.html' %}
+
 <!-- ===================== ICON PICKER DIALOG ===================== -->
 <div class="modal-backdrop fv-icon-picker-backdrop" id="fv-icon-picker-backdrop">
     <div class="modal fv-icon-picker-modal">
@@ -544,43 +565,125 @@ function showToast(message, kind) {
 /* ------------------------------------------------------------------ */
 /*  Auth                                                               */
 /* ------------------------------------------------------------------ */
-function authHeaders(includeJsonContentType) {
-    const withJson = includeJsonContentType !== false;
-    if (window.pmApi && typeof window.pmApi.getAuthHeaders === 'function') {
-        return window.pmApi.getAuthHeaders({
-            headers: withJson ? { 'Content-Type': 'application/json' } : {},
-            waitAttempts: 8,
-            waitDelayMs: 140
+function waitForAuthSession(maxAttempts, delayMs) {
+    var attempts = 0;
+    var limit = Math.max(1, parseInt(maxAttempts, 10) || 20);
+    var delay = Math.max(40, parseInt(delayMs, 10) || 180);
+    function step() {
+        if (window.pmApi && typeof window.pmApi.waitForSession === 'function') {
+            return window.pmApi.waitForSession(limit - attempts, delay).catch(function () { return null; });
+        }
+        if (!window._supabase || !window._supabase.auth) {
+            if (attempts >= limit) return Promise.resolve(null);
+            attempts += 1;
+            return new Promise(function (resolve) {
+                setTimeout(function () { resolve(step()); }, delay);
+            });
+        }
+        return window._supabase.auth.getSession().then(function (r) {
+            var session = r && r.data ? r.data.session : null;
+            if (session && session.access_token) return session;
+            if (attempts >= limit) return null;
+            attempts += 1;
+            return new Promise(function (resolve) {
+                setTimeout(function () { resolve(step()); }, delay);
+            });
+        }).catch(function () {
+            if (attempts >= limit) return null;
+            attempts += 1;
+            return new Promise(function (resolve) {
+                setTimeout(function () { resolve(step()); }, delay);
+            });
         });
     }
-    if (!window._supabase) return Promise.resolve(withJson ? { 'Content-Type': 'application/json' } : {});
-    return window._supabase.auth.getSession().then(function (r) {
-        var h = withJson ? { 'Content-Type': 'application/json' } : {};
-        if (r.data.session && r.data.session.access_token) h.Authorization = 'Bearer ' + r.data.session.access_token;
-        return h;
+    return step();
+}
+
+function withAccessTokenFallback(headers) {
+    var h = Object.assign({}, headers || {});
+    if (!h.Authorization && !h.authorization && window.__ACCESS_TOKEN__) {
+        h.Authorization = 'Bearer ' + window.__ACCESS_TOKEN__;
+    }
+    return h;
+}
+
+function authHeaders(includeJsonContentType) {
+    const withJson = includeJsonContentType !== false;
+    const baseHeaders = withJson ? { 'Content-Type': 'application/json' } : {};
+    if (window.pmApi && typeof window.pmApi.getAuthHeaders === 'function') {
+        return window.pmApi.getAuthHeaders({
+            headers: baseHeaders,
+            waitAttempts: 24,
+            waitDelayMs: 180
+        }).then(withAccessTokenFallback);
+    }
+    return waitForAuthSession(24, 180).then(function (session) {
+        var h = Object.assign({}, baseHeaders);
+        if (session && session.access_token) h.Authorization = 'Bearer ' + session.access_token;
+        return withAccessTokenFallback(h);
     });
 }
 
-async function apiFetch(url, opts) {
-    const baseHeaders = await authHeaders();
-    const merged = Object.assign({}, opts || {});
-    merged.headers = Object.assign({}, baseHeaders, (opts && opts.headers) || {});
-    if (window.pmApi && typeof window.pmApi.fetchJsonWithRetry === 'function') {
-        return window.pmApi.fetchJsonWithRetry(url, merged, {
-            retries: 2,
-            baseDelayMs: 220,
-            waitAttempts: 8,
-            waitDelayMs: 140
+function initShareModals() {
+    if (typeof initShareWorkspaceModal === 'function') {
+        initShareWorkspaceModal({
+            getAuthHeaders: function () { return authHeaders(); },
+            showToast: showToast,
+            pickShareBaseUrl: function (share) {
+                var payload = share || {};
+                return payload.full_view_effective_url || payload.full_view_default_url || '';
+            },
         });
     }
-    const res = await fetch(url, merged);
-    const text = await res.text().catch(function () { return ''; });
-    let payload = null;
-    try { payload = text ? JSON.parse(text) : null; } catch (e) { payload = null; }
-    if (!res.ok) {
-        throw new Error((payload && payload.error) || text || res.statusText);
+    if (typeof initCreateShareLinkModal === 'function') {
+        initCreateShareLinkModal({
+            getAuthHeaders: function () { return authHeaders(); },
+            showToast: showToast,
+            pathPrefix: '/fullview/',
+            pickEffectiveUrl: function (share) {
+                var payload = share || {};
+                return payload.full_view_effective_url || payload.full_view_default_url || '';
+            },
+            onSaved: function (share) {
+                applySharePayload(share, currentProjectId);
+            },
+        });
     }
-    return payload;
+}
+
+async function apiFetch(url, opts) {
+    async function requestOnce() {
+        const baseHeaders = await authHeaders();
+        const merged = Object.assign({}, opts || {});
+        merged.headers = Object.assign({}, baseHeaders, (opts && opts.headers) || {});
+        if (window.pmApi && typeof window.pmApi.fetchJsonWithRetry === 'function') {
+            return window.pmApi.fetchJsonWithRetry(url, merged, {
+                retries: 2,
+                baseDelayMs: 220,
+                waitAttempts: 24,
+                waitDelayMs: 180
+            });
+        }
+        const res = await fetch(url, merged);
+        const text = await res.text().catch(function () { return ''; });
+        let payload = null;
+        try { payload = text ? JSON.parse(text) : null; } catch (e) { payload = null; }
+        if (!res.ok) {
+            var err = new Error((payload && payload.error) || text || res.statusText);
+            err.status = res.status;
+            throw err;
+        }
+        return payload;
+    }
+    try {
+        return await requestOnce();
+    } catch (e) {
+        if (e && e.status === 401) {
+            await waitForAuthSession(12, 200);
+            return await requestOnce();
+        }
+        throw e;
+    }
 }
 
 async function apiPost(url, body) {
@@ -773,6 +876,7 @@ async function saveHeaderLogoUrl(url) {
 /*  Init                                                               */
 /* ------------------------------------------------------------------ */
 async function init() {
+    initShareModals();
     await loadProjects();
     bindEvents();
     buildIconGrid(getFilteredIconCatalog(''));
@@ -840,6 +944,7 @@ async function openProject(wsId) {
     resourcesLoadedProjectId = null;
     resourceLoadPromise = null;
     document.getElementById('fv-builder').style.display = '';
+    applySharePayload(null, wsId);
     setInlineStatus('fv-resource-status', 'Loading builder data…', '');
 
     // Project name
@@ -891,23 +996,35 @@ async function openProject(wsId) {
 /* ------------------------------------------------------------------ */
 let currentShareUrl = null;
 
-async function loadShareUrl(wsId) {
+function fullViewShellUrlFor(wsId) {
+    return wsId ? ('/customer/full-view/' + encodeURIComponent(wsId)) : null;
+}
+
+function applySharePayload(share, wsId) {
     const bar = document.getElementById('fv-share-bar');
     const input = document.getElementById('fv-share-bar-url');
     const openLink = document.getElementById('fv-share-bar-open');
-    if (bar) bar.style.display = 'none';
-    if (input) input.value = '';
-    if (openLink) openLink.href = '#';
+    const payload = share || {};
+    currentShareUrl = payload.full_view_effective_url || payload.full_view_custom_url || payload.full_view_default_url || fullViewShellUrlFor(wsId);
+    if (currentShareUrl && input) {
+        input.value = currentShareUrl;
+        if (openLink) openLink.href = currentShareUrl;
+        if (bar) bar.style.display = 'flex';
+    }
+}
+
+async function loadShareUrl(wsId) {
+    applySharePayload(null, wsId);
     try {
         const d = await apiFetch('/api/workspaces/' + encodeURIComponent(wsId) + '/share-endpoint');
         const share = d.share || {};
-        currentShareUrl = share.custom_url || share.default_url || null;
-        if (currentShareUrl) {
-            input.value = currentShareUrl;
-            openLink.href = currentShareUrl;
-            bar.style.display = 'flex';
+        applySharePayload(share, wsId);
+    } catch (e) {
+        console.error('loadShareUrl', e);
+        if (String((e && e.message) || '').toLowerCase().indexOf('401') >= 0 || String(e || '').indexOf('401') >= 0) {
+            showToast('Sign in again to load custom share links.', 'warn');
         }
-    } catch (e) { console.error('loadShareUrl', e); }
+    }
 }
 
 /* ------------------------------------------------------------------ */
@@ -1673,6 +1790,23 @@ function bindEvents() {
         window.open('/customer/full-view/edit/' + encodeURIComponent(currentProjectId), '_blank', 'noopener');
     });
 
+    function openCreateLinkModal() {
+        if (!currentProjectId) {
+            showToast('Select a project first', 'warn');
+            return;
+        }
+        if (typeof showCreateShareLinkModal === 'function') {
+            showCreateShareLinkModal(currentProjectId);
+        } else {
+            showToast('Create Link is not available', 'error');
+        }
+    }
+
+    // Create Link button (custom suffix, same pattern as dashboard)
+    document.getElementById('fv-create-link-btn').addEventListener('click', openCreateLinkModal);
+    var shareBarCreateLinkBtn = document.getElementById('fv-share-bar-create-link');
+    if (shareBarCreateLinkBtn) shareBarCreateLinkBtn.addEventListener('click', openCreateLinkModal);
+
     // Copy Link button
     document.getElementById('fv-share-btn').addEventListener('click', function () {
         const url = currentShareUrl || fullViewShellUrl();
@@ -1686,6 +1820,19 @@ function bindEvents() {
         }).catch(() => {
             document.getElementById('fv-share-bar-url').select();
         });
+    });
+
+    // Share Reference Link (customised ref link for CRM, same as dashboard)
+    document.getElementById('fv-share-ref-btn').addEventListener('click', function () {
+        if (!currentProjectId) {
+            showToast('Select a project first', 'warn');
+            return;
+        }
+        if (typeof showProjectShareModal === 'function') {
+            showProjectShareModal(currentProjectId);
+        } else {
+            showToast('Reference link feature not available', 'error');
+        }
     });
 
     // Share bar copy
@@ -1949,7 +2096,9 @@ window.__fvInit = init;
         window.__SUPABASE_URL__ = {{ (supabase_url or '')|tojson }};
         window.__SUPABASE_ANON_KEY__ = {{ (supabase_anon_key or '')|tojson }};
     </script>
-    <script src="/static/js/sidebar.js?v=20260610-client-admin-2"></script>
+    <script src="/static/js/sidebar.js?v=20260625-auth-fallback"></script>
+    <script src="/static/js/share-workspace-modal.js?v=20260625-auth-fallback"></script>
+    <script src="/static/js/create-share-link-modal.js?v=20260625-create-link"></script>
     <script>
         window.sidebarReady.then(function () {
             if (window.__fvInit) window.__fvInit();

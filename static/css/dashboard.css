@@ -1577,6 +1577,54 @@
     color: #b7791f;
 }
 
+/* Compact, well-designed form for Create/Edit Project (smaller + traditional form style) */
+#create-workspace-modal .ws-compact-form .form-group {
+    margin: 0;
+}
+#create-workspace-modal .ws-compact-form .form-label {
+    display: block;
+    margin: 0 0 0.2rem;
+    font-size: 0.76rem;
+    font-weight: 600;
+    color: #475569;
+}
+#create-workspace-modal .ws-compact-form .form-input,
+#create-workspace-modal .ws-compact-form textarea.form-input {
+    width: 100%;
+    font-size: 0.9rem;
+    padding: 0.28rem 0.5rem;
+    border-radius: 5px;
+    border: 1px solid #cbd5e1;
+}
+#create-workspace-modal .ws-compact-form .form-input:focus,
+#create-workspace-modal .ws-compact-form textarea.form-input:focus {
+    border-color: #0f172a;
+    box-shadow: 0 0 0 2px rgba(15, 23, 42, 0.07);
+    outline: none;
+}
+#create-workspace-modal .ws-compact-form textarea.form-input {
+    min-height: 52px;
+}
+#create-workspace-modal .ws-compact-form .form-group:last-child {
+    margin-bottom: 0.1rem;
+}
+#create-workspace-modal .ws-compact-form > div[style*="grid-template-columns"] {
+    gap: 0.5rem;
+}
+
+/* Smaller project create/edit modal */
+#create-workspace-modal .modal {
+    padding: 1.1rem 1.35rem 1rem !important;
+}
+#create-workspace-modal .modal-title {
+    font-size: 1.05rem;
+    margin-bottom: 0.25rem;
+}
+#create-workspace-modal .modal-text {
+    margin-bottom: 0.4rem;
+    font-size: 0.82rem;
+}
+
 /* Toast Notifications */
 .toast-container {
     position: fixed;

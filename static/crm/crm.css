@@ -1325,7 +1325,6 @@
 }
 
 .crm-page .crm-modal-backdrop.visible:not(#interest-plots-modal),
-.crm-page #edit-project-modal.visible,
 .crm-page #plot-lock-modal.visible {
     display: flex;
     align-items: stretch;
@@ -1336,8 +1335,9 @@
 }
 
 .crm-page #edit-project-modal.visible {
-    align-items: center;
-    justify-content: center;
+    align-items: flex-start !important;
+    justify-content: center !important;
+    padding-top: 70px !important;
 }
 
 .crm-page .crm-modal-backdrop:not(#interest-plots-modal) > .crm-modal,
@@ -1354,13 +1354,51 @@
     animation: crmDetailSlideIn 0.18s ease-out;
 }
 
-.crm-page #edit-project-modal > .crm-modal {
-    width: min(640px, 94vw) !important;
-    height: auto;
-    max-height: 90vh;
+.crm-page #edit-project-modal > .crm-modal,
+.crm-page #edit-project-modal > .crm-modal.crm-window {
+    width: min(720px, 94vw) !important;
+    max-width: 720px !important;
+    min-width: 560px !important;
+    height: auto !important;
+    max-height: 92vh !important;
     border: 1px solid var(--crm-border-soft);
-    border-radius: var(--bs-border-radius-lg, 0.5rem);
+    border-radius: 12px;
     animation: none;
+    padding: 0.85rem 0.95rem 0.75rem !important;
+}
+
+/* Make Edit Project use the compact label-left form style like other add modals */
+#edit-project-modal .crm-simple-modal-body .form-group {
+    grid-template-columns: 155px minmax(0, 1fr);
+    gap: 0.5rem;
+    margin: 0;
+}
+#edit-project-modal .crm-simple-modal-body .form-group.ep-full {
+    grid-template-columns: 1fr;
+}
+#edit-project-modal .crm-simple-modal-body .form-group.ep-full .form-label {
+    display: block;
+    margin-bottom: 0.2rem;
+}
+#edit-project-modal .crm-simple-modal-body .form-group.ep-published {
+    padding-top: 0.25rem;
+    border-top: 1px solid #f1f5f9;
+}
+
+#edit-project-modal .crm-simple-modal-head {
+    margin-bottom: 0.85rem;
+    padding-bottom: 0.4rem;
+    border-bottom: 1px solid #f1f5f9;
+}
+#edit-project-modal .crm-simple-modal-body .form-input,
+#edit-project-modal .crm-simple-modal-body textarea.form-input {
+    height: 34px;
+    font-size: 0.86rem;
+    padding: 0.3rem 0.55rem;
+}
+#edit-project-modal .crm-simple-modal-body textarea.form-input {
+    min-height: 56px;
+    height: auto;
 }
 
 @keyframes crmDetailSlideIn {
@@ -2845,13 +2883,25 @@ html.layout-navbar-fixed .layout-page--crm-merged-nav .container-p-y:not([class^
 }
 
 .crm-page--sneat .crm-modal-backdrop.visible:not(#interest-plots-modal),
-.crm-page--sneat #edit-project-modal.visible,
 .crm-page--sneat #plot-lock-modal.visible {
     display: flex !important;
     pointer-events: auto;
     align-items: center;
     justify-content: center;
     background: rgba(34, 48, 62, 0.45);
+}
+
+/* Edit Project - shift a little down (consistent with deal/contact) */
+.crm-page--sneat #edit-project-modal.visible {
+    align-items: flex-start !important;
+    padding-top: 70px !important;
+}
+
+/* Shift deal & contact edit/create modals a little down (for edit views) */
+.crm-page--sneat #deal-modal-backdrop.visible,
+.crm-page--sneat #contact-modal-backdrop.visible {
+    align-items: flex-start !important;
+    padding-top: 70px !important;
 }
 
 .crm-page--sneat #interest-plots-modal.crm-modal-backdrop.visible {
