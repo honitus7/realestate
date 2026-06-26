@@ -59,6 +59,7 @@ def register_crm_record_list_routes(
     crm_client_scope_ids,
     crm_interest_reference_scope_user_id,
     crm_apply_broker_interest_visibility,
+    crm_apply_broker_referred_contact_mask,
     crm_reference_linked_ids,
     crm_cache_get,
     crm_cache_set,
@@ -145,11 +146,11 @@ def register_crm_record_list_routes(
 
         try:
             columns = (
-                'id, client_id, panorama_id, contact_id, reference_user_id, customer_name, customer_email, '
-                'customer_phone, customer_birthday, customer_address, customer_street, customer_city, customer_state, '
-                'customer_country, customer_zip_code, lead_source, lead_category, lead_status, campaign_type, '
-                'campaign_status, deal_stage, title, description, category, plots, status, is_contacted, contacted_at, '
-                'notes, custom_fields, created_at, updated_at, submitted_by, assigned_to, assigned_at'
+                'id, client_id, panorama_id, contact_id, reference_user_id, contact_revealed_at, customer_name, '
+                'customer_email, customer_phone, customer_birthday, customer_address, customer_street, customer_city, '
+                'customer_state, customer_country, customer_zip_code, lead_source, lead_category, lead_status, '
+                'campaign_type, campaign_status, deal_stage, title, description, category, plots, status, is_contacted, '
+                'contacted_at, notes, custom_fields, created_at, updated_at, submitted_by, assigned_to, assigned_at'
             )
 
             def _fetch_buy_interests_page():
@@ -216,6 +217,13 @@ def register_crm_record_list_routes(
                 for key in ('submitted_by', 'contact_id', 'reference_user_id', 'assigned_to', 'assigned_at'):
                     if item.get(key):
                         item[key] = str(item[key])
+                item = crm_apply_broker_referred_contact_mask(
+                    item,
+                    user_id=user_id,
+                    role=role,
+                    reference_scope_user_id=reference_scope_user_id,
+                    sb=sb,
+                )
                 rows.append(item)
             rows = _attach_reference_user_names(sb, rows)
             payload = crm_page_payload(rows, total, page, limit)

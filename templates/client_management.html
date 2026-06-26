@@ -1353,6 +1353,10 @@
             window.location.replace('/user-management');
             return;
         }
+        if (!ctx.isClientAdmin || ctx.isBroker) {
+            window.location.replace(ctx.isBroker ? '/customer-dashboard' : '/crm');
+            return;
+        }
         try { if (window.applyOrgTheme) window.applyOrgTheme(); } catch (e) {}
 
         if (teamLoader) {

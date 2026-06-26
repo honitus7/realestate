@@ -238,6 +238,25 @@
 
     // ---- Active link highlight based on current URL ----
     var currentPath = window.location.pathname.replace(/\/+$/, '') || '/';
+
+    function isDashboardPath() {
+        return currentPath === '/dashboard' || currentPath.indexOf('/dashboard/') === 0;
+    }
+
+    function configureCrmNavOpenInNewTab() {
+        if (!isDashboardPath()) return;
+        var crmLink = document.getElementById('nav-crm');
+        if (!crmLink) return;
+        crmLink.setAttribute('target', '_blank');
+        crmLink.setAttribute('rel', 'noopener noreferrer');
+        if (crmLink._crmTabHandler) return;
+        crmLink._crmTabHandler = true;
+        crmLink.addEventListener('click', function (e) {
+            e.preventDefault();
+            window.open(crmLink.getAttribute('href') || '/crm', '_blank', 'noopener,noreferrer');
+        });
+    }
+    window.configureCrmNavOpenInNewTab = configureCrmNavOpenInNewTab;
     document.querySelectorAll('.sidebar-link[data-page]').forEach(function (link) {
         if (link.getAttribute('data-coming-soon') === '1') {
             link.classList.remove('active');
@@ -309,8 +328,9 @@
         show('nav-user-mgmt', state.isAdmin);
         show('nav-orgs', state.role === 'superadmin');
         show('sidebar-upload-wrap', state.isAdmin);
-        show('dropdown-client-mgmt', !state.isAdmin && !!state.isClientAdmin);
+        show('dropdown-client-mgmt', !state.isAdmin && !!state.isClientAdmin && !state.isBroker);
         show('nav-crm', state.showCrm);
+        if (state.showCrm) configureCrmNavOpenInNewTab();
 
         // For admin users, ensure "home"/dashboard links point to normal /dashboard (not customer-dashboard)
         if (state.isAdmin) {
@@ -333,6 +353,8 @@
     try { cached = JSON.parse(sessionStorage.getItem(CACHE_KEY)); } catch (e) { /* ignore */ }
     if (cached) {
         applySidebarState(cached);
+    } else if (isDashboardPath()) {
+        configureCrmNavOpenInNewTab();
     }
 
     // ---- Auth + role-based nav ----
@@ -451,7 +473,7 @@
                     });
                     var customerPaths = ['/customer-dashboard', '/crm'];
                     if (resolved.isBroker) customerPaths.push('/broker/invites');
-                    if (resolved.isClientAdmin) customerPaths.push('/client-management');
+                    if (resolved.isClientAdmin && !resolved.isBroker) customerPaths.push('/client-management');
                     var onCustomerPath = customerPaths.indexOf(currentPath) !== -1
                         || (resolved.isBroker && currentPath && currentPath.indexOf('/broker/') === 0);
                     if (((!isAdmin && resolved.isBroker) || resolved.isClientAdmin) && !onCustomerPath) {

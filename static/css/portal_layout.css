@@ -312,16 +312,21 @@ html.portal-sidebar-collapsed #portal-sidebar-collapse-btn svg {
 }
 
 .portal-user-dropdown-menu {
-  min-width: 15rem;
+  min-width: 11.5rem;
   width: max-content;
+  max-width: none;
 }
 
 .portal-user-dropdown-item {
-  min-width: 100%;
+  width: 100%;
+  min-width: max-content;
+  flex-wrap: nowrap !important;
+  white-space: nowrap;
 }
 
 .portal-user-dropdown-label {
   white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .portal-user-avatar {

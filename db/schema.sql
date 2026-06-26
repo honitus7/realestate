@@ -229,6 +229,7 @@ create table if not exists public.buy_interests (
   client_id uuid references public.clients(id) on delete set null,
   submitted_by uuid references auth.users(id) on delete set null,
   reference_user_id uuid references auth.users(id) on delete set null,
+  contact_revealed_at timestamptz,
   contact_id uuid,
   customer_name text not null,
   customer_email text not null,
@@ -264,6 +265,9 @@ create index if not exists idx_buy_interests_panorama_id on public.buy_interests
 create index if not exists idx_buy_interests_client_id on public.buy_interests(client_id);
 create index if not exists idx_buy_interests_assigned_to on public.buy_interests(assigned_to);
 create index if not exists idx_buy_interests_reference_user_id on public.buy_interests(reference_user_id);
+create index if not exists idx_buy_interests_reference_revealed
+  on public.buy_interests(reference_user_id, contact_revealed_at)
+  where reference_user_id is not null;
 create index if not exists idx_buy_interests_reference_client on public.buy_interests(reference_user_id, client_id);
 create index if not exists idx_buy_interests_reference_client_contact on public.buy_interests(reference_user_id, client_id, contact_id);
 create index if not exists idx_buy_interests_created_at on public.buy_interests(created_at desc);

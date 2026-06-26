@@ -1360,6 +1360,7 @@ def register_crm_contact_routes(
     crm_panorama_ids,
     crm_client_scope_ids,
     crm_interest_reference_scope_user_id,
+    crm_apply_broker_referred_contact_mask,
     crm_reference_linked_ids,
     crm_cache_get,
     crm_cache_set,
@@ -1535,10 +1536,31 @@ def register_crm_contact_routes(
             except Exception:
                 interests_count = {}
 
+        from app.services.uam_reference_service import (
+            apply_broker_referred_contact_mask_to_contact,
+            load_broker_refer_interest_reveal_map,
+        )
+
+        source_interest_ids = [
+            str(row.get('source_interest_id') or '').strip()
+            for row in rows
+            if str(row.get('source_interest_id') or '').strip()
+        ]
+        interest_reveal_map = load_broker_refer_interest_reveal_map(sb, source_interest_ids)
+
         out = []
         for row in rows:
             cid = row.get('id')
-            o = dict(row)
+            source_interest_id = str(row.get('source_interest_id') or '').strip()
+            interest_row = interest_reveal_map.get(source_interest_id) or {}
+            o = apply_broker_referred_contact_mask_to_contact(
+                row,
+                interest_row,
+                user_id=user_id,
+                role=role,
+                reference_scope_user_id=reference_scope_user_id,
+                sb=sb,
+            )
             o['deals_count'] = int(deals_count.get(cid, 0))
             o['interests_count'] = int(interests_count.get(cid, 0))
             out.append(o)

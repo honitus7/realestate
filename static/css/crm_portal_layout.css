@@ -237,6 +237,20 @@ html:has(#portal-main.portal-main--crm-merged) #portal-page-header .crm-tabs-acc
   flex-shrink: 0;
 }
 
+html.portal-crm-merged #portal-page-header .portal-user-dropdown-menu,
+html:has(#portal-main.portal-main--crm-merged) #portal-page-header .portal-user-dropdown-menu {
+  width: max-content;
+  max-width: none;
+}
+
+html.portal-crm-merged #portal-page-header .portal-user-dropdown-item,
+html.portal-crm-merged #portal-page-header .portal-user-dropdown-label,
+html:has(#portal-main.portal-main--crm-merged) #portal-page-header .portal-user-dropdown-item,
+html:has(#portal-main.portal-main--crm-merged) #portal-page-header .portal-user-dropdown-label {
+  white-space: nowrap;
+  flex-wrap: nowrap;
+}
+
 html.portal-crm-merged #portal-page-header .crm-tab,
 html:has(#portal-main.portal-main--crm-merged) #portal-page-header .crm-tab {
   height: 2rem;
@@ -344,17 +358,28 @@ html:has(#portal-main.portal-main--crm-merged) #portal-page-header .crm-tabs-men
 
 /* Leads filter rail is inline in the content grid (see crm.css .crm-filter-rail) */
 
-/* Broker header mode — hide portal sidebar offset */
-html.crm-broker-header-active #portal-sidebar {
-  display: none !important;
+/* Legacy broker header mode — never hide portal sidebar on merged CRM shell */
+html.crm-broker-header-active.portal-crm-merged #portal-sidebar,
+html.crm-broker-header-active:has(#portal-main.portal-main--crm-merged) #portal-sidebar {
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  pointer-events: auto !important;
 }
 
-html.crm-broker-header-active #portal-main.portal-main--crm-merged {
-  padding-inline-start: 0 !important;
+html.crm-broker-header-active.portal-crm-merged #portal-main.portal-main--crm-merged,
+html.crm-broker-header-active:has(#portal-main.portal-main--crm-merged) #portal-main.portal-main--crm-merged {
+  padding-inline-start: var(--crm-sidebar-offset) !important;
 }
 
-html.crm-broker-header-active {
-  --crm-sidebar-offset: 0px;
+html.crm-broker-header-active.portal-crm-merged,
+html.crm-broker-header-active:has(#portal-main.portal-main--crm-merged) {
+  --crm-sidebar-offset: var(--portal-sidebar-collapsed, 5.25rem);
+}
+
+html.portal-sidebar-expanded.crm-broker-header-active.portal-crm-merged,
+html.portal-sidebar-expanded.crm-broker-header-active:has(#portal-main.portal-main--crm-merged) {
+  --crm-sidebar-offset: var(--portal-sidebar-width, 16.25rem);
 }
 
 /* ── Interest lead drawer (no Bootstrap offcanvas) ── */

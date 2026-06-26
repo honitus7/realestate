@@ -40,10 +40,14 @@
       html.sneat-broker-cached #sneat-dropdown-invites-wrap {
         display: block !important;
       }
-      html.sneat-client-admin-cached #sneat-nav-team {
+      html.sneat-broker-cached #sneat-nav-team,
+      html.sneat-broker-cached #sneat-dropdown-team-wrap {
+        display: none !important;
+      }
+      html.sneat-client-admin-cached:not(.sneat-broker-cached) #sneat-nav-team {
         display: list-item !important;
       }
-      html.sneat-client-admin-cached #sneat-dropdown-team-wrap {
+      html.sneat-client-admin-cached:not(.sneat-broker-cached) #sneat-dropdown-team-wrap {
         display: block !important;
       }
     </style>
@@ -55,7 +59,7 @@
           if ((cached && cached.isBroker) || brokerFlag === '1') {
             document.documentElement.classList.add('sneat-broker-cached');
           }
-          if (cached && cached.isClientAdmin) {
+          if (cached && cached.isClientAdmin && !cached.isBroker) {
             document.documentElement.classList.add('sneat-client-admin-cached');
           }
         } catch (e) {}

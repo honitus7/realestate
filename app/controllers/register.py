@@ -47,14 +47,20 @@ from app.controllers.features import (
 from app.core.database import get_supabase
 from app.services.access_policy import client_group_resource_ids_for_admin
 from app.services.uam_reference_service import (
+    BROKER_REFERRED_CONTACT_FIELDS,
     CLIENT_MEMBER_ROLE_BROKER,
     CLIENT_MEMBER_ROLE_CLIENT_ADMIN,
     CLIENT_MEMBER_ROLE_CLIENT_USER,
+    _interest_has_broker_reference,
+    _interest_contact_is_revealed,
     _is_broker_member_role,
     _normalize_client_member_role,
     _project_reference_users,
     _validate_project_reference_user,
+    apply_broker_referred_contact_mask,
+    can_user_reveal_broker_referred_contact,
     user_is_client_admin,
+    viewer_should_mask_broker_referred_contact,
 )
 from app.core.auth import get_profile, require_auth, require_admin
 from app.core.serializers import (
@@ -811,6 +817,24 @@ def register_routes(app):
             return query
         # Strict broker visibility: only interests referenced to broker OR created by broker.
         return query.or_(f"reference_user_id.eq.{broker_uid},submitted_by.eq.{broker_uid}")
+
+    def _crm_apply_broker_referred_contact_mask(row, *, user_id, role, reference_scope_user_id=None, sb=None):
+        return apply_broker_referred_contact_mask(
+            row,
+            user_id=user_id,
+            role=role,
+            reference_scope_user_id=reference_scope_user_id,
+            sb=sb or get_supabase(),
+        )
+
+    def _crm_deny_hidden_broker_referred_contact(sb, user_id, role, reference_scope_user_id, interest):
+        if (
+            _interest_has_broker_reference(interest)
+            and not _interest_contact_is_revealed(interest)
+            and viewer_should_mask_broker_referred_contact(sb, user_id, role, reference_scope_user_id)
+        ):
+            return jsonify({'error': 'Contact details are hidden until the referring broker reveals them'}), 403
+        return None
 
     def _crm_reference_linked_ids(sb, reference_user_id, panorama_ids, client_ids=None, requested_client_id=None):
         ref_uid = str(reference_user_id or '').strip()
@@ -4459,6 +4483,19 @@ def register_routes(app):
         if not existing_interest:
             return jsonify({'error': 'Not found or access denied'}), 404
 
+        if any(key in data for key in BROKER_REFERRED_CONTACT_FIELDS):
+            if (
+                _interest_has_broker_reference(existing_interest)
+                and not _interest_contact_is_revealed(existing_interest)
+                and viewer_should_mask_broker_referred_contact(
+                    sb,
+                    user_id,
+                    role,
+                    reference_scope_user_id,
+                )
+            ):
+                return jsonify({'error': 'Contact details are hidden until the referring broker reveals them'}), 403
+
         if 'reference_user_id' in data:
             pano_id = existing_interest.get('panorama_id')
             try:
@@ -4571,6 +4608,53 @@ def register_routes(app):
                 return jsonify({'error': 'buy_interests table not found. Run db/schema.sql in Supabase SQL Editor.'}), 503
             return jsonify({'error': msg}), 500
 
+    @app.route('/api/buy-interests/<interest_id>/reveal-contact', methods=['POST'])
+    @require_auth
+    def reveal_buy_interest_contact(user_id, role, interest_id):
+        sb = get_supabase()
+        if not sb:
+            return jsonify({'error': 'Database not configured'}), 503
+        panorama_ids = _crm_panorama_ids(sb, user_id, role)
+        if not panorama_ids:
+            return jsonify({'error': 'Forbidden'}), 403
+        client_scope_ids = _crm_client_scope_ids(sb, user_id, role)
+        if client_scope_ids is not None and not client_scope_ids:
+            return jsonify({'error': 'Forbidden'}), 403
+        reference_scope_user_id = _crm_interest_reference_scope_user_id(sb, user_id, role, client_scope_ids)
+        existing_interest = _get_interest_for_user(
+            sb,
+            interest_id,
+            panorama_ids,
+            client_ids=client_scope_ids,
+            reference_user_id=reference_scope_user_id,
+        )
+        if not existing_interest:
+            return jsonify({'error': 'Not found or access denied'}), 404
+        if not can_user_reveal_broker_referred_contact(user_id, existing_interest):
+            return jsonify({'error': 'Only the referring broker can reveal this contact'}), 403
+        now = datetime.utcnow().isoformat()
+        try:
+            uq = (
+                sb.table('buy_interests')
+                .update({'contact_revealed_at': now, 'updated_at': now})
+                .eq('id', str(interest_id))
+                .in_('panorama_id', panorama_ids)
+            )
+            if reference_scope_user_id:
+                uq = _crm_apply_broker_interest_visibility(uq, reference_scope_user_id)
+            r = uq.execute()
+            if not r.data:
+                return jsonify({'error': 'Not found or access denied'}), 404
+            _crm_cache_bump()
+            return jsonify({'success': True, 'contact_revealed_at': now})
+        except Exception as e:
+            msg = str(e)
+            if 'contact_revealed_at' in msg and ('column' in msg.lower() or 'schema cache' in msg.lower()):
+                return jsonify({
+                    'error': 'contact_revealed_at column not found. Run db/migration_broker_contact_reveal.sql in Supabase.'
+                }), 503
+            return jsonify({'error': msg}), 500
+
     @app.route('/api/buy-interests/<interest_id>', methods=['DELETE'])
     @require_auth
     def delete_buy_interest(user_id, role, interest_id):
@@ -4614,7 +4698,7 @@ def register_routes(app):
         try:
             q = (
                 sb.table('buy_interests')
-                .select('id, client_id, panorama_id, contact_id, reference_user_id, submitted_by, customer_name, customer_email, customer_phone, customer_birthday, customer_address, customer_street, customer_city, customer_state, customer_country, customer_zip_code, lead_source, lead_category, lead_status, campaign_type, campaign_status, deal_stage, title, description, category, plots, notes, custom_fields, created_at, is_contacted, contacted_at, status, assigned_to, assigned_at')
+                .select('id, client_id, panorama_id, contact_id, reference_user_id, contact_revealed_at, submitted_by, customer_name, customer_email, customer_phone, customer_birthday, customer_address, customer_street, customer_city, customer_state, customer_country, customer_zip_code, lead_source, lead_category, lead_status, campaign_type, campaign_status, deal_stage, title, description, category, plots, notes, custom_fields, created_at, is_contacted, contacted_at, status, assigned_to, assigned_at')
                 .eq('id', str(interest_id))
                 .in_('panorama_id', panorama_ids)
             )
@@ -4788,6 +4872,11 @@ def register_routes(app):
         )
         if not interest:
             return jsonify({'error': 'Interest not found'}), 404
+        hidden_denied = _crm_deny_hidden_broker_referred_contact(
+            sb, user_id, role, reference_scope_user_id, interest
+        )
+        if hidden_denied:
+            return hidden_denied
         panorama_id = int(interest.get('panorama_id'))
         pmap = _accessible_panorama_org_map(sb, [panorama_id])
         org_id = (pmap.get(panorama_id) or {}).get('org_id')
@@ -4964,6 +5053,11 @@ def register_routes(app):
         )
         if not interest:
             return jsonify({'error': 'Interest not found'}), 404
+        hidden_denied = _crm_deny_hidden_broker_referred_contact(
+            sb, user_id, role, reference_scope_user_id, interest
+        )
+        if hidden_denied:
+            return hidden_denied
         panorama_id = int(interest.get('panorama_id'))
         if panorama_id not in panorama_ids:
             return jsonify({'error': 'Forbidden'}), 403
@@ -5352,6 +5446,7 @@ def register_routes(app):
         crm_panorama_ids=_crm_panorama_ids,
         crm_client_scope_ids=_crm_client_scope_ids,
         crm_interest_reference_scope_user_id=_crm_interest_reference_scope_user_id,
+        crm_apply_broker_referred_contact_mask=_crm_apply_broker_referred_contact_mask,
         crm_reference_linked_ids=_crm_reference_linked_ids,
         crm_cache_get=_crm_cache_get,
         crm_cache_set=_crm_cache_set,
@@ -5376,6 +5471,7 @@ def register_routes(app):
         crm_client_scope_ids=_crm_client_scope_ids,
         crm_interest_reference_scope_user_id=_crm_interest_reference_scope_user_id,
         crm_apply_broker_interest_visibility=_crm_apply_broker_interest_visibility,
+        crm_apply_broker_referred_contact_mask=_crm_apply_broker_referred_contact_mask,
         crm_reference_linked_ids=_crm_reference_linked_ids,
         crm_cache_get=_crm_cache_get,
         crm_cache_set=_crm_cache_set,
@@ -5642,6 +5738,7 @@ h1 {{ margin:0 0 8px; font-size:22px; }}
             'has_crm_access': has_crm,
             'is_broker': is_broker,
             'is_client_admin': is_client_admin,
+            'can_manage_team': bool(is_client_admin and not is_broker),
             'is_client_member': is_client_member,
             'client_group_id': client_group_id,
             'client_group_name': client_group_name,

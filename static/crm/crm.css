@@ -2102,6 +2102,148 @@
     padding: 0.3rem 0.65rem;
 }
 
+.crm-page--sneat .crm-interest-offcanvas .drawer-foot--compact {
+    flex-wrap: nowrap;
+}
+
+.crm-page--sneat .crm-interest-offcanvas .drawer-foot-save {
+    flex-shrink: 0;
+    min-width: 7.5rem;
+}
+
+.crm-page--sneat .crm-interest-offcanvas .drawer-actions-menu {
+    position: relative;
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.crm-page--sneat .crm-interest-offcanvas .drawer-actions-trigger {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    width: 100%;
+    justify-content: center;
+    font-weight: 600;
+}
+
+.crm-page--sneat .crm-interest-offcanvas .drawer-actions-trigger__chevron {
+    margin-left: auto;
+    opacity: 0.55;
+    transition: transform 0.18s ease;
+}
+
+.crm-page--sneat .crm-interest-offcanvas .drawer-actions-trigger[aria-expanded="true"] .drawer-actions-trigger__chevron {
+    transform: rotate(180deg);
+}
+
+.crm-page--sneat .crm-interest-offcanvas .drawer-actions-dropdown {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: calc(100% + 0.45rem);
+    z-index: 20;
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    padding: 0.35rem;
+    border: 1px solid var(--crm-line, #dfe6f0);
+    border-radius: 10px;
+    background: #fff;
+    box-shadow: 0 12px 28px rgba(34, 48, 62, 0.14);
+}
+
+.crm-page--sneat .crm-interest-offcanvas .drawer-actions-dropdown[hidden] {
+    display: none !important;
+}
+
+.crm-page--sneat .crm-interest-offcanvas .drawer-actions-item {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    width: 100%;
+    border: 0;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--crm-ink, #182235);
+    font-size: 0.8rem;
+    font-weight: 600;
+    line-height: 1.2;
+    padding: 0.55rem 0.65rem;
+    text-align: left;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.crm-page--sneat .crm-interest-offcanvas .drawer-actions-item:hover:not(:disabled),
+.crm-page--sneat .crm-interest-offcanvas .drawer-actions-item:focus-visible {
+    background: rgba(var(--ms-brand-primary-rgb, 255, 163, 0), 0.1);
+    outline: none;
+}
+
+.crm-page--sneat .crm-interest-offcanvas .drawer-actions-item:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
+.crm-page--sneat .crm-interest-offcanvas .drawer-actions-item__icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.75rem;
+    height: 1.75rem;
+    border-radius: 8px;
+    flex-shrink: 0;
+}
+
+.crm-page--sneat .crm-interest-offcanvas .drawer-actions-item__icon--reveal {
+    background: rgba(245, 158, 11, 0.14);
+    color: #d97706;
+}
+
+.crm-page--sneat .crm-interest-offcanvas .drawer-actions-item__icon--contacted {
+    background: rgba(52, 211, 153, 0.14);
+    color: #059669;
+}
+
+.crm-page--sneat .crm-interest-offcanvas .drawer-actions-item__icon--contact {
+    background: rgba(59, 130, 246, 0.12);
+    color: #2563eb;
+}
+
+.crm-page--sneat .crm-interest-offcanvas .drawer-actions-item__icon--deal {
+    background: rgba(99, 102, 241, 0.12);
+    color: #4f46e5;
+}
+
+.crm-page--sneat .crm-interest-offcanvas .drawer-actions-item__icon--convert {
+    background: rgba(20, 183, 167, 0.12);
+    color: #0d9488;
+}
+
+.crm-page--sneat .crm-interest-offcanvas .drawer-actions-item__icon--danger {
+    background: rgba(248, 113, 113, 0.14);
+    color: #dc2626;
+}
+
+.crm-page--sneat .crm-interest-offcanvas .drawer-actions-item--danger:hover:not(:disabled),
+.crm-page--sneat .crm-interest-offcanvas .drawer-actions-item--danger:focus-visible {
+    background: rgba(248, 113, 113, 0.1);
+    color: #b91c1c;
+}
+
+.crm-page--sneat .crm-interest-offcanvas .drawer-actions-item--reveal:hover:not(:disabled),
+.crm-page--sneat .crm-interest-offcanvas .drawer-actions-item--reveal:focus-visible {
+    background: rgba(245, 158, 11, 0.12);
+    color: #b45309;
+}
+
+.crm-page--sneat .crm-interest-offcanvas .drawer-actions-divider {
+    height: 1px;
+    margin: 0.15rem 0.35rem;
+    background: var(--crm-line, #dfe6f0);
+}
+
 /* ── Deal & Contact entity modals ── */
 #deal-modal-backdrop .crm-modal,
 #contact-modal-backdrop .crm-modal {

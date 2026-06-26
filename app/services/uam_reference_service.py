@@ -289,6 +289,154 @@ def _project_reference_users(sb, workspace_id=None, panorama_id=None, client_id=
     )
     return {'client_ids': project_client_ids, 'users': users}
 
+BROKER_REFERRED_CONTACT_FIELDS = (
+    'customer_email',
+    'customer_phone',
+    'customer_address',
+    'customer_street',
+    'customer_city',
+    'customer_state',
+    'customer_country',
+    'customer_zip_code',
+)
+
+BROKER_REFERRED_CONTACT_MASK_LABEL = 'Hidden until broker reveals'
+
+PLATFORM_ADMIN_ROLES = frozenset({'admin', 'superadmin'})
+
+
+def _is_platform_admin_role(role):
+    return str(role or '').strip().lower() in PLATFORM_ADMIN_ROLES
+
+
+def _interest_has_broker_reference(row):
+    return bool(str((row or {}).get('reference_user_id') or '').strip())
+
+
+def _interest_contact_is_revealed(row):
+    return bool(str((row or {}).get('contact_revealed_at') or '').strip())
+
+
+def _viewer_is_client_staff(sb, user_id):
+    try:
+        rows = (
+            sb.table('client_members')
+            .select('member_role')
+            .eq('user_id', str(user_id))
+            .execute()
+            .data or []
+        )
+    except Exception:
+        return False
+    for row in rows:
+        member_role = _normalize_client_member_role(row.get('member_role'))
+        if member_role in (CLIENT_MEMBER_ROLE_CLIENT_ADMIN, CLIENT_MEMBER_ROLE_CLIENT_USER):
+            return True
+    return False
+
+
+def viewer_should_mask_broker_referred_contact(sb, user_id, role, reference_scope_user_id=None):
+    if reference_scope_user_id:
+        return False
+    if _is_platform_admin_role(role):
+        return False
+    return _viewer_is_client_staff(sb, user_id)
+
+
+def can_user_reveal_broker_referred_contact(user_id, interest_row):
+    ref_uid = str((interest_row or {}).get('reference_user_id') or '').strip()
+    if not ref_uid:
+        return False
+    if _interest_contact_is_revealed(interest_row):
+        return False
+    return ref_uid == str(user_id or '').strip()
+
+
+def load_broker_refer_interest_reveal_map(sb, interest_ids):
+    ids = [str(i).strip() for i in (interest_ids or []) if str(i).strip()]
+    if not ids:
+        return {}
+    out = {}
+    chunk_size = 100
+    for index in range(0, len(ids), chunk_size):
+        chunk = ids[index:index + chunk_size]
+        try:
+            rows = (
+                sb.table('buy_interests')
+                .select('id, reference_user_id, contact_revealed_at')
+                .in_('id', chunk)
+                .execute()
+                .data or []
+            )
+        except Exception:
+            continue
+        for row in rows:
+            row_id = str(row.get('id') or '').strip()
+            if row_id:
+                out[row_id] = row
+    return out
+
+
+def _mask_broker_referred_contact_values(row):
+    for key in BROKER_REFERRED_CONTACT_FIELDS:
+        if key in row:
+            row[key] = ''
+
+
+def apply_broker_referred_contact_mask(row, *, user_id, role, reference_scope_user_id=None, sb=None):
+    item = dict(row or {})
+    ref_uid = str(item.get('reference_user_id') or '').strip()
+    revealed = _interest_contact_is_revealed(item)
+    can_reveal = can_user_reveal_broker_referred_contact(user_id, item)
+    should_mask = (
+        ref_uid
+        and not revealed
+        and sb is not None
+        and viewer_should_mask_broker_referred_contact(sb, user_id, role, reference_scope_user_id)
+    )
+    if should_mask:
+        _mask_broker_referred_contact_values(item)
+    if item.get('contact_revealed_at'):
+        item['contact_revealed_at'] = str(item['contact_revealed_at'])
+    item['contact_revealed'] = revealed
+    item['contact_hidden'] = bool(should_mask)
+    item['can_reveal_contact'] = bool(can_reveal)
+    if item.get('contact_hidden'):
+        item['contact_hidden_label'] = BROKER_REFERRED_CONTACT_MASK_LABEL
+    return item
+
+
+def apply_broker_referred_contact_mask_to_contact(
+    contact_row,
+    interest_row,
+    *,
+    user_id,
+    role,
+    reference_scope_user_id=None,
+    sb=None,
+):
+    item = dict(contact_row or {})
+    interest = interest_row or {}
+    ref_uid = str(interest.get('reference_user_id') or '').strip()
+    revealed = _interest_contact_is_revealed(interest)
+    should_mask = (
+        ref_uid
+        and not revealed
+        and sb is not None
+        and viewer_should_mask_broker_referred_contact(sb, user_id, role, reference_scope_user_id)
+    )
+    if should_mask:
+        item['email'] = ''
+        item['phone'] = ''
+        item['email_norm'] = ''
+        item['phone_norm'] = ''
+    item['contact_revealed'] = revealed
+    item['contact_hidden'] = bool(should_mask)
+    if item.get('contact_hidden'):
+        item['contact_hidden_label'] = BROKER_REFERRED_CONTACT_MASK_LABEL
+    return item
+
+
 def _validate_project_reference_user(sb, reference_user_id=None, workspace_id=None, panorama_id=None, client_id=None):
     ref_user_id = str(reference_user_id or '').strip()
     catalog = _project_reference_users(

@@ -218,7 +218,7 @@
     ['portal-nav-invites', 'portal-dropdown-invites-wrap'].forEach(function (id) {
       showEl(id, showInvites);
     });
-    var showTeam = !!isClientAdmin;
+    var showTeam = !!isClientAdmin && !isBroker;
     ['portal-nav-team', 'portal-dropdown-team-wrap'].forEach(function (id) {
       showEl(id, showTeam);
     });
@@ -240,7 +240,7 @@
           showEl(id, true);
         });
       }
-      if (cached && cached.isClientAdmin) {
+      if (cached && cached.isClientAdmin && !cached.isBroker) {
         document.documentElement.classList.add('portal-client-admin-cached');
         ['portal-nav-team', 'portal-dropdown-team-wrap'].forEach(function (id) {
           showEl(id, true);
