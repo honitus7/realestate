@@ -143,12 +143,24 @@
             '<button type="button" class="modal-btn secondary master-value-add-btn">Add</button></div></div></td></tr>';
     }
 
+    function masterSortAccessors() {
+        return {
+            label: function (f) { return f.label || MASTER_FIELD_LABELS[String(f.field_key || '')] || String(f.field_key || ''); },
+            is_enabled: function (f) { return f.is_enabled !== false ? 1 : 0; },
+            rule: function (f) { return f.is_required ? 'required' : 'optional'; },
+            applies_to: function (f) { return (Array.isArray(f.applies_to) ? f.applies_to.slice().sort().join(', ') : ''); }
+        };
+    }
+
     function renderTable(fields) {
-        const ordered = fields.slice().sort(function (a, b) {
+        let ordered = fields.slice().sort(function (a, b) {
             const ai = MASTER_FIELD_ORDER.indexOf(String(a.field_key || ''));
             const bi = MASTER_FIELD_ORDER.indexOf(String(b.field_key || ''));
             return (ai < 0 ? 999 : ai) - (bi < 0 ? 999 : bi);
         }).filter(function (field) { return String(field.field_key || '') !== 'title'; });
+        if (global.CrmSort) {
+            ordered = global.CrmSort.sortRows(ordered, 'master-attributes', masterSortAccessors());
+        }
         const rows = ordered.map(function (field) {
             const key = String(field.field_key || '');
             const label = field.label || MASTER_FIELD_LABELS[key] || key;
@@ -159,7 +171,7 @@
                 '<td><select class="form-input master-mode-select"><option value="required" ' + (mode === 'required' ? 'selected' : '') + '>Required</option><option value="optional" ' + (mode === 'optional' ? 'selected' : '') + '>Optional</option></select></td>' +
                 '<td class="master-entities-cell">' + renderEntityChecks(field) + '</td></tr>' + renderValuesRow(field);
         }).join('');
-        return '<div class="master-table-wrap"><table class="master-table"><thead><tr><th>Attribute</th><th>Status</th><th>Rule</th><th>Used in</th></tr></thead><tbody>' + rows + '</tbody></table></div>';
+        return '<div class="master-table-wrap"><table class="master-table"><thead><tr><th data-sort-key="label">Attribute</th><th data-sort-key="is_enabled">Status</th><th data-sort-key="rule">Rule</th><th data-sort-key="applies_to">Used in</th></tr></thead><tbody id="master-attrs-tbody">' + rows + '</tbody></table></div>';
     }
 
     function bindGrid(root) {
@@ -258,8 +270,17 @@
                 if (empty) empty.style.display = '';
                 return;
             }
-            grid.innerHTML = renderTable(fields);
-            bindGrid(grid);
+            const paint = function () {
+                grid.innerHTML = renderTable(fields);
+                bindGrid(grid);
+                if (global.CrmSort) {
+                    global.CrmSort.bindClient('master-attributes', {
+                        tbodyId: 'master-attrs-tbody',
+                        render: paint
+                    });
+                }
+            };
+            paint();
         } catch (e) {
             if (empty) {
                 empty.style.display = '';

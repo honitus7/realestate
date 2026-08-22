@@ -2507,11 +2507,28 @@ body.deal-dragging .deal-col-cards {
 .crm-pagination {
     display: flex;
     align-items: center;
-    justify-content: flex-end;
-    gap: 0.35rem;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+    gap: 0.45rem 0.6rem;
     padding: 0.35rem 0.65rem;
     color: var(--color-muted);
     font-size: 0.78rem;
+}
+
+.crm-pagination__size {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+}
+
+.crm-pagination__label {
+    color: var(--color-muted);
+    font-size: 0.72rem;
+    white-space: nowrap;
+}
+
+.crm-pagination__meta {
+    white-space: nowrap;
 }
 
 .crm-data-table .crm-pagination {
@@ -2522,19 +2539,63 @@ body.deal-dragging .deal-col-cards {
     display: none;
 }
 
+/* These controls used to sit on a faint 8%-alpha border over white, which read as
+   dull/invisible. Solid dark-on-light chips with a clearly dimmed disabled state. */
 .crm-pagination .btn {
-    padding: 0.32rem 0.58rem;
-    font-size: 0.72rem;
+    padding: 0.34rem 0.66rem;
+    font-size: 0.74rem;
+    font-weight: 700;
+    color: #162338;
+    background: #eeedeb;
+    border: 1px solid rgba(22, 35, 56, 0.32);
+    border-radius: 8px;
+    transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.crm-pagination .btn:hover:not(:disabled) {
+    background: #162338;
+    border-color: #162338;
+    color: #ffffff;
+}
+
+.crm-pagination .btn:focus-visible {
+    outline: 2px solid #162338;
+    outline-offset: 2px;
+}
+
+.crm-pagination .btn:disabled {
+    color: rgba(22, 35, 56, 0.38);
+    background: transparent;
+    border-color: rgba(22, 35, 56, 0.16);
+    cursor: not-allowed;
 }
 
 .crm-pagination select {
     min-height: 30px;
-    border: 1px solid var(--color-border);
+    border: 1px solid rgba(22, 35, 56, 0.32);
     border-radius: 8px;
-    background: var(--color-surface);
-    color: var(--color-text);
-    font-size: 0.72rem;
+    background: #ffffff;
+    color: #162338;
+    font-size: 0.74rem;
+    font-weight: 600;
     padding: 0.2rem 0.45rem;
+    cursor: pointer;
+}
+
+.crm-pagination select:hover,
+.crm-pagination select:focus {
+    border-color: #162338;
+    outline: none;
+}
+
+.crm-pagination__meta {
+    color: #162338;
+    font-weight: 600;
+}
+
+.crm-pagination__label {
+    color: #4a5568;
+    font-weight: 600;
 }
 
 .plot-row-actions {

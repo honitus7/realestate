@@ -1,6 +1,11 @@
 from flask import jsonify, request
 
-from app.controllers.features.crm_pagination import crm_page_payload, crm_parse_page_args
+from app.controllers.features.crm_pagination import (
+    crm_page_payload,
+    crm_parse_page_args,
+    crm_parse_sort_args,
+)
+
 from app.core.auth import require_auth
 from app.core.database import (
     get_supabase,
@@ -8,6 +13,16 @@ from app.core.database import (
     require_supabase,
     with_supabase_retry,
 )
+
+# Contact columns are masked for reference-scoped brokers, so ordering by them
+# would leak values those users are not allowed to see.
+BUY_INTEREST_SORT_FIELDS = (
+    'created_at', 'customer_name', 'customer_email', 'customer_phone', 'category',
+)
+BUY_INTEREST_SORT_FIELDS_MASKED = ('created_at', 'customer_name', 'category')
+# 'amount' is a free-text column: a database sort on it would order money
+# lexicographically, so it is deliberately not sortable.
+CRM_DEAL_SORT_FIELDS = ('title', 'stage', 'project_name', 'updated_at')
 
 
 def _apply_client_scope(query, *, requested_client_id=None, client_scope_ids=None):
@@ -122,8 +137,15 @@ def register_crm_record_list_routes(
         if requested_client_id and client_scope_ids is not None and requested_client_id not in client_scope_ids:
             return jsonify({'error': 'Forbidden for this client group'}), 403
 
+        sort_field, sort_desc = crm_parse_sort_args(
+            BUY_INTEREST_SORT_FIELDS_MASKED if reference_scope_user_id else BUY_INTEREST_SORT_FIELDS,
+            default_field='created_at',
+            default_desc=True,
+        )
         cache_key = (
             'buy_interests',
+            sort_field,
+            sort_desc,
             crm_cache_version.get('v', 1),
             str(user_id),
             str(role or ''),
@@ -195,7 +217,10 @@ def register_crm_record_list_routes(
                             f"customer_phone.ilike.%{token}%,customer_address.ilike.%{token}%,"
                             f"customer_city.ilike.%{token}%,customer_state.ilike.%{token}%"
                         )
-                return query.order('created_at', desc=True).range(offset, offset + limit - 1).execute()
+                query = query.order(sort_field, desc=sort_desc)
+                if sort_field != 'created_at':
+                    query = query.order('created_at', desc=True)
+                return query.range(offset, offset + limit - 1).execute()
 
             response = with_supabase_retry(_fetch_buy_interests_page, attempts=3)
             if response is None:
@@ -313,8 +338,13 @@ def register_crm_record_list_routes(
                 return jsonify(crm_page_payload([], 0, page, limit))
 
         allowed_stages = ('new', 'contacted', 'site_visit', 'negotiation', 'won', 'lost')
+        deal_sort_field, deal_sort_desc = crm_parse_sort_args(
+            CRM_DEAL_SORT_FIELDS, default_field='updated_at', default_desc=True
+        )
         cache_key = (
             'crm_deals',
+            deal_sort_field,
+            deal_sort_desc,
             crm_cache_version.get('v', 1),
             str(user_id),
             str(role or ''),
@@ -366,7 +396,10 @@ def register_crm_record_list_routes(
                         query = query.or_(
                             f"title.ilike.%{token}%,project_name.ilike.%{token}%,amount.ilike.%{token}%"
                         )
-                return query.order('updated_at', desc=True).range(offset, offset + limit - 1).execute()
+                query = query.order(deal_sort_field, desc=deal_sort_desc)
+                if deal_sort_field != 'updated_at':
+                    query = query.order('updated_at', desc=True)
+                return query.range(offset, offset + limit - 1).execute()
 
             response = with_supabase_retry(_fetch_deals_page, attempts=3)
             payload = crm_page_payload(

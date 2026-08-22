@@ -10,7 +10,18 @@ from app.core.auth import get_profile, require_admin, require_auth
 from app.core.database import get_supabase, is_transient_supabase_error, require_supabase, with_supabase_retry
 from app.services.access_policy import _chunks, annotate_resource_rows_with_client_scope, get_client_memberships
 from app.services.email_service import send_email as send_smtp_email
-from app.controllers.features.crm_pagination import crm_page_payload, crm_parse_page_args
+from app.controllers.features.crm_pagination import (
+    crm_page_payload,
+    crm_parse_page_args,
+    crm_parse_sort_args,
+    crm_sort_rows,
+)
+
+CRM_CONTACT_SORT_FIELDS = ('full_name', 'email', 'phone', 'birthday', 'address', 'updated_at', 'created_at')
+# Email/phone are blanked for reference-scoped brokers; sorting by them would
+# expose the hidden ordering.
+CRM_CONTACT_SORT_FIELDS_MASKED = ('full_name', 'birthday', 'updated_at', 'created_at')
+CRM_PLOT_SORT_FIELDS = ('name', 'area', 'status', 'description', 'panorama_name', 'workspace_name')
 from app.services.plot_service import get_plot_panorama_id, update_plot as plot_update
 from app.services.uam_reference_service import (
     CLIENT_MEMBER_ROLE_BROKER,
@@ -445,6 +456,9 @@ def register_crm_plot_routes(app, *, crm_panorama_ids, crm_cache_get, crm_cache_
             rows = [p for p in rows if str(p.get('panorama_id') or '') == panorama_id]
         if status:
             rows = [p for p in rows if _crm_plot_status_key(p.get('status')) == status]
+        plot_sort_field, plot_sort_desc = crm_parse_sort_args(CRM_PLOT_SORT_FIELDS)
+        if plot_sort_field:
+            rows = crm_sort_rows(rows, plot_sort_field, plot_sort_desc)
         total = len(rows)
         page_rows = rows[offset:offset + limit]
         return jsonify(crm_page_payload(page_rows, total, page, limit))
@@ -1270,7 +1284,8 @@ def register_crm_master_routes(app, *, crm_client_scope_ids, crm_cache_bump):
 
 
 def _crm_contact_list_select():
-    return 'id, org_id, client_id, panorama_id, full_name, email, phone, notes, custom_fields, created_at, updated_at'
+    return ('id, org_id, client_id, panorama_id, full_name, email, phone, birthday, address, '
+            'notes, custom_fields, created_at, updated_at')
 
 
 def _crm_apply_contact_list_filters(query, *, requested_client_id=None, client_scope_ids=None, q=''):
@@ -1298,6 +1313,8 @@ def _crm_fetch_contact_rows(
     q='',
     offset=0,
     limit=10,
+    sort_field='updated_at',
+    sort_desc=True,
 ):
     select_cols = _crm_contact_list_select()
     rows_by_id = {}
@@ -1337,7 +1354,10 @@ def _crm_fetch_contact_rows(
                 client_scope_ids=client_scope_ids,
                 q=q,
             )
-            resp = query.order('updated_at', desc=True).range(offset, offset + limit - 1).execute()
+            query = query.order(sort_field or 'updated_at', desc=bool(sort_desc))
+            if (sort_field or 'updated_at') != 'updated_at':
+                query = query.order('updated_at', desc=True)
+            resp = query.range(offset, offset + limit - 1).execute()
             return resp.data or [], int(getattr(resp, 'count', None) or 0)
         for chunk in _chunks(panorama_ids):
             query = _crm_apply_contact_list_filters(
@@ -1348,8 +1368,7 @@ def _crm_fetch_contact_rows(
             )
             add_rows(query.execute().data)
 
-    rows = list(rows_by_id.values())
-    rows.sort(key=lambda row: str(row.get('updated_at') or ''), reverse=True)
+    rows = crm_sort_rows(list(rows_by_id.values()), sort_field or 'updated_at', bool(sort_desc))
     total = len(rows)
     return rows[offset:offset + limit], total
 
@@ -1429,8 +1448,15 @@ def register_crm_contact_routes(
                 reference_interest_ids, reference_contact_ids = [], []
             if not reference_interest_ids and not reference_contact_ids:
                 return jsonify(crm_page_payload([], 0, page, limit))
+        contact_sort_field, contact_sort_desc = crm_parse_sort_args(
+            CRM_CONTACT_SORT_FIELDS_MASKED if reference_scope_user_id else CRM_CONTACT_SORT_FIELDS,
+            default_field='updated_at',
+            default_desc=True,
+        )
         cache_key = (
             'crm_contacts',
+            contact_sort_field,
+            contact_sort_desc,
             crm_cache_version.get('v', 1),
             str(user_id),
             str(role or ''),
@@ -1462,6 +1488,8 @@ def register_crm_contact_routes(
                     q=q,
                     offset=offset,
                     limit=limit,
+                    sort_field=contact_sort_field,
+                    sort_desc=contact_sort_desc,
                 ),
                 attempts=3,
             )

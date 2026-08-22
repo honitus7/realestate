@@ -1,11 +1,11 @@
 {% set page_title = 'CRM - MarketoState' %}
 {% set active_nav = 'crm' %}
 {% set use_marketostate_brand_theme = true %}
-{% set portal_extra_css = '/static/crm/crm.css?v=20260626-drawer-actions' %}
+{% set portal_extra_css = '/static/crm/crm.css?v=20260822-plot-modal-rows' %}
 {% from 'crm/components/data_table.html' import crm_data_table %}
 {% set portal_merge_nav_into_crm = true %}
 {% include 'components/portal_shell_start.html' %}
-<link rel="stylesheet" href="/static/css/share-workspace-modal.css?v=20260622-2">
+<link rel="stylesheet" href="/static/css/share-workspace-modal.css?v=20260822-2">
 <style>
 .crm-tab-load-error {
     margin: 0 0 0.85rem;
@@ -236,8 +236,8 @@
 }
 /* Keep Interests filter rail above table layers on mobile overlay */
 @media (max-width: 900px) {
-    #sec-interests .filter-modal-backdrop,
-    #sec-interests .filter-modal-backdrop.visible {
+    .crm-filter-rail.filter-modal-backdrop,
+    .crm-filter-rail.filter-modal-backdrop.visible {
         z-index: 1300 !important;
     }
 }
@@ -292,21 +292,6 @@
     display: grid;
     gap: 0.68rem;
 }
-#deals-filter-modal-backdrop,
-#contacts-filter-modal-backdrop {
-    align-items: flex-start;
-    justify-content: flex-start;
-    padding-top: 150px;
-    padding-left: 210px;
-}
-#deals-filter-modal-backdrop .entity-filter-modal,
-#contacts-filter-modal-backdrop .entity-filter-modal {
-    width: 260px !important;
-    min-width: 260px !important;
-    max-width: 260px !important;
-    max-height: calc(100vh - 148px) !important;
-    min-height: 320px !important;
-}
 @media (max-width: 768px) {
     #deals-kanban-board {
         grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -316,11 +301,6 @@
         min-width: 0 !important;
         min-height: 0 !important;
         max-height: 90vh !important;
-    }
-    #deals-filter-modal-backdrop,
-    #contacts-filter-modal-backdrop {
-        padding-top: 100px;
-        padding-left: 12px;
     }
 }
 </style>
@@ -421,8 +401,8 @@
                                                 <select class="crm-filter-panel__select filter-group-select" id="filter-workspace"><option value="">All Projects</option></select>
                                             </div>
                                             <div class="filter-group">
-                                                <label class="crm-filter-panel__field-label filter-group-label" for="filter-project">Panorama</label>
-                                                <select class="crm-filter-panel__select filter-group-select" id="filter-project"><option value="">All Panoramas</option></select>
+                                                <label class="crm-filter-panel__field-label filter-group-label" for="filter-project">Sector</label>
+                                                <select class="crm-filter-panel__select filter-group-select" id="filter-project"><option value="">All Sectors</option></select>
                                             </div>
                                             <div class="filter-group">
                                                 <label class="crm-filter-panel__field-label filter-group-label" for="filter-plot">Plot</label>
@@ -493,13 +473,14 @@
                         <div class="table-wrap">
                             <table class="crm-data-table__table">
                                 <thead><tr>
-                                    <th style="width:14%">Created</th>
-                                    <th style="width:18%">Customer</th>
-                                    <th style="width:14%">Contact</th>
-                                    <th style="width:10%">Category</th>
+                                    <th style="width:14%" data-sort-key="created_at">Created</th>
+                                    <th style="width:18%" data-sort-key="customer_name">Customer</th>
+                                    <th style="width:14%" data-sort-key="customer_email">Contact</th>
+                                    <th style="width:10%" data-sort-key="category">Category</th>
                                     <th style="width:16%">Project</th>
                                     <th style="width:10%">Plots</th>
-                                    <th style="width:18%">Reference</th>
+                                    <th style="width:14%">Reference</th>
+                                    <th style="width:4%" aria-label="Actions"></th>
                                 </tr></thead>
                                 <tbody id="tbody"></tbody>
                             </table>
@@ -573,13 +554,59 @@
                     <button class="btn" id="btn-clear-deal-filters" style="display:none;" type="button">Clear</button>
                     <button class="btn" id="btn-refresh-deals" type="button">Refresh</button>
                 </div>
+                <div class="crm-list-layout" id="deals-list-layout">
+                    <aside class="crm-filter-rail filter-modal-backdrop" id="deals-filter-modal-backdrop" aria-label="Deal filters" aria-hidden="true">
+                        <div class="crm-filter-panel filter-modal" id="deals-filter-modal">
+                            <div class="crm-filter-panel__head filter-modal-head">
+                                <h3 class="crm-filter-panel__title">Deal Filters</h3>
+                                <button class="crm-filter-panel__close filter-modal-close" id="deals-filter-modal-close" type="button" aria-label="Close filters">&times;</button>
+                            </div>
+                            <div class="crm-filter-panel__scroll filter-modal-body">
+                                <div class="crm-filter-panel__section filter-search-group">
+                                    <label class="crm-filter-panel__label filter-group-label" for="dfm-q">Filter Deals by</label>
+                                    <input class="crm-filter-panel__input toolbar-search" id="dfm-q" placeholder="Search deals" autocomplete="off">
+                                </div>
+                                <div class="crm-filter-accordion is-open" data-filter-accordion>
+                                    <button class="crm-filter-accordion__trigger" type="button" aria-expanded="true">
+                                        <span>Filter By Fields</span>
+                                        <svg class="crm-filter-accordion__chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+                                    </button>
+                                    <div class="crm-filter-accordion__body">
+                                        <div class="crm-filter-panel__section filter-group">
+                                            <label class="crm-filter-panel__field-label filter-group-label" for="dfm-stage">Stage</label>
+                                            <select class="crm-filter-panel__select filter-group-select" id="dfm-stage"></select>
+                                        </div>
+                                        <div class="crm-filter-panel__section filter-group" id="dfm-client-wrap" style="display:none;">
+                                            <label class="crm-filter-panel__field-label filter-group-label" for="dfm-client">Client</label>
+                                            <select class="crm-filter-panel__select filter-group-select" id="dfm-client"></select>
+                                        </div>
+                                        <div class="crm-filter-panel__section filter-group">
+                                            <label class="crm-filter-panel__field-label filter-group-label" for="dfm-project">Project</label>
+                                            <select class="crm-filter-panel__select filter-group-select" id="dfm-project"></select>
+                                        </div>
+                                        <div class="crm-filter-panel__section filter-group">
+                                            <label class="crm-filter-panel__field-label filter-group-label" for="dfm-contact">Contact</label>
+                                            <select class="crm-filter-panel__select filter-group-select" id="dfm-contact"></select>
+                                        </div>
+                                        <div id="deals-filter-dynamic" class="entity-filter-dynamic"></div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="crm-filter-panel__foot filter-modal-foot">
+                                <button class="btn" id="deals-filter-clear" type="button">Clear</button>
+                                <button class="btn btn-primary crm-add-action" id="deals-filter-apply" type="button">Apply</button>
+                            </div>
+                        </div>
+                    </aside>
+
+                    <div class="crm-list-main">
                 <div id="deals-list-view">
                     {% call crm_data_table('deals-tbody', 'deals-pagination', 'deals-empty') %}
                     <thead><tr>
-                        <th>Title</th>
-                        <th>Stage</th>
+                        <th data-sort-key="title">Title</th>
+                        <th data-sort-key="stage">Stage</th>
                         <th>Contact</th>
-                        <th>Project</th>
+                        <th data-sort-key="project_name">Project</th>
                         <th>Amount</th>
                         <th>Plots</th>
                         <th></th>
@@ -594,6 +621,8 @@
                     <div class="kanban-col" data-stage="won"><div class="kanban-col-header"><span class="kanban-dot kanban-dot--won"></span><span class="kanban-col-title">Won</span><span class="kanban-col-count" id="dk-count-won">0</span></div><div class="kanban-cards" id="dk-won"></div></div>
                     <div class="kanban-col" data-stage="lost"><div class="kanban-col-header"><span class="kanban-dot kanban-dot--lost"></span><span class="kanban-col-title">Lost</span><span class="kanban-col-count" id="dk-count-lost">0</span></div><div class="kanban-cards" id="dk-lost"></div></div>
                 </div>
+                    </div>
+                </div>
             </section>
 
             <section class="crm-section" id="sec-allotted-clients">
@@ -601,10 +630,10 @@
                     <div class="table-wrap">
                         <table>
                             <thead><tr>
-                                <th>Client Name</th>
-                                <th>Projects</th>
-                                <th>Leads</th>
-                                <th>Contacts</th>
+                                <th data-sort-key="client_name">Client Name</th>
+                                <th data-sort-key="project_count">Projects</th>
+                                <th data-sort-key="lead_count">Leads</th>
+                                <th data-sort-key="contact_count">Contacts</th>
                             </tr></thead>
                             <tbody id="allotted-clients-tbody"></tbody>
                         </table>
@@ -630,9 +659,45 @@
                         <span>Add Contact</span>
                     </button>
                 </div>
+                <div class="crm-list-layout" id="contacts-list-layout">
+                    <aside class="crm-filter-rail filter-modal-backdrop" id="contacts-filter-modal-backdrop" aria-label="Contact filters" aria-hidden="true">
+                        <div class="crm-filter-panel filter-modal" id="contacts-filter-modal">
+                            <div class="crm-filter-panel__head filter-modal-head">
+                                <h3 class="crm-filter-panel__title">Contact Filters</h3>
+                                <button class="crm-filter-panel__close filter-modal-close" id="contacts-filter-modal-close" type="button" aria-label="Close filters">&times;</button>
+                            </div>
+                            <div class="crm-filter-panel__scroll filter-modal-body">
+                                <div class="crm-filter-panel__section filter-search-group">
+                                    <label class="crm-filter-panel__label filter-group-label" for="cfm-q">Filter Contacts by</label>
+                                    <input class="crm-filter-panel__input toolbar-search" id="cfm-q" placeholder="Search contacts" autocomplete="off">
+                                </div>
+                                <div class="crm-filter-accordion is-open" data-filter-accordion>
+                                    <button class="crm-filter-accordion__trigger" type="button" aria-expanded="true">
+                                        <span>Filter By Fields</span>
+                                        <svg class="crm-filter-accordion__chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+                                    </button>
+                                    <div class="crm-filter-accordion__body">
+                                        <div class="crm-filter-panel__section filter-group" id="cfm-client-wrap" style="display:none;">
+                                            <label class="crm-filter-panel__field-label filter-group-label" for="cfm-client">Client</label>
+                                            <select class="crm-filter-panel__select filter-group-select" id="cfm-client"></select>
+                                        </div>
+                                        <div id="contacts-filter-dynamic" class="entity-filter-dynamic"></div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="crm-filter-panel__foot filter-modal-foot">
+                                <button class="btn" id="contacts-filter-clear" type="button">Clear</button>
+                                <button class="btn btn-primary crm-add-action" id="contacts-filter-apply" type="button">Apply</button>
+                            </div>
+                        </div>
+                    </aside>
+
+                    <div class="crm-list-main">
                 {% call crm_data_table('contacts-tbody', 'contacts-pagination', 'contacts-empty') %}
-                <thead><tr><th>Name</th><th>Email</th><th>Phone</th><th>Interests</th><th>Deals</th><th></th></tr></thead>
+                <thead><tr><th data-sort-key="full_name">Name</th><th data-sort-key="email">Email</th><th data-sort-key="phone">Phone</th><th data-sort-key="birthday">Birthday</th><th data-sort-key="address">Address</th><th>Interests</th><th>Deals</th><th></th></tr></thead>
                 {% endcall %}
+                    </div>
+                </div>
             </section>
 
             <!-- â•â•â•â•â•â•â•â•â•â• PROJECTS SECTION â•â•â•â•â•â•â•â•â•â• -->
@@ -654,9 +719,9 @@
                     <div class="table-wrap">
                         <table>
                             <thead><tr>
-                                <th>Name</th>
+                                <th data-sort-key="name">Name</th>
                                 <th>CRM Type</th>
-                                <th>Published</th>
+                                <th data-sort-key="is_published">Published</th>
                                 <th></th>
                             </tr></thead>
                             <tbody id="projects-tbody"></tbody>
@@ -678,8 +743,8 @@
                     <div class="table-wrap">
                         <table>
                             <thead><tr>
-                                <th>ID</th>
-                                <th>Name</th>
+                                <th data-sort-key="id">ID</th>
+                                <th data-sort-key="name">Name</th>
                                 <th></th>
                             </tr></thead>
                             <tbody id="panorama-tbody"></tbody>
@@ -750,39 +815,87 @@
 
             <!-- â•â•â•â•â•â•â•â•â•â• PLOTS SECTION â•â•â•â•â•â•â•â•â•â• -->
             <section class="crm-section" id="sec-plots">
-                <div class="crm-filter-bar">
-                    <div class="crm-mode-toggle" id="plots-mode-toggle" aria-label="Plots mode" style="display:none;">
-                        <button class="btn active" data-mode="visual" type="button" aria-pressed="true">Visual</button>
-                        <button class="btn" data-mode="normal" type="button" aria-pressed="false">Normal</button>
-                        <span class="crm-mode-toggle-loader" hidden aria-hidden="true"></span>
+                <div class="crm-deals-toolbar">
+                    <div class="interest-toolbar-left" style="display:flex;align-items:center;gap:0.55rem;">
+                        <button class="filter-btn" id="btn-open-plots-filter-modal" type="button" aria-expanded="false" aria-controls="plots-filter-modal">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+                            <span>Filter</span>
+                        </button>
+                        <div class="crm-mode-toggle" id="plots-mode-toggle" aria-label="Plots mode" style="display:none;">
+                            <button class="btn active" data-mode="visual" type="button" aria-pressed="true">Visual</button>
+                            <button class="btn" data-mode="normal" type="button" aria-pressed="false">Normal</button>
+                            <span class="crm-mode-toggle-loader" hidden aria-hidden="true"></span>
+                        </div>
                     </div>
-                    <input class="toolbar-search" id="plot-search" placeholder="Search plots..." autocomplete="off">
-                    <select class="toolbar-select" id="plot-client-filter" style="display:none;"><option value="">All Clients</option></select>
-                    <select class="toolbar-select" id="plot-workspace-filter"><option value="">All Projects</option></select>
-                    <select class="toolbar-select" id="plot-panorama-filter"><option value="">All Sectors</option></select>
-                    <select class="toolbar-select" id="plot-status-filter">
-                        <option value="">All Status</option>
-                        <option value="available">Available</option>
-                        <option value="hold">Hold</option>
-                        <option value="sold">Sold</option>
-                    </select>
                     <button class="btn btn-primary crm-add-action" id="btn-add-normal-plot" style="display:none;" type="button">
                         <i class="icon-base bx bx-plus icon-sm" aria-hidden="true"></i>
                         <span>Add Plot</span>
                     </button>
                 </div>
+                <div class="crm-list-layout" id="plots-list-layout">
+                    <aside class="crm-filter-rail filter-modal-backdrop" id="plots-filter-modal-backdrop" aria-label="Plot filters" aria-hidden="true">
+                        <div class="crm-filter-panel filter-modal" id="plots-filter-modal">
+                            <div class="crm-filter-panel__head filter-modal-head">
+                                <h3 class="crm-filter-panel__title">Plot Filters</h3>
+                                <button class="crm-filter-panel__close filter-modal-close" id="plots-filter-modal-close" type="button" aria-label="Close filters">&times;</button>
+                            </div>
+                            <div class="crm-filter-panel__scroll filter-modal-body">
+                                <div class="crm-filter-panel__section filter-search-group">
+                                    <label class="crm-filter-panel__label filter-group-label" for="plot-search">Filter Plots by</label>
+                                    <input class="crm-filter-panel__input toolbar-search" id="plot-search" placeholder="Search plots" autocomplete="off">
+                                </div>
+                                <div class="crm-filter-accordion is-open" data-filter-accordion>
+                                    <button class="crm-filter-accordion__trigger" type="button" aria-expanded="true">
+                                        <span>Filter By Fields</span>
+                                        <svg class="crm-filter-accordion__chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+                                    </button>
+                                    <div class="crm-filter-accordion__body">
+                                        <div class="crm-filter-panel__section filter-group" id="plot-client-filter-wrap" style="display:none;">
+                                            <label class="crm-filter-panel__field-label filter-group-label" for="plot-client-filter">Client</label>
+                                            <select class="crm-filter-panel__select filter-group-select" id="plot-client-filter"><option value="">All Clients</option></select>
+                                        </div>
+                                        <div class="crm-filter-panel__section filter-group">
+                                            <label class="crm-filter-panel__field-label filter-group-label" for="plot-workspace-filter">Project</label>
+                                            <select class="crm-filter-panel__select filter-group-select" id="plot-workspace-filter"><option value="">All Projects</option></select>
+                                        </div>
+                                        <div class="crm-filter-panel__section filter-group">
+                                            <label class="crm-filter-panel__field-label filter-group-label" for="plot-panorama-filter">Sector</label>
+                                            <select class="crm-filter-panel__select filter-group-select" id="plot-panorama-filter"><option value="">All Sectors</option></select>
+                                        </div>
+                                        <div class="crm-filter-panel__section filter-group">
+                                            <label class="crm-filter-panel__field-label filter-group-label" for="plot-status-filter">Status</label>
+                                            <select class="crm-filter-panel__select filter-group-select" id="plot-status-filter">
+                                                <option value="">All Status</option>
+                                                <option value="available">Available</option>
+                                                <option value="hold">Hold</option>
+                                                <option value="sold">Sold</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="crm-filter-panel__foot filter-modal-foot">
+                                <button class="btn" id="plots-filter-clear" type="button">Clear</button>
+                                <button class="btn btn-primary crm-add-action" id="plots-filter-apply" type="button">Apply</button>
+                            </div>
+                        </div>
+                    </aside>
+
+                    <div class="crm-list-main">
                 {% call crm_data_table('plots-tbody', 'plots-pagination') %}
                 <thead><tr>
-                    <th>Plot Number</th>
-                    <th>Plot Size (Area)</th>
-                    <th>Status</th>
+                    <th data-sort-key="name">Plot Number</th>
+                    <th data-sort-key="area">Plot Size (Area)</th>
+                    <th data-sort-key="status">Status</th>
                     <th style="width:44px"></th>
-                    <th>Description</th>
-                    <th style="width:120px"></th>
+                    <th data-sort-key="description">Description</th>
+                    <th style="min-width:230px;text-align:right;">Actions</th>
                 </tr></thead>
                 {% endcall %}
                 <div class="empty" id="plots-empty" style="display:none;">
                     <strong>No plots found</strong><div>Adjust your filters or add plots to your panoramas.</div>
+                </div>
+                    </div>
                 </div>
             </section>
 
@@ -853,21 +966,37 @@
             <div class="crm-modal-backdrop" id="edit-plot-modal">
                 <div class="crm-modal">
                     <div class="crm-simple-modal-head">
-                        <div class="modal-title" style="margin:0;">Edit Plot Details</div>
+                        <div class="edit-plot-head-text">
+                            <div class="modal-title" style="margin:0;">Edit Plot</div>
+                            <p class="edit-plot-subtitle" id="edit-plot-subtitle"></p>
+                        </div>
                         <button type="button" class="modal-close" id="edit-plot-close" aria-label="Close">&times;</button>
                     </div>
                     <div id="edit-plot-error" class="msg error" style="display:none;margin-bottom:1rem;"></div>
                     <div class="crm-simple-modal-body">
-                        <div class="form-group"><label class="form-label">Plot Number *</label><input type="text" class="form-input" id="ep-name" maxlength="120" readonly></div>
-                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;">
-                            <div class="form-group"><label class="form-label">Area</label><input type="text" class="form-input" id="ep-area" maxlength="100"></div>
-                            <div class="form-group"><label class="form-label">Status</label><select class="form-input" id="ep-status"></select></div>
+                        <div class="form-group ep-readonly">
+                            <label class="form-label" for="ep-name">Plot Number</label>
+                            <input type="text" class="form-input" id="ep-name" maxlength="120" readonly aria-readonly="true">
+                            <span class="ep-hint">Plot numbers are set on the panorama and cannot be changed here.</span>
                         </div>
-                        <div class="form-group"><label class="form-label">Description</label><textarea class="form-input" id="ep-description" rows="3" style="resize:vertical;"></textarea></div>
+                        <div class="ep-field-row">
+                            <div class="form-group">
+                                <label class="form-label" for="ep-area">Area</label>
+                                <input type="text" class="form-input" id="ep-area" maxlength="100" placeholder="e.g. 1,200 sq ft">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label" for="ep-status">Status</label>
+                                <select class="form-input" id="ep-status"></select>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" for="ep-description">Description</label>
+                            <textarea class="form-input" id="ep-description" rows="3" style="resize:vertical;" placeholder="Optional notes shown with this plot"></textarea>
+                        </div>
                     </div>
-                    <div class="modal-actions" style="margin-top:1rem;">
+                    <div class="modal-actions">
                         <button class="btn btn-secondary" id="edit-plot-cancel" type="button">Cancel</button>
-                        <button class="btn btn-primary crm-add-action" id="edit-plot-save" type="button">Save</button>
+                        <button class="btn btn-primary crm-add-action" id="edit-plot-save" type="button">Save changes</button>
                     </div>
                 </div>
             </div>
@@ -949,9 +1078,9 @@
                 <div class="crm-modal-panel active" id="modal-plots">
                     <table>
                         <thead><tr>
-                            <th>Name</th>
-                            <th>Status</th>
-                            <th>Description</th>
+                            <th data-sort-key="name">Name</th>
+                            <th data-sort-key="status">Status</th>
+                            <th data-sort-key="description">Description</th>
                             <th style="width:80px"></th>
                         </tr></thead>
                         <tbody id="modal-plots-tbody"></tbody>
@@ -961,10 +1090,10 @@
                 <div class="crm-modal-panel" id="modal-markers">
                     <table>
                         <thead><tr>
-                            <th>Name</th>
-                            <th>Status</th>
-                            <th>Style</th>
-                            <th>Lat / Lng</th>
+                            <th data-sort-key="name">Name</th>
+                            <th data-sort-key="status">Status</th>
+                            <th data-sort-key="style">Style</th>
+                            <th data-sort-key="lat">Lat / Lng</th>
                             <th style="width:80px"></th>
                         </tr></thead>
                         <tbody id="modal-markers-tbody"></tbody>
@@ -1123,7 +1252,7 @@
             <div class="interest-plots-modal-table-wrap">
                 <table class="interest-plots-modal-table">
                     <thead>
-                        <tr><th>Plot</th><th>Area</th><th>Price</th><th>Status</th></tr>
+                        <tr><th data-sort-key="name">Plot</th><th data-sort-key="area">Area</th><th data-sort-key="price">Price</th><th data-sort-key="status">Status</th></tr>
                     </thead>
                     <tbody id="interest-plots-modal-tbody"></tbody>
                 </table>
@@ -1154,6 +1283,14 @@
             <div class="form-group">
                 <label class="form-label" for="contact-phone">Phone</label>
                 <input class="toolbar-search" id="contact-phone" placeholder="Phone">
+            </div>
+            <div class="form-group">
+                <label class="form-label" for="contact-birthday">Birthday</label>
+                <input class="toolbar-search" id="contact-birthday" type="date">
+            </div>
+            <div class="form-group">
+                <label class="form-label" for="contact-address">Address</label>
+                <textarea class="toolbar-search" id="contact-address" rows="2" style="height:auto;resize:vertical;" placeholder="Address"></textarea>
             </div>
             <div class="form-group">
                 <label class="form-label" for="contact-notes">Notes</label>
@@ -1189,66 +1326,6 @@
         <div class="modal-actions" style="margin-top:1rem;">
             <button class="btn btn-secondary" id="add-interest-cancel" type="button">Cancel</button>
             <button class="btn btn-primary crm-add-action" id="add-interest-save" type="button">Create Interest</button>
-        </div>
-    </div>
-</div>
-
-<div class="entity-filter-modal-backdrop" id="deals-filter-modal-backdrop">
-    <div class="filter-modal entity-filter-modal">
-        <div class="filter-modal-head">
-            <strong>Deal Filters</strong>
-            <button class="filter-modal-close" id="deals-filter-modal-close" type="button">&times;</button>
-        </div>
-        <div class="filter-modal-body">
-            <div class="filter-group">
-                <label class="filter-group-label">Search</label>
-                <input class="filter-group-select" id="dfm-q" placeholder="Search deals">
-            </div>
-            <div class="filter-group">
-                <label class="filter-group-label">Stage</label>
-                <select class="filter-group-select" id="dfm-stage"></select>
-            </div>
-            <div class="filter-group" id="dfm-client-wrap" style="display:none;">
-                <label class="filter-group-label">Client</label>
-                <select class="filter-group-select" id="dfm-client"></select>
-            </div>
-            <div class="filter-group">
-                <label class="filter-group-label">Project</label>
-                <select class="filter-group-select" id="dfm-project"></select>
-            </div>
-            <div class="filter-group">
-                <label class="filter-group-label">Contact</label>
-                <select class="filter-group-select" id="dfm-contact"></select>
-            </div>
-            <div id="deals-filter-dynamic" class="entity-filter-dynamic"></div>
-        </div>
-        <div class="filter-modal-foot">
-            <button class="btn" id="deals-filter-clear" type="button">Clear</button>
-            <button class="btn btn-primary crm-add-action" id="deals-filter-apply" type="button">Apply</button>
-        </div>
-    </div>
-</div>
-
-<div class="entity-filter-modal-backdrop" id="contacts-filter-modal-backdrop">
-    <div class="filter-modal entity-filter-modal">
-        <div class="filter-modal-head">
-            <strong>Contact Filters</strong>
-            <button class="filter-modal-close" id="contacts-filter-modal-close" type="button">&times;</button>
-        </div>
-        <div class="filter-modal-body">
-            <div class="filter-group">
-                <label class="filter-group-label">Search</label>
-                <input class="filter-group-select" id="cfm-q" placeholder="Search contacts">
-            </div>
-            <div class="filter-group" id="cfm-client-wrap" style="display:none;">
-                <label class="filter-group-label">Client</label>
-                <select class="filter-group-select" id="cfm-client"></select>
-            </div>
-            <div id="contacts-filter-dynamic" class="entity-filter-dynamic"></div>
-        </div>
-        <div class="filter-modal-foot">
-            <button class="btn" id="contacts-filter-clear" type="button">Clear</button>
-            <button class="btn btn-primary crm-add-action" id="contacts-filter-apply" type="button">Apply</button>
         </div>
     </div>
 </div>
@@ -1511,13 +1588,26 @@
     window.isRetryableCrmFetchStatus = isRetryableCrmFetchStatus;
 })();
 </script>
-<script src="/static/crm/crm-pager.js"></script>
+<script src="/static/crm/crm-pager.js?v=20260822-pagination-2"></script>
+    <script src="/static/crm/crm-sort.js?v=20260822-1"></script>
 <script>
 (function() {
     'use strict';
 
     const $ = id => document.getElementById(id);
     const dealStages = ['new', 'contacted', 'site_visit', 'negotiation', 'won', 'lost'];
+    // Same edit icon as the Plotted List row actions (that IIFE's constant is not visible here).
+    const ICON_EDIT = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4Z"/></svg>';
+    // The filter rails are registered by the interests block (a separate IIFE),
+    // which shares its API on window.crmFilterRail.
+    function setRailOpen(key, open) {
+        const api = window.crmFilterRail;
+        if (api) api.setOpen(key, open);
+    }
+    function isRailOpen(key) {
+        const api = window.crmFilterRail;
+        return !!(api && api.isOpen(key));
+    }
     let deals = [];
     let contacts = [];
     let dealClientOptions = [];
@@ -1794,6 +1884,7 @@
             const params = { include_counts: '1' };
             if (selectedClient) params.client_id = selectedClient;
             if (q) params.q = q;
+            Object.assign(params, CrmSort.params('contacts'));
             const path = '/api/crm/contacts' + CrmPager.buildQuery(contactsPager, params);
             const r = await api(path);
             const data = await r.json().catch(() => null);
@@ -1837,6 +1928,7 @@
             if (projectFilter) params.project_name = projectFilter;
             if (contactFilter) params.contact_id = contactFilter;
             if (q) params.q = q;
+            Object.assign(params, CrmSort.params('deals'));
             const path = '/api/crm/deals' + CrmPager.buildQuery(dealsPager, params);
             const r = await api(path);
             const data = await r.json().catch(() => null);
@@ -1889,6 +1981,19 @@
     function renderContacts(pageMeta) {
         const tbody = $('contacts-tbody');
         if (!tbody) return;
+        // Email/phone are blanked for external brokers, so they are not sortable there.
+        // (This IIFE cannot see the interests block's `isExternalBrokerUser`; the
+        // broker flag is shared across blocks on window.)
+        if (window.__crmIsExternalBroker) {
+            ['email', 'phone', 'address'].forEach(function (f) {
+                if (CrmSort.setEnabled('contacts', 'contacts-tbody', f, false)) loadContacts(undefined, true);
+            });
+        }
+        if (isRailOpen('contacts')) syncContactsFilterRailControls();
+        CrmSort.attach('contacts', {
+            tbodyId: 'contacts-tbody',
+            onSort: function () { contactsPager.page = 1; loadContacts(undefined, true); }
+        });
         const visibleRows = applyDynamicFiltersToRows(contacts, contactDynamicFilters);
         const meta = pageMeta || contactsTableMeta || { total: visibleRows.length, pages: 1 };
         const emptyEl = $('contacts-empty');
@@ -1904,9 +2009,11 @@
             '<td style="font-weight:700">' + esc(c.full_name || 'â€”') + '</td>' +
             '<td>' + esc(c.email || 'â€”') + '</td>' +
             '<td>' + esc(c.phone || 'â€”') + '</td>' +
+            '<td>' + esc(fmtContactBirthday(c.birthday)) + '</td>' +
+            '<td class="crm-cell-truncate" title="' + esc(c.address || '') + '">' + esc(c.address || 'â€”') + '</td>' +
             '<td>' + esc(c.interests_count || 0) + '</td>' +
             '<td>' + esc(c.deals_count || 0) + '</td>' +
-            '<td><button class="btn" data-edit-contact="' + esc(c.id) + '">Edit</button></td>' +
+            '<td><button class="btn plot-row-action-btn" type="button" data-edit-contact="' + esc(c.id) + '" title="Edit contact" aria-label="Edit contact">' + ICON_EDIT + '<span>Edit</span></button></td>' +
             '</tr>'
         ).join('');
         tbody.querySelectorAll('[data-edit-contact]').forEach(btn => {
@@ -1917,6 +2024,11 @@
     function renderDeals(pageMeta) {
         const tbody = $('deals-tbody');
         if (!tbody) return;
+        if (isRailOpen('deals')) syncDealsFilterRailControls();
+        CrmSort.attach('deals', {
+            tbodyId: 'deals-tbody',
+            onSort: function () { dealsPager.page = 1; loadDeals(true); }
+        });
         const visibleRows = applyDynamicFiltersToRows(deals, dealDynamicFilters);
         const meta = pageMeta || dealsTableMeta || { total: visibleRows.length, pages: 1 };
         const emptyEl = $('deals-empty');
@@ -1937,7 +2049,7 @@
                 '<td>' + esc(d.project_name || 'â€”') + '</td>' +
                 '<td>' + esc(d.amount || 'â€”') + '</td>' +
                 '<td class="mono">' + esc(plotCount) + '</td>' +
-                '<td><button class="btn" type="button" data-open-deal="' + esc(d.id) + '">Edit</button></td>' +
+                '<td><button class="btn plot-row-action-btn" type="button" data-open-deal="' + esc(d.id) + '" title="Edit deal" aria-label="Edit deal">' + ICON_EDIT + '<span>Edit</span></button></td>' +
                 '</tr>';
         }).join('');
         tbody.querySelectorAll('[data-open-deal]').forEach(btn => {
@@ -2130,7 +2242,7 @@
         }
         renderDynamicFilterControls('contacts', contactsDynamicFilterRootEl, contacts, contactDynamicFilters);
     }
-    function openDealsFilterModal() {
+    function syncDealsFilterRailControls() {
         if ($('dfm-q') && $('deal-q')) $('dfm-q').value = $('deal-q').value || '';
         syncFilterSelectOptions($('dfm-stage'), dealStageFilterEl);
         syncFilterSelectOptions($('dfm-client'), dealClientFilterEl);
@@ -2138,22 +2250,28 @@
         syncFilterSelectOptions($('dfm-contact'), dealContactFilterEl);
         if ($('dfm-client-wrap')) $('dfm-client-wrap').style.display = dealClientFilterEl && dealClientFilterEl.style.display === 'none' ? 'none' : '';
         renderDynamicFilterControls('deals', dealsDynamicFilterRootEl, deals, dealDynamicFilters);
-        if (dealsFilterBackdropEl) dealsFilterBackdropEl.classList.add('visible');
+    }
+    function openDealsFilterModal() {
+        syncDealsFilterRailControls();
+        setRailOpen('deals', true);
         void refreshDealsFilterMasterFields();
     }
     function closeDealsFilterModal() {
-        if (dealsFilterBackdropEl) dealsFilterBackdropEl.classList.remove('visible');
+        setRailOpen('deals', false);
     }
-    function openContactsFilterModal() {
+    function syncContactsFilterRailControls() {
         if ($('cfm-q') && $('contact-q')) $('cfm-q').value = $('contact-q').value || '';
         syncFilterSelectOptions($('cfm-client'), contactClientFilterEl);
         if ($('cfm-client-wrap')) $('cfm-client-wrap').style.display = contactClientFilterEl && contactClientFilterEl.style.display === 'none' ? 'none' : '';
         renderDynamicFilterControls('contacts', contactsDynamicFilterRootEl, contacts, contactDynamicFilters);
-        if (contactsFilterBackdropEl) contactsFilterBackdropEl.classList.add('visible');
+    }
+    function openContactsFilterModal() {
+        syncContactsFilterRailControls();
+        setRailOpen('contacts', true);
         void refreshContactsFilterMasterFields();
     }
     function closeContactsFilterModal() {
-        if (contactsFilterBackdropEl) contactsFilterBackdropEl.classList.remove('visible');
+        setRailOpen('contacts', false);
     }
 
     function renderDealModalContactOptions(selectedId) {
@@ -2445,6 +2563,18 @@
         if (String(editingContactId || '') !== String(expectedContactId || '')) return;
         renderContactDynamicMasterFields(cfg, contact || {});
     }
+    function fmtContactBirthday(value) {
+        const raw = String(value || '').trim();
+        if (!raw) return 'â€”';
+        const d = new Date(raw.length > 10 ? raw : raw + 'T00:00:00');
+        if (isNaN(d.getTime())) return raw;
+        return d.toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric' });
+    }
+    function contactBirthdayInputValue(value) {
+        const raw = String(value || '').trim();
+        return raw ? raw.slice(0, 10) : '';
+    }
+
     function openContactModal(contactId) {
         const expectedContactId = contactId || null;
         editingContactId = expectedContactId;
@@ -2457,11 +2587,15 @@
             $('contact-name').value = c.full_name || '';
             $('contact-email').value = c.email || '';
             $('contact-phone').value = c.phone || '';
+            $('contact-birthday').value = contactBirthdayInputValue(c.birthday);
+            $('contact-address').value = c.address || '';
             $('contact-notes').value = c.notes || '';
         } else {
             $('contact-name').value = '';
             $('contact-email').value = '';
             $('contact-phone').value = '';
+            $('contact-birthday').value = '';
+            $('contact-address').value = '';
             $('contact-notes').value = '';
         }
         if (contactMasterFieldsEl) contactMasterFieldsEl.innerHTML = '';
@@ -2608,7 +2742,8 @@
             const data = await r.json().catch(() => ({}));
             if (!r.ok) throw new Error(data.error || ('Failed (' + r.status + ')'));
             closeAddInterestModal();
-            await refreshInterestsUI(true);
+            // Lives in the interests IIFE; shared on window.
+            if (typeof window.crmRefreshInterestsUI === 'function') await window.crmRefreshInterestsUI(true);
             toast('Interest added');
         } catch (e) {
             if (err) { err.textContent = e.message || 'Failed to add interest'; err.style.display = 'block'; }
@@ -2622,6 +2757,8 @@
         const email = String(($('contact-email') && $('contact-email').value) || '').trim();
         const phone = String(($('contact-phone') && $('contact-phone').value) || '').trim();
         const notes = String(($('contact-notes') && $('contact-notes').value) || '').trim();
+        const birthday = String(($('contact-birthday') && $('contact-birthday').value) || '').trim();
+        const address = String(($('contact-address') && $('contact-address').value) || '').trim();
         if (!name) {
             const msg = $('contact-msg');
             if (msg) { msg.textContent = 'Contact name is required'; msg.className = 'msg error'; msg.style.display = ''; }
@@ -2634,7 +2771,16 @@
             return;
         }
         try {
-            const body = { full_name: name, email: email, phone: phone, notes: notes, custom_fields: dynamicPatch.custom_fields };
+            // A cleared birthday must reach the API as null, not '': the column is a date.
+            const body = {
+                full_name: name,
+                email: email,
+                phone: phone,
+                birthday: birthday || null,
+                address: address,
+                notes: notes,
+                custom_fields: dynamicPatch.custom_fields
+            };
             let r;
             if (editingContactId) {
                 r = await api('/api/crm/contacts/' + encodeURIComponent(String(editingContactId)), {
@@ -2684,11 +2830,16 @@
     }
 
     if ($('btn-refresh-deals')) $('btn-refresh-deals').addEventListener('click', () => loadDeals(true));
-    if ($('btn-open-deals-filter-modal')) $('btn-open-deals-filter-modal').addEventListener('click', openDealsFilterModal);
-    if ($('deals-filter-modal-close')) $('deals-filter-modal-close').addEventListener('click', closeDealsFilterModal);
-    if ($('deals-filter-modal-backdrop')) $('deals-filter-modal-backdrop').addEventListener('click', (e) => {
-        if (e.target === $('deals-filter-modal-backdrop')) closeDealsFilterModal();
+    if ($('btn-open-deals-filter-modal')) $('btn-open-deals-filter-modal').addEventListener('click', () => {
+        if (isRailOpen('deals')) closeDealsFilterModal(); else openDealsFilterModal();
     });
+    if ($('deals-filter-modal-close')) $('deals-filter-modal-close').addEventListener('click', closeDealsFilterModal);
+    // On desktop the rail is a grid column, so there is no backdrop to click away on.
+    if (window.matchMedia('(max-width: 900px)').matches && $('deals-filter-modal-backdrop')) {
+        $('deals-filter-modal-backdrop').addEventListener('click', (e) => {
+            if (e.target === $('deals-filter-modal-backdrop')) closeDealsFilterModal();
+        });
+    }
     if ($('deals-filter-clear')) $('deals-filter-clear').addEventListener('click', () => {
         if ($('dfm-q')) $('dfm-q').value = '';
         if ($('dfm-stage')) $('dfm-stage').value = '';
@@ -2725,11 +2876,15 @@
         loadDeals(true);
     });
     if ($('contact-q')) $('contact-q').addEventListener('input', () => { loadContacts(undefined, true); });
-    if ($('btn-open-contacts-filter-modal')) $('btn-open-contacts-filter-modal').addEventListener('click', openContactsFilterModal);
-    if ($('contacts-filter-modal-close')) $('contacts-filter-modal-close').addEventListener('click', closeContactsFilterModal);
-    if ($('contacts-filter-modal-backdrop')) $('contacts-filter-modal-backdrop').addEventListener('click', (e) => {
-        if (e.target === $('contacts-filter-modal-backdrop')) closeContactsFilterModal();
+    if ($('btn-open-contacts-filter-modal')) $('btn-open-contacts-filter-modal').addEventListener('click', () => {
+        if (isRailOpen('contacts')) closeContactsFilterModal(); else openContactsFilterModal();
     });
+    if ($('contacts-filter-modal-close')) $('contacts-filter-modal-close').addEventListener('click', closeContactsFilterModal);
+    if (window.matchMedia('(max-width: 900px)').matches && $('contacts-filter-modal-backdrop')) {
+        $('contacts-filter-modal-backdrop').addEventListener('click', (e) => {
+            if (e.target === $('contacts-filter-modal-backdrop')) closeContactsFilterModal();
+        });
+    }
     if ($('contacts-filter-clear')) $('contacts-filter-clear').addEventListener('click', () => {
         if ($('cfm-q')) $('cfm-q').value = '';
         if ($('cfm-client')) $('cfm-client').value = '';
@@ -3084,11 +3239,18 @@
             item.plots = Array.from(g.__plot_map.values());
             delete item.__plot_map;
             return item;
-        }).sort((a, b) => {
-            const td = toTimeMs(b.created_at || b.updated_at) - toTimeMs(a.created_at || a.updated_at);
-            if (td !== 0) return td;
-            return (a.__first_index || 0) - (b.__first_index || 0);
         });
+        if (CrmSort.state('interests')) {
+            // A column sort is active: the server already ordered the page, so
+            // only keep the grouped rows in the order they arrived.
+            out.sort((a, b) => (a.__first_index || 0) - (b.__first_index || 0));
+        } else {
+            out.sort((a, b) => {
+                const td = toTimeMs(b.created_at || b.updated_at) - toTimeMs(a.created_at || a.updated_at);
+                if (td !== 0) return td;
+                return (a.__first_index || 0) - (b.__first_index || 0);
+            });
+        }
         interestGroupMap = new Map(out.map(x => [String(x.__group_id), x]));
         return out;
     }
@@ -3105,12 +3267,15 @@
         setTimeout(() => { t.style.opacity = '0'; t.style.transform = 'translateY(-8px)'; setTimeout(() => t.remove(), 300); }, 3000);
     }
     window.showToast = showToast;
+    // `toast` is the short alias used throughout this block; the deals/contacts
+    // IIFE has its own copy, which is not visible here.
+    function toast(message, type) { showToast(message, type); }
 
     async function api(path, opts, config) {
         if (typeof window.crmFetch === 'function') {
             return window.crmFetch(path, opts, config);
         }
-        const headers = await ensureAuthenticated();
+        const headers = await window.ensureAuthenticated();
         const o = Object.assign({ headers: Object.assign({ 'Content-Type': 'application/json' }, headers) }, opts || {});
         return fetch(path, o);
     }
@@ -3119,6 +3284,7 @@
         interestsTableLoaded = false;
         interestsLoaded = false;
         interestsBulkLoaded = false;
+        interestsBulkComplete = false;
         panoramaProjectsLoaded = false;
         delete tabDataLoaded.interests;
     }
@@ -3134,6 +3300,9 @@
     let interestsLoaded = false;
     let interestsTableLoaded = false;
     let interestsBulkLoaded = false;
+    // True once `interests` holds every lead row, which is what makes grouped
+    // counts, ordering and pagination consistent in table view.
+    let interestsBulkComplete = false;
     let panoramaProjectsLoaded = false;
 
     let interestsTableLoadPromise = null;
@@ -3431,6 +3600,27 @@
         } catch (e) {}
     }
 
+    let allottedClientRows = [];
+    function renderAllottedClients() {
+        const tbody = $('allotted-clients-tbody');
+        const empty = $('allotted-clients-empty');
+        if (!tbody) return;
+        CrmSort.bindClient('allotted-clients', {
+            tbodyId: 'allotted-clients-tbody',
+            render: renderAllottedClients
+        });
+        const rows = CrmSort.sortRows(allottedClientRows, 'allotted-clients');
+        tbody.innerHTML = rows.map(row =>
+            '<tr>' +
+            '<td style="font-weight:700">' + esc(row.client_name || row.client_id || '-') + '</td>' +
+            '<td class="mono">' + esc(row.project_count || 0) + '</td>' +
+            '<td class="mono">' + esc(row.lead_count || 0) + '</td>' +
+            '<td class="mono">' + esc(row.contact_count || 0) + '</td>' +
+            '</tr>'
+        ).join('');
+        if (empty) empty.style.display = rows.length ? 'none' : '';
+    }
+
     async function loadAllottedClients(force) {
         if (allottedClientsLoaded && !force) return;
         const tbody = $('allotted-clients-tbody');
@@ -3440,17 +3630,9 @@
             const r = await api('/api/crm/allotted-clients');
             const data = await r.json().catch(() => []);
             if (!r.ok) throw new Error((data && data.error) || ('Failed (' + r.status + ')'));
-            const rows = Array.isArray(data) ? data : [];
+            allottedClientRows = Array.isArray(data) ? data : [];
             allottedClientsLoaded = true;
-            tbody.innerHTML = rows.map(row =>
-                '<tr>' +
-                '<td style="font-weight:700">' + esc(row.client_name || row.client_id || '-') + '</td>' +
-                '<td class="mono">' + esc(row.project_count || 0) + '</td>' +
-                '<td class="mono">' + esc(row.lead_count || 0) + '</td>' +
-                '<td class="mono">' + esc(row.contact_count || 0) + '</td>' +
-                '</tr>'
-            ).join('');
-            if (empty) empty.style.display = rows.length ? 'none' : '';
+            renderAllottedClients();
         } catch(e) {
             tbody.innerHTML = '';
             if (empty) {
@@ -3519,8 +3701,34 @@
     }
 
     // -- Category / project selects --
+    // Filter dropdowns are populated only from the interests the user actually has
+    // (same /api/buy-interests payload that feeds the list), scoped by sibling selections.
+    function interestScopeMatches(i, opts) {
+        opts = opts || {};
+        const client = opts.skipClient ? '' : (clientEl ? String(clientEl.value || '').trim() : '');
+        const status = opts.skipStatus ? '' : String(statusEl.value || '').trim().toLowerCase();
+        const category = opts.skipCategory ? '' : String(categoryEl.value || '').trim().toLowerCase();
+        const workspace = opts.skipWorkspace ? '' : String(workspaceEl.value || '').trim();
+        const sector = opts.skipSector ? '' : String(projectEl.value || '').trim();
+        if (client && String(i.client_id || '') !== client) return false;
+        if (status) {
+            const contacted = !!(i.is_contacted || String(i.status || '').toLowerCase() === 'contacted');
+            if ((contacted ? 'contacted' : 'new') !== status) return false;
+        }
+        if (category && String(i.category || '').toLowerCase() !== category) return false;
+        if (workspace) {
+            const pj = projectById.get(String(i.panorama_id || ''));
+            if (!pj || String(pj.workspace_id || '') !== workspace) return false;
+        }
+        if (sector && String(i.panorama_id || '') !== sector) return false;
+        return true;
+    }
+    function scopedInterests(opts) {
+        return (Array.isArray(interests) ? interests : []).filter(i => interestScopeMatches(i, opts));
+    }
     function renderCategoryOptions() {
-        const vals = new Set(); interests.forEach(i => { if(i.category) vals.add(String(i.category)); });
+        const vals = new Set();
+        scopedInterests({ skipCategory: true }).forEach(i => { if(i.category) vals.add(String(i.category)); });
         const cur = categoryEl.value;
         const opts = [''].concat(Array.from(vals).sort());
         categoryEl.innerHTML = opts.map(v => '<option value="'+esc(v)+'">'+(v?esc(v):'All Categories')+'</option>').join('');
@@ -3538,6 +3746,7 @@
                 plotClientEl.value = '';
                 plotClientEl.style.display = 'none';
             }
+            if ($('plot-client-filter-wrap')) $('plot-client-filter-wrap').style.display = 'none';
             if (group) group.style.display = 'none';
             return;
         }
@@ -3555,6 +3764,7 @@
             plotClientEl.value = options.some(client => String(client.id || '') === plotCur) ? plotCur : '';
             plotClientEl.style.display = '';
         }
+        if ($('plot-client-filter-wrap')) $('plot-client-filter-wrap').style.display = '';
         if (group) group.style.display = '';
     }
     function projectMatchesSelectedClient(project) {
@@ -3565,53 +3775,72 @@
         const pid = String((project && project.id) || '');
         return interests.some(i => String(i.client_id || '') === clientId && String(i.panorama_id || '') === pid);
     }
-    function renderProjectOptions() {
-        const cur = workspaceEl.value;
+    function renderWorkspaceOptions() {
+        const cur = String(workspaceEl.value || '');
         const wsMap = new Map();
-        projects.forEach(p => {
-            if (!projectMatchesSelectedClient(p)) return;
-            const wsid = p.workspace_id;
-            const wsname = p.workspace_name;
-            if (wsid && wsname && !wsMap.has(wsid)) wsMap.set(wsid, wsname);
+        if (!projectById || !projectById.size) return;
+        scopedInterests({ skipWorkspace: true, skipSector: true }).forEach(i => {
+            const pj = projectById.get(String(i.panorama_id || ''));
+            if (!pj) return;
+            const wsid = String(pj.workspace_id || '');
+            if (!wsid || wsMap.has(wsid)) return;
+            wsMap.set(wsid, pj.workspace_name || ('Project #' + wsid));
         });
-        const sorted = Array.from(wsMap.entries()).sort((a,b) => a[1].localeCompare(b[1]));
+        const sorted = Array.from(wsMap.entries()).sort((a,b) => String(a[1]).localeCompare(String(b[1])));
         workspaceEl.innerHTML = '<option value="">All Projects</option>' +
             sorted.map(([id,name]) => '<option value="'+esc(id)+'">'+esc(name)+'</option>').join('');
-        if (sorted.some(([id]) => id === cur)) workspaceEl.value = cur; else workspaceEl.value = '';
+        workspaceEl.value = sorted.some(([id]) => id === cur) ? cur : '';
     }
     function renderProjectOptions() {
-        const cur = projectEl.value;
-        const wsFilter = String(workspaceEl.value||'').trim();
-        const filteredworkspaces = wsFilter
-            ? projects.filter(p => String(p.workspace_id||'') === wsFilter)
-            : projects;
-        const scopedworkspaces = filteredworkspaces.filter(projectMatchesSelectedClient);
-        const opts = [''].concat(scopedworkspaces.map(p => String(p.id)));
-        projectEl.innerHTML = opts.map(id => {
-            if(!id) return '<option value="">All Panoramas</option>';
-            const name = (projectById.get(String(id))||{}).name||('Panorama #'+id);
-            return '<option value="'+esc(id)+'">'+esc(name)+'</option>';
-        }).join('');
-        projectEl.value = opts.includes(cur)?cur:'';
+        const cur = String(projectEl.value || '');
+        const sectorMap = new Map();
+        scopedInterests({ skipSector: true }).forEach(i => {
+            const id = String(i.panorama_id || '');
+            if (!id || sectorMap.has(id)) return;
+            const pj = projectById.get(id);
+            sectorMap.set(id, (pj && pj.name) || ('Sector #' + id));
+        });
+        const sorted = Array.from(sectorMap.entries()).sort((a,b) => String(a[1]).localeCompare(String(b[1])));
+        projectEl.innerHTML = '<option value="">All Sectors</option>' +
+            sorted.map(([id,name]) => '<option value="'+esc(id)+'">'+esc(name)+'</option>').join('');
+        projectEl.value = sorted.some(([id]) => id === cur) ? cur : '';
+    }
+    // Plots stored on an interest keep plot_id + name, but name can be blank, so
+    // options are keyed by the same identity used everywhere else (id, then name).
+    function interestPlotList(i) {
+        return Array.isArray(i && i.plots) ? i.plots.filter(Boolean) : [];
+    }
+    function interestHasPlotKey(i, key) {
+        if (!key) return true;
+        return interestPlotList(i).some((p, idx) => plotIdentityKey(p, idx) === key);
     }
     function renderPlotOptions() {
-        const cur = plotEl.value;
+        const cur = String(plotEl.value || '');
         const plotMap = new Map();
-        // Use filtered interests to show only relevant plots
-        const src = filtered.length || qEl.value || statusEl.value || categoryEl.value || workspaceEl.value || projectEl.value ? filtered : interests;
-        (src.length ? src : interests).forEach(i => {
-            if (!Array.isArray(i.plots)) return;
-            i.plots.forEach(p => {
-                if (p && p.name && !plotMap.has(p.name)) {
-                    plotMap.set(p.name, { name: p.name, id: p.id || p.name });
-                }
+        // Only plots present in the user's own interests (scoped by the other selections)
+        scopedInterests().forEach(i => {
+            interestPlotList(i).forEach((p, idx) => {
+                const key = plotIdentityKey(p, idx);
+                if (!key || key.indexOf('idx:') === 0 || plotMap.has(key)) return;
+                const pid = String((p.id != null ? p.id : p.plot_id) || '').trim();
+                const label = String(p.name || '').trim() || (pid ? ('Plot #' + pid) : 'Plot');
+                plotMap.set(key, label);
             });
         });
-        const sorted = Array.from(plotMap.values()).sort((a,b) => (a.name||'').localeCompare(b.name||''));
-        plotEl.innerHTML = '<option value="">All Plots</option>' + sorted.map(p =>
-            '<option value="'+esc(p.name)+'">'+esc(p.name)+'</option>'
+        const sorted = Array.from(plotMap.entries())
+            .sort((a,b) => String(a[1]).localeCompare(String(b[1]), undefined, { numeric: true }));
+        plotEl.innerHTML = '<option value="">All Plots</option>' + sorted.map(([key,label]) =>
+            '<option value="'+esc(key)+'">'+esc(label)+'</option>'
         ).join('');
-        if (sorted.some(p => p.name === cur)) plotEl.value = cur; else plotEl.value = '';
+        plotEl.value = sorted.some(([key]) => key === cur) ? cur : '';
+    }
+    // Repopulate every interests filter dropdown from the loaded interests.
+    function renderInterestFilterOptions() {
+        if (!Array.isArray(interests) || !interests.length) return;
+        renderCategoryOptions();
+        renderWorkspaceOptions();
+        renderProjectOptions();
+        renderPlotOptions();
     }
 
     async function loadClientOptions() {
@@ -3621,8 +3850,7 @@
         if (!isExternalBrokerUser) {
             clientOptions = [];
             renderClientOptions();
-            renderProjectOptions();
-            renderProjectOptions();
+            renderInterestFilterOptions();
             return;
         }
         try {
@@ -3638,8 +3866,7 @@
             clientOptions = [];
         }
         renderClientOptions();
-        renderProjectOptions();
-        renderProjectOptions();
+        renderInterestFilterOptions();
     }
 
     const masterFieldLabels = {
@@ -3960,14 +4187,74 @@
         if (category) params.category = category;
         if (workspace) params.workspace_id = workspace;
         if (project) params.panorama_id = project;
+        Object.assign(params, CrmSort.params('interests'));
         return params;
     }
 
     function interestFiltersActive() {
-        return Object.keys(interestFilterParams()).length > 0;
+        // sort/dir are ordering, not filtering — counting them here would defeat
+        // the "returned empty unexpectedly" guard whenever a column is sorted.
+        return Object.keys(interestFilterParams()).some(k => k !== 'sort' && k !== 'dir');
+    }
+
+    // A lead holding plots 31/32/33 gets one table row per plot, each showing its
+    // own plot number, instead of a single row showing the count ("3 plots", which
+    // reads as plot number 3). The group id is kept so the plots modal and drawer
+    // still open the whole lead.
+    function expandInterestRowsByPlot(rows) {
+        const out = [];
+        (Array.isArray(rows) ? rows : []).forEach(row => {
+            const plots = interestPlotList(row);
+            if (plots.length < 2) { out.push(row); return; }
+            plots.forEach((p, idx) => {
+                out.push(Object.assign({}, row, {
+                    plots: [p],
+                    __plot_row_index: idx,
+                    __plot_row_total: plots.length,
+                    __plot_row_key: String(row.__group_id || '') + '|' + plotIdentityKey(p, idx)
+                }));
+            });
+        });
+        return out;
+    }
+
+    // Rows are grouped per customer for display, so paging/sorting/counting all
+    // happen after grouping over the complete in-memory set. Doing it per server
+    // page made the total (raw rows) disagree with what was rendered (grouped
+    // rows), and made a column sort reshuffle which rows collapsed together.
+    async function loadInterestsTableLocal(resetPage) {
+        if (resetPage) interestsPager.page = 1;
+        await ensureInterestsBulkLoaded(false);
+        applyFilters();
+        // buildInterestGroups leaves arrival order alone while a column sort is
+        // active (it used to trust the server's ordering), so sort here.
+        const selectedPlotKey = String(plotEl.value || '').trim();
+        let expanded = expandInterestRowsByPlot(filtered);
+        // With a plot selected, only that plot's row should survive the expansion.
+        if (selectedPlotKey) expanded = expanded.filter(row => interestHasPlotKey(row, selectedPlotKey));
+        const rows = CrmSort.sortRows(expanded, 'interests');
+        const limit = Math.max(1, parseInt(interestsPager.size || CrmPager.DEFAULT_SIZE, 10));
+        const pages = Math.max(1, Math.ceil(rows.length / limit));
+        const page = Math.min(Math.max(1, parseInt(interestsPager.page || 1, 10)), pages);
+        interestsPager.page = page;
+        interestsPager.size = limit;
+        interestsTableMeta = { items: rows, total: rows.length, page: page, limit: limit, pages: pages };
+        filtered = rows.slice((page - 1) * limit, page * limit);
+        renderTable();
+        CrmPager.renderPagination('interests-pagination', interestsTableMeta, interestsPager, function () { loadInterestsTable(false); }, esc);
     }
 
     async function loadInterestsTable(resetPage) {
+        // Local path whenever the full set is (or can be) held in memory; the
+        // server path stays as the fallback for datasets above the ceiling.
+        if (interestsBulkComplete || !interestsBulkLoaded || String(plotEl.value || '').trim()) {
+            try {
+                await ensureInterestsBulkLoaded(false);
+                if (interestsBulkComplete) return loadInterestsTableLocal(resetPage);
+            } catch (e) {
+                console.warn('CRM bulk interests load failed; falling back to server pagination:', e);
+            }
+        }
         if (resetPage) interestsPager.page = 1;
         const prevFiltered = Array.isArray(filtered) ? filtered.slice() : [];
         const prevMeta = Object.assign({}, interestsTableMeta);
@@ -3998,19 +4285,38 @@
         interestsTableMeta = page;
         interestsPager.page = page.page;
         interestsPager.size = page.limit;
-        filtered = buildInterestGroups(page.items.map(normalizeInterestRow));
+        filtered = expandInterestRowsByPlot(buildInterestGroups(page.items.map(normalizeInterestRow)));
         renderTable();
         CrmPager.renderPagination('interests-pagination', page, interestsPager, function () { loadInterestsTable(false); }, esc);
     }
 
+    // Leads are grouped per customer for display, so counts and ordering are only
+    // consistent when the whole set is in memory: page through the API until we
+    // have every row (or hit the ceiling, in which case we stay on the server path).
+    const CRM_BULK_PAGE_SIZE = 500;
+    const CRM_BULK_MAX_ROWS = 5000;
+
     async function loadInterestsBulk() {
-        const r = await api('/api/buy-interests?page=1&limit=500');
-        const data = await r.json().catch(() => ({}));
-        if (!r.ok) throw new Error((data && data.error) ? data.error : ('Failed (' + r.status + ')'));
-        const page = CrmPager.parsePageResponse(data);
-        interests = page.items.map(normalizeInterestRow);
-        renderCategoryOptions();
-        renderPlotOptions();
+        const rows = [];
+        let page = 1;
+        let total = 0;
+        while (true) {
+            const r = await api('/api/buy-interests?page=' + page + '&limit=' + CRM_BULK_PAGE_SIZE);
+            const data = await r.json().catch(() => ({}));
+            if (!r.ok) throw new Error((data && data.error) ? data.error : ('Failed (' + r.status + ')'));
+            const parsed = CrmPager.parsePageResponse(data);
+            total = parsed.total;
+            rows.push.apply(rows, parsed.items);
+            if (!parsed.items.length || rows.length >= total || rows.length >= CRM_BULK_MAX_ROWS) break;
+            page += 1;
+        }
+        interests = rows.map(normalizeInterestRow);
+        interestsBulkComplete = rows.length >= total;
+        if (!interestsBulkComplete) {
+            console.warn('CRM interests exceed the ' + CRM_BULK_MAX_ROWS + '-row in-memory ceiling (' + total +
+                ' rows); table stays on server pagination with ungrouped counts.');
+        }
+        renderInterestFilterOptions();
     }
 
     // -- Filters --
@@ -4021,7 +4327,7 @@
         const category = String(categoryEl.value||'').trim().toLowerCase();
         const workspace = String(workspaceEl.value||'').trim();
         const project = String(projectEl.value||'').trim();
-        const plotName = String(plotEl.value||'').trim();
+        const plotKey = String(plotEl.value||'').trim();
         // Build set of panorama IDs belonging to selected workspace
         let wsPanoIds = null;
         if (workspace) {
@@ -4038,10 +4344,7 @@
             if(category && String(i.category||'').toLowerCase()!==category) return false;
             if(wsPanoIds && !wsPanoIds.has(String(i.panorama_id||''))) return false;
             if(project && String(i.panorama_id||'')!==project) return false;
-            if(plotName) {
-                const plots = Array.isArray(i.plots) ? i.plots : [];
-                if(!plots.some(p => p && String(p.name||'') === plotName)) return false;
-            }
+            if(plotKey && !interestHasPlotKey(i, plotKey)) return false;
             if(q) {
                 const pj = projectById.get(String(i.panorama_id));
                 const refText = referenceDisplayName(i.reference_user_id || '', i.reference_user_name);
@@ -4149,6 +4452,13 @@
 
     // -- Table View --
     function renderTable() {
+        if (isExternalBrokerUser) {
+            if (CrmSort.setEnabled('interests', 'tbody', 'customer_email', false)) loadInterestsTable(true);
+        }
+        CrmSort.attach('interests', {
+            tbodyId: 'tbody',
+            onSort: function () { interestsPager.page = 1; loadInterestsTable(true); }
+        });
         const elMeta = $('results-meta');
         const elTbody = $('tbody');
         const elEmpty = $('table-empty');
@@ -4158,25 +4468,47 @@
         elTbody.innerHTML = filtered.map(i => {
             const pn = panoramaWorkspaceName(i.panorama_id);
             const pnLabel = pn !== '—' ? pn : (i.panorama_id ? ('Project #' + i.panorama_id) : '—');
-            const plots = Array.isArray(i.plots)?i.plots:[];
-            const pl = plots.length?(plots.length===1?(plots[0].name||'1 plot'):(plots.length+' plots')):'-';
+            // Rows are expanded one-per-plot, so show the plot's own number here.
+            const plots = interestPlotList(i);
+            const firstPlot = plots[0] || null;
+            const firstPlotId = firstPlot ? String((firstPlot.id != null ? firstPlot.id : firstPlot.plot_id) || '').trim() : '';
+            const pl = !plots.length
+                ? '-'
+                : (plots.length === 1
+                    ? (String(firstPlot.name || '').trim() || (firstPlotId ? ('Plot #' + firstPlotId) : '1 plot'))
+                    : (plots.length + ' plots'));
+            const plSuffix = i.__plot_row_total > 1
+                ? '<span class="subtle"> ('+esc((i.__plot_row_index||0)+1)+' of '+esc(i.__plot_row_total)+')</span>'
+                : '';
             const plCell = plots.length
-                ? '<span class="interest-plots-trigger interest-plots-trigger--table" data-group-id="'+esc(i.__group_id)+'">'+esc(pl)+'</span>'
+                ? '<span class="interest-plots-trigger interest-plots-trigger--table" data-group-id="'+esc(i.__group_id)+'">'+esc(pl)+'</span>'+plSuffix
                 : esc(pl);
             const refName = interestReferenceLabel(i);
-            return '<tr data-id="'+esc(i.id)+'"><td class="mono"><div class="interest-primary">'+esc(fmtDate(i.created_at))+'</div><div class="subtle">'+esc(fmtTime(i.created_at))+'</div></td><td><div class="interest-primary">'+esc(i.customer_name||'-')+'</div>'+(i.__grouped?'<div class="subtle">'+esc(i.interest_count)+' interests grouped</div>':'')+'</td><td><div class="interest-secondary">'+esc(formatInterestContactValue(i.customer_email, i))+'</div><div class="subtle mono">'+esc(i.contact_hidden ? '' : (i.customer_phone || ''))+'</div></td><td>'+esc(i.category||'-')+'</td><td><div class="interest-primary">'+esc(pnLabel)+'</div></td><td class="mono">'+plCell+'</td><td>'+esc(refName)+'</td></tr>';
+            return '<tr data-id="'+esc(i.id)+'"><td class="mono"><div class="interest-primary">'+esc(fmtDate(i.created_at))+'</div><div class="subtle">'+esc(fmtTime(i.created_at))+'</div></td><td><div class="interest-primary">'+esc(i.customer_name||'-')+'</div>'+(i.__grouped?'<div class="subtle">'+esc(i.interest_count)+' interests grouped</div>':'')+'</td><td><div class="interest-secondary">'+esc(formatInterestContactValue(i.customer_email, i))+'</div><div class="subtle mono">'+esc(i.contact_hidden ? '' : (i.customer_phone || ''))+'</div></td><td>'+esc(i.category||'-')+'</td><td><div class="interest-primary">'+esc(pnLabel)+'</div></td><td class="mono">'+plCell+'</td><td>'+esc(refName)+'</td><td><button class="btn plot-row-action-btn" type="button" data-edit-interest="'+esc(i.id)+'" title="Edit interest" aria-label="Edit interest">'+ICON_EDIT+'<span>Edit</span></button></td></tr>';
         }).join('');
         bindInterestPlotHover(elTbody);
         elTbody.querySelectorAll('tr[data-id]').forEach(tr => {
             tr.addEventListener('click', e => {
                 if (e.target.closest('.interest-plots-trigger')) return;
+                if (e.target.closest('[data-edit-interest]')) return;
                 const item = interests.find(x => String(x.id)===tr.getAttribute('data-id'))
                     || filtered.find(x => String(x.id)===tr.getAttribute('data-id'));
                 if(item) openDrawer(item);
             });
         });
+        elTbody.querySelectorAll('[data-edit-interest]').forEach(btn => {
+            btn.addEventListener('click', e => {
+                e.stopPropagation();
+                const id = btn.getAttribute('data-edit-interest');
+                const item = interests.find(x => String(x.id)===id)
+                    || filtered.find(x => String(x.id)===id);
+                if (item) openDrawer(item);
+            });
+        });
     }
 
+    // Shared with the other IIFEs, which cannot see this function directly.
+    window.crmRefreshInterestsUI = function (resetPage) { return refreshInterestsUI(resetPage); };
     function refreshInterestsUI(resetPage) {
         try {
             if (currentView === 'table') {
@@ -4299,6 +4631,25 @@
         return 'available';
     }
 
+    let interestPlotsModalRows = [];
+    function renderInterestPlotsModalRows() {
+        if (!interestPlotsModalTbody) return;
+        CrmSort.bindClient('interest-plots-modal', {
+            tbodyId: 'interest-plots-modal-tbody',
+            render: renderInterestPlotsModalRows
+        });
+        const rows = CrmSort.sortRows(interestPlotsModalRows, 'interest-plots-modal');
+        interestPlotsModalTbody.innerHTML = rows.length ? rows.map(function (p) {
+            const pillClass = plotStatusPillClass(p && p.status);
+            return '<tr>' +
+                '<td><span class="interest-plots-modal-plot-name">' + esc((p && p.name) || 'Plot') + '</span></td>' +
+                '<td>' + esc((p && p.area) || '—') + '</td>' +
+                '<td class="interest-plots-modal-price">' + esc((p && p.price) || '—') + '</td>' +
+                '<td><span class="interest-plots-status-pill interest-plots-status-pill--' + esc(pillClass) + '">' + esc(plotStatusDisplayLabel(p && p.status)) + '</span></td>' +
+            '</tr>';
+        }).join('') : '<tr><td colspan="4" class="interest-plots-modal-empty">No plots attached to this interest.</td></tr>';
+    }
+
     function openInterestPlotsModal(groupId) {
         if (!interestPlotsModal || !interestPlotsModalTbody) return;
         const item = interestGroupMap.get(String(groupId || ''));
@@ -4320,15 +4671,9 @@
                 ? '<span class="interest-plots-modal-count">' + plotCount + '</span><span class="interest-plots-modal-count-label">plot' + (plotCount === 1 ? '' : 's') + ' linked to this interest</span>'
                 : '<span class="interest-plots-modal-count-label">No plots linked yet</span>';
         }
-        interestPlotsModalTbody.innerHTML = plots.length ? plots.map(function (p) {
-            const pillClass = plotStatusPillClass(p && p.status);
-            return '<tr>' +
-                '<td><span class="interest-plots-modal-plot-name">' + esc((p && p.name) || 'Plot') + '</span></td>' +
-                '<td>' + esc((p && p.area) || '—') + '</td>' +
-                '<td class="interest-plots-modal-price">' + esc((p && p.price) || '—') + '</td>' +
-                '<td><span class="interest-plots-status-pill interest-plots-status-pill--' + esc(pillClass) + '">' + esc(plotStatusDisplayLabel(p && p.status)) + '</span></td>' +
-            '</tr>';
-        }).join('') : '<tr><td colspan="4" class="interest-plots-modal-empty">No plots attached to this interest.</td></tr>';
+        interestPlotsModalRows = plots;
+        renderInterestPlotsModalRows();
+
         interestPlotsModal.classList.add('visible');
         interestPlotsModal.setAttribute('aria-hidden', 'false');
         document.body.classList.add('interest-plots-modal-open');
@@ -4447,6 +4792,7 @@
     }
 
     function populateDealStageSelect(currentStage) {
+        const dealEditStageEl = $('deal-edit-stage');
         if (!dealEditStageEl) return;
         const field = masterField('deal_stage');
         if (!field || field.is_enabled === false || !masterAppliesList(field).includes('deals')) return;
@@ -4897,9 +5243,7 @@
             loadClientOptions(),
             ensureInterestsBulkLoaded(false)
         ]).then(function () {
-            renderCategoryOptions();
-            renderProjectOptions();
-            renderPlotOptions();
+            renderInterestFilterOptions();
         }).catch(function (e) {
             console.warn('CRM filter options preload failed:', e);
         });
@@ -4918,6 +5262,73 @@
             window.applyPortalSidebarCollapse(false);
         }
         filterSidebarWasExpanded = false;
+    }
+
+
+    // ── Shared filter-rail controller ────────────────────────────────────
+    // Deals, Contacts and Plots use the same left rail as Interests: same
+    // markup, same open/close semantics, open by default on desktop.
+    // Registry for the shared filter rails (Interests/Deals/Contacts/Plots). It
+    // lives in this IIFE because every rail function below is defined here.
+    const crmFilterRails = {};
+    function registerFilterRail(key, config) {
+        const layout = $(config.layoutId);
+        const rail = $(config.railId);
+        if (!layout || !rail) return null;
+        const entry = {
+            layout: layout,
+            rail: rail,
+            toggleBtnId: config.toggleBtnId,
+            onOpen: config.onOpen || null
+        };
+        crmFilterRails[key] = entry;
+        if (config.bindClose !== false) {
+            const closeBtn = $(config.closeBtnId);
+            if (closeBtn) closeBtn.addEventListener('click', function () { setRailOpen(key, false); });
+        }
+        if (config.bindToggle !== false) {
+            const toggleBtn = $(config.toggleBtnId);
+            if (toggleBtn) {
+                toggleBtn.addEventListener('click', function () {
+                    setRailOpen(key, !layout.classList.contains('filters-open'));
+                });
+            }
+        }
+        // Only the mobile overlay has a real backdrop to click away on.
+        if (window.matchMedia('(max-width: 900px)').matches) {
+            rail.addEventListener('click', function (e) {
+                if (e.target === rail) setRailOpen(key, false);
+            });
+        }
+        return entry;
+    }
+    function setRailOpen(key, open) {
+        const entry = crmFilterRails[key];
+        if (!entry) return;
+        entry.rail.classList.toggle('visible', open);
+        entry.layout.classList.toggle('filters-open', open);
+        entry.rail.setAttribute('aria-hidden', open ? 'false' : 'true');
+        const btn = $(entry.toggleBtnId);
+        if (btn) {
+            btn.classList.toggle('filter-btn--panel-open', open);
+            btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+        }
+        if (open && typeof entry.onOpen === 'function') entry.onOpen();
+    }
+    function isRailOpen(key) {
+        const entry = crmFilterRails[key];
+        return !!(entry && entry.layout.classList.contains('filters-open'));
+    }
+    // The deals/contacts code lives in a separate IIFE and cannot see these
+    // helpers directly, so the rail API is shared on window.
+    window.crmFilterRail = {
+        setOpen: function (key, open) { setRailOpen(key, open); },
+        isOpen: function (key) { return isRailOpen(key); }
+    };
+    function initFilterRailDefault(key) {
+        if (!crmFilterRails[key]) return;
+        // Match Interests: open on desktop, collapsed on narrow screens.
+        setRailOpen(key, window.matchMedia('(min-width: 901px)').matches);
     }
 
     function setFilterPanelOpen(open) {
@@ -4945,12 +5356,43 @@
         setFilterPanelOpen(!isOpen);
     }
 
+    function initEntityFilterRails() {
+        if (crmFilterRails.__inited) return;
+        crmFilterRails.__inited = true;
+        registerFilterRail('deals', {
+            layoutId: 'deals-list-layout',
+            railId: 'deals-filter-modal-backdrop',
+            closeBtnId: 'deals-filter-modal-close',
+            toggleBtnId: 'btn-open-deals-filter-modal',
+            bindToggle: false,
+            bindClose: false
+        });
+        registerFilterRail('contacts', {
+            layoutId: 'contacts-list-layout',
+            railId: 'contacts-filter-modal-backdrop',
+            closeBtnId: 'contacts-filter-modal-close',
+            toggleBtnId: 'btn-open-contacts-filter-modal',
+            bindToggle: false,
+            bindClose: false
+        });
+        registerFilterRail('plots', {
+            layoutId: 'plots-list-layout',
+            railId: 'plots-filter-modal-backdrop',
+            closeBtnId: 'plots-filter-modal-close',
+            toggleBtnId: 'btn-open-plots-filter-modal'
+        });
+        initFilterRailDefault('deals');
+        initFilterRailDefault('contacts');
+        initFilterRailDefault('plots');
+    }
+
     function initInterestsFilterPanelDefault() {
+        initEntityFilterRails();
         if (!window.matchMedia('(min-width: 901px)').matches) return;
         setFilterPanelOpen(true);
     }
 
-    document.querySelectorAll('#sec-interests [data-filter-accordion]').forEach(function (section) {
+    document.querySelectorAll('[data-filter-accordion]').forEach(function (section) {
         const trigger = section.querySelector('.crm-filter-accordion__trigger');
         if (!trigger) return;
         trigger.addEventListener('click', function () {
@@ -4998,39 +5440,28 @@
             workspaceEl.value = '';
             projectEl.value = '';
             plotEl.value = '';
-            renderProjectOptions();
+            renderInterestFilterOptions();
             updateFilterBadge();
             refreshInterestsUI(true);
         });
     });
 
-    // Cascade workspace â†’ panorama
-    workspaceEl.addEventListener('change', () => {
-        renderProjectOptions();
-        projectEl.value = '';
-        updateFilterBadge();
-        refreshInterestsUI(true);
-    });
-
-    // Apply filters button
+    // Apply filters button — selections only take effect here
     $('btn-apply-filters').addEventListener('click', () => { updateFilterBadge(); refreshInterestsUI(true); });
 
     // Clear all
-    $('btn-clear').addEventListener('click', () => { qEl.value=''; statusEl.value=''; if(clientEl) clientEl.value=''; categoryEl.value=''; workspaceEl.value=''; projectEl.value=''; plotEl.value=''; renderProjectOptions(); updateFilterBadge(); refreshInterestsUI(true); });
+    $('btn-clear').addEventListener('click', () => { qEl.value=''; statusEl.value=''; if(clientEl) clientEl.value=''; categoryEl.value=''; workspaceEl.value=''; projectEl.value=''; plotEl.value=''; renderInterestFilterOptions(); updateFilterBadge(); refreshInterestsUI(true); });
 
-    // Filters are live in the left rail.
-    qEl.addEventListener('input', () => { updateFilterBadge(); refreshInterestsUI(true); });
-    statusEl.addEventListener('change', () => { updateFilterBadge(); refreshInterestsUI(true); });
-    if (clientEl) clientEl.addEventListener('change', () => {
-        renderProjectOptions();
-        renderProjectOptions();
-        renderPlotOptions();
-        updateFilterBadge();
-        refreshInterestsUI(true);
+    // Selecting a value only refreshes the dependent dropdowns + badge; the list
+    // is not re-queried until Apply is pressed.
+    qEl.addEventListener('input', updateFilterBadge);
+    qEl.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') { e.preventDefault(); updateFilterBadge(); refreshInterestsUI(true); }
     });
-    categoryEl.addEventListener('change', () => { updateFilterBadge(); refreshInterestsUI(true); });
-    projectEl.addEventListener('change', () => { renderPlotOptions(); updateFilterBadge(); refreshInterestsUI(true); });
-    plotEl.addEventListener('change', () => { updateFilterBadge(); refreshInterestsUI(true); });
+    [statusEl, clientEl, categoryEl, workspaceEl, projectEl, plotEl].forEach(el => {
+        if (!el) return;
+        el.addEventListener('change', () => { renderInterestFilterOptions(); updateFilterBadge(); });
+    });
 
     // -- Reports --
     function buildReportContent() {
@@ -5307,7 +5738,7 @@
         const all = await r.json();
         projects = Array.isArray(all)?all:[];
         projectById = new Map(projects.map(p=>[String(p.id),p]));
-        renderProjectOptions();
+        renderInterestFilterOptions();
         renderPlotsFilterOptions();
         refreshInterestsReferenceLabels();
     }
@@ -5336,8 +5767,7 @@
     async function loadInterestsBulkOnly() {
         await loadInterestsBulk();
         interestsBulkLoaded = true;
-        renderCategoryOptions();
-        renderPlotOptions();
+        renderInterestFilterOptions();
         renderStats();
     }
 
@@ -5483,7 +5913,7 @@
     async function loadNormalProjects(force) {
         if (normalProjects.length && !force) { renderProjectsTable(projectsTableMeta); return; }
         if (force) projectsPager.page = 1;
-        const r = await api('/api/crm/normal-projects' + CrmPager.buildQuery(projectsPager, {}));
+        const r = await api('/api/crm/normal-projects' + CrmPager.buildQuery(projectsPager, CrmSort.params('projects')));
         const data = await r.json().catch(() => ({}));
         const page = CrmPager.parsePageResponse(data);
         normalProjects = page.items || [];
@@ -5497,7 +5927,23 @@
         const empty = document.getElementById('projects-empty');
         const meta = pageMeta || projectsTableMeta || { total: 0, pages: 1 };
         if(!tbody) return;
-        const rows = projectsMode === 'normal' ? normalProjects : workspaces;
+        // Normal projects have no is_published column, so drop the affordance there.
+        if (CrmSort.setEnabled('projects', 'projects-tbody', 'is_published', projectsMode !== 'normal')
+            && projectsMode === 'normal') {
+            loadNormalProjects(true);
+            return;
+        }
+        CrmSort.attach('projects', {
+            tbodyId: 'projects-tbody',
+            onSort: function () {
+                projectsPager.page = 1;
+                if (projectsMode === 'normal') loadNormalProjects(true);
+                else renderProjectsTable(projectsTableMeta);
+            }
+        });
+        const rows = projectsMode === 'normal'
+            ? normalProjects
+            : CrmSort.sortRows(workspaces, 'projects', { is_published: ws => (ws && ws.is_published) ? 1 : 0 });
         CrmPager.renderPagination('projects-pagination', meta, projectsPager, function () {
             if (projectsMode === 'normal') loadNormalProjects(false);
             else loadWorkspaceProjects(false);
@@ -5526,9 +5972,10 @@
     function renderPanoramaTable() {
         const tbody = $('panorama-tbody');
         const empty = $('panorama-empty');
+        CrmSort.bindClient('panoramas', { tbodyId: 'panorama-tbody', render: renderPanoramaTable });
         if(!projects.length) { tbody.innerHTML=''; empty.style.display=''; return; }
         empty.style.display='none';
-        tbody.innerHTML = projects.map(p => {
+        tbody.innerHTML = CrmSort.sortRows(projects, 'panoramas').map(p => {
             return '<tr><td class="mono">'+esc(p.id)+'</td><td style="font-weight:700">'+esc(p.name||'Unnamed')+'</td><td style="display:flex;gap:0.4rem;"><button class="btn" data-open-panorama="'+esc(p.id)+'">Open</button></td></tr>';
         }).join('');
         tbody.querySelectorAll('[data-open-panorama]').forEach(btn => {
@@ -5565,6 +6012,51 @@
         loadPanoramaMarkers(panoramaId);
     }
 
+    let panoramaModalMarkers = [];
+    // Both modal tabs render the same marker list, so they share one sort state.
+    function renderPanoramaModalTables() {
+        const plotsTbody = $('modal-plots-tbody');
+        const markersTbody = $('modal-markers-tbody');
+        if (!plotsTbody || !markersTbody) return;
+        CrmSort.bindClient('panorama-modal-plots', {
+            tbodyId: 'modal-plots-tbody',
+            render: renderPanoramaModalTables
+        });
+        CrmSort.bindClient('panorama-modal-markers', {
+            tbodyId: 'modal-markers-tbody',
+            render: renderPanoramaModalTables
+        });
+        const plotRows = CrmSort.sortRows(panoramaModalMarkers, 'panorama-modal-plots');
+        const markerRows = CrmSort.sortRows(panoramaModalMarkers, 'panorama-modal-markers', {
+            style: m => (m && m.marker_style) || 'default',
+            lat: m => (m && m.latitude != null) ? m.latitude : null
+        });
+        plotsTbody.innerHTML = plotRows.map(m => {
+            const statusClass = plotStatusSwatchClass(m.status);
+            return '<tr data-marker-id="'+esc(m.id)+'"><td><input class="inline-edit" value="'+esc(m.name||'')+'" data-field="name" data-id="'+esc(m.id)+'"></td><td><span class="status-pill '+statusClass+'">'+esc(m.status||'available')+'</span></td><td><input class="inline-edit" value="'+esc(m.description||'')+'" data-field="description" data-id="'+esc(m.id)+'"></td><td><button class="btn" data-save-marker="'+esc(m.id)+'">Save</button></td></tr>';
+        }).join('');
+        markersTbody.innerHTML = markerRows.map(m => {
+            return '<tr><td style="font-weight:700">'+esc(m.name||'—')+'</td><td><select class="inline-edit-select" data-field="status" data-id="'+esc(m.id)+'"><option value="available"'+(getStatusKey(m.status)==='available'?' selected':'')+'>Available</option><option value="hold"'+(getStatusKey(m.status)==='hold'?' selected':'')+'>Hold</option><option value="sold"'+(getStatusKey(m.status)==='sold'?' selected':'')+'>Sold</option></select></td><td>'+esc(m.marker_style||'default')+'</td><td class="mono">'+esc((m.latitude||'—')+' / '+(m.longitude||'—'))+'</td><td><button class="btn" data-save-marker="'+esc(m.id)+'">Save</button></td></tr>';
+        }).join('');
+        bindPanoramaModalSaveButtons();
+    }
+
+    function bindPanoramaModalSaveButtons() {
+        document.querySelectorAll('[data-save-marker]').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                const mid = btn.getAttribute('data-save-marker');
+                const upd = {};
+                document.querySelectorAll('[data-id="'+mid+'"]').forEach(el => { upd[el.getAttribute('data-field')] = el.value; });
+                btn.disabled=true; btn.textContent='Saving...';
+                try {
+                    const r = await api('/api/crm/markers/'+encodeURIComponent(mid),{method:'PUT',body:JSON.stringify(upd)});
+                    if(!r.ok) { const d=await r.json().catch(()=>({})); throw new Error(d.error||'Failed'); }
+                    btn.textContent='Saved!'; setTimeout(()=>{btn.textContent='Save'; btn.disabled=false;},1500);
+                } catch(e) { btn.textContent='Error'; setTimeout(()=>{btn.textContent='Save'; btn.disabled=false;},2000); }
+            });
+        });
+    }
+
     async function loadPanoramaMarkers(panoramaId) {
         const plotsTbody = $('modal-plots-tbody');
         const markersTbody = $('modal-markers-tbody');
@@ -5583,27 +6075,8 @@
                 markersTbody.innerHTML='<tr><td colspan="5" class="empty">No markers found</td></tr>';
                 return;
             }
-            plotsTbody.innerHTML = markers.map(m => {
-                const sk = getStatusKey(m.status);
-                const statusClass = plotStatusSwatchClass(m.status);
-                return '<tr data-marker-id="'+esc(m.id)+'"><td><input class="inline-edit" value="'+esc(m.name||'')+'" data-field="name" data-id="'+esc(m.id)+'"></td><td><span class="status-pill '+statusClass+'">'+esc(m.status||'available')+'</span></td><td><input class="inline-edit" value="'+esc(m.description||'')+'" data-field="description" data-id="'+esc(m.id)+'"></td><td><button class="btn" data-save-marker="'+esc(m.id)+'">Save</button></td></tr>';
-            }).join('');
-            markersTbody.innerHTML = markers.map(m => {
-                return '<tr><td style="font-weight:700">'+esc(m.name||'â€”')+'</td><td><select class="inline-edit-select" data-field="status" data-id="'+esc(m.id)+'"><option value="available"'+(getStatusKey(m.status)==='available'?' selected':'')+'>Available</option><option value="hold"'+(getStatusKey(m.status)==='hold'?' selected':'')+'>Hold</option><option value="sold"'+(getStatusKey(m.status)==='sold'?' selected':'')+'>Sold</option></select></td><td>'+esc(m.marker_style||'default')+'</td><td class="mono">'+esc((m.latitude||'â€”')+' / '+(m.longitude||'â€”'))+'</td><td><button class="btn" data-save-marker="'+esc(m.id)+'">Save</button></td></tr>';
-            }).join('');
-            document.querySelectorAll('[data-save-marker]').forEach(btn => {
-                btn.addEventListener('click', async () => {
-                    const mid = btn.getAttribute('data-save-marker');
-                    const upd = {};
-                    document.querySelectorAll('[data-id="'+mid+'"]').forEach(el => { upd[el.getAttribute('data-field')] = el.value; });
-                    btn.disabled=true; btn.textContent='Saving...';
-                    try {
-                        const r = await api('/api/crm/markers/'+encodeURIComponent(mid),{method:'PUT',body:JSON.stringify(upd)});
-                        if(!r.ok) { const d=await r.json().catch(()=>({})); throw new Error(d.error||'Failed'); }
-                        btn.textContent='Saved!'; setTimeout(()=>{btn.textContent='Save'; btn.disabled=false;},1500);
-                    } catch(e) { btn.textContent='Error'; setTimeout(()=>{btn.textContent='Save'; btn.disabled=false;},2000); }
-                });
-            });
+            panoramaModalMarkers = markers;
+            renderPanoramaModalTables();
         } catch(e) {
             plotsLoading.style.display='none'; markersLoading.style.display='none';
             plotsTbody.innerHTML='<tr><td colspan="4" class="empty">Failed to load: '+esc(e.message)+'</td></tr>';
@@ -5738,6 +6211,7 @@
             if (workspace) params.workspace_id = workspace;
             if (pano) params.panorama_id = pano;
             if (status) params.status = status;
+            Object.assign(params, CrmSort.params('plots'));
             const r = await api('/api/crm/plots' + CrmPager.buildQuery(plotsPager, params));
             const data = await r.json().catch(() => ({}));
             if (!r.ok) throw new Error((data && data.error) ? data.error : 'Failed');
@@ -5806,7 +6280,7 @@
         const is360 = plot.is_360 !== false && plot.is_360 !== 0 && plot.is_360 !== '0';
         const path = plotClientEditorPath(panoramaId, is360);
         try {
-            const headers = await ensureAuthenticated();
+            const headers = await window.ensureAuthenticated();
             const response = await fetch('/api/panoramas/' + encodeURIComponent(panoramaId) + '/page-token', {
                 method: 'POST',
                 headers: Object.assign({ 'Content-Type': 'application/json' }, headers),
@@ -5824,7 +6298,21 @@
             showToast(e.message || 'Failed to open plot editor', 'error');
         }
     }
+    // Inline SVGs for the Plotted List row actions (no icon font is available here).
+    const ICON_SVG_OPEN = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">';
+    const ICON_EDIT = ICON_SVG_OPEN + '<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4Z"/></svg>';
+    const ICON_SHARE = ICON_SVG_OPEN + '<path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>';
+    const ICON_VIEW = ICON_SVG_OPEN + '<path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7Z"/><circle cx="12" cy="12" r="3"/></svg>';
+
     function renderPlotsTable(pageMeta) {
+        if (CrmSort.setEnabled('plots', 'plots-tbody', 'area', plotsMode !== 'normal')) {
+            loadAllPlots(true);
+            return;
+        }
+        CrmSort.attach('plots', {
+            tbodyId: 'plots-tbody',
+            onSort: function () { plotsPager.page = 1; loadAllPlots(true); }
+        });
         const rows = allPlots;
         const tbody = $('plots-tbody');
         const empty = $('plots-empty');
@@ -5841,15 +6329,18 @@
             // const lockData = getLockablePlot(p.id);
             // const isLocked = !!(lockData && lockData.lock);
             const workspaceId = String(p.workspace_id || '').trim();
+            // No boxicons font is loaded on the portal shell, so `<i class="bx ...">`
+            // rendered as an empty element and these buttons looked blank. Inline SVG
+            // (the pattern used everywhere else on this page) plus a text label.
             const actionCells = isNormalRow
                 ? '<span style="color:var(--muted);font-size:0.75rem;">Broker</span>'
-                : '<button class="btn plot-row-icon-btn" type="button" data-edit-plot="'+esc(p.id)+'" title="Edit plot" aria-label="Edit plot"><i class="icon-base bx bx-edit" aria-hidden="true"></i></button>';
+                : '<button class="btn plot-row-action-btn" type="button" data-edit-plot="'+esc(p.id)+'" title="Edit plot" aria-label="Edit plot">'+ICON_EDIT+'<span>Edit</span></button>';
             const shareBtn = workspaceId
-                ? '<button class="btn plot-row-icon-btn" type="button" data-share-workspace="'+esc(workspaceId)+'" title="Share reference link" aria-label="Share reference link"><i class="icon-base bx bx-share-alt" aria-hidden="true"></i></button>'
+                ? '<button class="btn plot-row-action-btn" type="button" data-share-workspace="'+esc(workspaceId)+'" title="Share reference link" aria-label="Share reference link">'+ICON_SHARE+'<span>Ref link</span></button>'
                 : '';
             const panoramaId = String(p.panorama_id || '').trim();
             const viewPlotBtn = (isClientAdminUser && !isNormalRow && panoramaId)
-                ? '<button class="btn plot-row-icon-btn" type="button" data-view-plot-client="'+esc(p.id)+'" title="View plot in client editor" aria-label="View plot in client editor"><i class="icon-base bx bx-show" aria-hidden="true"></i></button>'
+                ? '<button class="btn plot-row-action-btn" type="button" data-view-plot-client="'+esc(p.id)+'" title="View plot in client editor" aria-label="View plot in client editor">'+ICON_VIEW+'<span>View</span></button>'
                 : '';
             return '<tr>' +
                 '<td>'+esc(p.name||'—')+'</td>' +
@@ -5918,6 +6409,14 @@
             $('ep-status').innerHTML = plotStatusOptionsHtml(plot.status, false);
             $('ep-status').value = String(getStatusKey(plot.status) || 'available');
         }
+        const subtitleEl = $('edit-plot-subtitle');
+        if (subtitleEl) {
+            const context = [plot.workspace_name, plot.panorama_name]
+                .map(v => String(v || '').trim())
+                .filter(Boolean)
+                .join(' · ');
+            subtitleEl.textContent = context || 'Update the area, status and description for this plot.';
+        }
         if ($('edit-plot-error')) $('edit-plot-error').style.display = 'none';
         editPlotModal.classList.add('visible');
     }
@@ -5957,6 +6456,18 @@
         });
     }
     plotSearch.addEventListener('input', function () { loadAllPlots(true); });
+    if ($('plots-filter-apply')) $('plots-filter-apply').addEventListener('click', function () {
+        loadAllPlots(true);
+        if (!window.matchMedia('(min-width: 901px)').matches) setRailOpen('plots', false);
+    });
+    if ($('plots-filter-clear')) $('plots-filter-clear').addEventListener('click', function () {
+        if (plotSearch) plotSearch.value = '';
+        if (plotClientFilter) plotClientFilter.value = '';
+        if (plotWorkspaceFilter) plotWorkspaceFilter.value = '';
+        if (plotPanoFilter) plotPanoFilter.value = '';
+        if (plotStatusFilter) plotStatusFilter.value = '';
+        loadAllPlots(true);
+    });
     if (plotClientFilter) plotClientFilter.addEventListener('change', function () { loadAllPlots(true); });
     if (plotWorkspaceFilter) {
         plotWorkspaceFilter.addEventListener('change', function () {
@@ -6102,6 +6613,9 @@
             '<option value="'+esc(label)+'"'+(label === cur ? ' selected' : '')+'>'+esc(label)+'</option>'
         ).join('');
     }
+    window.crmPopulateBuilderNameSelect = function (selectId, currentValue) {
+        return populateBuilderNameSelect(selectId, currentValue);
+    };
     function populateBuilderNameSelect(selectId, currentValue) {
         const select = $(selectId);
         if (!select) return;
@@ -6212,6 +6726,7 @@
         const target = String(selectedId || '').trim();
         if (target && unique.some((p) => p.id === target)) select.value = target;
     }
+    window.crmEnsureNormalModalMasters = function () { return ensureNormalModalMasters(); };
     async function ensureNormalModalMasters() {
         const scope = isExternalBrokerUser ? 'broker' : 'client';
         const cid = plotClientFilter ? String(plotClientFilter.value || '').trim() : '';
@@ -6391,7 +6906,8 @@
         const params = { page: plotsPager.page, limit: plotsPager.size || 10 };
         const q = String(plotSearch.value || '').trim();
         if (q) params.q = q;
-        const r = await api('/api/crm/normal-plots' + CrmPager.buildQuery(plotsPager, q ? { q: q } : {}));
+        const normalPlotParams = Object.assign(q ? { q: q } : {}, CrmSort.params('plots'));
+        const r = await api('/api/crm/normal-plots' + CrmPager.buildQuery(plotsPager, normalPlotParams));
         const data = await r.json().catch(() => ({}));
         if (!r.ok) throw new Error((data && data.error) || 'Failed to load normal plots');
         const page = CrmPager.parsePageResponse(data);
@@ -6739,7 +7255,7 @@
                         if (crmBootLoader) {
                             crmBootLoader.setStep('auth', 'Authenticating session', 28, 'Verifying access');
                         }
-                        await ensureAuthenticated();
+                        await window.ensureAuthenticated();
                         if (crmBootLoader) {
                             crmBootLoader.setStep('profile', 'Loading workspace profile', 48, 'Loading workspace');
                         }
@@ -7332,12 +7848,19 @@
         editProjectId = ProjectId;
         if (errorEl) errorEl.style.display = 'none';
         Promise.resolve()
-        .then(function() { return ensureNormalModalMasters(); })
+        .then(function() {
+            // Defined in the interests IIFE; shared on window.
+            return typeof window.crmEnsureNormalModalMasters === 'function'
+                ? window.crmEnsureNormalModalMasters()
+                : null;
+        })
         .then(function() { return window.getAuthHeaders(); })
         .then(function(headers) {
             return fetch('/api/workspaces/' + encodeURIComponent(ProjectId), { headers: headers });
         }).then(function(r) { return r.json(); }).then(function(p) {
-            populateBuilderNameSelect('ep-builder-name', p.builder_name || '');
+            if (typeof window.crmPopulateBuilderNameSelect === 'function') {
+                window.crmPopulateBuilderNameSelect('ep-builder-name', p.builder_name || '');
+            }
             document.getElementById('ep-builder-name').value = p.builder_name || '';
             document.getElementById('ep-project-type').value = p.project_type || 'residential';
             document.getElementById('ep-location-address').value = p.location_address || '';

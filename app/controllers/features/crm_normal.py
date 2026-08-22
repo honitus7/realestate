@@ -2,7 +2,16 @@ from flask import jsonify, request
 
 from app.core.auth import require_auth
 from app.core.database import get_supabase
-from app.controllers.features.crm_pagination import crm_page_payload, crm_parse_page_args
+from app.controllers.features.crm_pagination import (
+    crm_page_payload,
+    crm_parse_page_args,
+    crm_parse_sort_args,
+)
+
+NORMAL_PROJECT_SORT_FIELDS = ('name', 'location', 'project_type', 'created_at', 'updated_at')
+# 'area' and 'price' are text columns here, so a database sort would compare
+# them lexicographically; they stay non-sortable in normal mode.
+NORMAL_PLOT_SORT_FIELDS = ('name', 'status', 'description', 'project_name')
 
 
 _NORMAL_PROJECT_SELECT_EXT = (
@@ -22,6 +31,9 @@ def register_crm_normal_routes(app):
         if not sb:
             return jsonify({'error': 'Database not configured'}), 503
         page, limit, offset = crm_parse_page_args(default_limit=10, max_limit=100)
+        sort_field, sort_desc = crm_parse_sort_args(
+            NORMAL_PROJECT_SORT_FIELDS, default_field='updated_at', default_desc=True
+        )
         q = str(request.args.get('q') or '').strip().lower()
         is_platform_admin = str(role or '').strip().lower() in ('admin', 'superadmin')
         base_select = _NORMAL_PROJECT_SELECT_EXT
@@ -29,14 +41,14 @@ def register_crm_normal_routes(app):
             query = (
                 sb.table('crm_normal_projects')
                 .select(base_select, count='exact')
-                .order('updated_at', desc=True)
+                .order(sort_field, desc=sort_desc)
             )
         else:
             query = (
                 sb.table('crm_normal_projects')
                 .select(base_select, count='exact')
                 .eq('owner_user_id', str(user_id))
-                .order('updated_at', desc=True)
+                .order(sort_field, desc=sort_desc)
             )
         if q:
             query = query.or_(f'name.ilike.%{q}%,location.ilike.%{q}%')
@@ -50,14 +62,14 @@ def register_crm_normal_routes(app):
                     fallback_query = (
                         sb.table('crm_normal_projects')
                         .select(fallback_sel, count='exact')
-                        .order('updated_at', desc=True)
+                        .order(sort_field, desc=sort_desc)
                     )
                 else:
                     fallback_query = (
                         sb.table('crm_normal_projects')
                         .select(fallback_sel, count='exact')
                         .eq('owner_user_id', str(user_id))
-                        .order('updated_at', desc=True)
+                        .order(sort_field, desc=sort_desc)
                     )
                 if q:
                     fallback_query = fallback_query.or_(f'name.ilike.%{q}%,location.ilike.%{q}%')
@@ -128,13 +140,16 @@ def register_crm_normal_routes(app):
         if not sb:
             return jsonify({'error': 'Database not configured'}), 503
         page, limit, offset = crm_parse_page_args(default_limit=10, max_limit=100)
+        sort_field, sort_desc = crm_parse_sort_args(
+            NORMAL_PLOT_SORT_FIELDS, default_field='updated_at', default_desc=True
+        )
         q = str(request.args.get('q') or '').strip().lower()
         project_id = str(request.args.get('project_id') or '').strip()
         query = (
             sb.table('crm_normal_plots')
             .select('id, owner_user_id, project_id, project_name, name, area, price, status, description, panorama_id, custom_fields, created_at, updated_at', count='exact')
             .eq('owner_user_id', str(user_id))
-            .order('updated_at', desc=True)
+            .order(sort_field, desc=sort_desc)
         )
         if project_id:
             query = query.eq('project_id', project_id)

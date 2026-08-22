@@ -801,26 +801,45 @@
 }
 
 .folder-card-btn {
-    padding: 0.25rem 0.5rem;
-    font-size: 0.68rem;
-    font-weight: 600;
-    color: var(--color-text);
-    background: var(--color-surface);
-    border: 1px solid var(--color-border);
+    padding: 0.3rem 0.62rem;
+    font-size: 0.69rem;
+    font-weight: 700;
+    /* The card sits on --color-surface (#e8e8e3 beige) and these buttons used the
+       same token with an 8%-alpha border, so they vanished into the card. White
+       fill + solid dark border is the only combination that reads on beige. */
+    color: #162338;
+    background: #ffffff;
+    border: 1px solid rgba(22, 35, 56, 0.42);
     border-radius: 999px;
     cursor: pointer;
+    line-height: 1.25;
+    white-space: nowrap;
+    box-shadow: 0 1px 2px rgba(22, 35, 56, 0.08);
     font-family: var(--font-body);
-    transition: background 0.2s ease, border-color 0.2s ease;
+    transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
 }
 
 .folder-card-btn:hover {
-    background: var(--color-accent-hover);
-    border-color: var(--border-strong);
+    background: #162338;
+    border-color: #162338;
+    color: #ffffff;
+}
+
+.folder-card-btn:focus-visible {
+    outline: 2px solid #162338;
+    outline-offset: 2px;
+}
+
+.folder-card-btn--danger {
+    color: #b42318;
+    border-color: rgba(180, 35, 24, 0.35);
+    background: #fff5f4;
 }
 
 .folder-card-btn--danger:hover {
-    border-color: rgba(239, 68, 68, 0.5);
-    color: var(--color-danger);
+    background: #b42318;
+    border-color: #b42318;
+    color: #ffffff;
 }
 
 .folder-card-skeleton {
@@ -1339,8 +1358,8 @@
     display: block;
     width: 100%;
     padding: 0.45rem 0.85rem;
-    font-size: 0.75rem;
-    font-weight: 500;
+    font-size: 0.76rem;
+    font-weight: 600;
     font-family: var(--font-body);
     color: var(--color-text);
     background: none;
@@ -1728,4 +1747,167 @@
     .projects-grid {
         grid-template-columns: 1fr;
     }
+}
+
+/* ─────────────────────────────────────────────────────────────
+   Dashboard modals (Create/Edit Project, Rename, Delete)
+   The shared button styles make .btn, .btn-primary and .btn-secondary
+   all render as the same beige chip, so the confirming action was
+   indistinguishable from Cancel and the cards read as flat beige.
+   These overrides are scoped to dashboard modals only.
+   ───────────────────────────────────────────────────────────── */
+.modal-backdrop .modal {
+    background: #ffffff;
+    border: 1px solid rgba(22, 35, 56, 0.14);
+    box-shadow: 0 24px 60px rgba(15, 23, 42, 0.28);
+}
+
+.modal-backdrop .modal-title {
+    color: #162338;
+    letter-spacing: -0.01em;
+}
+
+.modal-backdrop .modal-text {
+    color: #4a5568;
+}
+
+.modal-backdrop .form-label {
+    color: #334155;
+}
+
+.modal-backdrop .form-input {
+    background: #ffffff;
+    border: 1px solid #cbd5e1;
+    color: #162338;
+}
+
+.modal-backdrop .form-input::placeholder {
+    color: #94a3b8;
+}
+
+.modal-backdrop .form-input:focus {
+    border-color: #162338;
+    box-shadow: 0 0 0 3px rgba(22, 35, 56, 0.10);
+}
+
+.modal-backdrop .modal-actions {
+    gap: 0.6rem;
+    align-items: center;
+}
+
+.modal-backdrop .modal-actions .btn {
+    min-width: 96px;
+    justify-content: center;
+    border-radius: 8px;
+    font-size: 0.84rem;
+    padding: 0.55rem 1rem;
+}
+
+.modal-backdrop .btn-primary {
+    background: #162338;
+    color: #ffffff;
+    border: 1px solid #162338;
+}
+
+.modal-backdrop .btn-primary:hover {
+    background: #0f172a;
+    border-color: #0f172a;
+}
+
+.modal-backdrop .btn-secondary {
+    background: #ffffff;
+    color: #162338;
+    border: 1px solid rgba(22, 35, 56, 0.32);
+}
+
+.modal-backdrop .btn-secondary:hover {
+    background: #f1f5f9;
+    border-color: #162338;
+}
+
+.modal-backdrop .btn-danger {
+    background: #b42318;
+    color: #ffffff;
+    border: 1px solid #b42318;
+}
+
+.modal-backdrop .btn-danger:hover {
+    background: #91180f;
+    border-color: #91180f;
+}
+
+.modal-backdrop .btn:focus-visible {
+    outline: 2px solid #162338;
+    outline-offset: 2px;
+}
+
+/* Create/Edit Project: readable optional-details disclosure + pinned footer */
+#create-workspace-modal .modal {
+    padding: 1.25rem 1.4rem 0 !important;
+    display: flex;
+    flex-direction: column;
+}
+
+#create-workspace-modal .modal-title {
+    font-size: 1.12rem;
+    margin-bottom: 0.3rem;
+}
+
+#create-workspace-modal .modal-text {
+    font-size: 0.82rem;
+    margin-bottom: 0.9rem;
+}
+
+#create-workspace-modal .upload-details-section {
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    background: #f8fafc;
+    padding: 0 0.7rem;
+}
+
+#create-workspace-modal .upload-details-section > summary {
+    color: #162338 !important;
+    font-size: 0.8rem !important;
+    font-weight: 700 !important;
+    padding: 0.55rem 0 !important;
+    list-style: none;
+}
+
+#create-workspace-modal .upload-details-section > summary::marker,
+#create-workspace-modal .upload-details-section > summary::-webkit-details-marker {
+    display: none;
+}
+
+#create-workspace-modal .upload-details-section > summary::before {
+    content: '▸';
+    display: inline-block;
+    margin-right: 0.4rem;
+    color: #64748b;
+    transition: transform 0.15s ease;
+}
+
+#create-workspace-modal .upload-details-section[open] > summary::before {
+    transform: rotate(90deg);
+}
+
+#create-workspace-modal .upload-details-section .ws-compact-form {
+    padding-bottom: 0.7rem;
+}
+
+#create-workspace-modal .ws-compact-form .form-input,
+#create-workspace-modal .ws-compact-form textarea.form-input,
+#create-workspace-modal .ws-compact-form select.form-input {
+    background: #ffffff;
+    border-color: #cbd5e1;
+    height: auto;
+    padding: 0.34rem 0.5rem;
+}
+
+#create-workspace-modal .modal-actions {
+    position: sticky;
+    bottom: 0;
+    margin: 0.9rem -1.4rem 0 !important;
+    padding: 0.7rem 1.4rem !important;
+    background: #ffffff;
+    border-top: 1px solid #e2e8f0 !important;
 }

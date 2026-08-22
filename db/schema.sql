@@ -340,6 +340,8 @@ create table if not exists public.crm_contacts (
   full_name text not null default '',
   email text not null default '',
   phone text not null default '',
+  birthday date,
+  address text not null default '',
   email_norm text not null default '',
   phone_norm text not null default '',
   source_interest_id uuid references public.buy_interests(id) on delete set null,

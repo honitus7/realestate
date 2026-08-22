@@ -428,6 +428,7 @@ def apply_broker_referred_contact_mask_to_contact(
     if should_mask:
         item['email'] = ''
         item['phone'] = ''
+        item['address'] = ''
         item['email_norm'] = ''
         item['phone_norm'] = ''
     item['contact_revealed'] = revealed

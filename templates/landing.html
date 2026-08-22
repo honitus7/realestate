@@ -1,851 +1,575 @@
-{% set page_title = 'MarketoState — Immersive 360° Real Estate' %}
-{% set home_href = '/' %}
-{% set portal_extra_css = '/static/css/landing_master.css' %}
-{% include 'components/portal_public_shell_start.html' %}
+<!doctype html>
+<html lang="en" class="ms-landing-root">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MarketoState — Walk The Land Before The First Brick Is Laid</title>
+  <meta name="description" content="MarketoState turns land, layouts and unbuilt towers into immersive 360° worlds — mapped plot by plot, shared in one link, and sold from anywhere on Earth." />
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="MarketoState — Walk The Land Before The First Brick Is Laid" />
+  <meta property="og:description" content="Immersive 360° sales for plotted development: draw plots on drone panoramas, share one branded link, and turn every walkthrough into a CRM lead." />
+  <meta property="og:image" content="{{ request.url_root.rstrip('/') }}/static/img/landing/hero-aerial.jpg" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <link rel="icon" href="/static/Marketostate/Marketostate%20Favicon.svg" type="image/svg+xml" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;0,600;1,500&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="preload" as="image" href="/static/img/landing/hero-aerial.jpg" media="(min-width: 761px)" />
+  <link rel="preload" as="image" href="/static/img/landing/hero-aerial-md.jpg" media="(max-width: 760px)" />
+  <link rel="stylesheet" href="/static/css/landing.css?v=20260822-1" />
+</head>
+<body class="ms-landing">
 
-<div class="landing-master">
+  <!-- ======================= HEADER ======================= -->
+  <header class="msl-header" id="mslHeader">
+    <a class="msl-logo" href="/" aria-label="MarketoState home">
+      <svg viewBox="0 0 40 40" fill="none" aria-hidden="true">
+        <circle cx="20" cy="20" r="17" stroke="#FBD784" stroke-width="2.4"/>
+        <path d="M13 27V17.5l3.5 2v7.5M18.5 27V14l4 2.3V27M24.5 27v-8.5l3 1.7V27" stroke="#FFA300" stroke-width="2" stroke-linecap="round"/>
+      </svg>
+      MARKETOSTATE
+    </a>
 
-  <!-- EPIC HERO -->
-  <section class="hero" id="hero">
-    <div class="gold-dust"></div>
-    
-    <div class="hero-inner">
-      <div class="hero-copy">
-        <div class="hero-kicker">
-          <span>✦</span>
-          <span>IMMERSIVE REAL ESTATE</span>
-        </div>
+    <nav class="msl-nav" aria-label="Primary">
+      <a href="#chapter-1">The Experience</a>
+      <a href="#chapter-2">Live Mapping</a>
+      <a href="#chapter-3">Pipeline</a>
+      <a href="/explore">Explore</a>
+    </nav>
 
-        <h1 class="hero-title">
-          <span class="word">The</span>
-          <span class="word">future</span><br>
-          <span class="word">of</span>
-          <span class="word gold">property</span>
-          <span class="word">is</span><br>
-          <span class="word">here.</span>
-        </h1>
+    <div class="msl-header-actions">
+      <a href="/login" class="msl-btn-ghost">Log in</a>
+      <a href="/login?mode=signup" class="msl-btn-solid">Get started</a>
+      <button class="msl-menu-toggle" id="mslMenuToggle" aria-label="Open menu" aria-expanded="false" aria-controls="mslMobileNav">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+      </button>
+    </div>
+  </header>
 
-        <p class="hero-subtitle">
-          Stunning 360° panoramas, intelligent plot mapping, and effortless client sharing — all in one breathtaking platform.
+  <nav class="msl-mobile-nav" id="mslMobileNav" aria-label="Mobile">
+    <a href="#chapter-1">The Experience</a>
+    <a href="#chapter-2">Live Mapping</a>
+    <a href="#chapter-3">Pipeline</a>
+    <a href="/explore">Explore</a>
+    <a href="/login">Log in</a>
+    <a href="/login?mode=signup" style="color: var(--gold);">Get started</a>
+  </nav>
+
+  <!-- ======================= HERO ======================= -->
+  <section class="msl-hero" id="top">
+    <div class="msl-hero-layer msl-hero-sky" data-plx="0.06"></div>
+    <div class="msl-hero-layer msl-hero-photo" data-plx="0.18"><div class="msl-hero-photo-inner"></div></div>
+    <div class="msl-hero-layer msl-hero-tint"></div>
+    <div class="msl-hero-layer msl-hero-fog" data-plx="0.3"><div class="msl-hero-fog-inner"></div></div>
+    <canvas id="mslDust" class="msl-hero-layer" aria-hidden="true"></canvas>
+
+    <div class="msl-hero-inner" data-plx="-0.22">
+      <p class="msl-eyebrow">Immersive Sales For Plotted Development</p>
+      <h1>Walk The Land <em>Before</em> The First Brick Is Laid.</h1>
+      <p class="msl-hero-sub">
+        MarketoState turns raw land, plotted townships and unbuilt towers into immersive
+        360° worlds — every plot drawn, priced and tracked live on the drone view itself,
+        and the whole project shared in one branded link a buyer can walk through from
+        anywhere on Earth.
+      </p>
+      <div class="msl-hero-ctas">
+        <a href="/login?mode=signup" class="msl-cta-primary">
+          Start for free
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+        </a>
+        <a href="#chapter-1" class="msl-scroll-hint">
+          scroll down
+          <svg width="16" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v16M6 14l6 6 6-6"/></svg>
+        </a>
+      </div>
+    </div>
+
+    <!-- left social rail -->
+    <aside class="msl-rail msl-rail--social" aria-label="Social links">
+      <span class="msl-rail-label">Follow us</span>
+      <a href="#" aria-label="Instagram">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4.2"/><circle cx="17.4" cy="6.6" r="1.2" fill="currentColor" stroke="none"/></svg>
+      </a>
+      <a href="#" aria-label="LinkedIn">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M4.98 3.5C4.98 4.88 3.87 6 2.5 6S0 4.88 0 3.5 1.12 1 2.5 1s2.48 1.12 2.48 2.5zM.4 8.1h4.2V23H.4V8.1zM8.2 8.1h4v2h.06c.56-1.05 1.93-2.16 3.97-2.16 4.25 0 5.03 2.8 5.03 6.44V23h-4.2v-7.5c0-1.79-.03-4.1-2.5-4.1-2.5 0-2.88 1.95-2.88 3.97V23H8.2V8.1z"/></svg>
+      </a>
+    </aside>
+
+    <!-- right chapter rail -->
+    <aside class="msl-rail msl-rail--nav" aria-label="Page sections">
+      <div class="msl-rail-links" id="mslRailLinks">
+        <a href="#top" class="is-active">Start</a>
+        <a href="#chapter-1">01</a>
+        <a href="#chapter-2">02</a>
+        <a href="#chapter-3">03</a>
+      </div>
+      <div class="msl-rail-track"><div class="msl-rail-thumb" id="mslRailThumb"></div></div>
+    </aside>
+  </section>
+
+  <!-- ======================= CHAPTERS ======================= -->
+  <main class="msl-main">
+
+    <!-- 01 — Immersive tours -->
+    <section class="msl-chapter" id="chapter-1">
+      <span class="msl-chapter-num" data-plx="-0.08" aria-hidden="true">01</span>
+
+      <div class="msl-chapter-copy msl-reveal">
+        <p class="msl-eyebrow">Immersive 360° Tours</p>
+        <h2>Step Inside From Anywhere On Earth.</h2>
+        <p>
+          Upload a drone panorama and it becomes a true spherical world your buyers grab,
+          spin and wander through — no app, no login, just a link. Navigator hotspots walk
+          them from the gatehouse to the ridgeline, markers carry photos and video pinned to
+          the exact spot they describe, and you can record a voice-over in the browser so
+          the site sells itself at 11pm.
         </p>
+        <ul class="msl-chapter-points">
+          <li>True WebGL 360° panoramas — no headset, no install</li>
+          <li>Navigator hotspots that link scene to scene like a guided walk</li>
+          <li>Voice-over narration &amp; rich media pinned to any viewpoint</li>
+        </ul>
+        <a href="/explore" class="msl-more">
+          explore a live property
+          <svg width="18" height="14" viewBox="0 0 24 16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M1 8h20M15 2l6 6-6 6"/></svg>
+        </a>
+      </div>
 
-        <div class="hero-actions">
-          <a href="/login?mode=signup" class="hero-cta primary">
-            Start for free
-            <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+      <div class="msl-chapter-visual msl-reveal" data-delay="1">
+        <div class="msl-photo-frame msl-pano" id="mslPano">
+          <div class="msl-photo-bg" id="mslPanoBg"></div>
+          <span class="msl-frame-chip"><span class="dot"></span> Live demo — drag me</span>
+          <span class="msl-pano-hotspot" style="left: 34%; top: 46%;" data-label="Clubhouse — 4 photos"></span>
+          <span class="msl-pano-hotspot" style="left: 62%; top: 62%;" data-label="Phase II · voice note"></span>
+          <span class="msl-pano-hotspot" style="left: 78%; top: 38%;" data-label="River deck → next scene"></span>
+          <div class="msl-pano-compass">
+            <span>PAN</span>
+            <span class="bar"><i id="mslPanoThumb"></i></span>
+            <span>360°</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 02 — Plot mapping -->
+    <section class="msl-chapter msl-chapter--flip" id="chapter-2">
+      <span class="msl-chapter-num" data-plx="-0.08" aria-hidden="true">02</span>
+
+      <div class="msl-chapter-visual msl-reveal" data-delay="1">
+        <div class="msl-photo-frame">
+          <img src="/static/img/landing/story-township.jpg" alt="Aerial view of a township with mapped plots" loading="lazy" />
+          <svg class="msl-plot-overlay" viewBox="0 0 100 125" preserveAspectRatio="none" aria-hidden="true">
+            <polygon points="8,74 34,71 36,88 9,92"></polygon>
+            <polygon class="p-hold" points="42,70 66,67 69,84 44,87"></polygon>
+            <polygon class="p-sold" points="12,96 38,92 41,110 14,114"></polygon>
+          </svg>
+          <span class="msl-plot-tag" style="left: 12%; top: 52%;"><span class="sw" style="background:#FBD784"></span>Available · ₹42L</span>
+          <span class="msl-plot-tag" style="left: 48%; top: 47%; transition-delay:.2s;"><span class="sw" style="background:#FFCF6E"></span>On hold</span>
+          <span class="msl-plot-tag" style="left: 16%; top: 78%; transition-delay:.4s;"><span class="sw" style="background:#FF7A59"></span>Sold</span>
+        </div>
+      </div>
+
+      <div class="msl-chapter-copy msl-reveal">
+        <p class="msl-eyebrow">Intelligent Plot Mapping</p>
+        <h2>Every Plot. Every Status. Live.</h2>
+        <p>
+          Draw sellable plot boundaries directly onto the 360° sphere — real polygons with
+          a name, area, price and status, not pins on a photo. Flip plots between Available,
+          Hold and Sold as the site sells, and lock a plot against a named buyer so two
+          agents can never sell it twice. Every change ripples instantly to every shared link.
+        </p>
+        <ul class="msl-chapter-points">
+          <li>Plot inventory drawn, priced &amp; tracked on real imagery</li>
+          <li>Plot Lock — hold a plot for a named buyer, end double-selling</li>
+          <li>Route maps, floor plans, building maps &amp; a 3D Earth view</li>
+        </ul>
+        <a href="/login?mode=signup" class="msl-more">
+          start mapping your site
+          <svg width="18" height="14" viewBox="0 0 24 16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M1 8h20M15 2l6 6-6 6"/></svg>
+        </a>
+      </div>
+    </section>
+
+    <!-- 03 — Pipeline -->
+    <section class="msl-chapter" id="chapter-3">
+      <span class="msl-chapter-num" data-plx="-0.08" aria-hidden="true">03</span>
+
+      <div class="msl-chapter-copy msl-reveal">
+        <p class="msl-eyebrow">From Walkthrough To Handshake</p>
+        <h2>Every Visitor Becomes A Lead.</h2>
+        <p>
+          Inside the tour, buyers shortlist the plots they love into a cart and send a buy
+          interest — and it lands in the built-in CRM as a qualified, broker-attributed lead.
+          Work the pipeline from first call to site visit to negotiation, generate a
+          quotation and email it in one move. Brokers bring their own buyers safely too:
+          contact details stay masked until the referring broker reveals them.
+        </p>
+        <ul class="msl-chapter-points">
+          <li>Plot cart &amp; buy interests wired straight into the CRM</li>
+          <li>Pipeline from New to Won, with printable emailed quotations</li>
+          <li>Broker referrals with masked contacts &amp; controlled reveal</li>
+        </ul>
+        <a href="/crm" class="msl-more">
+          see the pipeline
+          <svg width="18" height="14" viewBox="0 0 24 16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M1 8h20M15 2l6 6-6 6"/></svg>
+        </a>
+      </div>
+
+      <div class="msl-chapter-visual msl-reveal" data-delay="1">
+        <div class="msl-photo-frame">
+          <img src="/static/img/landing/story-ridge.jpg" alt="Hillside village beneath a mountain ridge" loading="lazy" />
+          <div class="msl-crm-float" aria-hidden="true">
+            <div class="msl-crm-card"><span class="ava">RS</span><span>Riya Sharma<small>Viewed Phase II · 3 plots</small></span><span class="st">New lead</span></div>
+            <div class="msl-crm-card"><span class="ava">AK</span><span>Arjun Kapoor<small>Interested · Plot 14B</small></span><span class="st">Site visit</span></div>
+            <div class="msl-crm-card"><span class="ava">MD</span><span>Meera Desai<small>Assigned to broker Nikhil</small></span><span class="st">Negotiation</span></div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- ======================= DAY / NIGHT ======================= -->
+  <section class="msl-daynight" id="daynight">
+    <div class="msl-main">
+      <div class="msl-daynight-head msl-reveal">
+        <p class="msl-eyebrow msl-eyebrow--center">Day &amp; Night Views</p>
+        <h2>Drag Day Into Night.</h2>
+        <p>
+          Golden hour sells the dream; city lights close it. Buyers scrub the scene itself
+          from daylight to dusk to night — stitched render frames or frame-accurate video,
+          tuned to feel like turning a dial on the sky. Try it below.
+        </p>
+      </div>
+
+      <div class="msl-compare msl-reveal" data-delay="1" id="mslCompare" role="slider" aria-label="Day and night comparison" aria-valuemin="0" aria-valuemax="100" aria-valuenow="55" tabindex="0">
+        <div class="night" aria-hidden="true"></div>
+        <div class="day" aria-hidden="true"></div>
+        <div class="msl-compare-handle" aria-hidden="true"></div>
+        <span class="msl-compare-label msl-compare-label--day">Day</span>
+        <span class="msl-compare-label msl-compare-label--night">Night</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======================= CAPABILITY INDEX ======================= -->
+  <section class="msl-index" id="capabilities">
+    <div class="msl-main">
+      <div class="msl-daynight-head msl-reveal" style="text-align:center; margin: 0 auto;">
+        <p class="msl-eyebrow msl-eyebrow--center">The Whole Expedition</p>
+        <h2>One Platform. The Entire Journey.</h2>
+      </div>
+
+      <div class="msl-index-grid msl-reveal" data-delay="1">
+        <div class="msl-index-cell"><span class="no">— 01</span><h3>360° Plot Editor</h3><p>Draw sellable plot polygons directly onto a spherical drone panorama — named, priced, statused.</p></div>
+        <div class="msl-index-cell"><span class="no">— 02</span><h3>Full View Microsites</h3><p>One branded link bundling tours, day/night, floor plans, galleries, brochures &amp; location — with a full visual theme editor.</p></div>
+        <div class="msl-index-cell"><span class="no">— 03</span><h3>Plot Cart &amp; Buy Interests</h3><p>Buyers shortlist plots inside the tour and submit — it lands as a structured CRM lead.</p></div>
+        <div class="msl-index-cell"><span class="no">— 04</span><h3>Day &amp; Night Scenes</h3><p>Scrub exterior renders from daylight to night — stitched frames or frame-accurate video.</p></div>
+        <div class="msl-index-cell"><span class="no">— 05</span><h3>Earth View</h3><p>A 3D globe with your land parcels drawn on real satellite terrain — fly buyers to the site.</p></div>
+        <div class="msl-index-cell"><span class="no">— 06</span><h3>Sales Route Maps</h3><p>Draw routes with distances from schools, highways &amp; airports to your gate — revealed on hover.</p></div>
+        <div class="msl-index-cell"><span class="no">— 07</span><h3>Building Maps &amp; Floor Plans</h3><p>Clickable floor zones on real elevations, linked to crisp lossless floor plan catalogues.</p></div>
+        <div class="msl-index-cell"><span class="no">— 08</span><h3>Plot Lock</h3><p>Hold a plot against a named buyer with granular lock rights — no plot ever sells twice.</p></div>
+        <div class="msl-index-cell"><span class="no">— 09</span><h3>Broker Referrals</h3><p>Brokers bring buyers safely: lead contacts stay masked until the referrer reveals them.</p></div>
+        <div class="msl-index-cell"><span class="no">— 10</span><h3>CRM &amp; Quotations</h3><p>Pipeline from New to Won, India-ready master data, and quotations emailed in one move.</p></div>
+        <div class="msl-index-cell"><span class="no">— 11</span><h3>Public Property Portal</h3><p>Published projects get discovered by buyers directly — browse, filter, map, step inside.</p></div>
+        <div class="msl-index-cell"><span class="no">— 12</span><h3>Teams &amp; Access Control</h3><p>Organizations, client teams, brokers and per-project grants — everyone sees exactly what they should.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======================= FINAL CTA ======================= -->
+  <section class="msl-cta-band" id="get-started">
+    <div class="msl-main msl-reveal">
+      <p class="msl-eyebrow msl-eyebrow--center">Your Next Project Awaits</p>
+      <h2>Get out there &amp; make every property <em>unforgettable</em>.</h2>
+      <div class="msl-hero-ctas" style="margin-top: 42px;">
+        <a href="/login?mode=signup" class="msl-cta-primary">
+          Start for free
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+        </a>
+        <a href="/explore" class="msl-cta-secondary">
+          Explore a live property
+          <svg width="18" height="14" viewBox="0 0 24 16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M1 8h20M15 2l6 6-6 6"/></svg>
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======================= FOOTER ======================= -->
+  <footer class="msl-footer">
+    <div class="msl-main">
+      <div class="msl-footer-grid">
+        <div>
+          <a class="msl-logo" href="/" aria-label="MarketoState home">
+            <svg viewBox="0 0 40 40" fill="none" aria-hidden="true">
+              <circle cx="20" cy="20" r="17" stroke="#FBD784" stroke-width="2.4"/>
+              <path d="M13 27V17.5l3.5 2v7.5M18.5 27V14l4 2.3V27M24.5 27v-8.5l3 1.7V27" stroke="#FFA300" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+            MARKETOSTATE
           </a>
-          <a href="#demo" class="hero-cta secondary">Try the live demo</a>
+          <p class="msl-footer-tag">Get out there &amp; discover your next plot, project &amp; possibility!</p>
         </div>
-
-        <div class="hero-trust">
-          <span class="label">Trusted by</span>
-          <span style="margin-left: 12px; opacity: 0.75;">Park &amp; Co • Horizon Estates • Alpine Group</span>
+        <div>
+          <h4>Platform</h4>
+          <ul class="msl-footer-links">
+            <li><a href="/explore">Explore properties</a></li>
+            <li><a href="/dashboard">Dashboard</a></li>
+            <li><a href="/crm">CRM</a></li>
+            <li><a href="/login?mode=signup">Start for free</a></li>
+          </ul>
         </div>
-      </div>
-
-      <div class="hero-visual">
-        <div class="hero-orb-glow"></div>
-        <canvas id="hero-orb" width="520" height="520"></canvas>
-      </div>
-    </div>
-  </section>
-
-  <!-- STATS -->
-  <div class="stats-strip">
-    <div class="stats-grid">
-      <div class="stat">
-        <div class="stat-number" data-count="1284">0</div>
-        <div class="stat-label">Properties visualized</div>
-      </div>
-      <div class="stat">
-        <div class="stat-number" data-count="47600">0</div>
-        <div class="stat-label">Plots precisely mapped</div>
-      </div>
-      <div class="stat">
-        <div class="stat-number" data-count="192">0</div>
-        <div class="stat-label">Active teams</div>
-      </div>
-      <div class="stat">
-        <div class="stat-number" data-count="99">0</div>
-        <div class="stat-label">Client satisfaction</div>
-      </div>
-    </div>
-  </div>
-
-  <!-- FEATURES -->
-  <section class="section" id="features">
-    <div class="section-header">
-      <h2>Everything you need to sell the dream.</h2>
-      <p>World-class tools designed for developers, brokers, and clients who demand the extraordinary.</p>
-    </div>
-
-    <div class="features-grid">
-      <div class="feature-card" data-tilt>
-        <div class="feature-icon">🌐</div>
-        <h3>True 360° Immersion</h3>
-        <p>Drag, pan, zoom — buttery-smooth spherical navigation that feels like walking the property.</p>
-      </div>
-      <div class="feature-card" data-tilt>
-        <div class="feature-icon">📍</div>
-        <h3>Precision Plot Mapping</h3>
-        <p>Draw, label, and update plots in real time. Available, Hold, Sold — instant visual clarity.</p>
-      </div>
-      <div class="feature-card" data-tilt>
-        <div class="feature-icon">✨</div>
-        <h3>Rich Interactive Markers</h3>
-        <p>Attach photos, notes, voice notes, and documents to any point in the panorama.</p>
-      </div>
-      <div class="feature-card" data-tilt>
-        <div class="feature-icon">🔗</div>
-        <h3>One-Click Client Links</h3>
-        <p>Instantly generate beautiful, branded client portals. No login friction required.</p>
-      </div>
-      <div class="feature-card" data-tilt>
-        <div class="feature-icon">📊</div>
-        <h3>Built-in CRM</h3>
-        <p>Leads captured directly from property views. Full pipeline, notes, and broker assignment.</p>
-      </div>
-      <div class="feature-card" data-tilt>
-        <div class="feature-icon">📱</div>
-        <h3>Works Everywhere</h3>
-        <p>Flawless on mobile, tablet, and desktop. Your clients explore from anywhere.</p>
-      </div>
-    </div>
-  </section>
-
-  <!-- HOW IT WORKS -->
-  <section class="section" id="how-it-works">
-    <div class="section-header">
-      <h2>Four steps. Instant magic.</h2>
-      <p>From raw panorama to client-ready experience in minutes.</p>
-    </div>
-
-    <div class="how-grid">
-      <div class="step">
-        <div class="step-num">1</div>
-        <h4>Upload</h4>
-        <p>Drop high-resolution panoramas or 360° equirectangular images.</p>
-      </div>
-      <div class="step">
-        <div class="step-num">2</div>
-        <h4>Map</h4>
-        <p>Draw plots. Assign status. Add rich markers with media and notes.</p>
-      </div>
-      <div class="step">
-        <div class="step-num">3</div>
-        <h4>Customize</h4>
-        <p>Brand the experience. Set permissions. Add project documents.</p>
-      </div>
-      <div class="step">
-        <div class="step-num">4</div>
-        <h4>Share</h4>
-        <p>Send a single beautiful link. Watch clients fall in love.</p>
-      </div>
-    </div>
-  </section>
-
-  <!-- IMPOSSIBLE INTERACTIVE DEMO -->
-  <section class="demo-section" id="demo">
-    <div class="demo-container">
-      <div class="demo-header">
-        <h3>Feel it yourself. Right now.</h3>
-        <p style="color:#555; font-size:0.95rem;">Drag the view to pan 360°. Click to add plots. Drag plots. Click plots to change status.</p>
-      </div>
-
-      <div class="demo-panel">
-        <canvas id="demo-canvas" width="960" height="380"></canvas>
-
-        <div class="demo-info">
-          <div>
-            <div class="title">Sunrise Ridge • Phase 2</div>
-            <div class="hint">Real interactive 360° demo — pan, place, drag, recolor</div>
-          </div>
-          <div style="text-align:right; font-size:0.8rem; opacity:0.75;">
-            <span id="demo-plot-count">0</span> plots
-          </div>
-        </div>
-
-        <div class="demo-controls">
-          <button class="demo-btn active" data-status="avail">Available</button>
-          <button class="demo-btn" data-status="hold">Hold</button>
-          <button class="demo-btn" data-status="sold">Sold</button>
-          <button class="demo-btn" id="demo-clear">Clear</button>
+        <div>
+          <h4>More on MarketoState</h4>
+          <ul class="msl-footer-links">
+            <li><a href="/login">Log in</a></li>
+            <li><a href="#chapter-1">The experience</a></li>
+            <li><a href="#chapter-2">Live mapping</a></li>
+            <li><a href="#chapter-3">Pipeline</a></li>
+          </ul>
         </div>
       </div>
-    </div>
-  </section>
-
-  <!-- TESTIMONIALS -->
-  <section class="testimonials">
-    <div class="section-header">
-      <h2>Loved by the best in the business.</h2>
-    </div>
-
-    <div class="test-grid">
-      <div class="test-card">
-        <div class="test-quote">“This changed how we sell. Clients literally say ‘wow’ within 10 seconds of opening the link.”</div>
-        <div class="test-meta">
-          <div class="test-avatar">VS</div>
-          <div>
-            <div style="font-weight:700;">Vikram Singh</div>
-            <div style="font-size:0.8rem; color:#666;">Founder, Horizon Developers</div>
-          </div>
-        </div>
-      </div>
-      <div class="test-card">
-        <div class="test-quote">“We went from sending static PDFs to sending living 360° experiences. Conversion jumped 3×.”</div>
-        <div class="test-meta">
-          <div class="test-avatar">AM</div>
-          <div>
-            <div style="font-weight:700;">Anjali Mehra</div>
-            <div style="font-size:0.8rem; color:#666;">Head of Sales, Alpine Group</div>
-          </div>
-        </div>
-      </div>
-      <div class="test-card">
-        <div class="test-quote">“The level of polish and speed is ridiculous. Our brokers fight over who gets to demo it first.”</div>
-        <div class="test-meta">
-          <div class="test-avatar">RK</div>
-          <div>
-            <div style="font-weight:700;">Rohan Kapoor</div>
-            <div style="font-size:0.8rem; color:#666;">Director, Park &amp; Co</div>
-          </div>
-        </div>
+      <div class="msl-footer-bottom">
+        <span>Copyright © 2026 MarketoState, Inc. Terms &amp; Privacy</span>
+        <span>Crafted for the ones who sell places, not pictures.</span>
       </div>
     </div>
-  </section>
+  </footer>
 
-  <!-- FINAL CTA -->
-  <section class="final-cta">
-    <div class="final-cta-inner">
-      <h2>Ready to make every property unforgettable?</h2>
-      <p>Create your first immersive experience in under two minutes.</p>
-      <a href="/login?mode=signup" class="cta-large">Get started free — no card needed</a>
-    </div>
-  </section>
+  <script>
+  (function () {
+    'use strict';
 
-</div>
+    var reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-{% include 'components/portal_public_shell_end.html' %}
-
-<script>
-// ======================================================
-// FULLY FIXED + MAXIMUM AMAZING HOMEPAGE
-// Color theme 100% preserved: #333 dark + #ffa300 gold + warm creams
-// ======================================================
-
-// 1. Animated counters
-function animateCount(el, target, duration = 1400) {
-  const start = performance.now();
-  function step(now) {
-    const t = Math.min((now - start) / duration, 1);
-    const eased = 1 - Math.pow(1 - t, 3);
-    const val = Math.floor(target * eased);
-    el.textContent = target > 1000 ? val.toLocaleString() : val;
-    if (t < 1) requestAnimationFrame(step);
-    else el.textContent = target >= 100 ? target + '%' : target.toLocaleString();
-  }
-  requestAnimationFrame(step);
-}
-
-function initCounters() {
-  const stats = document.querySelectorAll('.stat-number');
-  const strip = document.querySelector('.stats-strip');
-  if (!strip) return;
-  const obs = new IntersectionObserver(([entry]) => {
-    if (entry.isIntersecting) {
-      stats.forEach(s => animateCount(s, +s.dataset.count));
-      obs.disconnect();
+    /* ---------- header state ---------- */
+    var header = document.getElementById('mslHeader');
+    function headerState() {
+      if (header) header.classList.toggle('is-scrolled', window.scrollY > 40);
     }
-  }, { threshold: 0.5 });
-  obs.observe(strip);
-}
+    window.addEventListener('scroll', headerState, { passive: true });
+    headerState();
 
-// 2. The Impossible Orb - fully dynamic and correct
-function initHeroOrb() {
-  const canvas = document.getElementById('hero-orb');
-  if (!canvas) return;
-  const ctx = canvas.getContext('2d', { alpha: true });
-  const visual = canvas.parentElement;
-
-  let W = 520, H = 520, CX = 260, CY = 260, RADIUS = 225;
-  let rotation = 0, targetRot = 0;
-  let dragging = false, lastX = 0, autoSpin = true;
-  let light = { x: 180, y: 130 };
-
-  let markers = [
-    {lon: -62, lat: 11, type: 'gold'}, {lon: -28, lat: 25, type: 'gold'},
-    {lon: 14, lat: -13, type: 'green'}, {lon: 51, lat: 7, type: 'gold'},
-    {lon: -88, lat: -26, type: 'red'}, {lon: 79, lat: 30, type: 'green'},
-    {lon: -15, lat: 37, type: 'gold'}, {lon: 108, lat: -8, type: 'green'}
-  ];
-
-  let pulses = []; // {x, y, age} for click feedback rings on orb
-
-  function resizeOrb() {
-    const max = 520;
-    const size = Math.min(max, Math.max(280, visual.clientWidth * 0.95));
-
-    canvas.style.width = size + 'px';
-    canvas.style.height = size + 'px';
-
-    const dpr = Math.min(2, window.devicePixelRatio || 1);
-    W = Math.round(size * dpr);
-    H = W;
-    canvas.width = W;
-    canvas.height = H;
-
-    CX = W / 2;
-    CY = H / 2;
-    RADIUS = W * 0.435;
-
-    const glow = visual.querySelector('.hero-orb-glow');
-    if (glow) {
-      glow.style.width = (size * 1.05) + 'px';
-      glow.style.height = (size * 1.05) + 'px';
-    }
-  }
-
-  function project(lon, lat) {
-    const phi = (lon + rotation) * Math.PI / 180;
-    const theta = lat * Math.PI / 180;
-    const x3d = RADIUS * Math.cos(theta) * Math.sin(phi);
-    const y3d = RADIUS * Math.sin(theta);
-    const z3d = RADIUS * Math.cos(theta) * Math.cos(phi);
-    const s = 1.2 / (1.2 + z3d / RADIUS * 0.5);
-    return { x: CX + x3d * s * 0.95, y: CY + y3d * s * 0.95, z: z3d, scale: s };
-  }
-
-  function draw() {
-    ctx.clearRect(0, 0, W, H);
-
-    // Main lit sphere
-    const g = ctx.createRadialGradient(light.x - W*0.1, light.y - H*0.15, W*0.07, CX + W*0.12, CY + H*0.2, RADIUS*1.6);
-    g.addColorStop(0, '#f8f4ec');
-    g.addColorStop(0.14, '#d8c7a1');
-    g.addColorStop(0.39, '#665b44');
-    g.addColorStop(0.7, '#2f2c28');
-    g.addColorStop(1, '#151412');
-
-    ctx.beginPath();
-    ctx.arc(CX, CY, RADIUS, 0, Math.PI * 2);
-    ctx.fillStyle = g;
-    ctx.fill();
-
-    // Vignette
-    const v = ctx.createRadialGradient(CX, CY, RADIUS*0.5, CX, CY, RADIUS*1.35);
-    v.addColorStop(0, 'transparent');
-    v.addColorStop(0.82, 'rgba(0,0,0,0.4)');
-    ctx.fillStyle = v;
-    ctx.beginPath();
-    ctx.arc(CX, CY, RADIUS*1.35, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Gold rim
-    ctx.strokeStyle = 'rgba(255,163,0,0.5)';
-    ctx.lineWidth = Math.max(5, W * 0.015);
-    ctx.beginPath();
-    ctx.arc(CX, CY, RADIUS + 1, 0, Math.PI * 2);
-    ctx.stroke();
-
-    // Grid
-    ctx.strokeStyle = 'rgba(255,255,255,0.09)';
-    ctx.lineWidth = Math.max(1, W * 0.002);
-    for (let i = -3; i <= 3; i++) {
-      ctx.beginPath();
-      for (let a = -180; a <= 180; a += 6) {
-        const p = project(a + i * 27, 0);
-        if (a === -180) ctx.moveTo(p.x, p.y); else ctx.lineTo(p.x, p.y);
-      }
-      ctx.stroke();
-    }
-    for (let lat of [-40, -12, 10, 30]) {
-      ctx.beginPath();
-      let first = true;
-      for (let lon = -180; lon <= 180; lon += 5) {
-        const p = project(lon, lat);
-        if (first) { ctx.moveTo(p.x, p.y); first = false; } else ctx.lineTo(p.x, p.y);
-      }
-      ctx.stroke();
+    /* ---------- mobile menu ---------- */
+    var toggle = document.getElementById('mslMenuToggle');
+    var mobileNav = document.getElementById('mslMobileNav');
+    if (toggle && mobileNav) {
+      toggle.addEventListener('click', function () {
+        var open = mobileNav.classList.toggle('is-open');
+        toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+        document.body.style.overflow = open ? 'hidden' : '';
+      });
+      mobileNav.addEventListener('click', function (e) {
+        if (e.target.tagName === 'A') {
+          mobileNav.classList.remove('is-open');
+          toggle.setAttribute('aria-expanded', 'false');
+          document.body.style.overflow = '';
+        }
+      });
     }
 
-    // Markers
-    const t = Date.now();
-    markers.forEach((m, i) => {
-      const p = project(m.lon, m.lat);
-      if (p.z < -20) return;
-      const pulse = 0.78 + Math.sin(t / 300 + i * 1.7) * 0.32;
-      const r = (m.type === 'gold' ? 7.5 : 6) * pulse * p.scale;
+    /* ---------- scroll reveals ---------- */
+    var revealables = document.querySelectorAll('.msl-reveal, .msl-chapter, .msl-compare');
+    if ('IntersectionObserver' in window) {
+      var io = new IntersectionObserver(function (entries) {
+        entries.forEach(function (en) {
+          if (en.isIntersecting) {
+            en.target.classList.add('is-inview');
+            io.unobserve(en.target);
+          }
+        });
+      }, { threshold: 0.18, rootMargin: '0px 0px -6% 0px' });
+      revealables.forEach(function (el) { io.observe(el); });
+    } else {
+      revealables.forEach(function (el) { el.classList.add('is-inview'); });
+    }
 
-      let col = '#ffa300';
-      if (m.type === 'green') col = '#22c55e';
-      if (m.type === 'red') col = '#ef4444';
-
-      ctx.save();
-      ctx.shadowColor = col;
-      ctx.shadowBlur = Math.max(16, W * 0.04);
-      ctx.fillStyle = col;
-      ctx.beginPath();
-      ctx.arc(p.x, p.y, r * 1.8, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.restore();
-
-      ctx.fillStyle = '#fff';
-      ctx.beginPath();
-      ctx.arc(p.x, p.y, r * 0.6, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.fillStyle = col;
-      ctx.beginPath();
-      ctx.arc(p.x, p.y, r * 0.4, 0, Math.PI * 2);
-      ctx.fill();
+    /* ---------- parallax ---------- */
+    var plxEls = [];
+    document.querySelectorAll('[data-plx]').forEach(function (el) {
+      plxEls.push({ el: el, speed: parseFloat(el.getAttribute('data-plx')) || 0, cur: 0 });
     });
 
-    // Click feedback pulses (beautiful expanding gold rings)
-    const now = Date.now();
-    pulses = pulses.filter(p => now - p.born < 620);
-    pulses.forEach(p => {
-      const age = (now - p.born) / 620;
-      const pr = (W * 0.03) + age * (W * 0.18);
-      const alpha = 0.55 * (1 - age * age);
-      ctx.strokeStyle = `rgba(255,163,0,${alpha})`;
-      ctx.lineWidth = Math.max(1.5, W * 0.004);
-      ctx.beginPath();
-      ctx.arc(p.x, p.y, pr, 0, Math.PI * 2);
-      ctx.stroke();
-    });
+    var ticking = false;
+    function parallaxFrame() {
+      ticking = false;
+      var vh = window.innerHeight;
+      plxEls.forEach(function (item) {
+        var rect = item.el.getBoundingClientRect();
+        var target;
+        if (item.el.closest('.msl-hero')) {
+          target = window.scrollY * item.speed;
+        } else {
+          target = (rect.top + rect.height / 2 - vh / 2) * item.speed;
+        }
+        if (Math.abs(target - item.cur) > 0.1) {
+          item.cur = target;
+          item.el.style.transform = 'translate3d(0,' + target.toFixed(1) + 'px,0)';
+        }
+      });
+    }
+    function requestParallax() {
+      if (!ticking) { ticking = true; requestAnimationFrame(parallaxFrame); }
+    }
+    if (!reduceMotion && plxEls.length) {
+      window.addEventListener('scroll', requestParallax, { passive: true });
+      window.addEventListener('resize', requestParallax);
+      requestParallax();
+    }
 
-    // Specular
-    ctx.fillStyle = 'rgba(255,255,255,0.28)';
-    ctx.beginPath();
-    ctx.ellipse(light.x * 0.82, light.y * 0.55, W * 0.11, H * 0.045, -0.65, 0, Math.PI * 2);
-    ctx.fill();
-  }
+    /* ---------- right rail progress ---------- */
+    var railThumb = document.getElementById('mslRailThumb');
+    var railLinks = document.getElementById('mslRailLinks');
+    var railStops = ['top', 'chapter-1', 'chapter-2', 'chapter-3'];
+    function railUpdate() {
+      if (!railThumb || !railLinks) return;
+      var mid = window.scrollY + window.innerHeight / 2;
+      var idx = 0;
+      railStops.forEach(function (id, i) {
+        var el = document.getElementById(id);
+        if (el && mid >= el.offsetTop) idx = i;
+      });
+      var track = railThumb.parentElement;
+      var span = track.clientHeight - railThumb.clientHeight;
+      railThumb.style.top = (span * idx / (railStops.length - 1)) + 'px';
+      var links = railLinks.querySelectorAll('a');
+      links.forEach(function (a, i) { a.classList.toggle('is-active', i === idx); });
+    }
+    window.addEventListener('scroll', railUpdate, { passive: true });
+    railUpdate();
 
-  function loop() {
-    if (autoSpin && !dragging) targetRot += 0.105;
+    /* ---------- gold dust ---------- */
+    var dust = document.getElementById('mslDust');
+    if (dust && !reduceMotion) {
+      var ctx = dust.getContext('2d');
+      var parts = [];
+      var running = true;
+      var dpr = Math.min(window.devicePixelRatio || 1, 2);
 
-    // Very subtle idle light breathing (makes it feel alive when idle)
-    if (!dragging) {
-      const t = Date.now() / 1800;
-      light.x = CX * 0.65 + Math.sin(t * 0.7) * (W * 0.12);
-      light.y = CY * 0.48 + Math.cos(t * 0.9) * (H * 0.09);
-
-      // Occasional soft ping on a random marker when idle (extra life)
-      if (Math.random() < 0.006) {
-        const idx = Math.floor(Math.random() * markers.length);
-        const m = markers[idx];
-        const p = project(m.lon, m.lat);
-        if (p.z > -20) {
-          pulses.push({ x: p.x, y: p.y, born: Date.now() - 80 });
+      function dustSize() {
+        var r = dust.parentElement.getBoundingClientRect();
+        dust.width = r.width * dpr;
+        dust.height = r.height * dpr;
+      }
+      function seed() {
+        parts = [];
+        var n = Math.round(dust.width / dpr / 30);
+        for (var i = 0; i < n; i++) {
+          parts.push({
+            x: Math.random() * dust.width,
+            y: Math.random() * dust.height,
+            r: (Math.random() * 1.6 + 0.5) * dpr,
+            vy: (Math.random() * 0.22 + 0.06) * dpr,
+            sway: Math.random() * Math.PI * 2,
+            swaySpeed: Math.random() * 0.012 + 0.004,
+            a: Math.random() * 0.5 + 0.15
+          });
         }
       }
-    }
-
-    rotation = rotation * 0.83 + targetRot * 0.17;
-    draw();
-    requestAnimationFrame(loop);
-  }
-
-  function getMouseNorm(e) {
-    const r = canvas.getBoundingClientRect();
-    return { x: (e.clientX - r.left) / r.width, y: (e.clientY - r.top) / r.height };
-  }
-
-  // Drag rotate
-  canvas.addEventListener('mousedown', e => { dragging = true; autoSpin = false; lastX = e.clientX; });
-  window.addEventListener('mouseup', () => { dragging = false; setTimeout(() => autoSpin = !dragging, 1500); });
-  window.addEventListener('mousemove', e => {
-    if (!dragging) return;
-    targetRot += (e.clientX - lastX) * 0.85;
-    lastX = e.clientX;
-  });
-
-  // Touch
-  canvas.addEventListener('touchstart', e => { dragging = true; autoSpin = false; lastX = e.touches[0].clientX; }, {passive:true});
-  canvas.addEventListener('touchend', () => { dragging = false; setTimeout(() => autoSpin = true, 1500); });
-  canvas.addEventListener('touchmove', e => {
-    if (dragging) targetRot += (e.touches[0].clientX - lastX) * 0.85;
-    lastX = e.touches[0].clientX;
-  }, {passive:true});
-
-  // Click markers
-  canvas.addEventListener('click', e => {
-    const n = getMouseNorm(e);
-    const mx = n.x * W, my = n.y * H;
-    markers.forEach((m, i) => {
-      const p = project(m.lon, m.lat);
-      if (Math.hypot(mx - p.x, my - p.y) < 22 && p.z > -18) {
-        const orig = { ...m };
-        markers[i].lat += 4;
-        const label = document.createElement('div');
-        label.style.cssText = `position:fixed;left:${e.clientX}px;top:${e.clientY-32}px;background:#222;color:#f8f4ec;font-size:12px;padding:4px 10px;border-radius:9999px;pointer-events:none;z-index:99999;border:1px solid #ffa30040`;
-        label.textContent = m.type === 'gold' ? 'Plot A-12 • Available' : m.type === 'green' ? 'Plot C-09 • Available' : 'Plot B-05 • Sold';
-        document.body.appendChild(label);
-        setTimeout(() => label.remove(), 850);
-        setTimeout(() => { markers[i] = orig; }, 820);
-
-        // Spawn beautiful pulse ring
-        pulses.push({ x: p.x, y: p.y, born: Date.now() });
-      }
-    });
-
-    // Small pulse even on empty space for tactile feel
-    if (pulses.length < 3) {
-      pulses.push({ x: mx, y: my, born: Date.now() - 120 });
-    }
-  });
-
-  // Mouse light + tilt on the whole visual for extra "impossible" feel
-  visual.addEventListener('mousemove', e => {
-    if (dragging) return;
-    const r = visual.getBoundingClientRect();
-    const nx = (e.clientX - r.left) / r.width;
-    const ny = (e.clientY - r.top) / r.height;
-
-    // Subtle 3D tilt on the container + translate on canvas
-    visual.style.transform = `perspective(900px) rotateX(${ (ny - 0.5) * -6 }deg) rotateY(${ (nx - 0.5) * 7 }deg)`;
-    canvas.style.transform = `translate(${(nx-0.5)*6}px, ${(ny-0.5)*5}px)`;
-
-    light.x = CX * 0.38 + nx * W * 0.7;
-    light.y = CY * 0.4 + ny * H * 0.55;
-  });
-  visual.addEventListener('mouseleave', () => {
-    visual.style.transition = 'transform .65s cubic-bezier(.23,1,.32,1)';
-    visual.style.transform = '';
-    canvas.style.transition = 'transform .6s cubic-bezier(.23,1,.32,1)';
-    canvas.style.transform = 'translate(0,0)';
-    light.x = CX * 0.65;
-    light.y = CY * 0.48;
-    setTimeout(() => {
-      visual.style.transition = '';
-      canvas.style.transition = '';
-    }, 650);
-  });
-
-  // Double click = spawn
-  canvas.addEventListener('dblclick', e => {
-    const n = getMouseNorm(e);
-    const m = { lon: rotation + (n.x - .5) * -90, lat: (n.y - .5) * -55, type: ['gold','green','red'][Math.random()*3|0] };
-    markers.push(m);
-    setTimeout(() => {
-      const idx = markers.indexOf(m);
-      if (idx > -1) markers.splice(idx, 1);
-    }, 1400);
-  });
-
-  window.addEventListener('resize', () => { clearTimeout(window.__orbR); window.__orbR = setTimeout(resizeOrb, 70); });
-
-  resizeOrb();
-  loop();
-}
-
-// 3. 3D Tilt cards
-function initTilt() {
-  document.querySelectorAll('.feature-card[data-tilt]').forEach(card => {
-    card.addEventListener('mousemove', e => {
-      const r = card.getBoundingClientRect();
-      const x = ((e.clientX - r.left) / r.width) - 0.5;
-      const y = ((e.clientY - r.top) / r.height) - 0.5;
-      card.style.transition = 'transform .05s linear';
-      card.style.transform = `perspective(860px) rotateX(${y * -10}deg) rotateY(${x * 12}deg) translateY(-3px)`;
-    });
-    card.addEventListener('mouseleave', () => {
-      card.style.transition = 'transform .45s cubic-bezier(.23,1,.32,1)';
-      card.style.transform = '';
-    });
-  });
-}
-
-// 4. Amazing interactive demo (real canvas panning + plots)
-function initDemo() {
-  const canvas = document.getElementById('demo-canvas');
-  if (!canvas) return;
-  const ctx = canvas.getContext('2d', { alpha: true });
-
-  let plots = [];
-  let status = 'avail';
-  let view = 0.36; // pan position
-  let dragging = false;
-  let last = 0;
-
-  function draw() {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-    // Panned 360 background
-    const offset = (view - 0.36) * 260;
-    const g = ctx.createLinearGradient(offset - 120, 0, offset + canvas.width + 120, 0);
-    g.addColorStop(0, '#4b7b9e');
-    g.addColorStop(0.17, '#7fb3cc');
-    g.addColorStop(0.22, '#c9a76d');
-    g.addColorStop(0.5, '#a07c52');
-    g.addColorStop(0.78, '#624f36');
-    g.addColorStop(1, '#342d21');
-
-    ctx.fillStyle = g;
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-    // Subtle texture
-    ctx.fillStyle = 'rgba(255,255,255,0.03)';
-    for (let i = -1; i < 20; i++) {
-      ctx.fillRect(i * 58 + (view * 30), 70 + (i % 2) * 90, 44, 1);
-    }
-
-    // Plots with parallax + interactions
-    const now = Date.now();
-    plots.forEach((p, i) => {
-      const px = p.x + (view - 0.36) * 170;
-      const col = p.status === 'avail' ? '#22c55e' : p.status === 'hold' ? '#f97316' : '#ef4444';
-
-      const isSel = (p === selected);
-      let lift = isSel ? 3 : 0;
-      let scale = isSel ? 1.18 : 1;
-
-      // Satisfying release pop
-      if (p.releaseTime && now - p.releaseTime < 380) {
-        const t = (now - p.releaseTime) / 380;
-        const pop = 1 + Math.sin(t * Math.PI) * 0.24 * (1 - t);
-        scale *= pop;
-        lift += (1 - t) * 2.5;
-      } else if (p.releaseTime && now - p.releaseTime > 380) {
-        delete p.releaseTime;
-      }
-
-      ctx.save();
-      ctx.shadowColor = col;
-      ctx.shadowBlur = isSel ? 22 : 12;
-      ctx.fillStyle = col;
-      ctx.beginPath();
-      ctx.ellipse(px, p.y - lift, 18 * scale, 16 * scale, 0, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.restore();
-
-      // Core + number
-      ctx.fillStyle = '#fff';
-      ctx.beginPath();
-      ctx.arc(px, p.y - lift, 6.5 * scale, 0, Math.PI * 2);
-      ctx.fill();
-
-      ctx.fillStyle = col;
-      ctx.font = `700 ${isSel ? 11 : 10}px system-ui`;
-      ctx.textAlign = 'center';
-      ctx.fillText(String(i + 1).padStart(2, '0'), px, p.y - lift + 3.5);
-
-      // Status ring
-      ctx.strokeStyle = col;
-      ctx.lineWidth = isSel ? 2.5 : 1.5;
-      ctx.beginPath();
-      ctx.arc(px, p.y - lift, 13 * scale, 0, Math.PI * 2);
-      ctx.stroke();
-    });
-  }
-
-  function updateCount() {
-    const el = document.getElementById('demo-plot-count');
-    if (el) el.textContent = plots.length;
-  }
-
-  let selected = null;
-  let offsetX = 0, offsetY = 0;
-  let wasDraggingPlot = false;
-
-  function getWorldPos(clientX, clientY) {
-    const r = canvas.getBoundingClientRect();
-    const sx = ((clientX - r.left) / r.width) * canvas.width;
-    const sy = ((clientY - r.top) / r.height) * canvas.height;
-    const wx = sx + (view - 0.36) * 170;
-    const wy = sy;
-    return { wx, wy };
-  }
-
-  function hitPlot(wx, wy) {
-    for (let i = plots.length - 1; i >= 0; i--) {
-      const p = plots[i];
-      if (Math.hypot(p.x - wx, p.y - wy) < 22) return i;
-    }
-    return -1;
-  }
-
-  function start(e) {
-    const pos = getWorldPos(e.touches ? e.touches[0].clientX : e.clientX, e.touches ? e.touches[0].clientY : e.clientY);
-    const idx = hitPlot(pos.wx, pos.wy);
-
-    if (idx !== -1) {
-      // Pick up plot
-      selected = plots[idx];
-      offsetX = selected.x - pos.wx;
-      offsetY = selected.y - pos.wy;
-      wasDraggingPlot = false;
-      dragging = true; // reuse flag for any pointer activity
-    } else {
-      // Start panning view
-      selected = null;
-      dragging = true;
-      last = e.touches ? e.touches[0].clientX : e.clientX;
-      wasDraggingPlot = false;
-    }
-  }
-
-  function move(e) {
-    if (!dragging) return;
-
-    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-
-    if (selected) {
-      wasDraggingPlot = true;
-      const pos = getWorldPos(clientX, clientY);
-      selected.x = pos.wx + offsetX;
-      selected.y = pos.wy + offsetY;
-
-      // Keep inside bounds
-      selected.x = Math.max(30, Math.min(selected.x, canvas.width - 30));
-      selected.y = Math.max(25, Math.min(selected.y, canvas.height - 25));
-    } else {
-      const cx = clientX;
-      const dx = (cx - last) / canvas.getBoundingClientRect().width;
-      view = Math.max(0.03, Math.min(0.97, view - dx * 0.85));
-      last = cx;
-    }
-    draw();
-  }
-
-  function end(e) {
-    if (!dragging) return;
-    dragging = false;
-
-    if (selected) {
-      // If it was barely moved, cycle status (nice tap-to-toggle)
-      if (!wasDraggingPlot) {
-        const order = ['avail', 'hold', 'sold'];
-        selected.status = order[(order.indexOf(selected.status) + 1) % 3];
-      } else {
-        // Give a satisfying little release pop
-        selected.releaseTime = Date.now();
-      }
-    }
-
-    selected = null;
-    wasDraggingPlot = false;
-    draw();
-  }
-
-  canvas.addEventListener('mousedown', start);
-  window.addEventListener('mousemove', move);
-  window.addEventListener('mouseup', end);
-
-  canvas.addEventListener('touchstart', start, {passive: true});
-  canvas.addEventListener('touchmove', move, {passive: true});
-  canvas.addEventListener('touchend', end);
-
-  // Add new plot on click (only when not hitting existing and not after drag)
-  let downTime = 0;
-  let downPos = null;
-  canvas.addEventListener('mousedown', (e) => {
-    downTime = Date.now();
-    downPos = getWorldPos(e.clientX, e.clientY);
-  });
-  canvas.addEventListener('mouseup', (e) => {
-    if (!wasDraggingPlot && Date.now() - downTime < 180) {
-      const pos = getWorldPos(e.clientX, e.clientY);
-      if (hitPlot(pos.wx, pos.wy) === -1) {
-        plots.push({
-          x: Math.max(30, Math.min(pos.wx, canvas.width - 30)),
-          y: Math.max(25, Math.min(pos.wy, canvas.height - 25)),
-          status
+      function dustFrame() {
+        if (!running) return;
+        ctx.clearRect(0, 0, dust.width, dust.height);
+        ctx.fillStyle = '#FBD784';
+        parts.forEach(function (p) {
+          p.y -= p.vy;
+          p.sway += p.swaySpeed;
+          p.x += Math.sin(p.sway) * 0.3 * dpr;
+          if (p.y < -8) { p.y = dust.height + 8; p.x = Math.random() * dust.width; }
+          ctx.globalAlpha = p.a * (0.6 + 0.4 * Math.sin(p.sway * 1.7));
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+          ctx.fill();
         });
-        updateCount();
-        draw();
+        ctx.globalAlpha = 1;
+        requestAnimationFrame(dustFrame);
+      }
+      dustSize(); seed(); dustFrame();
+      var dustRs;
+      window.addEventListener('resize', function () {
+        clearTimeout(dustRs);
+        dustRs = setTimeout(function () { dustSize(); seed(); }, 150);
+      });
+      if ('IntersectionObserver' in window) {
+        new IntersectionObserver(function (entries) {
+          var vis = entries[0].isIntersecting;
+          if (vis && !running) { running = true; dustFrame(); }
+          else if (!vis) running = false;
+        }).observe(dust);
       }
     }
-  });
 
-  // Right click to delete
-  canvas.addEventListener('contextmenu', e => {
-    e.preventDefault();
-    const pos = getWorldPos(e.clientX, e.clientY);
-    const idx = hitPlot(pos.wx, pos.wy);
-    if (idx !== -1) {
-      plots.splice(idx, 1);
-      updateCount();
-      draw();
-    }
-  });
+    /* ---------- live pano demo ---------- */
+    var pano = document.getElementById('mslPano');
+    var panoBg = document.getElementById('mslPanoBg');
+    var panoThumb = document.getElementById('mslPanoThumb');
+    if (pano && panoBg) {
+      var pos = 30;            /* background-position-x percent */
+      var dragging = false;
+      var lastX = 0;
+      var idleTimer = null;
+      var autoDrift = !reduceMotion;
 
-  // Status buttons
-  document.querySelectorAll('.demo-controls .demo-btn[data-status]').forEach(b => {
-    b.addEventListener('click', () => {
-      document.querySelectorAll('.demo-controls .demo-btn').forEach(x => x.classList.remove('active'));
-      b.classList.add('active');
-      status = b.dataset.status;
-    });
-  });
-
-  document.getElementById('demo-clear').addEventListener('click', () => {
-    plots = [];
-    view = 0.36;
-    updateCount();
-    draw();
-  });
-
-  // Seed + resize
-  function fit() {
-    const w = Math.min(960, canvas.parentElement.clientWidth - 6);
-    canvas.width = w;
-    canvas.height = Math.round(w * 0.4);
-    draw();
-  }
-  window.addEventListener('resize', () => { clearTimeout(window.__dR); window.__dR = setTimeout(fit, 80); });
-
-  setTimeout(() => {
-    const s = [[210,105,'avail'],[330,158,'avail'],[470,92,'hold'],[610,185,'avail'],[305,252,'sold'],[490,278,'avail'],[155,205,'avail'],[680,135,'hold']];
-    s.forEach(([x,y,st]) => plots.push({x, y, status: st}));
-    updateCount();
-    draw();
-  }, 200);
-
-  fit();
-}
-
-// Scroll reveals
-function initReveals() {
-  const items = document.querySelectorAll('.feature-card, .step, .test-card');
-  const io = new IntersectionObserver(ents => {
-    ents.forEach((en, i) => {
-      if (en.isIntersecting) {
-        en.target.style.transitionDelay = (i * 45) + 'ms';
-        en.target.style.opacity = '1';
-        en.target.style.transform = 'translateY(0)';
-        io.unobserve(en.target);
+      function renderPano() {
+        panoBg.style.backgroundPosition = pos.toFixed(2) + '% 42%';
+        if (panoThumb) panoThumb.style.left = 'calc(' + pos.toFixed(2) + '% - ' + (pos / 100 * 26).toFixed(1) + 'px)';
       }
-    });
-  }, { threshold: 0.1 });
-  items.forEach(el => {
-    el.style.opacity = '0';
-    el.style.transform = 'translateY(18px)';
-    el.style.transition = 'all .65s cubic-bezier(.23,1,.32,1)';
-    io.observe(el);
-  });
-}
-
-function boot() {
-  initCounters();
-  initHeroOrb();
-  initTilt();
-  initDemo();
-  initReveals();
-
-  // Keyboard easter egg
-  document.addEventListener('keydown', e => {
-    if (e.key.toLowerCase() === 'm') {
-      const o = document.getElementById('hero-orb');
-      if (o) {
-        const old = o.style.boxShadow;
-        o.style.boxShadow = '0 0 110px 28px rgba(255,163,0,0.6)';
-        setTimeout(() => o.style.boxShadow = old, 700);
+      function drift() {
+        if (autoDrift && !dragging) {
+          pos += 0.018;
+          if (pos > 100) pos = 0;
+          renderPano();
+        }
+        requestAnimationFrame(drift);
       }
+      pano.addEventListener('pointerdown', function (e) {
+        dragging = true;
+        lastX = e.clientX;
+        pano.setPointerCapture(e.pointerId);
+        clearTimeout(idleTimer);
+      });
+      pano.addEventListener('pointermove', function (e) {
+        if (!dragging) return;
+        var dx = e.clientX - lastX;
+        lastX = e.clientX;
+        pos = Math.min(100, Math.max(0, pos - dx * 0.18));
+        renderPano();
+      });
+      function panoRelease() {
+        dragging = false;
+        clearTimeout(idleTimer);
+        idleTimer = setTimeout(function () { autoDrift = !reduceMotion; }, 2200);
+        autoDrift = false;
+      }
+      pano.addEventListener('pointerup', panoRelease);
+      pano.addEventListener('pointercancel', panoRelease);
+      renderPano();
+      if (!reduceMotion) requestAnimationFrame(drift);
     }
-  });
-}
 
-window.addEventListener('DOMContentLoaded', boot);
-</script>
+    /* ---------- day / night compare ---------- */
+    var compare = document.getElementById('mslCompare');
+    if (compare) {
+      var cmpDrag = false;
+      function setSplit(clientX) {
+        var r = compare.getBoundingClientRect();
+        var pct = ((clientX - r.left) / r.width) * 100;
+        pct = Math.min(94, Math.max(6, pct));
+        compare.style.setProperty('--split', pct.toFixed(2) + '%');
+        compare.setAttribute('aria-valuenow', Math.round(pct));
+      }
+      compare.addEventListener('pointerdown', function (e) {
+        cmpDrag = true;
+        compare.setPointerCapture(e.pointerId);
+        setSplit(e.clientX);
+      });
+      compare.addEventListener('pointermove', function (e) { if (cmpDrag) setSplit(e.clientX); });
+      compare.addEventListener('pointerup', function () { cmpDrag = false; });
+      compare.addEventListener('pointercancel', function () { cmpDrag = false; });
+      compare.addEventListener('keydown', function (e) {
+        var cur = parseFloat(getComputedStyle(compare).getPropertyValue('--split')) || 55;
+        if (e.key === 'ArrowLeft') { compare.style.setProperty('--split', Math.max(6, cur - 4) + '%'); e.preventDefault(); }
+        if (e.key === 'ArrowRight') { compare.style.setProperty('--split', Math.min(94, cur + 4) + '%'); e.preventDefault(); }
+      });
+    }
+  })();
+  </script>
+</body>
+</html>

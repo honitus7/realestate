@@ -261,7 +261,8 @@
     padding: 0.8rem;
 }
 
-.interest-list-layout {
+.interest-list-layout,
+.crm-list-layout {
     display: grid;
     grid-template-columns: 0 minmax(0, 1fr);
     gap: 0;
@@ -269,7 +270,8 @@
     transition: grid-template-columns 0.28s ease;
 }
 
-.interest-list-layout.filters-open {
+.interest-list-layout.filters-open,
+.crm-list-layout.filters-open {
     grid-template-columns: minmax(220px, 260px) minmax(0, 1fr);
     gap: 0.75rem;
 }
@@ -545,7 +547,8 @@
 }
 
 @media (max-width: 1024px) {
-    .interest-list-layout:not(.filters-open) {
+    .interest-list-layout:not(.filters-open),
+    .crm-list-layout:not(.filters-open) {
         grid-template-columns: 1fr;
     }
 }
@@ -1016,8 +1019,7 @@
     color: var(--ms-brand-dark, #333333);
 }
 
-#sec-interests .crm-filter-rail.filter-modal-backdrop,
-#sec-interests .filter-modal-backdrop {
+.crm-filter-rail.filter-modal-backdrop {
     display: block;
     position: sticky;
     top: 0.5rem;
@@ -1035,8 +1037,7 @@
     transition: opacity 0.24s ease, margin-left 0.28s ease;
 }
 
-#sec-interests .crm-filter-rail.filter-modal-backdrop.visible,
-#sec-interests .filter-modal-backdrop.visible {
+.crm-filter-rail.filter-modal-backdrop.visible {
     opacity: 1;
     pointer-events: auto;
     margin-left: 0;
@@ -1049,7 +1050,7 @@
     box-shadow: 0 24px 50px rgba(32, 42, 68, 0.14);
 }
 
-#sec-interests .filter-modal-close {
+.crm-filter-rail .filter-modal-close {
     display: none;
 }
 
@@ -3421,18 +3422,18 @@ html.layout-navbar-fixed .layout-page--crm-merged-nav .container-p-y:not([class^
 }
 
 .crm-page--sneat .filter-group-select:focus,
-.crm-page--sneat #sec-interests .filter-modal .toolbar-search:focus {
+.crm-page--sneat .crm-filter-rail .filter-modal .toolbar-search:focus {
     border-color: var(--ms-brand-primary, #ffa300);
     box-shadow: 0 0 0 2px rgba(var(--ms-brand-primary-rgb, 255, 163, 0), 0.18);
 }
 
 @media (max-width: 900px) {
-    .interest-list-layout.filters-open {
+    .interest-list-layout.filters-open,
+.crm-list-layout.filters-open {
         grid-template-columns: 1fr;
     }
 
-    #sec-interests .crm-filter-rail.filter-modal-backdrop,
-    #sec-interests .filter-modal-backdrop {
+    .crm-filter-rail.filter-modal-backdrop {
         position: fixed;
         inset: 0;
         z-index: 1200;
@@ -3447,12 +3448,11 @@ html.layout-navbar-fixed .layout-page--crm-merged-nav .container-p-y:not([class^
         opacity: 1;
     }
 
-    #sec-interests .crm-filter-rail.filter-modal-backdrop.visible,
-    #sec-interests .filter-modal-backdrop.visible {
+    .crm-filter-rail.filter-modal-backdrop.visible {
         display: flex;
     }
 
-    #sec-interests .crm-filter-panel {
+    .crm-filter-rail .crm-filter-panel {
         width: min(300px, calc(100vw - 1.5rem));
         max-height: calc(100vh - 5.5rem);
         box-shadow: 0 16px 48px rgba(22, 35, 56, 0.16);
@@ -3462,3 +3462,301 @@ html.layout-navbar-fixed .layout-page--crm-merged-nav .container-p-y:not([class^
         display: inline-flex;
     }
 }
+
+/* ── Sortable column headers ───────────────────────────────────────── */
+.crm-page thead th.crm-sortable {
+    cursor: pointer;
+    user-select: none;
+    white-space: nowrap;
+}
+
+.crm-page thead th.crm-sortable:hover,
+.crm-page thead th.crm-sortable:focus-visible {
+    background: #eef2f8;
+    color: #2f3a4d;
+}
+
+.crm-page thead th.crm-sortable:focus-visible {
+    outline: 2px solid var(--brand, #2f6fed);
+    outline-offset: -2px;
+}
+
+.crm-page thead th.crm-sortable.is-sorted {
+    color: #2f3a4d;
+}
+
+.crm-page thead th .crm-sort-icon {
+    display: inline-block;
+    margin-left: 0.3rem;
+    font-size: 0.7em;
+    line-height: 1;
+    opacity: 0.35;
+}
+
+.crm-page thead th.crm-sortable:hover .crm-sort-icon {
+    opacity: 0.6;
+}
+
+.crm-page thead th.crm-sortable.is-sorted .crm-sort-icon {
+    opacity: 1;
+}
+
+/* ─────────────────────────────────────────────────────────────
+   Plotted List row actions (Edit / Ref link / View)
+   These were icon-only <i class="bx ..."> glyphs, but no boxicons
+   font is loaded on the portal shell, so the buttons rendered as
+   blank beige squares on a beige row. Now inline SVG + a label, in
+   a high-contrast chip.
+   ───────────────────────────────────────────────────────────── */
+/* Actions sit at the far right edge of the table, buttons included. */
+#sec-plots .crm-data-table__table th:last-child,
+#sec-plots .crm-data-table__table td:last-child {
+    text-align: right;
+}
+
+#sec-plots .plot-row-actions {
+    display: inline-flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.35rem;
+    flex-wrap: wrap;
+}
+
+#sec-plots .plot-row-action-btn.btn,
+#sec-interests .plot-row-action-btn.btn,
+#sec-contacts .plot-row-action-btn.btn,
+#sec-deals .plot-row-action-btn.btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    width: auto;
+    height: auto;
+    padding: 0.28rem 0.55rem;
+    font-size: 0.7rem;
+    font-weight: 700;
+    line-height: 1.2;
+    white-space: nowrap;
+    color: #162338;
+    background: #ffffff;
+    border: 1px solid rgba(22, 35, 56, 0.42);
+    border-radius: 7px;
+    box-shadow: 0 1px 2px rgba(22, 35, 56, 0.08);
+    cursor: pointer;
+    transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+#sec-plots .plot-row-action-btn.btn svg,
+#sec-interests .plot-row-action-btn.btn svg,
+#sec-contacts .plot-row-action-btn.btn svg,
+#sec-deals .plot-row-action-btn.btn svg {
+    flex-shrink: 0;
+    width: 13px;
+    height: 13px;
+}
+
+#sec-plots .plot-row-action-btn.btn:hover,
+#sec-interests .plot-row-action-btn.btn:hover,
+#sec-contacts .plot-row-action-btn.btn:hover,
+#sec-deals .plot-row-action-btn.btn:hover {
+    background: #162338;
+    border-color: #162338;
+    color: #ffffff;
+}
+
+#sec-plots .plot-row-action-btn.btn:focus-visible,
+#sec-interests .plot-row-action-btn.btn:focus-visible,
+#sec-contacts .plot-row-action-btn.btn:focus-visible,
+#sec-deals .plot-row-action-btn.btn:focus-visible {
+    outline: 2px solid #162338;
+    outline-offset: 2px;
+}
+
+/* The actions column was sized for three 44px icon buttons. */
+#sec-plots .crm-data-table__table th:last-child,
+#sec-plots .crm-data-table__table td:last-child {
+    width: 1%;
+    min-width: 230px;
+    white-space: nowrap;
+    padding-right: 1rem;
+}
+
+/* Let Description absorb the slack so the actions column stays pinned right. */
+#sec-plots .crm-data-table__table th:nth-child(5),
+#sec-plots .crm-data-table__table td:nth-child(5) {
+    width: auto;
+}
+
+/* Free-text cells (e.g. Contacts → Address) must not stretch the table. */
+.crm-page td.crm-cell-truncate {
+    max-width: 220px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* ─────────────────────────────────────────────────────────────
+   Edit Plot modal (Plotted List → Edit)
+   It inherited the shared 720px-wide, 155px-label-column layout
+   built for the long project form, so four fields sat in a wide
+   empty box and the Area/Status pair was squeezed into half
+   columns that still carried the label gutter. Own layout here.
+   ───────────────────────────────────────────────────────────── */
+#edit-plot-modal .crm-modal {
+    width: min(520px, 94vw) !important;
+    padding: 1.15rem 1.25rem 1.1rem !important;
+    background: #ffffff;
+}
+
+#edit-plot-modal .crm-simple-modal-head {
+    align-items: flex-start;
+    margin-bottom: 0.9rem;
+    padding-bottom: 0.7rem;
+    border-bottom: 1px solid #e5e9f0;
+}
+
+#edit-plot-modal .modal-title {
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: #162338;
+}
+
+#edit-plot-modal .edit-plot-subtitle {
+    margin: 0.15rem 0 0;
+    font-size: 0.78rem;
+    color: #64748b;
+    line-height: 1.35;
+}
+
+#edit-plot-modal .crm-simple-modal-body {
+    display: grid;
+    gap: 0.85rem;
+}
+
+/* Labels above inputs — the shared left-label gutter does not fit here. */
+#edit-plot-modal .crm-simple-modal-body .form-group {
+    display: grid;
+    grid-template-columns: 1fr;
+    align-items: start;
+    gap: 0.3rem;
+    margin: 0;
+}
+
+#edit-plot-modal .crm-simple-modal-body .form-label {
+    margin: 0;
+    font-size: 0.76rem;
+    font-weight: 700;
+    letter-spacing: 0.01em;
+    color: #334155;
+}
+
+/* Area and Status each get their own row. */
+#edit-plot-modal .ep-field-row {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0.85rem;
+}
+
+#edit-plot-modal .crm-simple-modal-body .form-input {
+    width: 100%;
+    height: 38px;
+    font-size: 0.86rem;
+    padding: 0.4rem 0.6rem;
+    background: #ffffff;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    color: #162338;
+}
+
+#edit-plot-modal .crm-simple-modal-body .form-input::placeholder {
+    color: #94a3b8;
+}
+
+#edit-plot-modal .crm-simple-modal-body .form-input:focus {
+    outline: none;
+    border-color: #162338;
+    box-shadow: 0 0 0 3px rgba(22, 35, 56, 0.10);
+}
+
+#edit-plot-modal .crm-simple-modal-body textarea.form-input {
+    height: auto;
+    min-height: 76px;
+    padding: 0.5rem 0.6rem;
+}
+
+/* Plot Number is read-only: make that legible instead of looking editable. */
+#edit-plot-modal .ep-readonly .form-input {
+    background: #f1f5f9;
+    border-color: #e2e8f0;
+    color: #475569;
+    font-weight: 600;
+    cursor: default;
+}
+
+#edit-plot-modal .ep-hint {
+    font-size: 0.7rem;
+    color: #94a3b8;
+    line-height: 1.3;
+}
+
+#edit-plot-modal .modal-actions {
+    margin-top: 1.1rem;
+    padding-top: 0.85rem;
+    border-top: 1px solid #e5e9f0;
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.55rem;
+}
+
+#edit-plot-modal .modal-actions .btn {
+    min-width: 104px;
+    justify-content: center;
+    border-radius: 8px;
+    font-size: 0.84rem;
+    font-weight: 700;
+    padding: 0.55rem 1rem;
+}
+
+#edit-plot-modal .modal-actions .btn-primary {
+    background: #162338;
+    border: 1px solid #162338;
+    color: #ffffff;
+}
+
+#edit-plot-modal .modal-actions .btn-primary:hover {
+    background: #0f172a;
+    border-color: #0f172a;
+}
+
+#edit-plot-modal .modal-actions .btn-primary:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+#edit-plot-modal .modal-actions .btn-secondary {
+    background: #ffffff;
+    border: 1px solid rgba(22, 35, 56, 0.32);
+    color: #162338;
+}
+
+#edit-plot-modal .modal-actions .btn-secondary:hover {
+    background: #f1f5f9;
+    border-color: #162338;
+}
+
+#edit-plot-modal .modal-close {
+    border: 0;
+    background: transparent;
+    color: #64748b;
+    font-size: 1.4rem;
+    line-height: 1;
+    border-radius: 6px;
+    padding: 0.1rem 0.35rem;
+    cursor: pointer;
+}
+
+#edit-plot-modal .modal-close:hover {
+    background: #f1f5f9;
+    color: #162338;
+}
+
+

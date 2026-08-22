@@ -963,7 +963,14 @@ def register_routes(app):
                 return rows[0]
         return None
 
-    def _merge_contact_payload(existing, full_name='', email='', phone='', notes=''):
+    _UNSET = object()
+
+    def _contact_birthday_value(raw):
+        """Normalise a birthday for a nullable `date` column ('' would be a type error)."""
+        value = str(raw if raw is not None else '').strip()
+        return value or None
+
+    def _merge_contact_payload(existing, full_name='', email='', phone='', notes='', birthday=_UNSET, address=_UNSET):
         ex_name = str(existing.get('full_name') or '').strip()
         ex_email = str(existing.get('email') or '').strip()
         ex_phone = str(existing.get('phone') or '').strip()
@@ -1004,6 +1011,15 @@ def register_routes(app):
         if incoming_notes:
             out_notes = incoming_notes if not ex_notes else ex_notes
 
+        # Birthday/address: an explicit value from the caller wins (including a
+        # deliberate clear); _UNSET means the caller did not touch the field.
+        out_birthday = existing.get('birthday')
+        if birthday is not _UNSET:
+            out_birthday = birthday
+        out_address = str(existing.get('address') or '').strip()
+        if address is not _UNSET:
+            out_address = str(address or '').strip()
+
         return {
             'full_name': out_name,
             'email': out_email,
@@ -1011,6 +1027,8 @@ def register_routes(app):
             'email_norm': out_email_norm,
             'phone_norm': out_phone_norm,
             'notes': out_notes,
+            'birthday': out_birthday,
+            'address': out_address,
         }
 
     def _relink_contact_references(sb, from_contact_id, to_contact_id):
@@ -4716,7 +4734,8 @@ def register_routes(app):
         try:
             q = (
                 sb.table('crm_contacts')
-                .select('id, org_id, client_id, panorama_id, full_name, email, phone, email_norm, phone_norm, notes, custom_fields, created_at, updated_at')
+                .select('id, org_id, client_id, panorama_id, full_name, email, phone, birthday, address, '
+                        'email_norm, phone_norm, notes, custom_fields, created_at, updated_at')
                 .eq('id', str(contact_id))
                 .in_('panorama_id', panorama_ids)
             )
@@ -4747,6 +4766,8 @@ def register_routes(app):
         email = str(data.get('email') or '').strip()
         phone = str(data.get('phone') or '').strip()
         notes = str(data.get('notes') or '').strip()
+        birthday = _contact_birthday_value(data.get('birthday'))
+        address = str(data.get('address') or '').strip()
         if not full_name:
             return jsonify({'error': 'Contact name is required'}), 400
         if not email and not phone:
@@ -4767,7 +4788,15 @@ def register_routes(app):
         existing = _find_contact_by_email_or_phone(sb, org_id, email_norm, phone_norm, [panorama_id], client_id=client_id)
         now = datetime.utcnow().isoformat()
         if existing:
-            upd = _merge_contact_payload(existing, full_name=full_name, email=email, phone=phone, notes=notes)
+            upd = _merge_contact_payload(
+                existing,
+                full_name=full_name,
+                email=email,
+                phone=phone,
+                notes=notes,
+                birthday=birthday,
+                address=address,
+            )
             upd['updated_at'] = now
             sb.table('crm_contacts').update(upd).eq('id', existing.get('id')).execute()
             _crm_cache_bump()
@@ -4786,7 +4815,12 @@ def register_routes(app):
             'source_interest_id': None,
             'created_by': user_id,
             'notes': notes,
-            'custom_fields': _extract_custom_fields_payload(data, {'full_name', 'name', 'email', 'phone', 'notes', 'panorama_id', 'client_id'}),
+            'birthday': birthday,
+            'address': address,
+            'custom_fields': _extract_custom_fields_payload(
+                data,
+                {'full_name', 'name', 'email', 'phone', 'notes', 'birthday', 'address', 'panorama_id', 'client_id'},
+            ),
             'created_at': now,
             'updated_at': now,
         }
@@ -4807,15 +4841,34 @@ def register_routes(app):
         if not contact:
             return jsonify({'error': 'Not found or access denied'}), 404
         data = request.get_json(silent=True) or {}
-        if not any(k in data for k in ('full_name', 'email', 'phone', 'notes', 'custom_fields')):
+        if not any(k in data for k in ('full_name', 'email', 'phone', 'notes', 'birthday', 'address', 'custom_fields')):
             return jsonify({'error': 'Nothing to update'}), 400
         incoming_name = str(data.get('full_name') or contact.get('full_name') or '').strip()
         incoming_email = str(data.get('email') or contact.get('email') or '').strip()
         incoming_phone = str(data.get('phone') or contact.get('phone') or '').strip()
         incoming_notes = str(data.get('notes') or contact.get('notes') or '').strip()
+        # Birthday and address are editable to blank, so an explicit key clears them.
+        incoming_birthday = (
+            _contact_birthday_value(data.get('birthday')) if 'birthday' in data
+            else _contact_birthday_value(contact.get('birthday'))
+        )
+        incoming_address = (
+            str(data.get('address') or '').strip() if 'address' in data
+            else str(contact.get('address') or '').strip()
+        )
         now = datetime.utcnow().isoformat()
-        upd = _merge_contact_payload(contact, full_name=incoming_name, email=incoming_email, phone=incoming_phone, notes=incoming_notes)
-        dynamic_contact_custom = _extract_custom_fields_payload(data, {'full_name', 'email', 'phone', 'notes'})
+        upd = _merge_contact_payload(
+            contact,
+            full_name=incoming_name,
+            email=incoming_email,
+            phone=incoming_phone,
+            notes=incoming_notes,
+            birthday=incoming_birthday,
+            address=incoming_address,
+        )
+        dynamic_contact_custom = _extract_custom_fields_payload(
+            data, {'full_name', 'email', 'phone', 'notes', 'birthday', 'address'}
+        )
         if dynamic_contact_custom:
             upd['custom_fields'] = dynamic_contact_custom
         upd['updated_at'] = now
@@ -4839,6 +4892,8 @@ def register_routes(app):
                 email=upd.get('email'),
                 phone=upd.get('phone'),
                 notes=upd.get('notes'),
+                birthday=upd.get('birthday'),
+                address=upd.get('address'),
             )
             dup_upd['updated_at'] = now
             sb.table('crm_contacts').update(dup_upd).eq('id', str(dup.get('id'))).execute()
@@ -4884,12 +4939,22 @@ def register_routes(app):
         email = str(interest.get('customer_email') or '').strip()
         phone = str(interest.get('customer_phone') or '').strip()
         interest_client_id = interest.get('client_id')
+        birthday = _contact_birthday_value(interest.get('customer_birthday'))
+        address = str(interest.get('customer_address') or '').strip()
         email_norm = _normalize_email(email)
         phone_norm = _normalize_phone(phone)
         existing = _find_contact_by_email_or_phone(sb, org_id, email_norm, phone_norm, [panorama_id], client_id=interest_client_id)
         now = datetime.utcnow().isoformat()
         if existing:
-            upd = _merge_contact_payload(existing, full_name=full_name, email=email, phone=phone, notes=existing.get('notes') or '')
+            upd = _merge_contact_payload(
+                existing,
+                full_name=full_name,
+                email=email,
+                phone=phone,
+                notes=existing.get('notes') or '',
+                birthday=birthday,
+                address=address,
+            )
             upd['updated_at'] = now
             sb.table('crm_contacts').update(upd).eq('id', existing.get('id')).execute()
             sb.table('buy_interests').update({
@@ -4907,6 +4972,8 @@ def register_routes(app):
             'full_name': full_name,
             'email': email,
             'phone': phone,
+            'birthday': birthday,
+            'address': address,
             'email_norm': email_norm,
             'phone_norm': phone_norm,
             'source_interest_id': str(interest_id),
@@ -5080,12 +5147,22 @@ def register_routes(app):
             full_name = str(interest.get('customer_name') or '').strip()
             email = str(interest.get('customer_email') or '').strip()
             phone = str(interest.get('customer_phone') or '').strip()
+            birthday = _contact_birthday_value(interest.get('customer_birthday'))
+            address = str(interest.get('customer_address') or '').strip()
             email_norm = _normalize_email(email)
             phone_norm = _normalize_phone(phone)
             existing = _find_contact_by_email_or_phone(sb, org_id, email_norm, phone_norm, [panorama_id], client_id=interest_client_id)
             now0 = datetime.utcnow().isoformat()
             if existing:
-                upd = _merge_contact_payload(existing, full_name=full_name, email=email, phone=phone, notes=existing.get('notes') or '')
+                upd = _merge_contact_payload(
+                    existing,
+                    full_name=full_name,
+                    email=email,
+                    phone=phone,
+                    notes=existing.get('notes') or '',
+                    birthday=birthday,
+                    address=address,
+                )
                 upd['updated_at'] = now0
                 sb.table('crm_contacts').update(upd).eq('id', existing.get('id')).execute()
                 sb.table('buy_interests').update({
@@ -5103,6 +5180,8 @@ def register_routes(app):
                     'full_name': full_name,
                     'email': email,
                     'phone': phone,
+                    'birthday': birthday,
+                    'address': address,
                     'email_norm': email_norm,
                     'phone_norm': phone_norm,
                     'source_interest_id': str(interest_id),

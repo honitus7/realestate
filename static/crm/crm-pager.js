@@ -49,14 +49,26 @@
         var hasRows = total > 0;
         var start = hasRows ? (((pager.page - 1) * limit) + 1) : 0;
         var end = hasRows ? Math.min(total, pager.page * limit) : 0;
+        var sizeId = 'crm-page-size-' + (el.id || 'pager');
         el.innerHTML =
-            '<span class="crm-pagination__meta">' + escape(start) + '-' + escape(end) + ' of ' + escape(total) + '</span>' +
-            '<select data-page-size>' + PAGE_SIZE_OPTIONS.map(function (size) {
-                return '<option value="' + size + '"' + (size === limit ? ' selected' : '') + '>' + size + ' / page</option>';
-            }).join('') + '</select>' +
-            '<button class="btn" type="button" data-page-prev' + (pager.page <= 1 ? ' disabled' : '') + '>Prev</button>' +
-            '<span class="crm-pagination__meta">Page ' + escape(pager.page) + ' / ' + escape(pages) + '</span>' +
-            '<button class="btn" type="button" data-page-next' + (pager.page >= pages ? ' disabled' : '') + '>Next</button>';
+            '<span class="crm-pagination__meta crm-pagination__meta--range">' +
+                (hasRows
+                    ? 'Showing ' + escape(start) + '–' + escape(end) + ' of ' + escape(total) + ' records'
+                    : 'No records to show') +
+            '</span>' +
+            '<span class="crm-pagination__size">' +
+                '<label class="crm-pagination__label" for="' + escape(sizeId) + '">Rows per page</label>' +
+                '<select id="' + escape(sizeId) + '" data-page-size title="Set how many rows are shown per page">' +
+                    PAGE_SIZE_OPTIONS.map(function (size) {
+                        return '<option value="' + size + '"' + (size === limit ? ' selected' : '') + '>' + size + ' rows</option>';
+                    }).join('') +
+                '</select>' +
+            '</span>' +
+            '<button class="btn" type="button" data-page-prev' + (pager.page <= 1 ? ' disabled' : '') +
+                ' title="Go to the previous page" aria-label="Go to the previous page">&#8592; Previous page</button>' +
+            '<span class="crm-pagination__meta crm-pagination__meta--page" aria-live="polite">Page ' + escape(pager.page) + ' of ' + escape(pages) + '</span>' +
+            '<button class="btn" type="button" data-page-next' + (pager.page >= pages ? ' disabled' : '') +
+                ' title="Go to the next page" aria-label="Go to the next page">Next page &#8594;</button>';
         var sizeEl = el.querySelector('[data-page-size]');
         if (sizeEl) {
             sizeEl.addEventListener('change', function () {
