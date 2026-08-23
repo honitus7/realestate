@@ -1,7 +1,7 @@
 {% set page_title = 'CRM - MarketoState' %}
 {% set active_nav = 'crm' %}
 {% set use_marketostate_brand_theme = true %}
-{% set portal_extra_css = '/static/crm/crm.css?v=20260822-plot-modal-rows' %}
+{% set portal_extra_css = '/static/crm/crm.css?v=20260823-drawer-grip' %}
 {% from 'crm/components/data_table.html' import crm_data_table %}
 {% set portal_merge_nav_into_crm = true %}
 {% include 'components/portal_shell_start.html' %}
@@ -1140,12 +1140,19 @@
 
     <div class="drawer-backdrop" id="interest-drawer-backdrop" aria-hidden="true"></div>
     <div class="offcanvas offcanvas-end crm-interest-offcanvas" tabindex="-1" id="drawer" aria-labelledby="d-title">
+        <div class="crm-drawer-resizer" id="drawer-resizer" role="separator" aria-orientation="vertical"
+             aria-label="Resize panel" title="Drag to resize" tabindex="0"></div>
         <div class="offcanvas-header border-bottom drawer-head">
             <div class="me-2" style="min-width:0;">
                 <h5 class="offcanvas-title mb-1" id="d-title">Lead</h5>
                 <div class="text-body-secondary small" id="d-subtitle"></div>
             </div>
-            <button type="button" class="btn-close text-reset drawer-close" id="drawer-close" aria-label="Close"></button>
+            <div class="d-flex align-items-center" style="flex-shrink:0;">
+                <button type="button" class="drawer-expand" id="drawer-expand" aria-label="Expand panel" title="Expand panel" aria-pressed="false">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
+                </button>
+                <button type="button" class="btn-close text-reset drawer-close" id="drawer-close" aria-label="Close"></button>
+            </div>
         </div>
         <div class="offcanvas-body drawer-body">
             <div class="card mb-3 drawer-section">
@@ -4531,6 +4538,101 @@
 
     // -- Drawer --
     const drawer = $('drawer');
+
+    // ── Drawer width: draggable left grip + one-click expand, width remembered ──
+    const DRAWER_WIDTH_KEY = 'crm_interest_drawer_width';
+    const DRAWER_MIN_WIDTH = 380;
+    const DRAWER_DEFAULT_WIDTH = 640;
+
+    function drawerMaxWidth() {
+        return Math.max(DRAWER_MIN_WIDTH, Math.round(window.innerWidth * 0.96));
+    }
+    function clampDrawerWidth(px) {
+        return Math.min(drawerMaxWidth(), Math.max(DRAWER_MIN_WIDTH, Math.round(px)));
+    }
+    function currentDrawerWidth() {
+        if (!drawer) return DRAWER_DEFAULT_WIDTH;
+        const rect = drawer.getBoundingClientRect();
+        return rect.width || DRAWER_DEFAULT_WIDTH;
+    }
+    function applyDrawerWidth(px, persist) {
+        if (!drawer) return;
+        const w = clampDrawerWidth(px);
+        drawer.style.setProperty('--crm-drawer-width', w + 'px');
+        const expandBtn = $('drawer-expand');
+        if (expandBtn) {
+            // "Expanded" simply means noticeably wider than the default.
+            const expanded = w > DRAWER_DEFAULT_WIDTH + 40;
+            expandBtn.setAttribute('aria-pressed', expanded ? 'true' : 'false');
+            expandBtn.setAttribute('aria-label', expanded ? 'Restore panel width' : 'Expand panel');
+            expandBtn.setAttribute('title', expanded ? 'Restore panel width' : 'Expand panel');
+        }
+        if (persist) {
+            try { localStorage.setItem(DRAWER_WIDTH_KEY, String(w)); } catch (e) { /* storage may be blocked */ }
+        }
+    }
+    function restoreDrawerWidth() {
+        let saved = null;
+        try { saved = localStorage.getItem(DRAWER_WIDTH_KEY); } catch (e) { saved = null; }
+        const px = parseInt(saved || '', 10);
+        if (px > 0) applyDrawerWidth(px, false);
+    }
+
+    (function initDrawerResize() {
+        const grip = $('drawer-resizer');
+        const expandBtn = $('drawer-expand');
+        if (!drawer) return;
+        restoreDrawerWidth();
+
+        if (grip) {
+            let startX = 0;
+            let startWidth = 0;
+            const onMove = (e) => {
+                // The panel is anchored right, so dragging left widens it.
+                applyDrawerWidth(startWidth + (startX - e.clientX), false);
+            };
+            const onUp = () => {
+                drawer.classList.remove('is-resizing');
+                document.removeEventListener('pointermove', onMove);
+                document.removeEventListener('pointerup', onUp);
+                document.removeEventListener('pointercancel', onUp);
+                applyDrawerWidth(currentDrawerWidth(), true);
+            };
+            grip.addEventListener('pointerdown', (e) => {
+                if (e.button !== 0) return;
+                e.preventDefault();
+                startX = e.clientX;
+                startWidth = currentDrawerWidth();
+                drawer.classList.add('is-resizing');
+                try { grip.setPointerCapture(e.pointerId); } catch (err) { /* not supported */ }
+                document.addEventListener('pointermove', onMove);
+                document.addEventListener('pointerup', onUp);
+                document.addEventListener('pointercancel', onUp);
+            });
+            grip.addEventListener('keydown', (e) => {
+                const step = e.shiftKey ? 80 : 24;
+                if (e.key === 'ArrowLeft') { e.preventDefault(); applyDrawerWidth(currentDrawerWidth() + step, true); }
+                else if (e.key === 'ArrowRight') { e.preventDefault(); applyDrawerWidth(currentDrawerWidth() - step, true); }
+            });
+        }
+
+        if (expandBtn) {
+            expandBtn.addEventListener('click', () => {
+                const wide = Math.min(drawerMaxWidth(), 1100);
+                const isWide = currentDrawerWidth() > DRAWER_DEFAULT_WIDTH + 40;
+                applyDrawerWidth(isWide ? DRAWER_DEFAULT_WIDTH : wide, true);
+            });
+        }
+
+        window.crmDrawerResize = { apply: applyDrawerWidth, current: currentDrawerWidth };
+
+        // A saved width can exceed a smaller viewport on the next visit.
+        window.addEventListener('resize', () => {
+            if (drawer.style.getPropertyValue('--crm-drawer-width')) {
+                applyDrawerWidth(currentDrawerWidth(), false);
+            }
+        });
+    })();
 
     const dTitle = $('d-title');
     const dSubtitle = $('d-subtitle');

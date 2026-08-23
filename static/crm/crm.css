@@ -1903,8 +1903,10 @@
 }
 
 .crm-page--sneat .crm-interest-offcanvas {
-    --bs-offcanvas-width: min(640px, 96vw);
-    width: min(640px, 96vw);
+    /* Width is user-adjustable: drag the left grip or use the expand button. */
+    --crm-drawer-width: min(640px, 96vw);
+    --bs-offcanvas-width: var(--crm-drawer-width);
+    width: var(--crm-drawer-width);
     max-width: 96vw;
 }
 
@@ -1940,8 +1942,8 @@
 .crm-page--sneat .offcanvas.crm-interest-offcanvas {
     display: flex !important;
     flex-direction: column;
-    --bs-offcanvas-width: min(640px, 96vw);
-    width: min(640px, 96vw);
+    --bs-offcanvas-width: var(--crm-drawer-width, min(640px, 96vw));
+    width: var(--crm-drawer-width, min(640px, 96vw));
     max-width: 96vw;
     grid-template-rows: unset;
     border-left: 1px solid var(--bs-border-color);
@@ -3510,8 +3512,27 @@ html.layout-navbar-fixed .layout-page--crm-merged-nav .container-p-y:not([class^
    ───────────────────────────────────────────────────────────── */
 /* Actions sit at the far right edge of the table, buttons included. */
 #sec-plots .crm-data-table__table th:last-child,
-#sec-plots .crm-data-table__table td:last-child {
+#sec-plots .crm-data-table__table td:last-child,
+#sec-interests .crm-data-table__table th:last-child,
+#sec-interests .crm-data-table__table td:last-child,
+#sec-contacts .crm-data-table__table th:last-child,
+#sec-contacts .crm-data-table__table td:last-child,
+#sec-deals .crm-data-table__table th:last-child,
+#sec-deals .crm-data-table__table td:last-child {
     text-align: right;
+}
+
+/* Keep the chip clear of the table edge and stop it wrapping. */
+#sec-interests .crm-data-table__table th:last-child,
+#sec-interests .crm-data-table__table td:last-child,
+#sec-contacts .crm-data-table__table th:last-child,
+#sec-contacts .crm-data-table__table td:last-child,
+#sec-deals .crm-data-table__table th:last-child,
+#sec-deals .crm-data-table__table td:last-child {
+    width: 1%;
+    min-width: 92px;
+    white-space: nowrap;
+    padding-right: 1rem;
 }
 
 #sec-plots .plot-row-actions {
@@ -3760,3 +3781,85 @@ html.layout-navbar-fixed .layout-page--crm-merged-nav .container-p-y:not([class^
 }
 
 
+
+/* ── Interest drawer: resize grip + expand toggle ─────────────────── */
+.crm-page--sneat .offcanvas.crm-interest-offcanvas {
+    position: fixed;
+}
+
+.crm-drawer-resizer {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 16px;
+    height: 100%;
+    cursor: ew-resize;
+    z-index: 20;
+    /* A faint tint makes the grab strip discoverable instead of invisible. */
+    background: linear-gradient(90deg, rgba(105, 108, 255, 0.10), rgba(105, 108, 255, 0));
+    touch-action: none;
+    transition: background 0.15s ease;
+}
+
+.crm-drawer-resizer:hover,
+.crm-interest-offcanvas.is-resizing .crm-drawer-resizer {
+    background: linear-gradient(90deg, rgba(105, 108, 255, 0.22), rgba(105, 108, 255, 0));
+}
+
+.crm-drawer-resizer::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 5px;
+    width: 5px;
+    height: 64px;
+    transform: translateY(-50%);
+    border-radius: 3px;
+    background: var(--crm-line, #c8d2e0);
+    transition: background 0.15s ease;
+}
+
+.crm-drawer-resizer:hover::before,
+.crm-drawer-resizer:focus-visible::before,
+.crm-interest-offcanvas.is-resizing .crm-drawer-resizer::before {
+    background: var(--ms-brand-primary, #696cff);
+}
+
+.crm-drawer-resizer:focus-visible {
+    outline: 2px solid var(--ms-brand-primary, #696cff);
+    outline-offset: -2px;
+}
+
+/* No width animation while dragging, or the panel lags the pointer. */
+.crm-interest-offcanvas.is-resizing {
+    transition: none !important;
+    user-select: none;
+}
+
+.crm-page--sneat .crm-interest-offcanvas .drawer-expand {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2rem;
+    height: 2rem;
+    margin-right: 0.35rem;
+    padding: 0;
+    border: 1px solid var(--crm-line, #dfe6f0);
+    border-radius: 7px;
+    background: #fff;
+    color: var(--ms-brand-dark, #333);
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
+.crm-page--sneat .crm-interest-offcanvas .drawer-expand:hover {
+    background: var(--ms-brand-dark, #162338);
+    border-color: var(--ms-brand-dark, #162338);
+    color: #fff;
+}
+
+@media (max-width: 900px) {
+    .crm-drawer-resizer {
+        display: none;
+    }
+}
