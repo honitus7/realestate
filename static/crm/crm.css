@@ -3528,7 +3528,9 @@ html.layout-navbar-fixed .layout-page--crm-merged-nav .container-p-y:not([class^
 #sec-contacts .crm-data-table__table th:last-child,
 #sec-contacts .crm-data-table__table td:last-child,
 #sec-deals .crm-data-table__table th:last-child,
-#sec-deals .crm-data-table__table td:last-child {
+#sec-deals .crm-data-table__table td:last-child,
+#sec-plots .crm-data-table__table th:last-child,
+#sec-plots .crm-data-table__table td:last-child {
     width: 1%;
     min-width: 92px;
     white-space: nowrap;
@@ -3540,7 +3542,7 @@ html.layout-navbar-fixed .layout-page--crm-merged-nav .container-p-y:not([class^
     align-items: center;
     justify-content: flex-end;
     gap: 0.35rem;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
 }
 
 #sec-plots .plot-row-action-btn.btn,

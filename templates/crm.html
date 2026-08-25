@@ -372,14 +372,6 @@
                                             <svg class="crm-filter-accordion__chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
                                         </button>
                                         <div class="crm-filter-accordion__body">
-                                            <div class="filter-group">
-                                                <label class="crm-filter-panel__field-label filter-group-label" for="filter-status">Status</label>
-                                                <select class="crm-filter-panel__select filter-group-select" id="filter-status">
-                                                    <option value="">All Status</option>
-                                                    <option value="new">New</option>
-                                                    <option value="contacted">Contacted</option>
-                                                </select>
-                                            </div>
                                             <div class="filter-group" id="filter-client-group" style="display:none;">
                                                 <label class="crm-filter-panel__field-label filter-group-label" for="filter-client">Client</label>
                                                 <select class="crm-filter-panel__select filter-group-select" id="filter-client"><option value="">All Clients</option></select>
@@ -539,9 +531,6 @@
                         </div>
                     </div>
                     <input class="toolbar-search" id="deal-q" placeholder="Search deals..." autocomplete="off">
-                    <select class="toolbar-select" id="deal-filter-stage" style="display:none;">
-                        <option value="">All Stages</option>
-                    </select>
                     <select class="toolbar-select" id="deal-filter-client" style="display:none;">
                         <option value="">All Clients</option>
                     </select>
@@ -572,10 +561,6 @@
                                         <svg class="crm-filter-accordion__chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
                                     </button>
                                     <div class="crm-filter-accordion__body">
-                                        <div class="crm-filter-panel__section filter-group">
-                                            <label class="crm-filter-panel__field-label filter-group-label" for="dfm-stage">Stage</label>
-                                            <select class="crm-filter-panel__select filter-group-select" id="dfm-stage"></select>
-                                        </div>
                                         <div class="crm-filter-panel__section filter-group" id="dfm-client-wrap" style="display:none;">
                                             <label class="crm-filter-panel__field-label filter-group-label" for="dfm-client">Client</label>
                                             <select class="crm-filter-panel__select filter-group-select" id="dfm-client"></select>
@@ -1602,7 +1587,6 @@
     'use strict';
 
     const $ = id => document.getElementById(id);
-    const dealStages = ['new', 'contacted', 'site_visit', 'negotiation', 'won', 'lost'];
     // Same edit icon as the Plotted List row actions (that IIFE's constant is not visible here).
     const ICON_EDIT = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4Z"/></svg>';
     // The filter rails are registered by the interests block (a separate IIFE),
@@ -1635,7 +1619,6 @@
     const contactsPager = { page: 1, size: (window.CrmPager && CrmPager.DEFAULT_SIZE) || 10 };
     let editingContactId = null;
     let editingDealId = null;
-    const dealStageFilterEl = $('deal-filter-stage');
     const dealClientFilterEl = $('deal-filter-client');
     const dealProjectFilterEl = $('deal-filter-project');
     const dealContactFilterEl = $('deal-filter-contact');
@@ -1927,11 +1910,9 @@
             if (resetPage) dealsPager.page = 1;
             const params = {};
             if (selectedClient) params.client_id = selectedClient;
-            const stageFilter = String((dealStageFilterEl && dealStageFilterEl.value) || '').trim().toLowerCase();
             const projectFilter = String((dealProjectFilterEl && dealProjectFilterEl.value) || '').trim();
             const contactFilter = String((dealContactFilterEl && dealContactFilterEl.value) || '').trim();
             const q = String(($('deal-q') && $('deal-q').value) || '').trim();
-            if (stageFilter) params.stage = stageFilter;
             if (projectFilter) params.project_name = projectFilter;
             if (contactFilter) params.contact_id = contactFilter;
             if (q) params.q = q;
@@ -2251,7 +2232,6 @@
     }
     function syncDealsFilterRailControls() {
         if ($('dfm-q') && $('deal-q')) $('dfm-q').value = $('deal-q').value || '';
-        syncFilterSelectOptions($('dfm-stage'), dealStageFilterEl);
         syncFilterSelectOptions($('dfm-client'), dealClientFilterEl);
         syncFilterSelectOptions($('dfm-project'), dealProjectFilterEl);
         syncFilterSelectOptions($('dfm-contact'), dealContactFilterEl);
@@ -2849,7 +2829,6 @@
     }
     if ($('deals-filter-clear')) $('deals-filter-clear').addEventListener('click', () => {
         if ($('dfm-q')) $('dfm-q').value = '';
-        if ($('dfm-stage')) $('dfm-stage').value = '';
         if ($('dfm-client')) $('dfm-client').value = '';
         if ($('dfm-project')) $('dfm-project').value = '';
         if ($('dfm-contact')) $('dfm-contact').value = '';
@@ -2858,7 +2837,6 @@
     });
     if ($('deals-filter-apply')) $('deals-filter-apply').addEventListener('click', async () => {
         if ($('deal-q') && $('dfm-q')) $('deal-q').value = $('dfm-q').value || '';
-        if (dealStageFilterEl && $('dfm-stage')) dealStageFilterEl.value = $('dfm-stage').value || '';
         if (dealClientFilterEl && $('dfm-client')) dealClientFilterEl.value = $('dfm-client').value || '';
         if (dealProjectFilterEl && $('dfm-project')) dealProjectFilterEl.value = $('dfm-project').value || '';
         if (dealContactFilterEl && $('dfm-contact')) dealContactFilterEl.value = $('dfm-contact').value || '';
@@ -2867,14 +2845,12 @@
         await loadDeals(true);
     });
     if ($('deal-q')) $('deal-q').addEventListener('input', () => { loadDeals(true); });
-    if (dealStageFilterEl) dealStageFilterEl.addEventListener('change', () => { loadDeals(true); });
     if (dealClientFilterEl) dealClientFilterEl.addEventListener('change', function() {
         loadDeals(true);
     });
     if (dealProjectFilterEl) dealProjectFilterEl.addEventListener('change', () => { loadDeals(true); });
     if (dealContactFilterEl) dealContactFilterEl.addEventListener('change', () => { loadDeals(true); });
     if ($('btn-clear-deal-filters')) $('btn-clear-deal-filters').addEventListener('click', function() {
-        if (dealStageFilterEl) dealStageFilterEl.value = '';
         if (dealClientFilterEl) dealClientFilterEl.value = '';
         if (dealProjectFilterEl) dealProjectFilterEl.value = '';
         if (dealContactFilterEl) dealContactFilterEl.value = '';
@@ -3653,7 +3629,7 @@
     //  INTERESTS SECTION
     // ══════════════════════════════════════════
     const qEl = $('q');
-    const statusEl = $('filter-status');
+    let statusFilterValue = ''; // driven by the New Leads/Contacted saved-filter buttons; no dropdown for it
     const clientEl = $('filter-client');
     const categoryEl = $('filter-category');
     const workspaceEl = $('filter-workspace');
@@ -3713,7 +3689,7 @@
     function interestScopeMatches(i, opts) {
         opts = opts || {};
         const client = opts.skipClient ? '' : (clientEl ? String(clientEl.value || '').trim() : '');
-        const status = opts.skipStatus ? '' : String(statusEl.value || '').trim().toLowerCase();
+        const status = opts.skipStatus ? '' : String(statusFilterValue || '').trim().toLowerCase();
         const category = opts.skipCategory ? '' : String(categoryEl.value || '').trim().toLowerCase();
         const workspace = opts.skipWorkspace ? '' : String(workspaceEl.value || '').trim();
         const sector = opts.skipSector ? '' : String(projectEl.value || '').trim();
@@ -4182,7 +4158,7 @@
 
     function interestFilterParams() {
         const q = String(qEl.value || '').trim();
-        const status = String(statusEl.value || '').trim().toLowerCase();
+        const status = String(statusFilterValue || '').trim().toLowerCase();
         const client = clientEl ? String(clientEl.value || '').trim() : '';
         const category = String(categoryEl.value || '').trim();
         const workspace = String(workspaceEl.value || '').trim();
@@ -4329,7 +4305,7 @@
     // -- Filters --
     function applyFilters() {
         const q = String(qEl.value||'').trim().toLowerCase();
-        const status = String(statusEl.value||'').trim().toLowerCase();
+        const status = String(statusFilterValue||'').trim().toLowerCase();
         const client = clientEl ? String(clientEl.value||'').trim() : '';
         const category = String(categoryEl.value||'').trim().toLowerCase();
         const workspace = String(workspaceEl.value||'').trim();
@@ -5505,7 +5481,7 @@
     function syncSavedFilterState() {
         document.querySelectorAll('[data-filter-preset]').forEach(btn => {
             const preset = btn.getAttribute('data-filter-preset');
-            const status = String(statusEl.value || '');
+            const status = String(statusFilterValue || '');
             const hasOtherFilters = !!((clientEl && clientEl.value) || categoryEl.value || workspaceEl.value || projectEl.value || plotEl.value || qEl.value);
             const active = (preset === 'all' && !status && !hasOtherFilters) || (preset && preset === status && !hasOtherFilters);
             btn.classList.toggle('active', active);
@@ -5514,7 +5490,7 @@
     function updateFilterBadge() {
         let count = 0;
         if(qEl.value) count++;
-        if(statusEl.value) count++;
+        if(statusFilterValue) count++;
         if(clientEl && clientEl.value) count++;
         if(categoryEl.value) count++;
         if(workspaceEl.value) count++;
@@ -5536,7 +5512,7 @@
         btn.addEventListener('click', () => {
             const preset = btn.getAttribute('data-filter-preset');
             qEl.value = '';
-            statusEl.value = preset === 'all' ? '' : preset;
+            statusFilterValue = preset === 'all' ? '' : preset;
             if (clientEl) clientEl.value = '';
             categoryEl.value = '';
             workspaceEl.value = '';
@@ -5552,7 +5528,7 @@
     $('btn-apply-filters').addEventListener('click', () => { updateFilterBadge(); refreshInterestsUI(true); });
 
     // Clear all
-    $('btn-clear').addEventListener('click', () => { qEl.value=''; statusEl.value=''; if(clientEl) clientEl.value=''; categoryEl.value=''; workspaceEl.value=''; projectEl.value=''; plotEl.value=''; renderInterestFilterOptions(); updateFilterBadge(); refreshInterestsUI(true); });
+    $('btn-clear').addEventListener('click', () => { qEl.value=''; statusFilterValue=''; if(clientEl) clientEl.value=''; categoryEl.value=''; workspaceEl.value=''; projectEl.value=''; plotEl.value=''; renderInterestFilterOptions(); updateFilterBadge(); refreshInterestsUI(true); });
 
     // Selecting a value only refreshes the dependent dropdowns + badge; the list
     // is not re-queried until Apply is pressed.
@@ -5560,7 +5536,7 @@
     qEl.addEventListener('keydown', (e) => {
         if (e.key === 'Enter') { e.preventDefault(); updateFilterBadge(); refreshInterestsUI(true); }
     });
-    [statusEl, clientEl, categoryEl, workspaceEl, projectEl, plotEl].forEach(el => {
+    [clientEl, categoryEl, workspaceEl, projectEl, plotEl].forEach(el => {
         if (!el) return;
         el.addEventListener('change', () => { renderInterestFilterOptions(); updateFilterBadge(); });
     });
@@ -6188,7 +6164,6 @@
     // ══════════════════════════════════════════
     //  PLOTS SECTION (cross-panorama)
     // ══════════════════════════════════════════
-    let plotsLoaded = false;
     const plotSearch = $('plot-search');
     const plotClientFilter = $('plot-client-filter');
     const plotWorkspaceFilter = $('plot-workspace-filter');
@@ -6294,10 +6269,6 @@
             await loadNormalPlots(resetPage);
             return;
         }
-        if (plotsLoaded && !resetPage) {
-            renderPlotsTable();
-            return;
-        }
 
         await ensurePlotMasters();
         if (resetPage) plotsPager.page = 1;
@@ -6322,7 +6293,6 @@
             plotsTableMeta = page;
             plotsPager.page = page.page;
             plotsPager.size = page.limit;
-            plotsLoaded = true;
             renderPlotsFilterOptions();
             renderPlotsTable(page);
         } catch(e) { console.warn(e); }
@@ -7017,7 +6987,6 @@
         plotsTableMeta = page;
         plotsPager.page = page.page;
         plotsPager.size = page.limit;
-        plotsLoaded = true;
         renderPlotsTable(page);
     }
 
