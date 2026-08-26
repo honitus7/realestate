@@ -1368,6 +1368,49 @@
     padding: 0.85rem 0.95rem 0.75rem !important;
 }
 
+/* Export-filename prompt is a small centered dialog, not the default
+   right-side drawer every other .crm-modal-backdrop renders as. */
+.crm-page #crm-export-filename-modal.visible {
+    align-items: flex-start !important;
+    justify-content: center !important;
+    padding-top: 70px !important;
+}
+.crm-page #crm-export-filename-modal > .crm-modal {
+    width: min(420px, 92vw) !important;
+    max-width: 420px !important;
+    min-width: 0 !important;
+    height: auto !important;
+    max-height: 92vh !important;
+    border: 1px solid var(--crm-border-soft) !important;
+    border-radius: 12px !important;
+    background: #fff !important;
+    box-shadow: var(--crm-shadow) !important;
+    animation: none !important;
+    padding: 0.85rem 0.95rem 0.75rem !important;
+}
+#crm-export-filename-modal .crm-simple-modal-head {
+    margin-bottom: 0.85rem;
+    padding-bottom: 0.4rem;
+    border-bottom: 1px solid #f1f5f9;
+}
+#crm-export-filename-modal .crm-simple-modal-body .form-group {
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+}
+#crm-export-filename-modal .crm-simple-modal-body .form-label {
+    display: block;
+}
+#crm-export-filename-modal .crm-simple-modal-body .form-input {
+    height: 34px;
+    width: 100%;
+    box-sizing: border-box;
+}
+#crm-export-filename-modal .modal-actions {
+    margin-top: 0.85rem;
+}
+
 /* Make Edit Project use the compact label-left form style like other add modals */
 #edit-project-modal .crm-simple-modal-body .form-group {
     grid-template-columns: 155px minmax(0, 1fr);

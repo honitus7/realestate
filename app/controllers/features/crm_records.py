@@ -25,6 +25,69 @@ BUY_INTEREST_SORT_FIELDS_MASKED = ('created_at', 'customer_name', 'category')
 CRM_DEAL_SORT_FIELDS = ('title', 'stage', 'project_name', 'updated_at')
 
 
+def _crm_deals_client_facet(
+    sb,
+    *,
+    panorama_ids,
+    client_scope_ids,
+    reference_scope_user_id,
+    reference_interest_ids,
+    crm_cache_get,
+    crm_cache_set,
+    crm_cache_version,
+    user_id,
+    role,
+):
+    """Client dropdown options for the Deals filter: only clients that
+    actually have a deal row in the caller's visible scope, not every client
+    group the caller can access. Ignores the currently-selected client_id
+    filter (and stage/project/contact/search) so picking one option never
+    removes the others from the dropdown.
+    """
+    cache_key = (
+        'crm_deals_client_facet',
+        crm_cache_version.get('v', 1),
+        str(user_id),
+        str(role or ''),
+        tuple(panorama_ids),
+        tuple(client_scope_ids) if isinstance(client_scope_ids, list) else '__ALL__',
+        reference_scope_user_id or '',
+        tuple(reference_interest_ids or ()),
+    )
+    cached = crm_cache_get(cache_key, ttl_seconds=5)
+    if cached is not None:
+        return cached
+    if client_scope_ids is not None and not client_scope_ids:
+        crm_cache_set(cache_key, [])
+        return []
+    try:
+        query = sb.table('crm_deals').select('client_id').in_('panorama_id', panorama_ids)
+        if client_scope_ids is not None:
+            query = query.in_('client_id', client_scope_ids)
+        if reference_scope_user_id:
+            query = query.in_('interest_id', reference_interest_ids or [])
+        rows = query.execute().data or []
+    except Exception:
+        rows = []
+    client_ids = sorted({str(row.get('client_id')) for row in rows if row.get('client_id')})
+    if not client_ids:
+        crm_cache_set(cache_key, [])
+        return []
+    names = {}
+    try:
+        name_rows = sb.table('clients').select('id, name').in_('id', client_ids).execute().data or []
+        for row in name_rows:
+            cid = str(row.get('id') or '')
+            if cid:
+                names[cid] = str(row.get('name') or '').strip() or cid
+    except Exception:
+        pass
+    out = [{'id': cid, 'name': names.get(cid) or cid} for cid in client_ids]
+    out.sort(key=lambda item: str(item.get('name') or '').lower())
+    crm_cache_set(cache_key, out)
+    return out
+
+
 def _apply_client_scope(query, *, requested_client_id=None, client_scope_ids=None):
     if requested_client_id:
         return query.eq('client_id', requested_client_id)
@@ -283,7 +346,9 @@ def register_crm_record_list_routes(
                 return jsonify({'error': 'Temporary CRM connection issue. Please retry.'}), 503
             return jsonify({'error': str(error)}), 500
         if not panorama_ids:
-            return jsonify(crm_page_payload([], 0, page, limit))
+            empty_payload = crm_page_payload([], 0, page, limit)
+            empty_payload['filter_options'] = {'clients': []}
+            return jsonify(empty_payload)
         try:
             client_scope_ids = with_supabase_retry(
                 lambda: crm_client_scope_ids(require_supabase(), user_id, role),
@@ -294,7 +359,9 @@ def register_crm_record_list_routes(
                 return jsonify({'error': 'Temporary CRM connection issue. Please retry.'}), 503
             return jsonify({'error': str(error)}), 500
         if client_scope_ids is not None and not client_scope_ids:
-            return jsonify(crm_page_payload([], 0, page, limit))
+            empty_payload = crm_page_payload([], 0, page, limit)
+            empty_payload['filter_options'] = {'clients': []}
+            return jsonify(empty_payload)
         try:
             reference_scope_user_id = with_supabase_retry(
                 lambda: crm_interest_reference_scope_user_id(
@@ -317,25 +384,62 @@ def register_crm_record_list_routes(
         if requested_client_id and client_scope_ids is not None and requested_client_id not in client_scope_ids:
             return jsonify({'error': 'Forbidden for this client group'}), 403
 
-        reference_interest_ids = []
+        # Unfiltered by requested_client_id (unlike reference_interest_ids
+        # below), so the client dropdown keeps every option the broker could
+        # pick, not just the ones under whichever client is already selected.
+        facet_reference_interest_ids = []
         if reference_scope_user_id:
             try:
-                reference_interest_ids, _reference_contact_ids = with_supabase_retry(
+                facet_reference_interest_ids, _facet_contact_ids = with_supabase_retry(
                     lambda: crm_reference_linked_ids(
                         require_supabase(),
                         reference_scope_user_id,
                         panorama_ids,
                         client_ids=client_scope_ids,
-                        requested_client_id=requested_client_id,
                     ),
                     attempts=3,
                 )
-            except Exception as error:
-                if is_transient_supabase_error(error):
-                    return jsonify({'error': 'Temporary CRM connection issue. Please retry.'}), 503
-                return jsonify({'error': str(error)}), 500
+            except Exception:
+                facet_reference_interest_ids = []
+        client_facet = _crm_deals_client_facet(
+            sb,
+            panorama_ids=panorama_ids,
+            client_scope_ids=client_scope_ids,
+            reference_scope_user_id=reference_scope_user_id,
+            reference_interest_ids=facet_reference_interest_ids,
+            crm_cache_get=crm_cache_get,
+            crm_cache_set=crm_cache_set,
+            crm_cache_version=crm_cache_version,
+            user_id=user_id,
+            role=role,
+        )
+
+        reference_interest_ids = []
+        if reference_scope_user_id:
+            if not requested_client_id:
+                # Same query as the facet call above (no client filter to
+                # narrow by) — reuse its result instead of re-querying.
+                reference_interest_ids = facet_reference_interest_ids
+            else:
+                try:
+                    reference_interest_ids, _reference_contact_ids = with_supabase_retry(
+                        lambda: crm_reference_linked_ids(
+                            require_supabase(),
+                            reference_scope_user_id,
+                            panorama_ids,
+                            client_ids=client_scope_ids,
+                            requested_client_id=requested_client_id,
+                        ),
+                        attempts=3,
+                    )
+                except Exception as error:
+                    if is_transient_supabase_error(error):
+                        return jsonify({'error': 'Temporary CRM connection issue. Please retry.'}), 503
+                    return jsonify({'error': str(error)}), 500
             if not reference_interest_ids:
-                return jsonify(crm_page_payload([], 0, page, limit))
+                empty_payload = crm_page_payload([], 0, page, limit)
+                empty_payload['filter_options'] = {'clients': client_facet}
+                return jsonify(empty_payload)
 
         allowed_stages = ('new', 'contacted', 'site_visit', 'negotiation', 'won', 'lost')
         deal_sort_field, deal_sort_desc = crm_parse_sort_args(
@@ -408,6 +512,7 @@ def register_crm_record_list_routes(
                 page,
                 limit,
             )
+            payload['filter_options'] = {'clients': client_facet}
             crm_cache_set(cache_key, payload)
             return jsonify(payload)
         except Exception as error:

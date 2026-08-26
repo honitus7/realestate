@@ -438,6 +438,92 @@ def apply_broker_referred_contact_mask_to_contact(
     return item
 
 
+def broker_shareable_workspace_ids(sb, user_id):
+    """Workspace ids the user can generate reference share links for.
+
+    Mirrors the access check in GET /api/workspaces/<id>/share-endpoint so a
+    broker's CRM lists can be trimmed to plots they can actually share:
+    owned workspaces, workspaces with a direct workspace_access row, and
+    workspaces reference-linked to one of the user's client groups (any group
+    member tagged on a workspace_access/panorama_access row — the reverse of
+    _project_reference_client_ids).
+    """
+    uid = str(user_id or '').strip()
+    workspace_ids = set()
+    if not uid:
+        return workspace_ids
+    try:
+        rows = sb.table('workspaces').select('id').eq('user_id', uid).execute().data or []
+        for row in rows:
+            wsid = str(row.get('id') or '').strip()
+            if wsid:
+                workspace_ids.add(wsid)
+    except Exception:
+        pass
+    try:
+        rows = sb.table('workspace_access').select('workspace_id').eq('user_id', uid).execute().data or []
+        for row in rows:
+            wsid = str(row.get('workspace_id') or '').strip()
+            if wsid:
+                workspace_ids.add(wsid)
+    except Exception:
+        pass
+    client_ids = []
+    seen_client_ids = set()
+    try:
+        member_rows = sb.table('client_members').select('client_id, member_role').eq('user_id', uid).execute().data or []
+    except Exception:
+        member_rows = []
+    for row in member_rows:
+        if _normalize_client_member_role(row.get('member_role')) not in CLIENT_MEMBER_REFERENCE_ROLES:
+            continue
+        cid = str(row.get('client_id') or '').strip()
+        if cid and cid not in seen_client_ids:
+            seen_client_ids.add(cid)
+            client_ids.append(cid)
+    if not client_ids:
+        return workspace_ids
+    member_ids = []
+    try:
+        rows = sb.table('client_members').select('id').in_('client_id', client_ids).execute().data or []
+        member_ids = [r.get('id') for r in rows if r.get('id')]
+    except Exception:
+        member_ids = []
+    if not member_ids:
+        return workspace_ids
+    panorama_ids = set()
+    try:
+        rows = sb.table('workspace_access').select('workspace_id').in_('client_member_id', member_ids).execute().data or []
+        for row in rows:
+            wsid = str(row.get('workspace_id') or '').strip()
+            if wsid:
+                workspace_ids.add(wsid)
+    except Exception:
+        pass
+    try:
+        rows = sb.table('panorama_access').select('panorama_id').in_('client_member_id', member_ids).execute().data or []
+        for row in rows:
+            pid = row.get('panorama_id')
+            if pid is None:
+                continue
+            try:
+                panorama_ids.add(int(pid))
+            except Exception:
+                continue
+    except Exception:
+        pass
+    if panorama_ids:
+        try:
+            rows = sb.table('panoramas').select('workspace_id').in_('id', list(panorama_ids)).execute().data or []
+            for row in rows:
+                wsid = str(row.get('workspace_id') or '').strip()
+                if wsid:
+                    workspace_ids.add(wsid)
+        except Exception:
+            pass
+    return workspace_ids
+
+
 def _validate_project_reference_user(sb, reference_user_id=None, workspace_id=None, panorama_id=None, client_id=None):
     ref_user_id = str(reference_user_id or '').strip()
     catalog = _project_reference_users(

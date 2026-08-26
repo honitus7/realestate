@@ -58,6 +58,7 @@ from app.services.uam_reference_service import (
     _project_reference_users,
     _validate_project_reference_user,
     apply_broker_referred_contact_mask,
+    apply_broker_referred_contact_mask_to_contact,
     can_user_reveal_broker_referred_contact,
     user_is_client_admin,
     viewer_should_mask_broker_referred_contact,
@@ -637,19 +638,43 @@ def register_routes(app):
             return value
         return fallback
 
+    # Bounds for the custom_fields jsonb sweep: it copies every unrecognized
+    # request key, so without caps a single request can bloat rows unboundedly.
+    _CUSTOM_FIELDS_MAX_KEYS = 50
+    _CUSTOM_FIELDS_MAX_KEY_LEN = 64
+    _CUSTOM_FIELDS_MAX_VALUE_LEN = 2000
+
+    def _clean_custom_field_value(value):
+        if value is None or isinstance(value, bool):
+            return value
+        if isinstance(value, (int, float)):
+            return value
+        if isinstance(value, str):
+            return value[:_CUSTOM_FIELDS_MAX_VALUE_LEN]
+        # Nested structures are kept but bounded via their JSON size.
+        try:
+            encoded = json.dumps(value)
+        except Exception:
+            return None
+        if len(encoded) > _CUSTOM_FIELDS_MAX_VALUE_LEN:
+            return None
+        return value
+
     def _extract_custom_fields_payload(data, known_keys):
         payload = {}
         if isinstance(data.get('custom_fields'), dict):
             for k, v in data.get('custom_fields').items():
-                key = str(k or '').strip()
+                key = str(k or '').strip()[:_CUSTOM_FIELDS_MAX_KEY_LEN]
                 if key:
-                    payload[key] = v
+                    payload[key] = _clean_custom_field_value(v)
         known = {str(k or '').strip() for k in (known_keys or []) if str(k or '').strip()}
         for k, v in (data or {}).items():
             key = str(k or '').strip()
             if not key or key in known or key == 'custom_fields':
                 continue
-            payload[key] = v
+            payload[key[:_CUSTOM_FIELDS_MAX_KEY_LEN]] = _clean_custom_field_value(v)
+        if len(payload) > _CUSTOM_FIELDS_MAX_KEYS:
+            payload = dict(list(payload.items())[:_CUSTOM_FIELDS_MAX_KEYS])
         return payload
 
     def _is_truthy(value):
@@ -946,9 +971,12 @@ def register_routes(app):
             q = sb.table('crm_contacts').select(
                 'id, org_id, client_id, panorama_id, full_name, email, phone, email_norm, phone_norm, notes, created_at, updated_at'
             )
+            # Both filters together: an org-wide match outside the caller's
+            # panoramas must never be picked as a merge target — the caller
+            # could then update/delete a contact they cannot even see.
             if org_id:
                 q = q.eq('org_id', org_id)
-            elif panorama_ids:
+            if panorama_ids:
                 q = q.in_('panorama_id', panorama_ids)
             if client_id:
                 q = q.eq('client_id', str(client_id))
@@ -2038,6 +2066,30 @@ def register_routes(app):
             return jsonify({'error': 'Description must be 500 characters or less'}), 400
         if not category:
             return jsonify({'error': 'Category is required'}), 400
+        # Same field caps the update route enforces; without them a create can
+        # store values the edit form can never round-trip.
+        for _field_label, _field_value, _field_cap in (
+            ('Name', customer_name, 100),
+            ('Email', customer_email, 254),
+            ('Contact number', customer_phone, 40),
+            ('Title', title, 40),
+            ('Category', category, 100),
+            ('Street', customer_street, 100),
+            ('City', customer_city, 100),
+            ('State', customer_state, 100),
+            ('Country', customer_country, 100),
+            ('Zip code', customer_zip_code, 40),
+            ('Address', customer_address, 500),
+        ):
+            if len(_field_value) > _field_cap:
+                return jsonify({'error': f'{_field_label} must be {_field_cap} characters or less'}), 400
+        if customer_birthday:
+            # buy_interests.customer_birthday is a date column; reject bad
+            # formats here instead of surfacing a raw DB type error as a 500.
+            try:
+                customer_birthday = datetime.strptime(customer_birthday, '%Y-%m-%d').strftime('%Y-%m-%d')
+            except ValueError:
+                return jsonify({'error': 'Birthday must be in YYYY-MM-DD format'}), 400
         panorama = get_panorama_by_id(sb, panorama_id)
         if not panorama:
             return jsonify({'error': 'Panorama not found'}), 404
@@ -2065,14 +2117,27 @@ def register_routes(app):
         plot_ids = list(dict.fromkeys(plot_ids))
         if not plot_ids:
             return jsonify({'error': 'At least one plot is required'}), 400
-        # Validate plots exist — don't filter by panorama_id since workspace
-        # linked panoramas may contribute plots from different panorama_ids.
+        # Plots may come from any panorama in the same workspace (workspace
+        # linked panoramas contribute plots from different panorama_ids), but
+        # never from unrelated panoramas — otherwise arbitrary plot ids could
+        # be enumerated cross-tenant via the snapshot echoed back below.
+        allowed_plot_pano_ids = {int(panorama_id)}
+        try:
+            _plots_ws_id = (panorama or {}).get('workspace_id')
+            if _plots_ws_id:
+                wp = sb.table('panoramas').select('id').eq('workspace_id', _plots_ws_id).execute()
+                for row in (wp.data or []):
+                    if row.get('id') is not None:
+                        allowed_plot_pano_ids.add(int(row.get('id')))
+        except Exception:
+            pass
         plots_snapshot = []
         try:
             r = (
                 sb.table('plots')
                 .select('id, panorama_id, name, area, price, status')
                 .in_('id', plot_ids)
+                .in_('panorama_id', sorted(allowed_plot_pano_ids))
                 .execute()
             )
             found = {int(row.get('id')): row for row in (r.data or []) if row and row.get('id') is not None}
@@ -4317,6 +4382,30 @@ def register_routes(app):
             return jsonify({'error': 'Description must be 500 characters or less'}), 400
         if not category:
             return jsonify({'error': 'Category is required'}), 400
+        # Same field caps the update route enforces; without them a create can
+        # store values the edit form can never round-trip.
+        for _field_label, _field_value, _field_cap in (
+            ('Name', customer_name, 100),
+            ('Email', customer_email, 254),
+            ('Contact number', customer_phone, 40),
+            ('Title', title, 40),
+            ('Category', category, 100),
+            ('Street', customer_street, 100),
+            ('City', customer_city, 100),
+            ('State', customer_state, 100),
+            ('Country', customer_country, 100),
+            ('Zip code', customer_zip_code, 40),
+            ('Address', customer_address, 500),
+        ):
+            if len(_field_value) > _field_cap:
+                return jsonify({'error': f'{_field_label} must be {_field_cap} characters or less'}), 400
+        if customer_birthday:
+            # buy_interests.customer_birthday is a date column; reject bad
+            # formats here instead of surfacing a raw DB type error as a 500.
+            try:
+                customer_birthday = datetime.strptime(customer_birthday, '%Y-%m-%d').strftime('%Y-%m-%d')
+            except ValueError:
+                return jsonify({'error': 'Birthday must be in YYYY-MM-DD format'}), 400
         panorama, access_type = get_panorama_with_access(sb, panorama_id, user_id)
         if not panorama:
             return jsonify({'error': 'Panorama not found'}), 404
@@ -4337,14 +4426,27 @@ def register_routes(app):
         plot_ids = list(dict.fromkeys(plot_ids))
         if not plot_ids:
             return jsonify({'error': 'At least one plot is required'}), 400
-        # Validate plots exist — don't filter by panorama_id since workspace
-        # linked panoramas may contribute plots from different panorama_ids.
+        # Plots may come from any panorama in the same workspace (workspace
+        # linked panoramas contribute plots from different panorama_ids), but
+        # never from unrelated panoramas — otherwise arbitrary plot ids could
+        # be enumerated cross-tenant via the snapshot echoed back below.
+        allowed_plot_pano_ids = {int(panorama_id)}
+        try:
+            _plots_ws_id = (panorama or {}).get('workspace_id')
+            if _plots_ws_id:
+                wp = sb.table('panoramas').select('id').eq('workspace_id', _plots_ws_id).execute()
+                for row in (wp.data or []):
+                    if row.get('id') is not None:
+                        allowed_plot_pano_ids.add(int(row.get('id')))
+        except Exception:
+            pass
         plots_snapshot = []
         try:
             r = (
                 sb.table('plots')
                 .select('id, panorama_id, name, area, price, status')
                 .in_('id', plot_ids)
+                .in_('panorama_id', sorted(allowed_plot_pano_ids))
                 .execute()
             )
             found = {int(row.get('id')): row for row in (r.data or []) if row and row.get('id') is not None}
@@ -4613,6 +4715,9 @@ def register_routes(app):
         # Single query: update only if the interest belongs to an accessible panorama
         try:
             uq = sb.table('buy_interests').update(upd).eq('id', interest_id).in_('panorama_id', panorama_ids)
+            uq = _crm_apply_client_scope(uq, client_scope_ids)
+            if uq is None:
+                return jsonify({'error': 'Not found or access denied'}), 404
             if reference_scope_user_id:
                 uq = _crm_apply_broker_interest_visibility(uq, reference_scope_user_id)
             r = uq.execute()
@@ -4720,6 +4825,11 @@ def register_routes(app):
                 .eq('id', str(interest_id))
                 .in_('panorama_id', panorama_ids)
             )
+            # Same client-group isolation as the list endpoints: a record a
+            # scoped user cannot list must not be fetchable/mutable by id.
+            q = _crm_apply_client_scope(q, client_ids)
+            if q is None:
+                return None
             if reference_user_id:
                 q = _crm_apply_broker_interest_visibility(q, str(reference_user_id))
             r = q.limit(1).execute()
@@ -4739,6 +4849,9 @@ def register_routes(app):
                 .eq('id', str(contact_id))
                 .in_('panorama_id', panorama_ids)
             )
+            q = _crm_apply_client_scope(q, client_ids)
+            if q is None:
+                return None
             r = q.limit(1).execute()
             rows = r.data or []
             return rows[0] if rows else None
@@ -4902,6 +5015,35 @@ def register_routes(app):
             _crm_cache_bump()
             merged_contact = dict(dup)
             merged_contact.update(dup_upd)
+            # The list endpoint masks broker-referred contacts for client
+            # staff; the merged-contact response must not hand the same
+            # values back unmasked.
+            try:
+                ir = (
+                    sb.table('buy_interests')
+                    .select('reference_user_id, contact_revealed_at')
+                    .eq('contact_id', str(dup.get('id')))
+                    .order('created_at', desc=True)
+                    .limit(20)
+                    .execute()
+                )
+                linked_interest = next(
+                    (r_row for r_row in (ir.data or [])
+                     if _interest_has_broker_reference(r_row) and not _interest_contact_is_revealed(r_row)),
+                    None,
+                )
+            except Exception:
+                linked_interest = None
+            if linked_interest:
+                reference_scope_user_id = _crm_interest_reference_scope_user_id(sb, user_id, role, client_scope_ids)
+                merged_contact = apply_broker_referred_contact_mask_to_contact(
+                    merged_contact,
+                    linked_interest,
+                    user_id=user_id,
+                    role=role,
+                    reference_scope_user_id=reference_scope_user_id,
+                    sb=sb,
+                )
             return jsonify({'success': True, 'merged': True, 'contact': merged_contact})
         sb.table('crm_contacts').update(upd).eq('id', str(contact_id)).execute()
         _crm_cache_bump()
@@ -5297,20 +5439,42 @@ def register_routes(app):
                 return jsonify({'error': 'An active deal already exists for this interest'}), 409
         pmap = _accessible_panorama_org_map(sb, [panorama_id])
         now = datetime.utcnow().isoformat()
+        # Same per-item plot cleaning as create_deal_from_interest — any list
+        # shape must not be stored verbatim.
+        raw_plots = _safe_json(data.get('plots'), [])
+        deal_plots = []
+        if isinstance(raw_plots, list):
+            for p in raw_plots:
+                if not isinstance(p, dict):
+                    continue
+                pid_raw = p.get('plot_id') if p.get('plot_id') is not None else p.get('id')
+                try:
+                    pid = int(str(pid_raw).strip()) if pid_raw is not None and str(pid_raw).strip() != '' else None
+                except Exception:
+                    pid = None
+                deal_plots.append({
+                    'plot_id': pid,
+                    'id': pid,
+                    'name': str(p.get('name') or '').strip()[:120],
+                    'area': str(p.get('area') or '').strip()[:60],
+                    'price': str(p.get('price') or '').strip()[:60],
+                    'status': str(p.get('status') or 'available').strip().lower()[:30] or 'available',
+                })
+        currency = re.sub(r'[^A-Za-z]', '', str(data.get('currency') or 'INR'))[:8].upper() or 'INR'
         row = {
             'org_id': (pmap.get(panorama_id) or {}).get('org_id'),
             'client_id': client_id,
             'panorama_id': panorama_id,
             'interest_id': interest_id,
             'contact_id': str(contact_id),
-            'title': str(data.get('title') or contact.get('full_name') or 'Deal').strip(),
+            'title': str(data.get('title') or contact.get('full_name') or 'Deal').strip()[:200],
             'stage': stage,
             'is_active': _touch_deal_active_state_from_stage(stage),
-            'amount': str(data.get('amount') or '').strip(),
-            'currency': str(data.get('currency') or 'INR').strip() or 'INR',
-            'plots': _safe_json(data.get('plots'), []),
-            'project_name': str(data.get('project_name') or (pmap.get(panorama_id) or {}).get('panorama_name') or '').strip(),
-            'notes': str(data.get('notes') or '').strip(),
+            'amount': str(data.get('amount') or '').strip()[:60],
+            'currency': currency,
+            'plots': deal_plots,
+            'project_name': str(data.get('project_name') or (pmap.get(panorama_id) or {}).get('panorama_name') or '').strip()[:200],
+            'notes': str(data.get('notes') or '').strip()[:2000],
             'custom_fields': _extract_custom_fields_payload(data, {'panorama_id', 'contact_id', 'client_id', 'interest_id', 'title', 'stage', 'amount', 'currency', 'plots', 'project_name', 'notes'}),
             'created_by': user_id,
             'created_at': now,
@@ -5350,6 +5514,9 @@ def register_routes(app):
             .eq('id', str(deal_id))
         )
         q_existing = q_existing.in_('panorama_id', panorama_ids)
+        q_existing = _crm_apply_client_scope(q_existing, client_scope_ids)
+        if q_existing is None:
+            return jsonify({'error': 'Not found or access denied'}), 404
         if reference_scope_user_id:
             q_existing = q_existing.in_('interest_id', reference_interest_ids)
         existing = q_existing.limit(1).execute()
@@ -5382,7 +5549,17 @@ def register_routes(app):
         if not upd:
             return jsonify({'error': 'Nothing to update'}), 400
         upd['updated_at'] = datetime.utcnow().isoformat()
-        sb.table('crm_deals').update(upd).eq('id', str(deal_id)).execute()
+        # Scope the UPDATE itself, not just the pre-check, so the row cannot
+        # slip out of scope between the read and the write.
+        q_update = sb.table('crm_deals').update(upd).eq('id', str(deal_id)).in_('panorama_id', panorama_ids)
+        q_update = _crm_apply_client_scope(q_update, client_scope_ids)
+        if q_update is None:
+            return jsonify({'error': 'Not found or access denied'}), 404
+        if reference_scope_user_id:
+            q_update = q_update.in_('interest_id', reference_interest_ids)
+        r = q_update.execute()
+        if not r.data:
+            return jsonify({'error': 'Not found or access denied'}), 404
         _crm_cache_bump()
         return jsonify({'success': True})
 
@@ -5422,6 +5599,9 @@ def register_routes(app):
             .eq('id', str(deal_id))
         )
         q_move = q_move.in_('panorama_id', panorama_ids)
+        q_move = _crm_apply_client_scope(q_move, client_scope_ids)
+        if q_move is None:
+            return jsonify({'error': 'Not found or access denied'}), 404
         if reference_scope_user_id:
             q_move = q_move.in_('interest_id', reference_interest_ids)
         r = q_move.execute()
@@ -5440,9 +5620,22 @@ def register_routes(app):
         if not panorama_ids:
             return jsonify({'error': 'Forbidden'}), 403
         client_scope_ids = _crm_client_scope_ids(sb, user_id, role)
+        # Brokers may only quote their own referred deals — same narrowing as
+        # update_crm_deal, otherwise this route leaks other brokers' contacts.
+        reference_scope_user_id = _crm_interest_reference_scope_user_id(sb, user_id, role, client_scope_ids)
+        reference_interest_ids = []
+        if reference_scope_user_id:
+            reference_interest_ids, _reference_contact_ids = _crm_reference_linked_ids(
+                sb,
+                reference_scope_user_id,
+                panorama_ids,
+                client_ids=client_scope_ids,
+            )
+            if not reference_interest_ids:
+                return jsonify({'error': 'Deal not found'}), 404
         drq = (
             sb.table('crm_deals')
-            .select('id, org_id, client_id, panorama_id, contact_id, title, stage, amount, currency, plots, project_name')
+            .select('id, org_id, client_id, panorama_id, contact_id, interest_id, title, stage, amount, currency, plots, project_name')
             .eq('id', str(deal_id))
         )
         drq = drq.in_('panorama_id', panorama_ids)
@@ -5450,10 +5643,31 @@ def register_routes(app):
             drq = _crm_apply_client_scope(drq, client_scope_ids)
             if drq is None:
                 return jsonify({'error': 'Deal not found'}), 404
+        if reference_scope_user_id:
+            drq = drq.in_('interest_id', reference_interest_ids)
         dr = drq.limit(1).execute()
         if not dr.data:
             return jsonify({'error': 'Deal not found'}), 404
         deal = dr.data[0]
+        # A quote snapshots the raw contact record into its payload; viewers
+        # the broker has not revealed the contact to must not mint one.
+        if deal.get('interest_id'):
+            try:
+                ir = (
+                    sb.table('buy_interests')
+                    .select('reference_user_id, contact_revealed_at')
+                    .eq('id', str(deal.get('interest_id')))
+                    .limit(1)
+                    .execute()
+                )
+                linked_interest = (ir.data or [None])[0]
+            except Exception:
+                linked_interest = None
+            if linked_interest:
+                deny = _crm_deny_hidden_broker_referred_contact(sb, user_id, role, reference_scope_user_id, linked_interest)
+                if deny:
+                    return deny
+        deal.pop('interest_id', None)
         contact = None
         if deal.get('contact_id'):
             contact = _get_contact_for_user(sb, deal.get('contact_id'), panorama_ids, client_ids=client_scope_ids)
@@ -5517,6 +5731,8 @@ def register_routes(app):
         crm_panorama_ids=_crm_panorama_ids,
         crm_client_scope_ids=_crm_client_scope_ids,
         crm_apply_client_scope=_crm_apply_client_scope,
+        crm_interest_reference_scope_user_id=_crm_interest_reference_scope_user_id,
+        crm_reference_linked_ids=_crm_reference_linked_ids,
         get_contact_for_user=_get_contact_for_user,
         crm_cache_bump=_crm_cache_bump,
     )
@@ -5582,6 +5798,17 @@ def register_routes(app):
         if not panorama_ids:
             return jsonify({'error': 'Forbidden'}), 403
         client_scope_ids = _crm_client_scope_ids(sb, user_id, role)
+        reference_scope_user_id = _crm_interest_reference_scope_user_id(sb, user_id, role, client_scope_ids)
+        reference_interest_ids = []
+        if reference_scope_user_id:
+            reference_interest_ids, _reference_contact_ids = _crm_reference_linked_ids(
+                sb,
+                reference_scope_user_id,
+                panorama_ids,
+                client_ids=client_scope_ids,
+            )
+            if not reference_interest_ids:
+                return jsonify({'error': 'Deal not found'}), 404
         drq = (
             sb.table('crm_deals')
             .select('id')
@@ -5592,6 +5819,8 @@ def register_routes(app):
             drq = _crm_apply_client_scope(drq, client_scope_ids)
             if drq is None:
                 return jsonify({'error': 'Deal not found'}), 404
+        if reference_scope_user_id:
+            drq = drq.in_('interest_id', reference_interest_ids)
         dr = drq.limit(1).execute()
         if not dr.data:
             return jsonify({'error': 'Deal not found'}), 404
@@ -5628,6 +5857,17 @@ def register_routes(app):
         if not panorama_ids:
             return jsonify({'error': 'Forbidden'}), 403
         client_scope_ids = _crm_client_scope_ids(sb, user_id, role)
+        reference_scope_user_id = _crm_interest_reference_scope_user_id(sb, user_id, role, client_scope_ids)
+        reference_interest_ids = []
+        if reference_scope_user_id:
+            reference_interest_ids, _reference_contact_ids = _crm_reference_linked_ids(
+                sb,
+                reference_scope_user_id,
+                panorama_ids,
+                client_ids=client_scope_ids,
+            )
+            if not reference_interest_ids:
+                return jsonify({'error': 'Deal not found'}), 404
         drq = (
             sb.table('crm_deals')
             .select('id')
@@ -5638,6 +5878,8 @@ def register_routes(app):
             drq = _crm_apply_client_scope(drq, client_scope_ids)
             if drq is None:
                 return jsonify({'error': 'Deal not found'}), 404
+        if reference_scope_user_id:
+            drq = drq.in_('interest_id', reference_interest_ids)
         dr = drq.limit(1).execute()
         if not dr.data:
             return jsonify({'error': 'Deal not found'}), 404
@@ -5699,12 +5941,16 @@ def register_routes(app):
             contact = _safe_json(payload.get('contact'), {})
             inputs = _safe_json(payload.get('inputs'), {})
             plots = _safe_json(deal.get('plots'), [])
+            # quote_payload is user-authored JSON served on an unauthenticated
+            # page, so every value must be HTML-escaped before interpolation.
+            def _q(value):
+                return escape(str(value if value is not None else ''))
             plot_rows = ''.join([
                 '<tr>'
                 f"<td>{idx+1}</td>"
-                f"<td>{(p or {}).get('name') or ''}</td>"
-                f"<td>{(p or {}).get('area') or ''}</td>"
-                f"<td>{(p or {}).get('price') or ''}</td>"
+                f"<td>{_q((p or {}).get('name') or '')}</td>"
+                f"<td>{_q((p or {}).get('area') or '')}</td>"
+                f"<td>{_q((p or {}).get('price') or '')}</td>"
                 '</tr>'
                 for idx, p in enumerate(plots if isinstance(plots, list) else [])
             ]) or '<tr><td colspan="4">No plots</td></tr>'
@@ -5721,19 +5967,19 @@ h1 {{ margin:0 0 8px; font-size:22px; }}
 </style></head><body>
 <h1>Quotation</h1>
 <div class="card">
-<div><strong>Deal:</strong> {deal.get('title') or ''}</div>
-<div><strong>Project:</strong> {deal.get('project_name') or ''}</div>
-<div><strong>Stage:</strong> {deal.get('stage') or ''}</div>
-<div><strong>Amount:</strong> {deal.get('amount') or ''} {deal.get('currency') or ''}</div>
+<div><strong>Deal:</strong> {_q(deal.get('title') or '')}</div>
+<div><strong>Project:</strong> {_q(deal.get('project_name') or '')}</div>
+<div><strong>Stage:</strong> {_q(deal.get('stage') or '')}</div>
+<div><strong>Amount:</strong> {_q(deal.get('amount') or '')} {_q(deal.get('currency') or '')}</div>
 </div>
 <div class="card">
-<div><strong>Contact:</strong> {contact.get('full_name') or ''}</div>
-<div><strong>Email:</strong> {contact.get('email') or ''}</div>
-<div><strong>Phone:</strong> {contact.get('phone') or ''}</div>
+<div><strong>Contact:</strong> {_q(contact.get('full_name') or '')}</div>
+<div><strong>Email:</strong> {_q(contact.get('email') or '')}</div>
+<div><strong>Phone:</strong> {_q(contact.get('phone') or '')}</div>
 </div>
 <div class="card">
 <div class="muted">Quote Inputs</div>
-<pre>{json.dumps(inputs, indent=2)}</pre>
+<pre>{_q(json.dumps(inputs, indent=2))}</pre>
 </div>
 <div class="card">
 <table><thead><tr><th>#</th><th>Plot</th><th>Area</th><th>Price</th></tr></thead>
@@ -5742,7 +5988,7 @@ h1 {{ margin:0 0 8px; font-size:22px; }}
 </body></html>"""
             return Response(html, mimetype='text/html')
         except Exception as e:
-            return Response(str(e), status=500)
+            return Response(str(e), status=500, mimetype='text/plain')
 
     # ----- CRM extended endpoints -----
 
@@ -5872,7 +6118,17 @@ h1 {{ margin:0 0 8px; font-size:22px; }}
         if panorama_id not in pano_ids:
             return jsonify({'error': 'Not authorized'}), 403
         allowed = {'name', 'description', 'status', 'marker_icon', 'marker_color', 'rotation_x', 'rotation_y', 'rotation_z'}
-        upd = {k: v for k, v in data.items() if k in allowed and v is not None}
+        upd = {}
+        for k, v in data.items():
+            if k not in allowed or v is None:
+                continue
+            if k in ('rotation_x', 'rotation_y', 'rotation_z'):
+                try:
+                    upd[k] = float(v)
+                except (TypeError, ValueError):
+                    return jsonify({'error': f'{k} must be a number'}), 400
+            else:
+                upd[k] = str(v).strip()[:500]
         if not upd:
             return jsonify({'error': 'No valid fields to update'}), 400
         try:

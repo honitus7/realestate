@@ -852,11 +852,11 @@ html.ms-brand-theme .spinner-border.text-info {
   color: var(--ms-brand-primary) !important;
 }
 
-html.ms-brand-theme a:not(.btn):not(.menu-link):not(.dropdown-item) {
+html.ms-brand-theme a:not(.btn):not(.menu-link):not(.dropdown-item):not(.dashboard-open-crm-btn) {
   color: var(--ms-brand-primary-strong);
 }
 
-html.ms-brand-theme a:not(.btn):not(.menu-link):not(.dropdown-item):hover {
+html.ms-brand-theme a:not(.btn):not(.menu-link):not(.dropdown-item):not(.dashboard-open-crm-btn):hover {
   color: var(--ms-brand-primary);
 }
 

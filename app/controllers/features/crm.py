@@ -30,6 +30,9 @@ from app.services.uam_reference_service import (
     _is_broker_member_role,
     _normalize_client_member_role,
     _project_reference_client_ids,
+    broker_shareable_workspace_ids,
+    user_is_broker,
+    user_is_client_admin,
 )
 
 CRM_MASTER_APPLIES_ENTITIES = ('interests', 'deals', 'contacts', 'plots', 'projects')
@@ -320,6 +323,20 @@ def _crm_plot_status_key(status):
     return re.sub(r'[^a-z]', '', str(status or '').lower())
 
 
+def _crm_plot_status_canonical(status):
+    """Collapse hold-family aliases so the filter matches stored rows.
+
+    Plots are written with status='on_hold' (see update_crm_plot below), but
+    the Plotted List's Hold filter option sends status=hold. Without this,
+    _crm_plot_status_key('hold') == 'hold' while _crm_plot_status_key('on_hold')
+    == 'onhold', so the Hold filter never matched any row.
+    """
+    key = _crm_plot_status_key(status)
+    if key in ('hold', 'onhold', 'reserved'):
+        return 'onhold'
+    return key
+
+
 def _crm_load_all_plots(sb, pano_ids, *, crm_cache_get, crm_cache_set, crm_cache_version, user_id, role):
     cache_key = (
         'crm_plots',
@@ -409,7 +426,52 @@ def _crm_load_all_plots(sb, pano_ids, *, crm_cache_get, crm_cache_set, crm_cache
     return all_plots
 
 
+def _crm_plot_filter_options(rows):
+    """Project/Sector dropdown options derived from the plots that actually exist."""
+    projects_map = {}
+    sectors_map = {}
+    for plot in rows or []:
+        wsid = str(plot.get('workspace_id') or '').strip()
+        wsname = str(plot.get('workspace_name') or '').strip()
+        if wsid and wsname and wsid not in projects_map:
+            projects_map[wsid] = wsname
+        pano_id = plot.get('panorama_id')
+        if pano_id is None:
+            continue
+        pano_key = str(pano_id)
+        if pano_key in sectors_map:
+            continue
+        pano_name = str(plot.get('panorama_name') or '').strip()
+        if pano_name:
+            sectors_map[pano_key] = {'id': pano_id, 'name': pano_name, 'workspace_id': wsid or None}
+    projects_out = [{'id': wsid, 'name': name} for wsid, name in projects_map.items()]
+    projects_out.sort(key=lambda item: str(item.get('name') or '').lower())
+    sectors_out = list(sectors_map.values())
+    sectors_out.sort(key=lambda item: str(item.get('name') or '').lower())
+    return {'projects': projects_out, 'sectors': sectors_out}
+
+
 def register_crm_plot_routes(app, *, crm_panorama_ids, crm_cache_get, crm_cache_set, crm_cache_version, crm_cache_bump=None):
+    def _broker_share_workspace_ids(sb, user_id, role):
+        """Workspace ids an external broker can share, or None when unrestricted."""
+        if str(role or '').strip().lower() in ('admin', 'superadmin'):
+            return None
+        cache_key = (
+            'crm_plots_broker_scope',
+            crm_cache_version.get('v', 1),
+            str(user_id),
+            str(role or ''),
+        )
+        cached = crm_cache_get(cache_key, ttl_seconds=8)
+        if cached is None:
+            restricted = user_is_broker(sb, user_id, role) and not user_is_client_admin(sb, user_id)
+            cached = {
+                'restricted': restricted,
+                'workspace_ids': sorted(broker_shareable_workspace_ids(sb, user_id)) if restricted else [],
+            }
+            crm_cache_set(cache_key, cached)
+        return set(cached.get('workspace_ids') or []) if cached.get('restricted') else None
+
     @app.route('/api/crm/plots', methods=['GET'])
     @require_auth
     def list_crm_all_plots(user_id, role):
@@ -418,13 +480,15 @@ def register_crm_plot_routes(app, *, crm_panorama_ids, crm_cache_get, crm_cache_
             return jsonify({'error': 'Database not configured'}), 503
         pano_ids = crm_panorama_ids(sb, user_id, role)
         if not pano_ids:
-            return jsonify(crm_page_payload([], 0, 1, 10))
+            payload = crm_page_payload([], 0, 1, 10)
+            payload['filter_options'] = _crm_plot_filter_options([])
+            return jsonify(payload)
         page, limit, offset = crm_parse_page_args(default_limit=10, max_limit=100)
         q = str(request.args.get('q') or '').strip().lower()
         client_id = str(request.args.get('client_id') or '').strip()
         workspace_id = str(request.args.get('workspace_id') or '').strip()
         panorama_id = str(request.args.get('panorama_id') or '').strip()
-        status = _crm_plot_status_key(request.args.get('status') or '')
+        status = _crm_plot_status_canonical(request.args.get('status') or '')
 
         all_plots = _crm_load_all_plots(
             sb,
@@ -436,6 +500,14 @@ def register_crm_plot_routes(app, *, crm_panorama_ids, crm_cache_get, crm_cache_
             role=role,
         )
         rows = list(all_plots or [])
+        # External brokers only see plots they can actually share a reference
+        # link for (the workspace share-endpoint would 403 on anything else).
+        share_ws_ids = _broker_share_workspace_ids(sb, user_id, role)
+        if share_ws_ids is not None:
+            rows = [p for p in rows if str(p.get('workspace_id') or '') in share_ws_ids]
+        # Dropdown facets come from the full visible set, not the filtered page,
+        # so picking a project never hides the other options.
+        filter_options = _crm_plot_filter_options(rows)
         if q:
             rows = [
                 p for p in rows
@@ -455,13 +527,15 @@ def register_crm_plot_routes(app, *, crm_panorama_ids, crm_cache_get, crm_cache_
         if panorama_id:
             rows = [p for p in rows if str(p.get('panorama_id') or '') == panorama_id]
         if status:
-            rows = [p for p in rows if _crm_plot_status_key(p.get('status')) == status]
+            rows = [p for p in rows if _crm_plot_status_canonical(p.get('status')) == status]
         plot_sort_field, plot_sort_desc = crm_parse_sort_args(CRM_PLOT_SORT_FIELDS)
         if plot_sort_field:
             rows = crm_sort_rows(rows, plot_sort_field, plot_sort_desc)
         total = len(rows)
         page_rows = rows[offset:offset + limit]
-        return jsonify(crm_page_payload(page_rows, total, page, limit))
+        payload = crm_page_payload(page_rows, total, page, limit)
+        payload['filter_options'] = filter_options
+        return jsonify(payload)
 
     @app.route('/api/crm/plots/<int:plot_id>', methods=['PUT', 'PATCH'])
     @require_auth
@@ -655,6 +729,7 @@ def register_crm_lock_routes(
             'crm_lockable_plots',
             crm_cache_version.get('v', 1),
             str(user_id),
+            str(role or ''),
             tuple(panorama_ids),
         )
         cached = crm_cache_get(cache_key, ttl_seconds=5)
@@ -717,12 +792,22 @@ def register_crm_lock_routes(
         # if not _has_lock_access_for_panorama(sb, user_id, role, panorama_id):
         #     return jsonify({'error': 'No lock access for this panorama'}), 403
 
+        # The per-user lock-access allowlist stays off, but the caller must at
+        # least be able to see this panorama in CRM — otherwise any account
+        # could lock any plot platform-wide.
+        try:
+            allowed_pano_ids = set(int(pid) for pid in (crm_panorama_ids(sb, user_id, role) or []))
+        except Exception:
+            allowed_pano_ids = set()
+        if panorama_id not in allowed_pano_ids:
+            return jsonify({'error': 'Forbidden'}), 403
+
         data = request.get_json(silent=True) or {}
         lock_row = {
             'plot_id': plot_id,
             'locked_by': user_id,
-            'locked_for_name': str(data.get('locked_for_name') or '').strip() or None,
-            'locked_for_email': str(data.get('locked_for_email') or '').strip() or None,
+            'locked_for_name': str(data.get('locked_for_name') or '').strip()[:120] or None,
+            'locked_for_email': str(data.get('locked_for_email') or '').strip()[:254] or None,
         }
         try:
             sb.table('plot_locks').upsert(lock_row, on_conflict='plot_id').execute()
@@ -815,6 +900,19 @@ def register_crm_master_routes(app, *, crm_client_scope_ids, crm_cache_bump):
             except Exception:
                 pass
         if _is_admin_role(role) and requested:
+            if str(role or '').strip().lower() == 'superadmin':
+                return requested, None, None
+            # Org-scoped admins may only touch clients in their own org — the
+            # requested id is client input and must not cross org boundaries.
+            try:
+                caller_org = str((get_profile(sb, uid) or {}).get('org_id') or '')
+                cr = sb.table('clients').select('id, org_id').eq('id', requested).limit(1).execute()
+                client_rows = cr.data or []
+                client_org = str((client_rows[0] or {}).get('org_id') or '') if client_rows else None
+            except Exception:
+                caller_org, client_org = '', None
+            if client_org is None or not caller_org or client_org != caller_org:
+                return None, jsonify({'error': 'Forbidden for this client'}), 403
             return requested, None, None
         allowed = _client_admin_ids(sb, uid) if require_admin else _readable_client_ids(sb, uid, role)[0]
         allowed = [str(cid) for cid in allowed if cid]
@@ -1603,6 +1701,8 @@ def register_crm_quote_routes(
     crm_panorama_ids,
     crm_client_scope_ids,
     crm_apply_client_scope,
+    crm_interest_reference_scope_user_id,
+    crm_reference_linked_ids,
     get_contact_for_user,
     crm_cache_bump,
 ):
@@ -1616,6 +1716,19 @@ def register_crm_quote_routes(
         if not panorama_ids:
             return jsonify({'error': 'Forbidden'}), 403
         client_scope_ids = crm_client_scope_ids(sb, user_id, role)
+        # Brokers may only share quotes on their own referred deals; without
+        # this they could mail another broker's contact details to any address.
+        reference_scope_user_id = crm_interest_reference_scope_user_id(sb, user_id, role, client_scope_ids)
+        reference_interest_ids = []
+        if reference_scope_user_id:
+            reference_interest_ids, _reference_contact_ids = crm_reference_linked_ids(
+                sb,
+                reference_scope_user_id,
+                panorama_ids,
+                client_ids=client_scope_ids,
+            )
+            if not reference_interest_ids:
+                return jsonify({'error': 'Deal not found or access denied'}), 404
         data = request.get_json(silent=True) or {}
         quote_id = str(data.get('quote_id') or '').strip()
         if not quote_id:
@@ -1641,11 +1754,15 @@ def register_crm_quote_routes(
             drq = crm_apply_client_scope(drq, client_scope_ids)
             if drq is None:
                 return jsonify({'error': 'Deal not found or access denied'}), 404
+        if reference_scope_user_id:
+            drq = drq.in_('interest_id', reference_interest_ids)
         dr = drq.limit(1).execute()
         if not dr.data:
             return jsonify({'error': 'Deal not found or access denied'}), 404
-        to_email = str(data.get('email') or '').strip()
-        to_phone = str(data.get('phone') or '').strip()
+        to_email = str(data.get('email') or '').strip()[:254]
+        to_phone = str(data.get('phone') or '').strip()[:32]
+        if to_email and ('@' not in to_email or ' ' in to_email):
+            return jsonify({'error': 'Invalid recipient email'}), 400
         if not to_email and quote.get('contact_id'):
             contact = get_contact_for_user(sb, quote.get('contact_id'), panorama_ids, client_ids=client_scope_ids)
             if contact:

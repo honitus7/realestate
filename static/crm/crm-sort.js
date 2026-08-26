@@ -61,6 +61,9 @@
             th.setAttribute('role', 'button');
             var activate = function () {
                 var field = th.getAttribute('data-sort-key');
+                // setEnabled() strips the attribute but cannot unbind this
+                // listener; a visually disabled header must not sort.
+                if (!field) return;
                 var cur = STATES[key];
                 // First click on a column sorts ascending; clicking it again flips.
                 var dir = (cur && cur.field === field && cur.dir === 'asc') ? 'desc' : 'asc';
